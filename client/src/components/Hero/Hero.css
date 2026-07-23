@@ -1,0 +1,74 @@
+.hero {
+  height: 85vh;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.hero-overlay {
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.45);
+
+  display: flex;
+  align-items: center;
+}
+
+.hero-content {
+  max-width: 650px;
+  color: white;
+}
+
+.hero-subtitle {
+  color: #d4af37;
+  letter-spacing: 3px;
+  font-weight: 600;
+}
+
+.hero-content h1 {
+  font-size: 60px;
+  margin: 20px 0;
+  line-height: 1.2;
+  font-weight: 700;
+}
+
+.hero-content p {
+  font-size: 20px;
+  line-height: 1.8;
+  margin-bottom: 35px;
+}
+
+.hero-buttons {
+  display: flex;
+  gap: 20px;
+}
+
+.shop-btn,
+.explore-btn {
+  padding: 14px 34px;
+  border-radius: 35px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+.shop-btn {
+  background: #d4af37;
+  border: none;
+  color: white;
+}
+
+.shop-btn:hover {
+  background: #b8860b;
+}
+
+.explore-btn {
+  background: transparent;
+  border: 2px solid white;
+  color: white;
+}
+
+.explore-btn:hover {
+  background: white;
+  color: #222;
+}

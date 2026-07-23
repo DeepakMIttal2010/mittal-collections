@@ -1,0 +1,20 @@
+.topbar {
+  background: #0d2b52;
+  color: white;
+  font-size: 14px;
+  padding: 8px 0;
+}
+
+.topbar .center,
+.topbar .right {
+  display: flex;
+  gap: 15px;
+}
+
+.topbar span {
+  cursor: pointer;
+}
+
+.topbar span:hover {
+  color: #d4af37;
+}

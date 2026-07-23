@@ -1,0 +1,29 @@
+.navbar-custom {
+  background: #222;
+  padding: 15px 0;
+}
+
+.navbar-custom .container {
+  display: flex;
+  justify-content: center;
+  gap: 35px;
+  flex-wrap: wrap;
+}
+
+.navbar-custom a {
+  color: white;
+  text-decoration: none;
+  font-size: 16px;
+  font-weight: 500;
+  transition: 0.3s;
+}
+
+.navbar-custom a:hover {
+  color: #d4af37;
+}
+
+.navbar-custom a.active {
+  color: #d4af37;
+  border-bottom: 2px solid #d4af37;
+  padding-bottom: 4px;
+}
