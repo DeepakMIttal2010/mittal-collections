@@ -1,9 +1,9 @@
-import bedsheets from "../assets/images/categories/bedsheets.jpg";
-import towels from "../assets/images/categories/towels.jpg";
-import curtains from "../assets/images/categories/curtains.jpg";
-import pillows from "../assets/images/categories/pillows.jpg";
-import blankets from "../assets/images/categories/blankets.jpg";
-import offers from "../assets/images/categories/offers.jpg";
+import bedsheets from "../assets/images/products/bedsheet-1.jpg";
+import towels from "../assets/images/products/towel-1.jpg";
+import curtains from "../assets/images/products/curtain-1.jpg";
+import pillows from "../assets/images/products/pillow-1.jpg";
+import blankets from "../assets/images/products/blanket-1.jpg";
+import offers from "../assets/images/products/cushion-1.jpg";
 
 const categories = [
   {

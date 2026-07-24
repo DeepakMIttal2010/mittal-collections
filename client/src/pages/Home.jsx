@@ -9,6 +9,7 @@ import WhyChooseUs from "../components/WhyChooseUs/WhyChooseUs";
 import Testimonials from "../components/Testimonials/Testimonials";
 import Newsletter from "../components/Newsletter/Newsletter";
 import Footer from "../components/Footer/Footer";
+import ProductSection from "../components/ProductSection/ProductSection";
 
 function Home() {
   return (
@@ -18,7 +19,8 @@ function Home() {
       <Hero />
       <Features />
       <Categories />
-      <FeaturedProducts />
+      {/* <FeaturedProducts /> */}
+      <ProductSection />
       <OffersBanner />
       <WhyChooseUs />
       <Testimonials />
