@@ -1,8 +1,10 @@
 import "./ProductCard.css";
 import { Link } from "react-router-dom";
 import { FaHeart, FaEye, FaShoppingCart, FaStar } from "react-icons/fa";
+import { useCart } from "../../context/CartContext";
 
 function ProductCard({ product }) {
+  const { addToCart } = useCart();
   const discount = Math.round(
     ((product.oldPrice - product.price) / product.oldPrice) * 100,
   );
@@ -45,7 +47,14 @@ function ProductCard({ product }) {
       </Link>
 
       <div className="product-action">
-        <button className="cart-btn" type="button">
+        <button
+          className="cart-btn"
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            addToCart(product);
+          }}
+        >
           <FaShoppingCart />
           Add to Cart
         </button>
