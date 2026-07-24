@@ -1,10 +1,12 @@
 import "./ProductCard.css";
 import { Link } from "react-router-dom";
 import { FaHeart, FaEye, FaShoppingCart, FaStar } from "react-icons/fa";
+import { useWishlist } from "../../context/WishlistContext";
 import { useCart } from "../../context/CartContext";
 
 function ProductCard({ product }) {
   const { addToCart } = useCart();
+  const { addToWishlist } = useWishlist();
   const discount = Math.round(
     ((product.oldPrice - product.price) / product.oldPrice) * 100,
   );
@@ -18,7 +20,13 @@ function ProductCard({ product }) {
           <span className="discount-badge">{discount}% OFF</span>
 
           <div className="product-icons">
-            <button type="button" onClick={(e) => e.preventDefault()}>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                addToWishlist(product);
+              }}
+            >
               <FaHeart />
             </button>
 
