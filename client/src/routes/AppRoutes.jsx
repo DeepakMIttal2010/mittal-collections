@@ -13,6 +13,7 @@ import Cart from "../pages/Cart";
 import Wishlist from "../pages/Wishlist";
 import Login from "../pages/Login";
 import Register from "../pages/Register";
+import ProductDetails from "../pages/ProductDetails";
 
 function AppRoutes() {
   return (
@@ -30,6 +31,9 @@ function AppRoutes() {
       <Route path="/wishlist" element={<Wishlist />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
+
+      {/* Product Details */}
+      <Route path="/product/:id" element={<ProductDetails />} />
     </Routes>
   );
 }

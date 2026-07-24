@@ -1,31 +1,18 @@
-.product-section {
-  padding: 80px 0;
-}
-
-.category-filter {
+.sort-box {
   display: flex;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: 15px;
-  margin: 35px 0;
+  justify-content: flex-end;
+  margin-bottom: 25px;
 }
 
-.category-filter button {
-  border: none;
-  background: #eee;
-  padding: 12px 22px;
-  border-radius: 30px;
-  cursor: pointer;
-  transition: 0.3s;
+.sort-box select {
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: 1px solid #ddd;
   font-size: 15px;
+  cursor: pointer;
+  outline: none;
 }
 
-.category-filter button:hover {
-  background: #111;
-  color: #fff;
-}
-
-.category-filter .active {
-  background: #111;
-  color: #fff;
+.sort-box select:focus {
+  border-color: #111;
 }
