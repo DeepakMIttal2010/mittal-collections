@@ -6,6 +6,9 @@ import Categories from "../components/Categories/Categories";
 import FeaturedProducts from "../components/FeaturedProducts/FeaturedProducts";
 import OffersBanner from "../components/OffersBanner/OffersBanner";
 import WhyChooseUs from "../components/WhyChooseUs/WhyChooseUs";
+import Testimonials from "../components/Testimonials/Testimonials";
+import Newsletter from "../components/Newsletter/Newsletter";
+import Footer from "../components/Footer/Footer";
 
 function Home() {
   return (
@@ -18,6 +21,9 @@ function Home() {
       <FeaturedProducts />
       <OffersBanner />
       <WhyChooseUs />
+      <Testimonials />
+      <Newsletter />
+      <Footer />
     </>
   );
 }
