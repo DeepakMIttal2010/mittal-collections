@@ -2,9 +2,11 @@ import "./Navbar.css";
 import { NavLink } from "react-router-dom";
 import { FaHeart, FaShoppingCart } from "react-icons/fa";
 import { useCart } from "../../context/CartContext";
+import { useWishlist } from "../../context/WishlistContext";
 
 function Navbar() {
   const { totalItems } = useCart();
+  const { totalWishlistItems } = useWishlist();
 
   return (
     <nav className="navbar-custom">
@@ -36,6 +38,10 @@ function Navbar() {
         <div className="nav-icons">
           <NavLink to="/wishlist" className="icon-box">
             <FaHeart />
+
+            {totalWishlistItems > 0 && (
+              <span className="wishlist-count">{totalWishlistItems}</span>
+            )}
           </NavLink>
 
           <NavLink to="/cart" className="icon-box cart-icon">

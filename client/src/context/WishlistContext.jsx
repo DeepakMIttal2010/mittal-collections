@@ -1,17 +1,15 @@
 import { createContext, useContext, useEffect, useState } from "react";
 
+import { toast } from "react-toastify";
+
 const WishlistContext = createContext();
 
 export function WishlistProvider({ children }) {
   const [wishlistItems, setWishlistItems] = useState(() => {
     const savedWishlist = localStorage.getItem("wishlistItems");
+
     return savedWishlist ? JSON.parse(savedWishlist) : [];
   });
-
-  useEffect(() => {
-    console.log("❤️ Wishlist Updated");
-    console.table(wishlistItems);
-  }, [wishlistItems]);
 
   useEffect(() => {
     localStorage.setItem("wishlistItems", JSON.stringify(wishlistItems));
@@ -22,15 +20,23 @@ export function WishlistProvider({ children }) {
 
     if (!exists) {
       setWishlistItems([...wishlistItems, product]);
+
+      toast.success("Added to wishlist ❤️");
+    } else {
+      toast.info("Already in wishlist");
     }
   };
 
   const removeFromWishlist = (id) => {
     setWishlistItems(wishlistItems.filter((item) => item.id !== id));
+
+    toast.error("Removed from wishlist");
   };
 
   const clearWishlist = () => {
     setWishlistItems([]);
+
+    toast.warning("Wishlist cleared");
   };
 
   const totalWishlistItems = wishlistItems.length;

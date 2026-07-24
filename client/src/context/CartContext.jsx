@@ -1,11 +1,12 @@
-import { createContext, useContext, useState, useEffect } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
+
+import { toast } from "react-toastify";
 
 const CartContext = createContext();
 
 export function CartProvider({ children }) {
   const [cartItems, setCartItems] = useState(() => {
     const savedCart = localStorage.getItem("cartItems");
-
     return savedCart ? JSON.parse(savedCart) : [];
   });
 
@@ -13,7 +14,6 @@ export function CartProvider({ children }) {
     localStorage.setItem("cartItems", JSON.stringify(cartItems));
   }, [cartItems]);
 
-  // Add Product
   const addToCart = (product) => {
     const existingItem = cartItems.find((item) => item.id === product.id);
 
@@ -28,6 +28,8 @@ export function CartProvider({ children }) {
             : item,
         ),
       );
+
+      toast.info("Product quantity updated");
     } else {
       setCartItems([
         ...cartItems,
@@ -36,15 +38,17 @@ export function CartProvider({ children }) {
           quantity: 1,
         },
       ]);
+
+      toast.success("Product added to cart 🛒");
     }
   };
 
-  // Remove Product
   const removeFromCart = (id) => {
     setCartItems(cartItems.filter((item) => item.id !== id));
+
+    toast.error("Product removed from cart");
   };
 
-  // Increase Quantity
   const increaseQty = (id) => {
     setCartItems(
       cartItems.map((item) =>
@@ -58,48 +62,30 @@ export function CartProvider({ children }) {
     );
   };
 
-  // Decrease Quantity
   const decreaseQty = (id) => {
     setCartItems(
       cartItems.map((item) =>
-        item.quantity > 1 && item.id === id
+        item.id === id
           ? {
               ...item,
-              quantity: item.quantity - 1,
+              quantity: item.quantity > 1 ? item.quantity - 1 : 1,
             }
           : item,
       ),
     );
   };
 
-  // Clear Cart
   const clearCart = () => {
     setCartItems([]);
+    toast.warning("Cart cleared");
   };
 
-  // Total Items
   const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
-  // Total Price
   const totalPrice = cartItems.reduce(
     (sum, item) => sum + item.price * item.quantity,
     0,
   );
-
-  // ==========================
-  // Temporary Debug
-  // ==========================
-  useEffect(() => {
-    console.clear();
-
-    console.log("🛒 Cart Updated");
-
-    console.table(cartItems);
-
-    console.log("Total Items :", totalItems);
-
-    console.log("Total Price :", totalPrice);
-  }, [cartItems, totalItems, totalPrice]);
 
   return (
     <CartContext.Provider
