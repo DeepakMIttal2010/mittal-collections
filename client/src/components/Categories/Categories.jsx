@@ -1,30 +1,59 @@
-import "./Categories.css";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import categories from "../../data/categories";
+import { getCategories } from "../../services/categoryService";
+import "./Categories.css";
 
 function Categories() {
-  return (
-    <section className="categories-section">
-      <div className="container">
-        <div className="section-title">
-          <h2>Shop by Categories</h2>
-          <p>Explore our premium collection for every corner of your home.</p>
+  const [categories, setCategories] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadCategories();
+  }, []);
+
+  const loadCategories = async () => {
+    try {
+      const data = await getCategories();
+      setCategories(data);
+    } catch (error) {
+      console.error("Error loading categories:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <section className="categories">
+        <div className="container">
+          <h2>Shop by Category</h2>
+          <p>Loading categories...</p>
         </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="categories">
+      <div className="container">
+        <h2>Shop by Category</h2>
 
         <div className="categories-grid">
           {categories.map((category) => (
             <Link
-              to={category.path}
-              key={category.id}
+              key={category._id}
+              to={`/category/${category.slug}`}
               className="category-card"
             >
-              <img src={category.image} alt={category.name} />
+              <img
+                src={`http://localhost:5000${category.image}`}
+                alt={category.name}
+                className="category-image"
+              />
 
-              <div className="category-overlay">
-                <h3>{category.name}</h3>
+              <h3>{category.name}</h3>
 
-                <button>Shop Now</button>
-              </div>
+              {category.description && <p>{category.description}</p>}
             </Link>
           ))}
         </div>
