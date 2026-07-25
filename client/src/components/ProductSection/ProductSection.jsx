@@ -1,26 +1,45 @@
-import { useState } from "react";
-import products from "../../data/products";
+import { useEffect, useState } from "react";
+import { getProducts } from "../../services/productService";
+import { getCategories } from "../../services/categoryService";
 import ProductGrid from "../ProductGrid/ProductGrid";
 import "./ProductSection.css";
 
 function ProductSection() {
+  const [products, setProducts] = useState([]);
+  const [categories, setCategories] = useState(["All"]);
+
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [searchTerm, setSearchTerm] = useState("");
   const [sortBy, setSortBy] = useState("featured");
+  const [loading, setLoading] = useState(true);
 
-  const categories = [
-    "All",
-    "Bedsheets",
-    "Curtains",
-    "Towels",
-    "Cushions",
-    "Blankets",
-    "Pillows",
-  ];
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    try {
+      const [productsData, categoriesData] = await Promise.all([
+        getProducts(),
+        getCategories(),
+      ]);
+
+      setProducts(productsData);
+
+      setCategories([
+        "All",
+        ...categoriesData.map((category) => category.name),
+      ]);
+    } catch (error) {
+      console.error("Error loading products:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   let filteredProducts = products.filter((product) => {
     const matchesCategory =
-      selectedCategory === "All" || product.category === selectedCategory;
+      selectedCategory === "All" || product.category?.name === selectedCategory;
 
     const matchesSearch = product.name
       .toLowerCase()
@@ -29,7 +48,6 @@ function ProductSection() {
     return matchesCategory && matchesSearch;
   });
 
-  // Sorting
   switch (sortBy) {
     case "priceLow":
       filteredProducts.sort((a, b) => a.price - b.price);
@@ -48,15 +66,13 @@ function ProductSection() {
       break;
 
     default:
-      filteredProducts.sort((a, b) => a.id - b.id);
+      break;
   }
 
   return (
     <section className="product-section">
       <div className="container">
         <h2 className="section-title">Our Products</h2>
-
-        {/* Search */}
 
         <div className="search-box">
           <input
@@ -66,8 +82,6 @@ function ProductSection() {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-
-        {/* Category */}
 
         <div className="category-filter">
           {categories.map((category) => (
@@ -81,23 +95,23 @@ function ProductSection() {
           ))}
         </div>
 
-        {/* Sort */}
-
         <div className="sort-box">
           <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
             <option value="featured">Featured</option>
-
             <option value="priceLow">Price : Low → High</option>
-
             <option value="priceHigh">Price : High → Low</option>
-
             <option value="rating">Rating</option>
-
             <option value="name">Name (A-Z)</option>
           </select>
         </div>
 
-        <ProductGrid products={filteredProducts} />
+        {loading ? (
+          <div style={{ textAlign: "center", padding: "40px" }}>
+            <h3>Loading products...</h3>
+          </div>
+        ) : (
+          <ProductGrid products={filteredProducts} />
+        )}
       </div>
     </section>
   );

@@ -13,9 +13,12 @@ function ProductCard({ product }) {
 
   return (
     <div className="product-card">
-      <Link to={`/product/${product.id}`} className="product-link">
+      <Link to={`/product/${product._id}`} className="product-link">
         <div className="product-image">
-          <img src={product.image} alt={product.name} />
+          <img
+            src={`http://localhost:5000${product.image}`}
+            alt={product.name}
+          />
 
           <span className="discount-badge">{discount}% OFF</span>
 
@@ -37,7 +40,7 @@ function ProductCard({ product }) {
         </div>
 
         <div className="product-info">
-          <p className="category">{product.category}</p>
+          <p className="category">{product.category?.name}</p>
 
           <h3>{product.name}</h3>
 
