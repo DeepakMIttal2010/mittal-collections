@@ -3,9 +3,11 @@ import { useNavigate, Link } from "react-router-dom";
 import { toast } from "react-toastify";
 import { loginUser } from "../services/authService";
 import "./Login.css";
+import { useAuth } from "../context/AuthContext";
 
 function Login() {
   const navigate = useNavigate();
+  const { login } = useAuth();
 
   const [formData, setFormData] = useState({
     email: "",
@@ -30,7 +32,7 @@ function Login() {
       const data = await loginUser(formData);
 
       if (data.success) {
-        localStorage.setItem("token", data.token);
+        login(data.user, data.token);
 
         toast.success("Login Successful");
 

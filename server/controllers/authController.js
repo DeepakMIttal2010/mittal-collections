@@ -5,9 +5,9 @@ import User from "../models/User.js";
 
 export const register = async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, mobile, password } = req.body;
 
-    if (!name || !email || !password) {
+    if (!name || !email || !mobile || !password) {
       return res.status(400).json({
         success: false,
         message: "All fields are required",
@@ -23,11 +23,21 @@ export const register = async (req, res) => {
       });
     }
 
+    const existingMobile = await User.findOne({ mobile });
+
+    if (existingMobile) {
+      return res.status(400).json({
+        success: false,
+        message: "Mobile number already exists",
+      });
+    }
+
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const user = await User.create({
       name,
       email,
+      mobile,
       password: hashedPassword,
     });
 
@@ -38,6 +48,7 @@ export const register = async (req, res) => {
         id: user._id,
         name: user.name,
         email: user.email,
+        mobile: user.mobile,
       },
     });
   } catch (error) {
@@ -98,6 +109,7 @@ export const login = async (req, res) => {
         id: user._id,
         name: user.name,
         email: user.email,
+        mobile: user.mobile,
         role: user.role,
       },
     });
