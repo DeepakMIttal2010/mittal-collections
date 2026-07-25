@@ -40,13 +40,23 @@ const categories = [
     isActive: true,
   },
   {
+    name: "Cushions",
+    slug: "cushions",
+    description: "Stylish decorative cushions for your home.",
+    image: "/uploads/categories/cushions.jpg",
+    banner: "/uploads/banners/cushions-banner.jpg",
+    featured: true,
+    displayOrder: 5,
+    isActive: true,
+  },
+  {
     name: "Blankets",
     slug: "blankets",
     description: "Warm and luxurious blankets for all seasons.",
     image: "/uploads/categories/blankets.jpg",
     banner: "/uploads/banners/blankets-banner.jpg",
     featured: true,
-    displayOrder: 5,
+    displayOrder: 6,
     isActive: true,
   },
   {
@@ -56,7 +66,7 @@ const categories = [
     image: "/uploads/categories/offers.jpg",
     banner: "/uploads/banners/offers-banner.jpg",
     featured: true,
-    displayOrder: 6,
+    displayOrder: 7,
     isActive: true,
   },
 ];

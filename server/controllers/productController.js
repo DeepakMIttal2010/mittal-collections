@@ -1,12 +1,11 @@
 import Product from "../models/Product.js";
 
-// @desc    Get all products
-// @route   GET /api/products
-// @access  Public
-
+// GET /api/products
 export const getProducts = async (req, res) => {
   try {
-    const products = await Product.find({ isActive: true });
+    const products = await Product.find({ isActive: true })
+      .populate("category", "name slug image")
+      .sort({ createdAt: -1 });
 
     res.status(200).json({
       success: true,
@@ -14,7 +13,7 @@ export const getProducts = async (req, res) => {
       products,
     });
   } catch (error) {
-    console.error(error);
+    console.error("Get Products Error:", error);
 
     res.status(500).json({
       success: false,
@@ -23,13 +22,13 @@ export const getProducts = async (req, res) => {
   }
 };
 
-// @desc    Get single product
-// @route   GET /api/products/:id
-// @access  Public
-
+// GET /api/products/:id
 export const getProductById = async (req, res) => {
   try {
-    const product = await Product.findById(req.params.id);
+    const product = await Product.findById(req.params.id).populate(
+      "category",
+      "name slug image",
+    );
 
     if (!product) {
       return res.status(404).json({
@@ -43,7 +42,7 @@ export const getProductById = async (req, res) => {
       product,
     });
   } catch (error) {
-    console.error(error);
+    console.error("Get Product Error:", error);
 
     res.status(500).json({
       success: false,
