@@ -95,3 +95,22 @@
     justify-content: center;
   }
 }
+
+.welcome-user {
+  font-weight: 600;
+  color: #333;
+  margin-right: 10px;
+}
+
+.logout-btn {
+  background: #d32f2f;
+  color: white;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.logout-btn:hover {
+  background: #b71c1c;
+}

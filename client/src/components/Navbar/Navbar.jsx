@@ -3,10 +3,12 @@ import { NavLink } from "react-router-dom";
 import { FaHeart, FaShoppingCart } from "react-icons/fa";
 import { useCart } from "../../context/CartContext";
 import { useWishlist } from "../../context/WishlistContext";
+import { useAuth } from "../../context/AuthContext";
 
 function Navbar() {
   const { totalItems } = useCart();
   const { totalWishlistItems } = useWishlist();
+  const { user, logout, isLoggedIn } = useAuth();
 
   return (
     <nav className="navbar-custom">
@@ -36,19 +38,35 @@ function Navbar() {
         {/* Right Icons */}
 
         <div className="nav-icons">
-          <NavLink to="/wishlist" className="icon-box">
-            <FaHeart />
+          {isLoggedIn ? (
+            <>
+              <span className="welcome-user">Hi, {user?.name}</span>
 
-            {totalWishlistItems > 0 && (
-              <span className="wishlist-count">{totalWishlistItems}</span>
-            )}
-          </NavLink>
+              <NavLink to="/wishlist" className="icon-box">
+                <FaHeart />
+                {totalWishlistItems > 0 && (
+                  <span className="wishlist-count">{totalWishlistItems}</span>
+                )}
+              </NavLink>
 
-          <NavLink to="/cart" className="icon-box cart-icon">
-            <FaShoppingCart />
+              <NavLink to="/cart" className="icon-box cart-icon">
+                <FaShoppingCart />
+                {totalItems > 0 && (
+                  <span className="cart-count">{totalItems}</span>
+                )}
+              </NavLink>
 
-            {totalItems > 0 && <span className="cart-count">{totalItems}</span>}
-          </NavLink>
+              <button className="logout-btn" onClick={logout}>
+                Logout
+              </button>
+            </>
+          ) : (
+            <>
+              <NavLink to="/login">Login</NavLink>
+
+              <NavLink to="/register">Register</NavLink>
+            </>
+          )}
         </div>
       </div>
     </nav>
