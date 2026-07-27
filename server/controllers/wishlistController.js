@@ -30,8 +30,11 @@ export const addToWishlist = async (req, res) => {
   try {
     const { productId } = req.body;
 
+    console.log("req.user =", req.user);
+    console.log("productId =", productId);
+
     const exists = await Wishlist.findOne({
-      user: req.user._id,
+      user: req.user.id,
       product: productId,
     });
 
@@ -43,7 +46,7 @@ export const addToWishlist = async (req, res) => {
     }
 
     const wishlistItem = await Wishlist.create({
-      user: req.user._id,
+      user: req.user.id,
       product: productId,
     });
 
@@ -56,7 +59,8 @@ export const addToWishlist = async (req, res) => {
 
     res.status(500).json({
       success: false,
-      message: "Server Error",
+      message: error.message,
+      stack: error.stack,
     });
   }
 };
@@ -65,7 +69,7 @@ export const addToWishlist = async (req, res) => {
 export const removeFromWishlist = async (req, res) => {
   try {
     const item = await Wishlist.findOneAndDelete({
-      user: req.user._id,
+      user: req.user.id,
       product: req.params.productId,
     });
 
@@ -76,12 +80,34 @@ export const removeFromWishlist = async (req, res) => {
       });
     }
 
+    res.set("Cache-Control", "no-store");
+
     res.status(200).json({
       success: true,
       message: "Removed from wishlist",
     });
   } catch (error) {
     console.error("Remove Wishlist Error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};
+
+export const clearWishlist = async (req, res) => {
+  try {
+    await Wishlist.deleteMany({
+      user: req.user._id,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Wishlist cleared successfully",
+    });
+  } catch (error) {
+    console.error("Clear Wishlist Error:", error);
 
     res.status(500).json({
       success: false,

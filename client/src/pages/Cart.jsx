@@ -101,7 +101,9 @@ function Cart() {
               <span>₹{totalPrice}</span>
             </div>
 
-            <button className="checkout-btn">Proceed to Checkout</button>
+            <Link to="/checkout" className="checkout-btn">
+              Proceed to Checkout
+            </Link>
 
             <button className="clear-btn" onClick={clearCart}>
               Clear Cart

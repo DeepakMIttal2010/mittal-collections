@@ -6,6 +6,7 @@ const getToken = () => localStorage.getItem("token");
 export const getWishlist = async () => {
   try {
     const response = await fetch(`${API_BASE_URL}/wishlist`, {
+      cache: "no-store",
       headers: {
         Authorization: `Bearer ${getToken()}`,
       },
@@ -61,4 +62,15 @@ export const removeFromWishlist = async (productId) => {
   } catch (error) {
     console.error(error);
   }
+};
+
+export const clearWishlist = async () => {
+  const response = await fetch(`${API_BASE_URL}/wishlist`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${getToken()}`,
+    },
+  });
+
+  return await response.json();
 };

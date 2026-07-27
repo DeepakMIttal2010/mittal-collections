@@ -11,7 +11,7 @@ function Wishlist() {
 
   const { addToCart } = useCart();
 
-  if (wishlistItems.length === 0) {
+  if (!wishlistItems || wishlistItems.length === 0) {
     return (
       <div className="empty-wishlist">
         <h2>Your Wishlist is Empty ❤️</h2>
@@ -32,12 +32,12 @@ function Wishlist() {
 
         <div className="wishlist-grid">
           {wishlistItems.map((item) => (
-            <div className="wishlist-card" key={item.id}>
-              <img src={item.image} alt={item.name} />
+            <div className="wishlist-card" key={item._id}>
+              <img src={`http://localhost:5000${item.image}`} alt={item.name} />
 
               <h3>{item.name}</h3>
 
-              <p>{item.category}</p>
+              <p>{item.category?.name || item.category}</p>
 
               <h4>₹{item.price}</h4>
 
@@ -46,16 +46,16 @@ function Wishlist() {
                   className="cart-btn"
                   onClick={() => {
                     addToCart(item);
-                    removeFromWishlist(item.id);
+                    removeFromWishlist(item._id);
                   }}
                 >
                   <FaShoppingCart />
-                  Add to Cart
+                  Add To Cart
                 </button>
 
                 <button
                   className="remove-btn"
-                  onClick={() => removeFromWishlist(item.id)}
+                  onClick={() => removeFromWishlist(item._id)}
                 >
                   <FaTrash />
                   Remove
@@ -65,11 +65,13 @@ function Wishlist() {
           ))}
         </div>
 
-        <div className="wishlist-footer">
-          <button className="clear-btn" onClick={clearWishlist}>
-            Clear Wishlist
-          </button>
-        </div>
+        {wishlistItems.length > 0 && (
+          <div className="wishlist-footer">
+            <button className="clear-btn" onClick={clearWishlist}>
+              Clear Wishlist
+            </button>
+          </div>
+        )}
       </div>
     </section>
   );

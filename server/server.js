@@ -7,6 +7,7 @@ import authRoutes from "./routes/authRoutes.js";
 import productRoutes from "./routes/productRoutes.js";
 import categoryRoutes from "./routes/categoryRoutes.js";
 import wishlistRoutes from "./routes/wishlistRoutes.js";
+import orderRoutes from "./routes/orderRoutes.js";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -25,6 +26,7 @@ app.use("/api/products", productRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/wishlist", wishlistRoutes);
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+app.use("/api/orders", orderRoutes);
 
 app.get("/api/health", (req, res) => {
   res.status(200).json({
