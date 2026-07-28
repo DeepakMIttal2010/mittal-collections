@@ -19,19 +19,30 @@ function ProductSection() {
 
   const loadData = async () => {
     try {
-      const [productsData, categoriesData] = await Promise.all([
+      const [productsResponse, categoriesResponse] = await Promise.all([
         getProducts(),
         getCategories(),
       ]);
 
-      setProducts(productsData);
+      if (productsResponse.success) {
+        setProducts(productsResponse.products);
+      } else {
+        setProducts([]);
+      }
 
-      setCategories([
-        "All",
-        ...categoriesData.map((category) => category.name),
-      ]);
+      if (categoriesResponse.success) {
+        setCategories([
+          "All",
+          ...categoriesResponse.categories.map((category) => category.name),
+        ]);
+      } else {
+        setCategories(["All"]);
+      }
     } catch (error) {
       console.error("Error loading products:", error);
+
+      setProducts([]);
+      setCategories(["All"]);
     } finally {
       setLoading(false);
     }

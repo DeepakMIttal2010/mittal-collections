@@ -1,0 +1,97 @@
+import { NavLink, useNavigate } from "react-router-dom";
+
+import {
+  FaTachometerAlt,
+  FaBoxOpen,
+  FaPlusCircle,
+  FaTags,
+  FaShoppingCart,
+  FaUsers,
+  FaChartLine,
+  FaCog,
+  FaSignOutAlt,
+} from "react-icons/fa";
+
+import { logoutUser } from "../../services/authService";
+
+import "./AdminSidebar.css";
+
+function AdminSidebar() {
+  const navigate = useNavigate();
+
+  const user = JSON.parse(localStorage.getItem("user"));
+
+  const handleLogout = () => {
+    const confirmLogout = window.confirm("Are you sure you want to logout?");
+
+    if (!confirmLogout) return;
+
+    logoutUser();
+
+    navigate("/admin/login");
+  };
+
+  return (
+    <aside className="admin-sidebar">
+      <div className="sidebar-logo">
+        <h2>Mittal Collections</h2>
+
+        <span>Admin Panel</span>
+      </div>
+
+      <div className="admin-user">
+        <div className="avatar">{user?.name?.charAt(0).toUpperCase()}</div>
+
+        <div>
+          <h4>{user?.name}</h4>
+
+          <p>{user?.role}</p>
+        </div>
+      </div>
+
+      <nav>
+        <NavLink end to="/admin">
+          <FaTachometerAlt />
+          <span>Dashboard</span>
+        </NavLink>
+
+        <NavLink to="/admin/products">
+          <FaBoxOpen />
+          <span>Products</span>
+        </NavLink>
+
+        <NavLink to="/admin/categories">
+          <FaTags />
+          <span>Categories</span>
+        </NavLink>
+
+        <NavLink to="/admin/orders">
+          <FaShoppingCart />
+          <span>Orders</span>
+        </NavLink>
+
+        <NavLink to="/admin/customers">
+          <FaUsers />
+          <span>Customers</span>
+        </NavLink>
+
+        <NavLink to="/admin/reports">
+          <FaChartLine />
+          <span>Reports</span>
+        </NavLink>
+
+        <NavLink to="/admin/settings">
+          <FaCog />
+          <span>Settings</span>
+        </NavLink>
+      </nav>
+
+      <button className="logout-btn" onClick={handleLogout}>
+        <FaSignOutAlt />
+        Logout
+      </button>
+    </aside>
+  );
+}
+
+export default AdminSidebar;

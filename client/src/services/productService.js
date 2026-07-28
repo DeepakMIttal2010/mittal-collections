@@ -1,5 +1,8 @@
 import API_BASE_URL from "./api";
 
+// ==========================
+// Get All Products
+// ==========================
 export const getProducts = async () => {
   try {
     const response = await fetch(`${API_BASE_URL}/products`);
@@ -10,13 +13,23 @@ export const getProducts = async () => {
 
     const data = await response.json();
 
-    return data.products;
+    return {
+      success: data.success,
+      products: data.products || [],
+    };
   } catch (error) {
-    console.error(error);
-    return [];
+    console.error("Get Products Error:", error);
+
+    return {
+      success: false,
+      products: [],
+    };
   }
 };
 
+// ==========================
+// Get Product By ID
+// ==========================
 export const getProductById = async (id) => {
   try {
     const response = await fetch(`${API_BASE_URL}/products/${id}`);
@@ -27,9 +40,16 @@ export const getProductById = async (id) => {
 
     const data = await response.json();
 
-    return data.product;
+    return {
+      success: data.success,
+      product: data.product,
+    };
   } catch (error) {
-    console.error(error);
-    return null;
+    console.error("Get Product Error:", error);
+
+    return {
+      success: false,
+      product: null,
+    };
   }
 };

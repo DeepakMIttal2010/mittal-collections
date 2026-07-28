@@ -1,0 +1,155 @@
+.admin-header {
+  height: 75px;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 30px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  position: sticky;
+  top: 0;
+  z-index: 999;
+}
+
+.header-left h2 {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.header-center {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+}
+
+.search-box {
+  width: 350px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #f3f4f6;
+  border-radius: 10px;
+  padding: 10px 15px;
+}
+
+.search-box input {
+  border: none;
+  outline: none;
+  background: transparent;
+  width: 100%;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 25px;
+}
+
+.notification-btn {
+  position: relative;
+  border: none;
+  background: #f3f4f6;
+  width: 45px;
+  height: 45px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 18px;
+}
+
+.notification-badge {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  background: #ef4444;
+  color: #fff;
+  width: 18px;
+  height: 18px;
+  font-size: 11px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.profile-section {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  position: relative;
+}
+
+.profile-icon {
+  font-size: 42px;
+  color: #2563eb;
+}
+
+.profile-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.profile-info span {
+  font-weight: 600;
+  color: #111827;
+}
+
+.profile-info small {
+  color: #6b7280;
+  text-transform: capitalize;
+}
+
+.dropdown-icon {
+  font-size: 12px;
+}
+
+.profile-dropdown {
+  position: absolute;
+  top: 65px;
+  right: 0;
+  width: 220px;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+}
+
+.profile-dropdown button {
+  width: 100%;
+  border: none;
+  background: none;
+  padding: 15px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  transition: 0.3s;
+  font-size: 15px;
+}
+
+.profile-dropdown button:hover {
+  background: #f3f4f6;
+}
+
+.logout-option {
+  color: #dc2626;
+  font-weight: 600;
+}
+
+.profile-dropdown hr {
+  margin: 0;
+  border: none;
+  border-top: 1px solid #e5e7eb;
+}
+
+@media (max-width: 992px) {
+  .header-center {
+    display: none;
+  }
+
+  .profile-info {
+    display: none;
+  }
+}

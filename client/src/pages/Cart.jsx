@@ -39,25 +39,32 @@ function Cart() {
 
           <div className="cart-items">
             {cartItems.map((item) => (
-              <div key={item.id} className="cart-item">
-                <img src={item.image} alt={item.name} />
+              <div key={item._id} className="cart-item">
+                <img
+                  src={
+                    item.image?.startsWith("http")
+                      ? item.image
+                      : `http://localhost:5000${item.image}`
+                  }
+                  alt={item.name}
+                />
 
                 <div className="cart-info">
                   <h3>{item.name}</h3>
 
-                  <p>{item.category}</p>
+                  <p>{item.category?.name}</p>
 
                   <h4>₹{item.price}</h4>
                 </div>
 
                 <div className="qty-box">
-                  <button onClick={() => decreaseQty(item.id)}>
+                  <button onClick={() => decreaseQty(item._id)}>
                     <FaMinus />
                   </button>
 
                   <span>{item.quantity}</span>
 
-                  <button onClick={() => increaseQty(item.id)}>
+                  <button onClick={() => increaseQty(item._id)}>
                     <FaPlus />
                   </button>
                 </div>
@@ -66,7 +73,7 @@ function Cart() {
 
                 <button
                   className="delete-btn"
-                  onClick={() => removeFromCart(item.id)}
+                  onClick={() => removeFromCart(item._id)}
                 >
                   <FaTrash />
                 </button>

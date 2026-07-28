@@ -1,26 +1,31 @@
 import express from "express";
 
 import authMiddleware from "../middleware/authMiddleware.js";
+import adminMiddleware from "../middleware/adminMiddleware.js";
 
 import {
   createOrder,
   getMyOrders,
+  getAllOrders,
   getOrderById,
   updateOrderStatus,
 } from "../controllers/orderController.js";
 
 const router = express.Router();
 
-// Create Order
+// Create Order — koi bhi logged-in user
 router.post("/", authMiddleware, createOrder);
 
-// Get Logged In User Orders
+// Get Logged In User Orders — koi bhi logged-in user
 router.get("/myorders", authMiddleware, getMyOrders);
 
-// Get Single Order
+// Get All Orders — sirf Admin
+router.get("/", authMiddleware, adminMiddleware, getAllOrders);
+
+// Get Single Order — logged-in user (owner ya admin)
 router.get("/:id", authMiddleware, getOrderById);
 
-// Update Order Status (Admin - we'll secure later)
-router.put("/:id/status", authMiddleware, updateOrderStatus);
+// Update Order Status — sirf Admin
+router.put("/:id/status", authMiddleware, adminMiddleware, updateOrderStatus);
 
 export default router;

@@ -13,10 +13,16 @@ function Categories() {
 
   const loadCategories = async () => {
     try {
-      const data = await getCategories();
-      setCategories(data);
+      const response = await getCategories();
+
+      if (response.success) {
+        setCategories(response.categories);
+      } else {
+        setCategories([]);
+      }
     } catch (error) {
       console.error("Error loading categories:", error);
+      setCategories([]);
     } finally {
       setLoading(false);
     }
@@ -39,23 +45,24 @@ function Categories() {
         <h2>Shop by Category</h2>
 
         <div className="categories-grid">
-          {categories.map((category) => (
-            <Link
-              key={category._id}
-              to={`/category/${category.slug}`}
-              className="category-card"
-            >
-              <img
-                src={`http://localhost:5000${category.image}`}
-                alt={category.name}
-                className="category-image"
-              />
+          {Array.isArray(categories) &&
+            categories.map((category) => (
+              <Link
+                key={category._id}
+                to={`/category/${category.slug}`}
+                className="category-card"
+              >
+                <img
+                  src={`http://localhost:5000${category.image}`}
+                  alt={category.name}
+                  className="category-image"
+                />
 
-              <h3>{category.name}</h3>
+                <h3>{category.name}</h3>
 
-              {category.description && <p>{category.description}</p>}
-            </Link>
-          ))}
+                {category.description && <p>{category.description}</p>}
+              </Link>
+            ))}
         </div>
       </div>
     </section>

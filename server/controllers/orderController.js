@@ -62,6 +62,30 @@ export const getMyOrders = async (req, res) => {
 };
 
 // ============================
+// Get All Orders (Admin)
+// ============================
+
+export const getAllOrders = async (req, res) => {
+  try {
+    const orders = await Order.find()
+      .populate("user", "name email mobile")
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      orders,
+    });
+  } catch (error) {
+    console.error("Get All Orders Error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};
+
+// ============================
 // Get Single Order
 // ============================
 
@@ -76,6 +100,17 @@ export const getOrderById = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Order not found",
+      });
+    }
+
+    // Security check: sirf order ka owner ya admin hi ise dekh sake
+    const isOwner = order.user._id.toString() === req.user._id.toString();
+    const isAdmin = req.user.role === "admin";
+
+    if (!isOwner && !isAdmin) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied. This is not your order.",
       });
     }
 

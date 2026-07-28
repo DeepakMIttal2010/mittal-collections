@@ -17,6 +17,26 @@ import ProductDetails from "../pages/ProductDetails";
 import Checkout from "../pages/Checkout";
 import MyOrders from "../pages/MyOrders";
 
+import AdminProtectedRoute from "./AdminProtectedRoute";
+import AdminLogin from "../pages/admin/AdminLogin";
+import AdminDashboard from "../pages/admin/AdminDashboard";
+import AdminProducts from "../pages/admin/AdminProducts";
+import AdminLayout from "../layouts/AdminLayout";
+
+import AddProduct from "../pages/admin/AddProduct";
+import EditProduct from "../pages/admin/EditProduct";
+
+import AdminCategories from "../pages/admin/AdminCategories";
+import AddCategory from "../pages/admin/AddCategory";
+import EditCategory from "../pages/admin/EditCategory";
+
+import AdminOrders from "../pages/admin/AdminOrders";
+
+import AdminProfile from "../pages/admin/AdminProfile";
+
+import AdminCustomers from "../pages/admin/AdminCustomers";
+import CustomerDetails from "../pages/admin/CustomerDetails";
+
 function AppRoutes() {
   return (
     <Routes>
@@ -37,6 +57,33 @@ function AppRoutes() {
       <Route path="/my-orders" element={<MyOrders />} />
       {/* Product Details */}
       <Route path="/product/:id" element={<ProductDetails />} />
+
+      {/* ================= ADMIN LOGIN ================= */}
+
+      <Route path="/admin/login" element={<AdminLogin />} />
+
+      {/* ================= ADMIN PANEL ================= */}
+
+      <Route
+        path="/admin"
+        element={
+          <AdminProtectedRoute>
+            <AdminLayout />
+          </AdminProtectedRoute>
+        }
+      >
+        <Route index element={<AdminDashboard />} />
+        <Route path="products" element={<AdminProducts />} />
+        <Route path="products/add" element={<AddProduct />} />
+        <Route path="products/edit/:id" element={<EditProduct />} />
+        <Route path="categories" element={<AdminCategories />} />
+        <Route path="categories/add" element={<AddCategory />} />
+        <Route path="categories/edit/:id" element={<EditCategory />} />
+        <Route path="orders" element={<AdminOrders />} />
+        <Route path="profile" element={<AdminProfile />} />
+        <Route path="customers" element={<AdminCustomers />} />
+        <Route path="customers/:id" element={<CustomerDetails />} />
+      </Route>
     </Routes>
   );
 }
