@@ -1,46 +1,72 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 
 import { useCart } from "../context/CartContext";
+import { useAuth } from "../context/AuthContext";
 import { createOrder } from "../services/orderService";
+import { getAddresses } from "../services/addressService";
 
-import "./Checkout.css";
+const FREE_SHIPPING_THRESHOLD = 999;
+const DELIVERY_FEE = 49;
 
 function Checkout() {
   const navigate = useNavigate();
+  const { isLoggedIn } = useAuth();
 
-  const { cartItems, clearCart } = useCart();
+  const { cartItems, totalPrice, clearCart } = useCart();
 
-  const [formData, setFormData] = useState({
-    fullName: "",
-    mobile: "",
-    address: "",
-    city: "",
-    state: "",
-    pincode: "",
-    paymentMethod: "COD",
-  });
+  const [addresses, setAddresses] = useState([]);
+  const [addressesLoading, setAddressesLoading] = useState(true);
+  const [selectedAddressId, setSelectedAddressId] = useState("");
+  const [showAddressPicker, setShowAddressPicker] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState("COD");
+  const [placing, setPlacing] = useState(false);
 
-  const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
-  };
+  useEffect(() => {
+    if (!isLoggedIn) {
+      navigate("/login?redirect=/checkout");
+    }
+  }, [isLoggedIn, navigate]);
 
-  const totalPrice = cartItems.reduce(
-    (total, item) => total + item.price * item.quantity,
-    0,
-  );
+  useEffect(() => {
+    const loadAddresses = async () => {
+      const data = await getAddresses();
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+      if (data.success) {
+        setAddresses(data.addresses);
+        const defaultAddress = data.addresses.find((a) => a.isDefault);
+        setSelectedAddressId(
+          (defaultAddress || data.addresses[0])?._id || "",
+        );
+      }
 
+      setAddressesLoading(false);
+    };
+
+    loadAddresses();
+  }, []);
+
+  const selectedAddress = addresses.find((a) => a._id === selectedAddressId);
+
+  const deliveryFee =
+    totalPrice >= FREE_SHIPPING_THRESHOLD || totalPrice === 0
+      ? 0
+      : DELIVERY_FEE;
+  const orderTotal = totalPrice + deliveryFee;
+
+  const handlePlaceOrder = async () => {
     if (cartItems.length === 0) {
       toast.error("Your cart is empty");
       return;
     }
+
+    if (!selectedAddress) {
+      toast.error("Please add a delivery address");
+      return;
+    }
+
+    setPlacing(true);
 
     const orderItems = cartItems.map((item) => ({
       product: item._id,
@@ -53,102 +79,204 @@ function Checkout() {
     const response = await createOrder({
       orderItems,
       shippingAddress: {
-        fullName: formData.fullName,
-        mobile: formData.mobile,
-        address: formData.address,
-        city: formData.city,
-        state: formData.state,
-        pincode: formData.pincode,
+        fullName: selectedAddress.fullName,
+        mobile: selectedAddress.mobile,
+        address: selectedAddress.unit
+          ? `${selectedAddress.address}, ${selectedAddress.unit}`
+          : selectedAddress.address,
+        city: selectedAddress.city,
+        state: selectedAddress.state,
+        pincode: selectedAddress.pincode,
       },
-      paymentMethod: formData.paymentMethod,
-      totalPrice,
+      paymentMethod,
+      totalPrice: orderTotal,
     });
+
+    setPlacing(false);
 
     if (response.success) {
       toast.success("Order placed successfully 🎉");
-
       clearCart();
-
       navigate("/my-orders");
     } else {
       toast.error(response.message);
     }
   };
 
+  if (cartItems.length === 0) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 py-16 text-center">
+        <p className="text-slate-500 mb-4">Your cart is empty.</p>
+        <Link
+          to="/"
+          className="inline-block bg-blue-900 hover:bg-blue-950 text-white font-semibold rounded-full px-6 py-3 transition-colors"
+        >
+          Continue Shopping
+        </Link>
+      </div>
+    );
+  }
+
   return (
-    <div className="checkout-page">
-      <div className="container">
-        <h2>Checkout</h2>
+    <div className="max-w-7xl mx-auto px-4 py-8">
+      <h1 className="text-2xl font-bold text-slate-900 mb-6">
+        Place Your Order
+      </h1>
 
-        <form onSubmit={handleSubmit} className="checkout-form">
-          <input
-            type="text"
-            name="fullName"
-            placeholder="Full Name"
-            value={formData.fullName}
-            onChange={handleChange}
-            required
-          />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left: delivery + payment */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Delivery address */}
+          <div className="border border-slate-200 rounded-xl p-5 bg-white">
+            <div className="flex items-start justify-between gap-4">
+              <h2 className="font-semibold text-slate-800">
+                {addressesLoading
+                  ? "Loading address..."
+                  : selectedAddress
+                    ? `Delivering to ${selectedAddress.fullName}`
+                    : "No delivery address"}
+              </h2>
 
-          <input
-            type="text"
-            name="mobile"
-            placeholder="Mobile Number"
-            value={formData.mobile}
-            onChange={handleChange}
-            required
-          />
+              {addresses.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setShowAddressPicker((v) => !v)}
+                  className="text-sm text-blue-700 hover:underline shrink-0"
+                >
+                  Change
+                </button>
+              )}
+            </div>
 
-          <textarea
-            name="address"
-            placeholder="Full Address"
-            value={formData.address}
-            onChange={handleChange}
-            required
-          />
+            {selectedAddress && (
+              <p className="text-sm text-slate-600 mt-2">
+                {selectedAddress.address}
+                {selectedAddress.unit ? `, ${selectedAddress.unit}` : ""},{" "}
+                {selectedAddress.city}, {selectedAddress.state}{" "}
+                {selectedAddress.pincode}, {selectedAddress.country}
+                <br />
+                Phone number: {selectedAddress.mobile}
+              </p>
+            )}
 
-          <input
-            type="text"
-            name="city"
-            placeholder="City"
-            value={formData.city}
-            onChange={handleChange}
-            required
-          />
+            {!addressesLoading && addresses.length === 0 && (
+              <div className="mt-3">
+                <p className="text-sm text-slate-500 mb-3">
+                  You don&apos;t have a saved address yet.
+                </p>
+                <Link
+                  to="/addresses/add?redirect=/checkout"
+                  className="inline-block bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold rounded-full px-5 py-2.5 transition-colors"
+                >
+                  Add an address
+                </Link>
+              </div>
+            )}
 
-          <input
-            type="text"
-            name="state"
-            placeholder="State"
-            value={formData.state}
-            onChange={handleChange}
-            required
-          />
+            {showAddressPicker && addresses.length > 0 && (
+              <div className="mt-4 border-t border-slate-100 pt-4 space-y-3">
+                {addresses.map((addr) => (
+                  <label
+                    key={addr._id}
+                    className="flex items-start gap-3 border border-slate-200 rounded-lg p-3 cursor-pointer has-[:checked]:border-amber-500"
+                  >
+                    <input
+                      type="radio"
+                      name="address"
+                      checked={selectedAddressId === addr._id}
+                      onChange={() => setSelectedAddressId(addr._id)}
+                      className="mt-1 accent-blue-900"
+                    />
+                    <span className="text-sm text-slate-700">
+                      <span className="block font-medium text-slate-800">
+                        {addr.fullName}
+                      </span>
+                      {addr.address}
+                      {addr.unit ? `, ${addr.unit}` : ""}, {addr.city},{" "}
+                      {addr.state} {addr.pincode}
+                      <br />
+                      Phone number: {addr.mobile}
+                    </span>
+                  </label>
+                ))}
 
-          <input
-            type="text"
-            name="pincode"
-            placeholder="PIN Code"
-            value={formData.pincode}
-            onChange={handleChange}
-            required
-          />
+                <Link
+                  to="/addresses/add?redirect=/checkout"
+                  className="inline-block text-sm text-blue-700 hover:underline"
+                >
+                  + Add a new address
+                </Link>
+              </div>
+            )}
+          </div>
 
-          <select
-            name="paymentMethod"
-            value={formData.paymentMethod}
-            onChange={handleChange}
-          >
-            <option value="COD">Cash On Delivery</option>
-            <option value="Razorpay">Razorpay</option>
-          </select>
+          {/* Payment method */}
+          <div className="border border-slate-200 rounded-xl p-5 bg-white">
+            <h2 className="font-semibold text-slate-800 mb-3">
+              Payment method
+            </h2>
 
-          <h3>Total: ₹{totalPrice}</h3>
+            <div className="space-y-3">
+              <label className="flex items-center gap-3 border border-slate-200 rounded-lg p-3 cursor-pointer has-[:checked]:border-amber-500">
+                <input
+                  type="radio"
+                  name="paymentMethod"
+                  value="COD"
+                  checked={paymentMethod === "COD"}
+                  onChange={(e) => setPaymentMethod(e.target.value)}
+                  className="accent-blue-900"
+                />
+                <span className="text-sm text-slate-700">
+                  Cash on Delivery
+                </span>
+              </label>
 
-          <button type="submit" className="place-order-btn">
-            Place Order
-          </button>
-        </form>
+              <label className="flex items-center gap-3 border border-slate-200 rounded-lg p-3 cursor-pointer has-[:checked]:border-amber-500">
+                <input
+                  type="radio"
+                  name="paymentMethod"
+                  value="Razorpay"
+                  checked={paymentMethod === "Razorpay"}
+                  onChange={(e) => setPaymentMethod(e.target.value)}
+                  className="accent-blue-900"
+                />
+                <span className="text-sm text-slate-700">
+                  Razorpay (Cards / UPI / Netbanking)
+                </span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        {/* Right: order summary */}
+        <div>
+          <div className="border border-slate-200 rounded-xl p-5 bg-white sticky top-4">
+            <button
+              type="button"
+              onClick={handlePlaceOrder}
+              disabled={placing}
+              className="w-full bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-full py-3.5 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {placing ? "Placing Order..." : "Place Order"}
+            </button>
+
+            <div className="border-t border-slate-100 mt-4 pt-4 space-y-2 text-sm">
+              <div className="flex justify-between text-slate-600">
+                <span>Items:</span>
+                <span>₹{totalPrice}</span>
+              </div>
+              <div className="flex justify-between text-slate-600">
+                <span>Delivery:</span>
+                <span>{deliveryFee === 0 ? "FREE" : `₹${deliveryFee}`}</span>
+              </div>
+            </div>
+
+            <div className="border-t border-slate-100 mt-3 pt-3 flex justify-between">
+              <span className="font-bold text-slate-900">Order Total:</span>
+              <span className="font-bold text-slate-900">₹{orderTotal}</span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

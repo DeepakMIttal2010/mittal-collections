@@ -10,20 +10,33 @@ export function CartProvider({ children }) {
     return savedCart ? JSON.parse(savedCart) : [];
   });
 
+  const [isCartOpen, setIsCartOpen] = useState(false);
+
   useEffect(() => {
     localStorage.setItem("cartItems", JSON.stringify(cartItems));
   }, [cartItems]);
 
-  const addToCart = (product) => {
-    const existingItem = cartItems.find((item) => item._id === product.id);
+  const openCart = () => setIsCartOpen(true);
+  const closeCart = () => setIsCartOpen(false);
+
+  const addToCart = (product, qty = 1) => {
+    const existingItem = cartItems.find((item) => item._id === product._id);
 
     if (existingItem) {
+      const newQuantity = Math.min(existingItem.quantity + qty, product.stock);
+
+      if (newQuantity <= existingItem.quantity) {
+        toast.error(`Only ${product.stock} in stock`);
+        openCart();
+        return;
+      }
+
       setCartItems(
         cartItems.map((item) =>
-          item._id === product.id
+          item._id === product._id
             ? {
                 ...item,
-                quantity: item.quantity + 1,
+                quantity: newQuantity,
               }
             : item,
         ),
@@ -31,16 +44,23 @@ export function CartProvider({ children }) {
 
       toast.info("Product quantity updated");
     } else {
+      if (product.stock <= 0) {
+        toast.error("Out of stock");
+        return;
+      }
+
       setCartItems([
         ...cartItems,
         {
           ...product,
-          quantity: 1,
+          quantity: Math.min(qty, product.stock),
         },
       ]);
 
       toast.success("Product added to cart 🛒");
     }
+
+    openCart();
   };
 
   const removeFromCart = (id) => {
@@ -50,14 +70,21 @@ export function CartProvider({ children }) {
   };
 
   const increaseQty = (id) => {
+    const item = cartItems.find((cartItem) => cartItem._id === id);
+
+    if (item && item.quantity >= item.stock) {
+      toast.error(`Only ${item.stock} in stock`);
+      return;
+    }
+
     setCartItems(
-      cartItems.map((item) =>
-        item._id === id
+      cartItems.map((cartItem) =>
+        cartItem._id === id
           ? {
-              ...item,
-              quantity: item.quantity + 1,
+              ...cartItem,
+              quantity: cartItem.quantity + 1,
             }
-          : item,
+          : cartItem,
       ),
     );
   };
@@ -98,6 +125,9 @@ export function CartProvider({ children }) {
         clearCart,
         totalItems,
         totalPrice,
+        isCartOpen,
+        openCart,
+        closeCart,
       }}
     >
       {children}

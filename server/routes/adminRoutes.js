@@ -1,6 +1,10 @@
 import express from "express";
 
-import { getDashboardData } from "../controllers/adminController.js";
+import {
+  getDashboardData,
+  getNotifications,
+  markAllNotificationsRead,
+} from "../controllers/adminController.js";
 import authMiddleware from "../middleware/authMiddleware.js";
 import adminMiddleware from "../middleware/adminMiddleware.js";
 
@@ -8,5 +12,19 @@ const router = express.Router();
 
 // Sabhi admin routes: pehle login check, phir admin-role check
 router.get("/dashboard", authMiddleware, adminMiddleware, getDashboardData);
+
+router.get(
+  "/notifications",
+  authMiddleware,
+  adminMiddleware,
+  getNotifications,
+);
+
+router.put(
+  "/notifications/mark-all-read",
+  authMiddleware,
+  adminMiddleware,
+  markAllNotificationsRead,
+);
 
 export default router;

@@ -31,9 +31,20 @@ const productSchema = new mongoose.Schema(
       required: [true, "Category is required"],
     },
 
+    subcategory: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Subcategory",
+      default: null,
+    },
+
     image: {
       type: String,
       required: [true, "Image is required"],
+    },
+
+    images: {
+      type: [String],
+      default: [],
     },
 
     stock: {

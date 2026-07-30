@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import "./AdminDashboard.css";
 
 import {
@@ -11,6 +12,8 @@ import {
 import { getDashboardData } from "../../services/adminService";
 
 function AdminDashboard() {
+  const navigate = useNavigate();
+
   const [dashboard, setDashboard] = useState({
     totalProducts: 0,
     totalOrders: 0,
@@ -22,10 +25,6 @@ function AdminDashboard() {
 
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadDashboard();
-  }, []);
-
   const loadDashboard = async () => {
     const response = await getDashboardData();
 
@@ -36,30 +35,38 @@ function AdminDashboard() {
     setLoading(false);
   };
 
+  useEffect(() => {
+    loadDashboard();
+  }, []);
+
   const dashboardData = [
     {
       title: "Total Products",
       value: dashboard.totalProducts,
       icon: <FaBoxOpen />,
       color: "#2563eb",
+      link: "/admin/products",
     },
     {
       title: "Total Orders",
       value: dashboard.totalOrders,
       icon: <FaShoppingCart />,
       color: "#16a34a",
+      link: "/admin/orders",
     },
     {
       title: "Total Users",
       value: dashboard.totalUsers,
       icon: <FaUsers />,
       color: "#f59e0b",
+      link: "/admin/customers",
     },
     {
       title: "Total Sales",
       value: `₹${dashboard.totalSales}`,
       icon: <FaRupeeSign />,
       color: "#dc2626",
+      link: "/admin/orders",
     },
   ];
 
@@ -76,7 +83,15 @@ function AdminDashboard() {
 
       <div className="dashboard-cards">
         {dashboardData.map((card, index) => (
-          <div className="dashboard-card" key={index}>
+          <div
+            className="dashboard-card"
+            key={index}
+            role="button"
+            tabIndex={0}
+            onClick={() => navigate(card.link)}
+            onKeyDown={(e) => e.key === "Enter" && navigate(card.link)}
+            style={{ cursor: "pointer" }}
+          >
             <div className="dashboard-icon" style={{ background: card.color }}>
               {card.icon}
             </div>

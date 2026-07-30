@@ -1,4 +1,5 @@
-import "./Footer.css";
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   FaFacebookF,
   FaInstagram,
@@ -6,70 +7,168 @@ import {
   FaLinkedinIn,
 } from "react-icons/fa";
 
+import { getCategories } from "../../services/categoryService";
+import { getSubcategories } from "../../services/subcategoryService";
+import { getSiteSettings } from "../../services/settingsService";
+import { getFooterLinks } from "../../services/footerLinkService";
+
+const SOCIAL_ICONS = [
+  { key: "facebook", icon: FaFacebookF, label: "Facebook" },
+  { key: "instagram", icon: FaInstagram, label: "Instagram" },
+  { key: "twitter", icon: FaTwitter, label: "Twitter" },
+  { key: "linkedin", icon: FaLinkedinIn, label: "LinkedIn" },
+];
+
 function Footer() {
+  const [categories, setCategories] = useState([]);
+  const [subcategories, setSubcategories] = useState([]);
+  const [settings, setSettings] = useState({});
+  const [footerLinks, setFooterLinks] = useState([]);
+
+  useEffect(() => {
+    const loadFooterData = async () => {
+      const [catRes, subcatRes, settingsRes, linksRes] = await Promise.all([
+        getCategories(),
+        getSubcategories(),
+        getSiteSettings(),
+        getFooterLinks(),
+      ]);
+
+      if (catRes.success) setCategories(catRes.categories);
+      if (subcatRes.success) setSubcategories(subcatRes.subcategories);
+      if (settingsRes.success) setSettings(settingsRes.settings);
+      if (linksRes.success) setFooterLinks(linksRes.links);
+    };
+
+    loadFooterData();
+  }, []);
+
+  const activeSocialLinks = SOCIAL_ICONS.filter((s) => settings[s.key]);
+
+  const categoryColumns = categories.map((category) => ({
+    category,
+    items: subcategories
+      .filter((sub) => sub.category?._id === category._id)
+      .sort((a, b) => a.displayOrder - b.displayOrder),
+  }));
+
   return (
-    <footer className="footer">
-      <div className="container">
-        <div className="footer-grid">
-          <div className="footer-column">
-            <h3>Mittal Collections</h3>
-
-            <p>
-              Premium home furnishing products designed to bring elegance and
-              comfort to your home.
-            </p>
-          </div>
-
-          <div className="footer-column">
-            <h3>Quick Links</h3>
-
-            <ul>
-              <li>Home</li>
-              <li>Bedsheets</li>
-              <li>Curtains</li>
-              <li>Towels</li>
-              <li>Contact</li>
-            </ul>
-          </div>
-
-          <div className="footer-column">
-            <h3>Customer Care</h3>
-
-            <ul>
-              <li>Shipping Policy</li>
-              <li>Returns</li>
-              <li>Privacy Policy</li>
-              <li>Terms & Conditions</li>
-            </ul>
-          </div>
-
-          <div className="footer-column">
-            <h3>Follow Us</h3>
-
-            <div className="social-icons">
-              <a href="#">
-                <FaFacebookF />
-              </a>
-              <a href="#">
-                <FaInstagram />
-              </a>
-              <a href="#">
-                <FaTwitter />
-              </a>
-              <a href="#">
-                <FaLinkedinIn />
-              </a>
-            </div>
+    <>
+      {categoryColumns.length > 0 && (
+        <div className="bg-white pt-14 pb-10 px-4 border-t border-slate-100">
+          <div className="max-w-7xl mx-auto grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-x-6 gap-y-8">
+            {categoryColumns.map(({ category, items }) => (
+              <div key={category._id}>
+                <h3 className="text-sm font-semibold text-slate-800 mb-3 pb-2 border-b border-amber-500/40">
+                  {category.name}
+                </h3>
+                <ul className="space-y-2 text-xs">
+                  {items.length > 0 ? (
+                    items.map((item) => (
+                      <li key={item._id}>
+                        <Link
+                          to={`/category/${category.slug}/${item.slug}`}
+                          className="text-slate-600 hover:text-amber-600 transition-colors"
+                        >
+                          {item.name}
+                        </Link>
+                      </li>
+                    ))
+                  ) : (
+                    <li>
+                      <Link
+                        to={`/category/${category.slug}`}
+                        className="text-slate-600 hover:text-amber-600 transition-colors"
+                      >
+                        Shop All
+                      </Link>
+                    </li>
+                  )}
+                </ul>
+              </div>
+            ))}
           </div>
         </div>
+      )}
 
-        <hr />
+      <footer className="bg-slate-900 text-slate-300 pt-16 pb-8 px-4">
+        <div className="max-w-7xl mx-auto">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-10">
+            <div>
+              <h3 className="text-amber-500 font-semibold mb-4">
+                Mittal Collections
+              </h3>
+              <p className="text-sm leading-relaxed">
+                Premium home furnishing products designed to bring elegance
+                and comfort to your home.
+              </p>
+            </div>
 
-        <p className="copyright">
-          © 2026 Mittal Collections. All Rights Reserved.
-        </p>
-      </div>
-    </footer>
+            <div>
+              <h3 className="text-amber-500 font-semibold mb-4">Company</h3>
+              <ul className="space-y-2 text-sm">
+                {footerLinks.map((item) =>
+                  item.url.startsWith("http") ? (
+                    <li key={item._id}>
+                      <a
+                        href={item.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="hover:text-white transition-colors"
+                      >
+                        {item.label}
+                      </a>
+                    </li>
+                  ) : (
+                    <li key={item._id}>
+                      <Link
+                        to={item.url}
+                        className="hover:text-white transition-colors"
+                      >
+                        {item.label}
+                      </Link>
+                    </li>
+                  ),
+                )}
+              </ul>
+            </div>
+
+            <div>
+              <h3 className="text-amber-500 font-semibold mb-4">
+                Follow Us
+              </h3>
+              {activeSocialLinks.length > 0 ? (
+                <div className="flex gap-3">
+                  {activeSocialLinks.map(({ key, icon: Icon, label }) => (
+                    <a
+                      key={key}
+                      href={settings[key]}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={label}
+                      className="w-9 h-9 rounded-full bg-slate-700 hover:bg-amber-500 flex items-center justify-center transition-colors"
+                    >
+                      <Icon className="text-sm" />
+                    </a>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-slate-500">
+                  Follow links coming soon.
+                </p>
+              )}
+            </div>
+          </div>
+
+          <hr className="border-slate-700 my-10" />
+
+          <p className="text-center text-sm text-slate-500">
+            © {new Date().getFullYear()} Mittal Collections. All Rights
+            Reserved.
+          </p>
+        </div>
+      </footer>
+    </>
   );
 }
 

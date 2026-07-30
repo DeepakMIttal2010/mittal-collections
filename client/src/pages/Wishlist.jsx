@@ -3,77 +3,106 @@ import { FaTrash, FaShoppingCart } from "react-icons/fa";
 
 import { useWishlist } from "../context/WishlistContext";
 import { useCart } from "../context/CartContext";
-
-import "./Wishlist.css";
+import { useAuth } from "../context/AuthContext";
 
 function Wishlist() {
   const { wishlistItems, removeFromWishlist, clearWishlist } = useWishlist();
 
   const { addToCart } = useCart();
+  const { isLoggedIn } = useAuth();
 
-  if (!wishlistItems || wishlistItems.length === 0) {
-    return (
-      <div className="empty-wishlist">
-        <h2>Your Wishlist is Empty ❤️</h2>
-
-        <p>Save your favourite products here.</p>
-
-        <Link to="/" className="shop-btn">
-          Continue Shopping
-        </Link>
-      </div>
-    );
-  }
+  const hasItems = wishlistItems && wishlistItems.length > 0;
 
   return (
-    <section className="wishlist-page">
-      <div className="container">
-        <h2 className="wishlist-title">My Wishlist</h2>
-
-        <div className="wishlist-grid">
-          {wishlistItems.map((item) => (
-            <div className="wishlist-card" key={item._id}>
-              <img src={`http://localhost:5000${item.image}`} alt={item.name} />
-
-              <h3>{item.name}</h3>
-
-              <p>{item.category?.name || item.category}</p>
-
-              <h4>₹{item.price}</h4>
-
-              <div className="wishlist-buttons">
-                <button
-                  className="cart-btn"
-                  onClick={() => {
-                    addToCart(item);
-                    removeFromWishlist(item._id);
-                  }}
-                >
-                  <FaShoppingCart />
-                  Add To Cart
-                </button>
-
-                <button
-                  className="remove-btn"
-                  onClick={() => removeFromWishlist(item._id)}
-                >
-                  <FaTrash />
-                  Remove
-                </button>
-              </div>
-            </div>
-          ))}
+    <div className="max-w-7xl mx-auto px-4 py-8">
+      {isLoggedIn && (
+        <div className="text-sm mb-2">
+          <Link to="/account" className="text-blue-700 hover:underline">
+            Your Account
+          </Link>
+          <span className="text-slate-400 mx-2">›</span>
+          <span className="text-amber-600 font-medium">Wishlist</span>
         </div>
+      )}
 
-        {wishlistItems.length > 0 && (
-          <div className="wishlist-footer">
-            <button className="clear-btn" onClick={clearWishlist}>
+      <h1 className="text-3xl font-bold text-slate-900 mb-6">My Wishlist</h1>
+
+      {!hasItems ? (
+        <div>
+          <p className="text-slate-500 mb-4">
+            Your wishlist is empty. Save your favourite products here.
+          </p>
+          <Link
+            to="/"
+            className="inline-block bg-blue-900 hover:bg-blue-950 text-white font-semibold rounded-full px-6 py-3 transition-colors"
+          >
+            Continue Shopping
+          </Link>
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+            {wishlistItems.map((item) => (
+              <div
+                key={item._id}
+                className="border border-slate-200 rounded-xl bg-white overflow-hidden"
+              >
+                <img
+                  src={`http://localhost:5000${item.image}`}
+                  alt={item.name}
+                  className="w-full h-48 object-cover"
+                />
+
+                <div className="p-4">
+                  <h3 className="font-medium text-slate-800 truncate">
+                    {item.name}
+                  </h3>
+                  <p className="text-sm text-slate-500">
+                    {item.category?.name || item.category}
+                  </p>
+                  <p className="text-lg font-semibold text-green-700 mt-1">
+                    ₹{item.price}
+                  </p>
+
+                  <div className="flex flex-col gap-2 mt-4">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        addToCart(item);
+                        removeFromWishlist(item._id);
+                      }}
+                      className="flex items-center justify-center gap-2 bg-blue-900 hover:bg-blue-950 text-white text-sm font-medium py-2.5 rounded-lg transition-colors"
+                    >
+                      <FaShoppingCart />
+                      Add to Cart
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => removeFromWishlist(item._id)}
+                      className="flex items-center justify-center gap-2 bg-red-50 hover:bg-red-100 text-red-600 text-sm font-medium py-2.5 rounded-lg transition-colors"
+                    >
+                      <FaTrash />
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-8">
+            <button
+              type="button"
+              onClick={clearWishlist}
+              className="text-red-600 hover:text-red-700 text-sm font-medium underline"
+            >
               Clear Wishlist
             </button>
           </div>
-        )}
-      </div>
-    </section>
+        </>
+      )}
+    </div>
   );
 }
 

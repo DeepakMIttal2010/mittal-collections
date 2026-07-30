@@ -46,6 +46,121 @@ export const registerUser = async (userData) => {
   }
 };
 
+// ================= FORGOT PASSWORD =================
+
+export const forgotPassword = async (email) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ email }),
+    });
+
+    return await response.json();
+  } catch (error) {
+    console.error(error);
+
+    return {
+      success: false,
+      message: "Server Error",
+    };
+  }
+};
+
+// ================= RESET PASSWORD =================
+
+export const resetPassword = async (token, password) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/auth/reset-password`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ token, password }),
+    });
+
+    return await response.json();
+  } catch (error) {
+    console.error(error);
+
+    return {
+      success: false,
+      message: "Server Error",
+    };
+  }
+};
+
+// ================= CHANGE PASSWORD =================
+
+export const changePassword = async (currentPassword, newPassword) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/auth/change-password`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${getToken()}`,
+      },
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
+
+    return await response.json();
+  } catch (error) {
+    console.error(error);
+
+    return {
+      success: false,
+      message: "Server Error",
+    };
+  }
+};
+
+// ================= GET PROFILE =================
+
+export const getProfile = async () => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/auth/profile`, {
+      headers: {
+        Authorization: `Bearer ${getToken()}`,
+      },
+    });
+
+    return await response.json();
+  } catch (error) {
+    console.error(error);
+
+    return {
+      success: false,
+      message: "Server Error",
+    };
+  }
+};
+
+// ================= UPDATE PROFILE =================
+
+export const updateProfile = async (name, mobile) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/auth/profile`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${getToken()}`,
+      },
+      body: JSON.stringify({ name, mobile }),
+    });
+
+    return await response.json();
+  } catch (error) {
+    console.error(error);
+
+    return {
+      success: false,
+      message: "Server Error",
+    };
+  }
+};
+
 // ================= SAVE LOGIN =================
 
 export const saveLogin = (data) => {

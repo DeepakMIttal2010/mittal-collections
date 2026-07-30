@@ -163,7 +163,7 @@ function AdminOrders() {
                 </div>
 
                 <div className="font-bold text-slate-900">
-                  â‚¹{order.totalPrice}
+                  ₹{order.totalPrice}
                 </div>
 
                 <span
@@ -217,7 +217,7 @@ function AdminOrders() {
                             <div className="flex-1">
                               <p className="text-slate-800">{item.name}</p>
                               <p className="text-slate-500 text-xs">
-                                Qty: {item.quantity} Ã— â‚¹{item.price}
+                                Qty: {item.quantity} × ₹{item.price}
                               </p>
                             </div>
                           </div>

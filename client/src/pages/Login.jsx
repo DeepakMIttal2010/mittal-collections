@@ -1,12 +1,14 @@
 import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { toast } from "react-toastify";
+import { FaArrowLeft } from "react-icons/fa";
 import { loginUser } from "../services/authService";
-import "./Login.css";
 import { useAuth } from "../context/AuthContext";
 
 function Login() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const redirectTo = searchParams.get("redirect") || "/";
   const { login } = useAuth();
 
   const [formData, setFormData] = useState({
@@ -36,7 +38,7 @@ function Login() {
 
         toast.success("Login Successful");
 
-        navigate("/");
+        navigate(redirectTo);
       } else {
         toast.error(data.message);
       }
@@ -49,36 +51,66 @@ function Login() {
   };
 
   return (
-    <div className="login-page">
-      <form className="login-form" onSubmit={handleSubmit}>
-        <h2>Login</h2>
+    <div className="min-h-[70vh] flex items-center justify-center py-16 px-4">
+      <div className="w-full max-w-md">
+        <h1 className="text-5xl font-bold text-center text-slate-900 mb-10">
+          Login
+        </h1>
 
-        <input
-          type="email"
-          name="email"
-          placeholder="Email Address"
-          value={formData.email}
-          onChange={handleChange}
-          required
-        />
+        <form onSubmit={handleSubmit}>
+          <input
+            type="email"
+            name="email"
+            placeholder="Email"
+            value={formData.email}
+            onChange={handleChange}
+            required
+            className="w-full bg-slate-100 rounded-lg px-5 py-4 mb-4 outline-none text-sm text-slate-800 placeholder:text-slate-500"
+          />
 
-        <input
-          type="password"
-          name="password"
-          placeholder="Password"
-          value={formData.password}
-          onChange={handleChange}
-          required
-        />
+          <input
+            type="password"
+            name="password"
+            placeholder="Password"
+            value={formData.password}
+            onChange={handleChange}
+            required
+            className="w-full bg-slate-100 rounded-lg px-5 py-4 mb-4 outline-none text-sm text-slate-800 placeholder:text-slate-500"
+          />
 
-        <button type="submit" disabled={loading}>
-          {loading ? "Logging in..." : "Login"}
-        </button>
+          <Link
+            to="/forgot-password"
+            className="text-sm text-slate-700 underline hover:text-amber-600 mb-8 block"
+          >
+            Forgot password?
+          </Link>
 
-        <p>
-          Don't have an account? <Link to="/register">Register</Link>
-        </p>
-      </form>
+          <div className="flex gap-4">
+            <button
+              type="submit"
+              disabled={loading}
+              className="flex-1 bg-blue-900 hover:bg-blue-950 text-white font-semibold rounded-full py-3.5 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {loading ? "Signing in..." : "Sign in"}
+            </button>
+
+            <Link
+              to={`/register?redirect=${encodeURIComponent(redirectTo)}`}
+              className="flex-1 border-2 border-blue-900 text-blue-900 hover:bg-blue-50 font-semibold rounded-full py-3.5 text-center transition-colors"
+            >
+              Create account
+            </Link>
+          </div>
+        </form>
+
+        <Link
+          to="/"
+          className="mt-10 flex items-center justify-center gap-2 text-sm text-slate-600 underline hover:text-amber-600"
+        >
+          <FaArrowLeft className="text-xs" />
+          Return to Store
+        </Link>
+      </div>
     </div>
   );
 }

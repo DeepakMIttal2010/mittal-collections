@@ -9,6 +9,7 @@ import {
   getAllOrders,
   getOrderById,
   updateOrderStatus,
+  markOrderSeen,
 } from "../controllers/orderController.js";
 
 const router = express.Router();
@@ -27,5 +28,8 @@ router.get("/:id", authMiddleware, getOrderById);
 
 // Update Order Status — sirf Admin
 router.put("/:id/status", authMiddleware, adminMiddleware, updateOrderStatus);
+
+// Mark Order Seen — sirf Admin
+router.put("/:id/seen", authMiddleware, adminMiddleware, markOrderSeen);
 
 export default router;

@@ -1,12 +1,15 @@
+import { useState } from "react";
 import "./ProductCard.css";
 import { Link } from "react-router-dom";
 import { FaHeart, FaEye, FaShoppingCart, FaStar } from "react-icons/fa";
 import { useWishlist } from "../../context/WishlistContext";
 import { useCart } from "../../context/CartContext";
+import QuickViewModal from "./QuickViewModal";
 
 function ProductCard({ product }) {
   const { addToCart } = useCart();
   const { addToWishlist } = useWishlist();
+  const [showQuickView, setShowQuickView] = useState(false);
   const discount = Math.round(
     ((product.oldPrice - product.price) / product.oldPrice) * 100,
   );
@@ -33,7 +36,13 @@ function ProductCard({ product }) {
               <FaHeart />
             </button>
 
-            <button type="button" onClick={(e) => e.preventDefault()}>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                setShowQuickView(true);
+              }}
+            >
               <FaEye />
             </button>
           </div>
@@ -70,6 +79,13 @@ function ProductCard({ product }) {
           Add to Cart
         </button>
       </div>
+
+      {showQuickView && (
+        <QuickViewModal
+          product={product}
+          onClose={() => setShowQuickView(false)}
+        />
+      )}
     </div>
   );
 }

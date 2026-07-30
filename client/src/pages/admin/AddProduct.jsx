@@ -4,14 +4,18 @@ import { useNavigate } from "react-router-dom";
 import "./AddProduct.css";
 
 import { getCategories } from "../../services/categoryService";
+import { getSubcategories } from "../../services/subcategoryService";
 import { addProduct } from "../../services/adminProductService";
 
 function AddProduct() {
   const navigate = useNavigate();
 
   const [categories, setCategories] = useState([]);
+  const [subcategories, setSubcategories] = useState([]);
 
-  const [preview, setPreview] = useState(null);
+  const [images, setImages] = useState([]);
+  const [previews, setPreviews] = useState([]);
+  const [mainImageIndex, setMainImageIndex] = useState(0);
 
   const [loading, setLoading] = useState(false);
 
@@ -19,17 +23,13 @@ function AddProduct() {
     name: "",
     description: "",
     category: "",
+    subcategory: "",
     price: "",
     oldPrice: "",
     stock: "",
     featured: false,
     isActive: true,
-    image: null,
   });
-
-  useEffect(() => {
-    loadCategories();
-  }, []);
 
   const loadCategories = async () => {
     const response = await getCategories();
@@ -39,45 +39,65 @@ function AddProduct() {
     }
   };
 
+  const loadSubcategories = async () => {
+    const response = await getSubcategories();
+
+    if (response.success) {
+      setSubcategories(response.subcategories);
+    }
+  };
+
+  useEffect(() => {
+    loadCategories();
+    loadSubcategories();
+  }, []);
+
+  const subcategoryOptions = subcategories.filter(
+    (sub) => sub.category?._id === formData.category,
+  );
+
   const handleChange = (e) => {
     const { name, value, checked, type } = e.target;
 
     setFormData((prev) => ({
       ...prev,
       [name]: type === "checkbox" ? checked : value,
+      ...(name === "category" ? { subcategory: "" } : {}),
     }));
   };
 
-  const handleImage = (e) => {
-    const file = e.target.files[0];
+  const handleImages = (e) => {
+    const files = Array.from(e.target.files);
 
-    if (!file) return;
+    if (files.length === 0) return;
 
-    setFormData((prev) => ({
-      ...prev,
-      image: file,
-    }));
-
-    setPreview(URL.createObjectURL(file));
+    setImages(files);
+    setPreviews(files.map((file) => URL.createObjectURL(file)));
+    setMainImageIndex(0);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (images.length === 0) {
+      alert("Please select at least one product image");
+      return;
+    }
 
     const data = new FormData();
 
     data.append("name", formData.name);
     data.append("description", formData.description);
     data.append("category", formData.category);
+    data.append("subcategory", formData.subcategory);
     data.append("price", formData.price);
     data.append("oldPrice", formData.oldPrice);
     data.append("stock", formData.stock);
     data.append("featured", formData.featured);
     data.append("isActive", formData.isActive);
+    data.append("mainImageIndex", mainImageIndex);
 
-    if (formData.image) {
-      data.append("image", formData.image);
-    }
+    images.forEach((file) => data.append("images", file));
 
     setLoading(true);
 
@@ -146,6 +166,29 @@ function AddProduct() {
           </div>
 
           <div className="form-group">
+            <label>Subcategory</label>
+
+            <select
+              name="subcategory"
+              value={formData.subcategory}
+              onChange={handleChange}
+              disabled={!formData.category}
+            >
+              <option value="">
+                {formData.category ? "None" : "Select category first"}
+              </option>
+
+              {subcategoryOptions.map((sub) => (
+                <option key={sub._id} value={sub._id}>
+                  {sub.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="form-row">
+          <div className="form-group">
             <label>Price</label>
 
             <input
@@ -184,14 +227,33 @@ function AddProduct() {
         </div>
 
         <div className="form-group">
-          <label>Product Image</label>
+          <label>Product Images</label>
 
-          <input type="file" accept="image/*" onChange={handleImage} required />
+          <input
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={handleImages}
+            required
+          />
         </div>
 
-        {preview && (
-          <div className="image-preview">
-            <img src={preview} alt="Preview" />
+        {previews.length > 0 && (
+          <div className="image-thumb-grid">
+            {previews.map((src, index) => (
+              <div
+                key={src}
+                className={`image-thumb${
+                  index === mainImageIndex ? " is-main" : ""
+                }`}
+                onClick={() => setMainImageIndex(index)}
+              >
+                <img src={src} alt={`Preview ${index + 1}`} />
+                {index === mainImageIndex && (
+                  <span className="main-badge">Main</span>
+                )}
+              </div>
+            ))}
           </div>
         )}
 

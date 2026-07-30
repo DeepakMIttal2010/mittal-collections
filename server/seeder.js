@@ -4,9 +4,19 @@ import connectDB from "./config/db.js";
 
 import Category from "./models/Category.js";
 import Product from "./models/Product.js";
+import State from "./models/State.js";
+import Testimonial from "./models/Testimonial.js";
+import Page from "./models/Page.js";
+import FooterLink from "./models/FooterLink.js";
+import Banner from "./models/Banner.js";
 
 import categoriesData from "./data/categories.js";
 import getProducts from "./data/products.js";
+import statesData from "./data/states.js";
+import testimonialsData from "./data/testimonials.js";
+import pagesData from "./data/pages.js";
+import footerLinksData from "./data/footerLinks.js";
+import bannersData from "./data/banners.js";
 
 dotenv.config();
 
@@ -53,10 +63,80 @@ const importProducts = async () => {
   }
 };
 
+const importStates = async () => {
+  try {
+    await State.deleteMany();
+    await State.insertMany(statesData);
+
+    console.log("✅ States Imported");
+    process.exit();
+  } catch (error) {
+    console.error(error);
+    process.exit(1);
+  }
+};
+
+const importTestimonials = async () => {
+  try {
+    await Testimonial.deleteMany();
+    await Testimonial.insertMany(testimonialsData);
+
+    console.log("✅ Testimonials Imported");
+    process.exit();
+  } catch (error) {
+    console.error(error);
+    process.exit(1);
+  }
+};
+
+const importPages = async () => {
+  try {
+    await Page.deleteMany();
+    await Page.insertMany(pagesData);
+
+    console.log("✅ Pages Imported");
+    process.exit();
+  } catch (error) {
+    console.error(error);
+    process.exit(1);
+  }
+};
+
+const importFooterLinks = async () => {
+  try {
+    await FooterLink.deleteMany();
+    await FooterLink.insertMany(footerLinksData);
+
+    console.log("✅ Footer Links Imported");
+    process.exit();
+  } catch (error) {
+    console.error(error);
+    process.exit(1);
+  }
+};
+
+const importBanners = async () => {
+  try {
+    await Banner.deleteMany();
+    await Banner.insertMany(bannersData);
+
+    console.log("✅ Banners Imported");
+    process.exit();
+  } catch (error) {
+    console.error(error);
+    process.exit(1);
+  }
+};
+
 const importAll = async () => {
   try {
     await Category.deleteMany();
     await Product.deleteMany();
+    await State.deleteMany();
+    await Testimonial.deleteMany();
+    await Page.deleteMany();
+    await FooterLink.deleteMany();
+    await Banner.deleteMany();
 
     await Category.insertMany(categoriesData);
     const categories = await Category.insertMany(categoriesData);
@@ -70,9 +150,19 @@ const importAll = async () => {
     const products = getProducts(categoryMap);
 
     await Product.insertMany(products);
+    await State.insertMany(statesData);
+    await Testimonial.insertMany(testimonialsData);
+    await Page.insertMany(pagesData);
+    await FooterLink.insertMany(footerLinksData);
+    await Banner.insertMany(bannersData);
 
     console.log("✅ Categories Imported");
     console.log("✅ Products Imported");
+    console.log("✅ States Imported");
+    console.log("✅ Testimonials Imported");
+    console.log("✅ Pages Imported");
+    console.log("✅ Footer Links Imported");
+    console.log("✅ Banners Imported");
 
     process.exit();
   } catch (error) {
@@ -85,6 +175,11 @@ const destroyAll = async () => {
   try {
     await Category.deleteMany();
     await Product.deleteMany();
+    await State.deleteMany();
+    await Testimonial.deleteMany();
+    await Page.deleteMany();
+    await FooterLink.deleteMany();
+    await Banner.deleteMany();
 
     console.log("🗑 Database Cleared");
 
@@ -106,6 +201,26 @@ switch (command) {
     importProducts();
     break;
 
+  case "states":
+    importStates();
+    break;
+
+  case "testimonials":
+    importTestimonials();
+    break;
+
+  case "pages":
+    importPages();
+    break;
+
+  case "footer-links":
+    importFooterLinks();
+    break;
+
+  case "banners":
+    importBanners();
+    break;
+
   case "all":
     importAll();
     break;
@@ -120,6 +235,11 @@ Usage:
 
 node seeder.js categories
 node seeder.js products
+node seeder.js states
+node seeder.js testimonials
+node seeder.js pages
+node seeder.js footer-links
+node seeder.js banners
 node seeder.js all
 node seeder.js destroy
 `);

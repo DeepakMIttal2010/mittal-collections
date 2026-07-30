@@ -5,8 +5,23 @@ import Product from "../models/Product.js";
 // ============================
 export const getProducts = async (req, res) => {
   try {
-    const products = await Product.find({ isActive: true })
+    const filter = { isActive: true };
+
+    const { search, category, subcategory } = req.query;
+    if (search && search.trim()) {
+      const regex = new RegExp(search.trim(), "i");
+      filter.$or = [{ name: regex }, { description: regex }];
+    }
+    if (category && category.trim()) {
+      filter.category = category.trim();
+    }
+    if (subcategory && subcategory.trim()) {
+      filter.subcategory = subcategory.trim();
+    }
+
+    const products = await Product.find(filter)
       .populate("category", "name slug image")
+      .populate("subcategory", "name slug")
       .sort({ createdAt: -1 });
 
     res.status(200).json({
@@ -25,14 +40,56 @@ export const getProducts = async (req, res) => {
 };
 
 // ============================
+// GET ALL PRODUCTS (Admin — includes inactive, paginated)
+// ============================
+export const getAllProductsAdmin = async (req, res) => {
+  try {
+    const filter = {};
+
+    const { search } = req.query;
+    if (search && search.trim()) {
+      const regex = new RegExp(search.trim(), "i");
+      filter.$or = [{ name: regex }, { description: regex }];
+    }
+
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const limit = Math.max(parseInt(req.query.limit, 10) || 25, 1);
+
+    const total = await Product.countDocuments(filter);
+
+    const products = await Product.find(filter)
+      .populate("category", "name slug image")
+      .populate("subcategory", "name slug")
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit);
+
+    res.status(200).json({
+      success: true,
+      products,
+      total,
+      page,
+      limit,
+      pages: Math.max(Math.ceil(total / limit), 1),
+    });
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};
+
+// ============================
 // GET SINGLE PRODUCT
 // ============================
 export const getProductById = async (req, res) => {
   try {
-    const product = await Product.findById(req.params.id).populate(
-      "category",
-      "name slug image",
-    );
+    const product = await Product.findById(req.params.id)
+      .populate("category", "name slug image")
+      .populate("subcategory", "name slug");
 
     if (!product) {
       return res.status(404).json({
@@ -66,10 +123,28 @@ export const addProduct = async (req, res) => {
       price,
       oldPrice,
       category,
+      subcategory,
       stock,
       featured,
       isActive,
+      mainImageIndex,
     } = req.body;
+
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "At least one product image is required",
+      });
+    }
+
+    const images = req.files.map(
+      (file) => `/uploads/products/${file.filename}`,
+    );
+
+    const mainIndex = Math.min(
+      Math.max(parseInt(mainImageIndex, 10) || 0, 0),
+      images.length - 1,
+    );
 
     const product = await Product.create({
       name,
@@ -77,11 +152,13 @@ export const addProduct = async (req, res) => {
       price,
       oldPrice,
       category,
+      subcategory: subcategory || null,
       stock,
       featured: featured === "true",
       isActive: isActive === "true",
 
-      image: req.file ? `/uploads/products/${req.file.filename}` : "",
+      image: images[mainIndex],
+      images,
     });
 
     res.status(201).json({
@@ -118,14 +195,44 @@ export const updateProduct = async (req, res) => {
     product.price = req.body.price;
     product.oldPrice = req.body.oldPrice;
     product.category = req.body.category;
+    product.subcategory = req.body.subcategory || null;
     product.stock = req.body.stock;
 
     product.featured = req.body.featured === "true";
     product.isActive = req.body.isActive === "true";
 
-    if (req.file) {
-      product.image = `/uploads/products/${req.file.filename}`;
+    let existingImages = product.images.length
+      ? product.images
+      : [product.image].filter(Boolean);
+
+    if (req.body.existingImages !== undefined) {
+      try {
+        existingImages = JSON.parse(req.body.existingImages);
+      } catch {
+        existingImages = [];
+      }
     }
+
+    const newImages = (req.files || []).map(
+      (file) => `/uploads/products/${file.filename}`,
+    );
+
+    const finalImages = [...existingImages, ...newImages];
+
+    if (finalImages.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "At least one product image is required",
+      });
+    }
+
+    const mainIndex = Math.min(
+      Math.max(parseInt(req.body.mainImageIndex, 10) || 0, 0),
+      finalImages.length - 1,
+    );
+
+    product.images = finalImages;
+    product.image = finalImages[mainIndex];
 
     await product.save();
 
@@ -145,6 +252,38 @@ export const updateProduct = async (req, res) => {
 };
 
 // ============================
+// RESTORE PRODUCT
+// ============================
+export const restoreProduct = async (req, res) => {
+  try {
+    const product = await Product.findById(req.params.id);
+
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: "Product not found",
+      });
+    }
+
+    product.isActive = true;
+    await product.save();
+
+    res.json({
+      success: true,
+      message: "Product restored successfully",
+      product,
+    });
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      success: false,
+      message: "Unable to restore product",
+    });
+  }
+};
+
+// ============================
 // DELETE PRODUCT
 // ============================
 export const deleteProduct = async (req, res) => {
@@ -158,7 +297,8 @@ export const deleteProduct = async (req, res) => {
       });
     }
 
-    await product.deleteOne();
+    product.isActive = false;
+    await product.save();
 
     res.json({
       success: true,

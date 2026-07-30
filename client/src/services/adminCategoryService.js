@@ -3,21 +3,34 @@ import API_BASE_URL from "./api";
 const getToken = () => localStorage.getItem("token");
 
 // ==============================
-// GET ALL CATEGORIES
+// GET ALL CATEGORIES (Admin — paginated)
 // ==============================
-export const getAllCategories = async () => {
+export const getAllCategories = async ({
+  page = 1,
+  limit = 25,
+  search = "",
+} = {}) => {
   try {
-    const response = await fetch(`${API_BASE_URL}/categories`, {
-      headers: {
-        Authorization: `Bearer ${getToken()}`,
+    const params = new URLSearchParams({ page, limit });
+    if (search.trim()) params.set("search", search.trim());
+
+    const response = await fetch(
+      `${API_BASE_URL}/categories/admin?${params.toString()}`,
+      {
+        headers: {
+          Authorization: `Bearer ${getToken()}`,
+        },
       },
-    });
+    );
 
     const data = await response.json();
 
     return {
       success: true,
       categories: data.categories || [],
+      total: data.total || 0,
+      page: data.page || 1,
+      pages: data.pages || 1,
     };
   } catch (error) {
     console.error("Get Categories Error:", error);
@@ -25,6 +38,9 @@ export const getAllCategories = async () => {
     return {
       success: false,
       categories: [],
+      total: 0,
+      page: 1,
+      pages: 1,
       message: "Unable to fetch categories",
     };
   }
@@ -96,6 +112,29 @@ export const updateCategory = async (id, formData) => {
     return {
       success: false,
       message: "Unable to update category",
+    };
+  }
+};
+
+// ==============================
+// RESTORE CATEGORY
+// ==============================
+export const restoreCategory = async (id) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/categories/${id}/restore`, {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${getToken()}`,
+      },
+    });
+
+    return await response.json();
+  } catch (error) {
+    console.error("Restore Category Error:", error);
+
+    return {
+      success: false,
+      message: "Unable to restore category",
     };
   }
 };

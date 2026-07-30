@@ -7,10 +7,6 @@ function Categories() {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadCategories();
-  }, []);
-
   const loadCategories = async () => {
     try {
       const response = await getCategories();
@@ -28,6 +24,10 @@ function Categories() {
     }
   };
 
+  useEffect(() => {
+    loadCategories();
+  }, []);
+
   if (loading) {
     return (
       <section className="categories">
@@ -40,7 +40,7 @@ function Categories() {
   }
 
   return (
-    <section className="categories">
+    <section className="categories" id="shop-categories">
       <div className="container">
         <h2>Shop by Category</h2>
 

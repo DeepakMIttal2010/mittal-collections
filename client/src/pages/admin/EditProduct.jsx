@@ -5,6 +5,8 @@ import {
   getProductById,
   updateProduct,
 } from "../../services/adminProductService";
+import { getCategories } from "../../services/categoryService";
+import { getSubcategories } from "../../services/subcategoryService";
 
 import "./EditProduct.css";
 
@@ -15,7 +17,13 @@ function EditProduct() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  const [preview, setPreview] = useState("");
+  const [existingImages, setExistingImages] = useState([]);
+  const [newImages, setNewImages] = useState([]);
+  const [newPreviews, setNewPreviews] = useState([]);
+  const [mainImageIndex, setMainImageIndex] = useState(0);
+
+  const [categories, setCategories] = useState([]);
+  const [subcategories, setSubcategories] = useState([]);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -24,20 +32,24 @@ function EditProduct() {
     oldPrice: "",
     stock: "",
     category: "",
+    subcategory: "",
     featured: false,
     isActive: true,
-    image: null,
   });
 
-  useEffect(() => {
-    loadProduct();
-  }, []);
-
   const loadProduct = async () => {
-    const response = await getProductById(id);
+    const [productRes, categoriesRes, subcategoriesRes] = await Promise.all([
+      getProductById(id),
+      getCategories(),
+      getSubcategories(),
+    ]);
 
-    if (response.success) {
-      const product = response.product;
+    if (categoriesRes.success) setCategories(categoriesRes.categories);
+    if (subcategoriesRes.success)
+      setSubcategories(subcategoriesRes.subcategories);
+
+    if (productRes.success) {
+      const product = productRes.product;
 
       setFormData({
         name: product.name || "",
@@ -46,16 +58,29 @@ function EditProduct() {
         oldPrice: product.oldPrice || "",
         stock: product.stock || "",
         category: product.category?._id || "",
+        subcategory: product.subcategory?._id || "",
         featured: product.featured,
         isActive: product.isActive,
-        image: null,
       });
 
-      setPreview(`http://localhost:5000${product.image}`);
+      const images = product.images?.length
+        ? product.images
+        : [product.image].filter(Boolean);
+
+      setExistingImages(images);
+      setMainImageIndex(Math.max(images.indexOf(product.image), 0));
     }
 
     setLoading(false);
   };
+
+  useEffect(() => {
+    loadProduct();
+  }, []);
+
+  const subcategoryOptions = subcategories.filter(
+    (sub) => sub.category?._id === formData.category,
+  );
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -63,24 +88,52 @@ function EditProduct() {
     setFormData({
       ...formData,
       [name]: type === "checkbox" ? checked : value,
+      ...(name === "category" ? { subcategory: "" } : {}),
     });
   };
 
-  const handleImage = (e) => {
-    const file = e.target.files[0];
+  const handleAddImages = (e) => {
+    const files = Array.from(e.target.files);
 
-    if (!file) return;
+    if (files.length === 0) return;
 
-    setFormData({
-      ...formData,
-      image: file,
+    setNewImages((prev) => [...prev, ...files]);
+    setNewPreviews((prev) => [
+      ...prev,
+      ...files.map((file) => URL.createObjectURL(file)),
+    ]);
+  };
+
+  const handleRemoveExisting = (index) => {
+    setExistingImages((prev) => prev.filter((_, i) => i !== index));
+
+    setMainImageIndex((prev) => {
+      if (index === prev) return 0;
+      if (index < prev) return prev - 1;
+      return prev;
     });
+  };
 
-    setPreview(URL.createObjectURL(file));
+  const handleRemoveNew = (index) => {
+    const combinedIndex = existingImages.length + index;
+
+    setNewImages((prev) => prev.filter((_, i) => i !== index));
+    setNewPreviews((prev) => prev.filter((_, i) => i !== index));
+
+    setMainImageIndex((prev) => {
+      if (combinedIndex === prev) return 0;
+      if (combinedIndex < prev) return prev - 1;
+      return prev;
+    });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (existingImages.length + newImages.length === 0) {
+      alert("Please keep or add at least one product image");
+      return;
+    }
 
     setSaving(true);
 
@@ -91,6 +144,10 @@ function EditProduct() {
         data.append(key, formData[key]);
       }
     });
+
+    data.append("existingImages", JSON.stringify(existingImages));
+    data.append("mainImageIndex", mainImageIndex);
+    newImages.forEach((file) => data.append("images", file));
 
     const response = await updateProduct(id, data);
 
@@ -180,26 +237,110 @@ function EditProduct() {
           </div>
 
           <div className="form-group">
-            <label>Category Id</label>
+            <label>Category</label>
 
-            <input
-              type="text"
+            <select
               name="category"
               value={formData.category}
               onChange={handleChange}
-            />
+              required
+            >
+              <option value="">Select Category</option>
+
+              {categories.map((category) => (
+                <option key={category._id} value={category._id}>
+                  {category.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label>Subcategory</label>
+
+            <select
+              name="subcategory"
+              value={formData.subcategory}
+              onChange={handleChange}
+              disabled={!formData.category}
+            >
+              <option value="">
+                {formData.category ? "None" : "Select category first"}
+              </option>
+
+              {subcategoryOptions.map((sub) => (
+                <option key={sub._id} value={sub._id}>
+                  {sub.name}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 
         <div className="form-group">
-          <label>Product Image</label>
+          <label>Product Images</label>
 
-          <input type="file" onChange={handleImage} />
+          <input type="file" accept="image/*" multiple onChange={handleAddImages} />
         </div>
 
-        {preview && (
-          <div className="image-preview">
-            <img src={preview} alt="Preview" />
+        {(existingImages.length > 0 || newPreviews.length > 0) && (
+          <div className="image-thumb-grid">
+            {existingImages.map((url, index) => (
+              <div
+                key={url}
+                className={`image-thumb${
+                  index === mainImageIndex ? " is-main" : ""
+                }`}
+                onClick={() => setMainImageIndex(index)}
+              >
+                <img
+                  src={`http://localhost:5000${url}`}
+                  alt={`Product ${index + 1}`}
+                />
+                <button
+                  type="button"
+                  className="remove-btn"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleRemoveExisting(index);
+                  }}
+                >
+                  ×
+                </button>
+                {index === mainImageIndex && (
+                  <span className="main-badge">Main</span>
+                )}
+              </div>
+            ))}
+
+            {newPreviews.map((src, index) => {
+              const combinedIndex = existingImages.length + index;
+
+              return (
+                <div
+                  key={src}
+                  className={`image-thumb${
+                    combinedIndex === mainImageIndex ? " is-main" : ""
+                  }`}
+                  onClick={() => setMainImageIndex(combinedIndex)}
+                >
+                  <img src={src} alt={`New ${index + 1}`} />
+                  <button
+                    type="button"
+                    className="remove-btn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleRemoveNew(index);
+                    }}
+                  >
+                    ×
+                  </button>
+                  {combinedIndex === mainImageIndex && (
+                    <span className="main-badge">Main</span>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
 

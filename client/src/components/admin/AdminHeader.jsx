@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import {
@@ -9,19 +9,79 @@ import {
   FaKey,
   FaSignOutAlt,
   FaChevronDown,
+  FaShoppingCart,
+  FaEnvelope,
 } from "react-icons/fa";
 
 import { logoutUser } from "../../services/authService";
+import {
+  getNotifications,
+  markAllNotificationsRead,
+  markOrderSeen,
+  markMessageRead,
+} from "../../services/adminNotificationService";
 
 import "./AdminHeader.css";
+
+const POLL_INTERVAL_MS = 30000;
+
+const timeAgo = (dateString) => {
+  const seconds = Math.floor((Date.now() - new Date(dateString)) / 1000);
+
+  if (seconds < 60) return "just now";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+};
 
 function AdminHeader() {
   const navigate = useNavigate();
   const location = useLocation();
 
   const [showMenu, setShowMenu] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [totalUnread, setTotalUnread] = useState(0);
 
   const user = JSON.parse(localStorage.getItem("user"));
+
+  const loadNotifications = async () => {
+    const response = await getNotifications();
+
+    if (response.success) {
+      setNotifications(response.notifications);
+      setTotalUnread(response.totalUnread);
+    }
+  };
+
+  useEffect(() => {
+    loadNotifications();
+
+    const interval = setInterval(loadNotifications, POLL_INTERVAL_MS);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleNotificationClick = async (item) => {
+    setShowNotifications(false);
+
+    if (item.type === "order") {
+      await markOrderSeen(item.id);
+    } else {
+      await markMessageRead(item.id);
+    }
+
+    loadNotifications();
+    navigate(item.link);
+  };
+
+  const handleMarkAllRead = async () => {
+    await markAllNotificationsRead();
+    loadNotifications();
+  };
 
   const getTitle = () => {
     if (location.pathname === "/admin") return "Dashboard";
@@ -57,13 +117,93 @@ function AdminHeader() {
       </div>
 
       <div className="header-right">
-        <button className="notification-btn">
-          <FaBell />
+        <div style={{ position: "relative" }}>
+          <button
+            className="notification-btn"
+            onClick={() => {
+              setShowNotifications(!showNotifications);
+              setShowMenu(false);
+            }}
+          >
+            <FaBell />
 
-          <span className="notification-badge">3</span>
-        </button>
+            {totalUnread > 0 && (
+              <span className="notification-badge">
+                {totalUnread > 9 ? "9+" : totalUnread}
+              </span>
+            )}
+          </button>
 
-        <div className="profile-section" onClick={() => setShowMenu(!showMenu)}>
+          {showNotifications && (
+            <div className="absolute top-[65px] right-0 w-80 bg-white rounded-xl shadow-2xl overflow-hidden z-50">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
+                <h4 className="font-semibold text-slate-800 text-sm">
+                  Notifications
+                </h4>
+
+                {totalUnread > 0 && (
+                  <button
+                    onClick={handleMarkAllRead}
+                    className="text-xs font-medium text-blue-600 hover:underline"
+                  >
+                    Mark all as read
+                  </button>
+                )}
+              </div>
+
+              <div className="max-h-96 overflow-y-auto">
+                {notifications.length === 0 ? (
+                  <p className="text-sm text-slate-400 text-center py-8">
+                    No new notifications
+                  </p>
+                ) : (
+                  notifications.map((item) => (
+                    <button
+                      key={`${item.type}-${item.id}`}
+                      onClick={() => handleNotificationClick(item)}
+                      className="w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-slate-50 border-b border-slate-50 last:border-b-0"
+                    >
+                      <span
+                        className={`mt-0.5 w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
+                          item.type === "order"
+                            ? "bg-blue-100 text-blue-600"
+                            : "bg-amber-100 text-amber-600"
+                        }`}
+                      >
+                        {item.type === "order" ? (
+                          <FaShoppingCart className="text-xs" />
+                        ) : (
+                          <FaEnvelope className="text-xs" />
+                        )}
+                      </span>
+
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-slate-800 truncate">
+                          {item.title}
+                        </p>
+                        <p className="text-xs text-slate-500 truncate">
+                          {item.subtitle}
+                        </p>
+                      </div>
+
+                      <span className="text-xs text-slate-400 shrink-0">
+                        {timeAgo(item.createdAt)}
+                      </span>
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div
+          className="profile-section"
+          onClick={() => {
+            setShowMenu(!showMenu);
+            setShowNotifications(false);
+          }}
+        >
           <FaUserCircle className="profile-icon" />
 
           <div className="profile-info">

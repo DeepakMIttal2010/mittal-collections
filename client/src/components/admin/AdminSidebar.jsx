@@ -10,6 +10,11 @@ import {
   FaChartLine,
   FaCog,
   FaSignOutAlt,
+  FaCommentDots,
+  FaFileAlt,
+  FaEnvelopeOpenText,
+  FaLink,
+  FaImages,
 } from "react-icons/fa";
 
 import { logoutUser } from "../../services/authService";
@@ -60,9 +65,39 @@ function AdminSidebar() {
           <span>Products</span>
         </NavLink>
 
+        <NavLink to="/admin/banners">
+          <FaImages />
+          <span>Home Banners</span>
+        </NavLink>
+
         <NavLink to="/admin/categories">
           <FaTags />
           <span>Categories</span>
+        </NavLink>
+
+        <NavLink to="/admin/subcategories">
+          <FaTags />
+          <span>Sub Categories</span>
+        </NavLink>
+
+        <NavLink to="/admin/testimonials">
+          <FaCommentDots />
+          <span>Testimonials</span>
+        </NavLink>
+
+        <NavLink to="/admin/pages">
+          <FaFileAlt />
+          <span>Site Content</span>
+        </NavLink>
+
+        <NavLink to="/admin/footer-links">
+          <FaLink />
+          <span>Footer Links</span>
+        </NavLink>
+
+        <NavLink to="/admin/messages">
+          <FaEnvelopeOpenText />
+          <span>Messages</span>
         </NavLink>
 
         <NavLink to="/admin/orders">

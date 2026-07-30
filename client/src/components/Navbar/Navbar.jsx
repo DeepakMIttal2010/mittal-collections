@@ -1,73 +1,21 @@
-import "./Navbar.css";
 import { NavLink } from "react-router-dom";
-import { FaHeart, FaShoppingCart } from "react-icons/fa";
-import { useCart } from "../../context/CartContext";
-import { useWishlist } from "../../context/WishlistContext";
-import { useAuth } from "../../context/AuthContext";
+import MegaMenu from "../MegaMenu";
 
 function Navbar() {
-  const { totalItems } = useCart();
-  const { totalWishlistItems } = useWishlist();
-  const { user, logout, isLoggedIn } = useAuth();
+  const linkClass = ({ isActive }) =>
+    `text-sm font-medium px-4 py-3 transition-colors ${
+      isActive ? "text-amber-600" : "text-slate-700 hover:text-amber-600"
+    }`;
 
   return (
-    <nav className="navbar-custom">
-      <div className="container navbar-container">
-        {/* Left Menu */}
+    <nav className="bg-white border-b border-slate-200">
+      <div className="max-w-7xl mx-auto px-4 flex items-center">
+        <NavLink to="/" className={linkClass}>
+          Home
+        </NavLink>
 
-        <div className="nav-links">
-          <NavLink to="/">Home</NavLink>
-
-          <NavLink to="/bedsheets">Bedsheets</NavLink>
-
-          <NavLink to="/towels">Towels</NavLink>
-
-          <NavLink to="/curtains">Curtains</NavLink>
-
-          <NavLink to="/pillows">Pillows</NavLink>
-
-          <NavLink to="/blankets">Blankets</NavLink>
-
-          <NavLink to="/offers">Offers</NavLink>
-
-          <NavLink to="/about">About</NavLink>
-
-          <NavLink to="/contact">Contact</NavLink>
-        </div>
-
-        {/* Right Icons */}
-
-        <div className="nav-icons">
-          {isLoggedIn ? (
-            <>
-              <span className="welcome-user">Hi, {user?.name}</span>
-
-              <NavLink to="/wishlist" className="icon-box">
-                <FaHeart />
-                {totalWishlistItems > 0 && (
-                  <span className="wishlist-count">{totalWishlistItems}</span>
-                )}
-              </NavLink>
-
-              <NavLink to="/cart" className="icon-box cart-icon">
-                <FaShoppingCart />
-                {totalItems > 0 && (
-                  <span className="cart-count">{totalItems}</span>
-                )}
-              </NavLink>
-
-              <button className="logout-btn" onClick={logout}>
-                Logout
-              </button>
-            </>
-          ) : (
-            <>
-              <NavLink to="/login">Login</NavLink>
-
-              <NavLink to="/register">Register</NavLink>
-            </>
-          )}
-        </div>
+        {/* Dynamic categories + subcategories mega menu */}
+        <MegaMenu linkClassName={linkClass} />
       </div>
     </nav>
   );

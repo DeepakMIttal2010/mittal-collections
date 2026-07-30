@@ -13,11 +13,54 @@ const generateSlug = (name) =>
 // ============================
 export const getCategories = async (req, res) => {
   try {
-    const categories = await Category.find().sort({ displayOrder: 1 });
+    const categories = await Category.find({ isActive: true }).sort({
+      displayOrder: 1,
+    });
 
     res.status(200).json({
       success: true,
       categories,
+    });
+  } catch (error) {
+    console.error("Get Categories Error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};
+
+// ============================
+// Get All Categories (Admin — paginated, with search)
+// ============================
+export const getAllCategoriesAdmin = async (req, res) => {
+  try {
+    const filter = {};
+
+    const { search } = req.query;
+    if (search && search.trim()) {
+      const regex = new RegExp(search.trim(), "i");
+      filter.$or = [{ name: regex }, { description: regex }];
+    }
+
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const limit = Math.max(parseInt(req.query.limit, 10) || 25, 1);
+
+    const total = await Category.countDocuments(filter);
+
+    const categories = await Category.find(filter)
+      .sort({ displayOrder: 1 })
+      .skip((page - 1) * limit)
+      .limit(limit);
+
+    res.status(200).json({
+      success: true,
+      categories,
+      total,
+      page,
+      limit,
+      pages: Math.max(Math.ceil(total / limit), 1),
     });
   } catch (error) {
     console.error("Get Categories Error:", error);
@@ -164,6 +207,38 @@ export const updateCategory = async (req, res) => {
 };
 
 // ============================
+// Restore Category (Admin)
+// ============================
+export const restoreCategory = async (req, res) => {
+  try {
+    const category = await Category.findById(req.params.id);
+
+    if (!category) {
+      return res.status(404).json({
+        success: false,
+        message: "Category not found",
+      });
+    }
+
+    category.isActive = true;
+    await category.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Category restored successfully",
+      category,
+    });
+  } catch (error) {
+    console.error("Restore Category Error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};
+
+// ============================
 // Delete Category (Admin)
 // ============================
 export const deleteCategory = async (req, res) => {
@@ -177,7 +252,8 @@ export const deleteCategory = async (req, res) => {
       });
     }
 
-    await category.deleteOne();
+    category.isActive = false;
+    await category.save();
 
     res.status(200).json({
       success: true,

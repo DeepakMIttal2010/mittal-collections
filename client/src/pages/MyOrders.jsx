@@ -1,40 +1,173 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { getMyOrders } from "../services/orderService";
-import "./MyOrders.css";
+import { useCart } from "../context/CartContext";
+
+const TABS = [
+  { key: "orders", label: "Orders" },
+  { key: "buyAgain", label: "Buy Again" },
+];
+
+function OrderCard({ order }) {
+  return (
+    <div className="border border-slate-200 rounded-xl p-5 bg-white">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+        <h4 className="font-semibold text-slate-800">
+          Order ID: {order._id}
+        </h4>
+        <span className="text-xs font-medium px-3 py-1 rounded-full bg-amber-100 text-amber-700">
+          {order.orderStatus}
+        </span>
+      </div>
+
+      <p className="text-sm text-slate-600">Total: ₹{order.totalPrice}</p>
+      <p className="text-sm text-slate-600">
+        Date: {new Date(order.createdAt).toLocaleDateString()}
+      </p>
+
+      {order.orderItems?.length > 0 && (
+        <ul className="mt-3 text-sm text-slate-500 space-y-1">
+          {order.orderItems.map((item, i) => (
+            <li key={i}>
+              {item.name} × {item.quantity}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
 
 function MyOrders() {
   const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState("orders");
+  const { addToCart } = useCart();
 
   useEffect(() => {
     const loadOrders = async () => {
       const response = await getMyOrders();
 
-      if (response.success) {
+      if (response?.success) {
         setOrders(response.orders);
       }
+
+      setLoading(false);
     };
 
     loadOrders();
   }, []);
 
+  const buyAgainItems = useMemo(() => {
+    const seen = new Map();
+
+    orders.forEach((order) => {
+      order.orderItems?.forEach((item) => {
+        if (!seen.has(item.product)) {
+          seen.set(item.product, item);
+        }
+      });
+    });
+
+    return Array.from(seen.values());
+  }, [orders]);
+
+  const tabClass = (key) =>
+    `pb-3 text-sm font-medium border-b-2 transition-colors ${
+      activeTab === key
+        ? "border-amber-600 text-amber-600"
+        : "border-transparent text-slate-500 hover:text-slate-700"
+    }`;
+
   return (
-    <div className="container">
-      <h2>My Orders</h2>
+    <div className="max-w-7xl mx-auto px-4 py-8">
+      <div className="text-sm mb-2">
+        <Link to="/account" className="text-blue-700 hover:underline">
+          Your Account
+        </Link>
+        <span className="text-slate-400 mx-2">›</span>
+        <span className="text-amber-600 font-medium">Your Orders</span>
+      </div>
 
-      {orders.length === 0 ? (
-        <p>No Orders Found.</p>
+      <h1 className="text-3xl font-bold text-slate-900 mb-6">Your Orders</h1>
+
+      <div className="flex gap-8 border-b border-slate-200 mb-6">
+        {TABS.map((tab) => (
+          <button
+            key={tab.key}
+            type="button"
+            onClick={() => setActiveTab(tab.key)}
+            className={tabClass(tab.key)}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {loading ? (
+        <p className="text-slate-500">Loading...</p>
       ) : (
-        orders.map((order) => (
-          <div className="order-card" key={order._id}>
-            <h4>Order ID: {order._id}</h4>
+        <>
+          {activeTab === "orders" &&
+            (orders.length === 0 ? (
+              <p className="text-slate-500">No Orders Found.</p>
+            ) : (
+              <div className="space-y-4">
+                {orders.map((order) => (
+                  <OrderCard key={order._id} order={order} />
+                ))}
+              </div>
+            ))}
 
-            <p>Total: ₹{order.totalPrice}</p>
+          {activeTab === "buyAgain" &&
+            (buyAgainItems.length === 0 ? (
+              <p className="text-slate-500">
+                Items from your past orders will show up here.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {buyAgainItems.map((item) => (
+                  <div
+                    key={item.product}
+                    className="flex items-center justify-between gap-4 border border-slate-200 rounded-xl p-4 bg-white"
+                  >
+                    <div className="flex items-center gap-4 min-w-0">
+                      {item.image && (
+                        <img
+                          src={`http://localhost:5000${item.image}`}
+                          alt={item.name}
+                          className="w-14 h-14 object-cover rounded-lg shrink-0"
+                        />
+                      )}
+                      <div className="min-w-0">
+                        <p className="font-medium text-slate-800 truncate">
+                          {item.name}
+                        </p>
+                        <p className="text-sm text-slate-500">
+                          ₹{item.price}
+                        </p>
+                      </div>
+                    </div>
 
-            <p>Status: {order.orderStatus}</p>
-
-            <p>Date: {new Date(order.createdAt).toLocaleDateString()}</p>
-          </div>
-        ))
+                    <button
+                      type="button"
+                      onClick={() =>
+                        addToCart({
+                          _id: item.product,
+                          name: item.name,
+                          image: item.image,
+                          price: item.price,
+                        })
+                      }
+                      className="shrink-0 bg-blue-900 hover:bg-blue-950 text-white text-sm font-medium px-4 py-2 rounded-full transition-colors"
+                    >
+                      Add to Cart
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ))}
+        </>
       )}
     </div>
   );

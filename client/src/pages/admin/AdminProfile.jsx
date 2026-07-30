@@ -1,15 +1,13 @@
 import { useEffect, useState } from "react";
 
-import {
-  getProfile,
-  updateProfile,
-  changePassword,
-} from "../../services/adminProfileService";
+import { getProfile, updateProfile } from "../../services/adminProfileService";
+
+const MOBILE_REGEX = /^[6-9]\d{9}$/;
 
 function AdminProfile() {
   const [loading, setLoading] = useState(true);
   const [savingProfile, setSavingProfile] = useState(false);
-  const [savingPassword, setSavingPassword] = useState(false);
+  const [mobileError, setMobileError] = useState("");
 
   const [profileData, setProfileData] = useState({
     name: "",
@@ -17,16 +15,6 @@ function AdminProfile() {
     mobile: "",
     role: "",
   });
-
-  const [passwordData, setPasswordData] = useState({
-    currentPassword: "",
-    newPassword: "",
-    confirmPassword: "",
-  });
-
-  useEffect(() => {
-    loadProfile();
-  }, []);
 
   const loadProfile = async () => {
     setLoading(true);
@@ -45,8 +33,26 @@ function AdminProfile() {
     setLoading(false);
   };
 
+  useEffect(() => {
+    loadProfile();
+  }, []);
+
   const handleProfileChange = (e) => {
     const { name, value } = e.target;
+
+    if (name === "mobile") {
+      const digitsOnly = value.replace(/\D/g, "").slice(0, 10);
+
+      setProfileData((prev) => ({ ...prev, mobile: digitsOnly }));
+
+      setMobileError(
+        digitsOnly && !MOBILE_REGEX.test(digitsOnly)
+          ? "Enter a valid 10-digit mobile number"
+          : "",
+      );
+
+      return;
+    }
 
     setProfileData((prev) => ({
       ...prev,
@@ -54,17 +60,13 @@ function AdminProfile() {
     }));
   };
 
-  const handlePasswordChange = (e) => {
-    const { name, value } = e.target;
-
-    setPasswordData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
-
   const handleProfileSubmit = async (e) => {
     e.preventDefault();
+
+    if (!MOBILE_REGEX.test(profileData.mobile)) {
+      setMobileError("Enter a valid 10-digit mobile number");
+      return;
+    }
 
     setSavingProfile(true);
 
@@ -93,36 +95,6 @@ function AdminProfile() {
     }
   };
 
-  const handlePasswordSubmit = async (e) => {
-    e.preventDefault();
-
-    if (passwordData.newPassword !== passwordData.confirmPassword) {
-      alert("New password and confirm password do not match");
-      return;
-    }
-
-    setSavingPassword(true);
-
-    const response = await changePassword({
-      currentPassword: passwordData.currentPassword,
-      newPassword: passwordData.newPassword,
-    });
-
-    setSavingPassword(false);
-
-    if (response.success) {
-      alert("Password changed successfully");
-
-      setPasswordData({
-        currentPassword: "",
-        newPassword: "",
-        confirmPassword: "",
-      });
-    } else {
-      alert(response.message || "Unable to change password");
-    }
-  };
-
   if (loading) {
     return (
       <div className="p-8 text-center text-slate-500">Loading Profile...</div>
@@ -133,7 +105,7 @@ function AdminProfile() {
     <div className="p-6 max-w-3xl">
       <h2 className="text-2xl font-bold text-slate-800 mb-6">My Profile</h2>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="max-w-lg">
         {/* Profile Info Card */}
         <div className="bg-white border border-slate-200 rounded-xl p-6">
           <h3 className="text-lg font-semibold text-slate-800 mb-4">
@@ -175,13 +147,22 @@ function AdminProfile() {
                 Mobile
               </label>
               <input
-                type="text"
+                type="tel"
+                inputMode="numeric"
                 name="mobile"
                 value={profileData.mobile}
                 onChange={handleProfileChange}
                 required
-                className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                maxLength={10}
+                className={`w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 ${
+                  mobileError
+                    ? "border-red-400 focus:ring-red-400"
+                    : "border-slate-300 focus:ring-blue-500"
+                }`}
               />
+              {mobileError && (
+                <p className="text-xs text-red-500 mt-1">{mobileError}</p>
+              )}
             </div>
 
             <div>
@@ -198,71 +179,10 @@ function AdminProfile() {
 
             <button
               type="submit"
-              disabled={savingProfile}
+              disabled={savingProfile || !!mobileError}
               className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-5 py-2.5 rounded-lg transition-colors disabled:opacity-60"
             >
               {savingProfile ? "Saving..." : "Save Changes"}
-            </button>
-          </form>
-        </div>
-
-        {/* Change Password Card */}
-        <div className="bg-white border border-slate-200 rounded-xl p-6">
-          <h3 className="text-lg font-semibold text-slate-800 mb-4">
-            Change Password
-          </h3>
-
-          <form onSubmit={handlePasswordSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                Current Password
-              </label>
-              <input
-                type="password"
-                name="currentPassword"
-                value={passwordData.currentPassword}
-                onChange={handlePasswordChange}
-                required
-                className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                New Password
-              </label>
-              <input
-                type="password"
-                name="newPassword"
-                value={passwordData.newPassword}
-                onChange={handlePasswordChange}
-                required
-                minLength={6}
-                className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                Confirm New Password
-              </label>
-              <input
-                type="password"
-                name="confirmPassword"
-                value={passwordData.confirmPassword}
-                onChange={handlePasswordChange}
-                required
-                minLength={6}
-                className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={savingPassword}
-              className="bg-slate-800 hover:bg-slate-900 text-white font-medium px-5 py-2.5 rounded-lg transition-colors disabled:opacity-60"
-            >
-              {savingPassword ? "Updating..." : "Change Password"}
             </button>
           </form>
         </div>

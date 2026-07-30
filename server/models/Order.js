@@ -80,6 +80,11 @@ const orderSchema = new mongoose.Schema(
       default: false,
     },
 
+    isSeenByAdmin: {
+      type: Boolean,
+      default: false,
+    },
+
     paidAt: Date,
 
     deliveredAt: Date,
