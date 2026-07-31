@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# generated at build time by scripts/generate-sitemap.js
+public/sitemap.xml
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

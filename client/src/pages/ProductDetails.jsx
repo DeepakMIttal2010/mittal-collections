@@ -1,4 +1,5 @@
 import { imgUrl } from "../services/api";
+import Seo from "../components/Seo";
 import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import {
@@ -208,8 +209,37 @@ function ProductDetails() {
         )
       : 0;
 
+  const productJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: product.name,
+    description: product.description,
+    image: imgUrl(product.image),
+    offers: {
+      "@type": "Offer",
+      priceCurrency: "INR",
+      price: product.price,
+      availability:
+        product.stock > 0
+          ? "https://schema.org/InStock"
+          : "https://schema.org/OutOfStock",
+      url: shareUrl,
+    },
+  };
+
   return (
     <div className="max-w-6xl mx-auto px-4 py-12">
+      <Seo
+        title={product.name}
+        description={
+          product.description
+            ? product.description.slice(0, 160)
+            : `Buy ${product.name} at Mittal Collections`
+        }
+        image={imgUrl(product.image)}
+        url={shareUrl}
+        jsonLd={productJsonLd}
+      />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
         {/* Image gallery with zoom */}
         <div

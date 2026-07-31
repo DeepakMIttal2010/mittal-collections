@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 
 import { getProductsByMaxPrice } from "../services/productService";
 import ProductGrid from "../components/ProductGrid/ProductGrid";
+import Seo from "../components/Seo";
 
 function PriceRangePage() {
   const { maxPrice } = useParams();
@@ -26,6 +27,10 @@ function PriceRangePage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-12">
+      <Seo
+        title={`Products Under ₹${maxPrice}`}
+        description={`Shop home furnishing products under ₹${maxPrice} at Mittal Collections - bedsheets, towels, curtains and more.`}
+      />
       <h1 className="text-3xl font-bold text-slate-900 mb-2">
         Products Under ₹{maxPrice}
       </h1>

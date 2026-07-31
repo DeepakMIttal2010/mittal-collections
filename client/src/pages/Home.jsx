@@ -1,3 +1,4 @@
+import Seo from "../components/Seo";
 import Hero from "../components/Hero/Hero";
 import Features from "../components/Features/Features";
 import Categories from "../components/Categories/Categories";
@@ -12,6 +13,11 @@ import ProductSection from "../components/ProductSection/ProductSection";
 function Home() {
   return (
     <>
+      <Seo
+        title="Premium Home Furnishing"
+        description="Shop premium bedsheets, towels, curtains, pillows, cushions and blankets at Mittal Collections. Quality home furnishing for every corner of your home."
+        url="https://mittal-collections-five.vercel.app/"
+      />
       <Hero />
       <Features />
       <Categories />

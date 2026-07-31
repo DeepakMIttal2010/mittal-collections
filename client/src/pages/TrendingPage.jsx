@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import { getTrendingProducts } from "../services/productService";
 import ProductGrid from "../components/ProductGrid/ProductGrid";
+import Seo from "../components/Seo";
 
 function TrendingPage() {
   const [products, setProducts] = useState([]);
@@ -23,6 +24,10 @@ function TrendingPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-12">
+      <Seo
+        title="Top Trending"
+        description="Handpicked by our team - the home furnishing pieces everyone's loving right now at Mittal Collections."
+      />
       <h1 className="text-3xl md:text-4xl font-bold text-slate-900 mb-2">
         Top Trending
       </h1>

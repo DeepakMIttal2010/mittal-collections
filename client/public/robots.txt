@@ -1,0 +1,17 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /account
+Disallow: /cart
+Disallow: /checkout
+Disallow: /wishlist
+Disallow: /my-orders
+Disallow: /addresses
+Disallow: /login
+Disallow: /register
+Disallow: /forgot-password
+Disallow: /reset-password
+Disallow: /change-password
+Disallow: /search
+
+Sitemap: https://mittal-collections-five.vercel.app/sitemap.xml

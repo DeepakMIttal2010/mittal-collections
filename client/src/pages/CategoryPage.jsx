@@ -7,6 +7,7 @@ import {
   getProductsBySubcategory,
 } from "../services/productService";
 import ProductGrid from "../components/ProductGrid/ProductGrid";
+import Seo from "../components/Seo";
 
 const SORT_OPTIONS = [
   { value: "featured", label: "Featured" },
@@ -130,8 +131,16 @@ function CategoryPage() {
         : "border-slate-300 text-slate-700 hover:border-amber-600 hover:text-amber-600"
     }`;
 
+  const pageTitle = activeSubcategory
+    ? `${activeSubcategory.name} - ${category.name}`
+    : category.name;
+
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
+      <Seo
+        title={pageTitle}
+        description={`Shop ${pageTitle} at Mittal Collections. ${category.description || ""}`.trim()}
+      />
       <h2 className="text-xl font-semibold text-slate-800 mb-4">
         {category.name}
         {activeSubcategory ? ` / ${activeSubcategory.name}` : ""}
