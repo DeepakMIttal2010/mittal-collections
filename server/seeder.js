@@ -154,7 +154,6 @@ const importAll = async () => {
     await Banner.deleteMany();
     await PriceRange.deleteMany();
 
-    await Category.insertMany(categoriesData);
     const categories = await Category.insertMany(categoriesData);
 
     const categoryMap = {};
