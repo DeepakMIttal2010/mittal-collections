@@ -1,7 +1,7 @@
 import { imgUrl } from "../../services/api";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { FaTh, FaList } from "react-icons/fa";
+import { FaTh, FaList, FaSort, FaSortUp, FaSortDown } from "react-icons/fa";
 
 import {
   getAllProducts,
@@ -22,11 +22,19 @@ function AdminProducts() {
   const [total, setTotal] = useState(0);
   const [pages, setPages] = useState(1);
   const [quickViewProduct, setQuickViewProduct] = useState(null);
+  const [sortBy, setSortBy] = useState("createdAt");
+  const [sortOrder, setSortOrder] = useState("desc");
 
   const loadProducts = async () => {
     setLoading(true);
 
-    const response = await getAllProducts({ page, limit, search });
+    const response = await getAllProducts({
+      page,
+      limit,
+      search,
+      sortBy,
+      sortOrder,
+    });
 
     if (response.success) {
       setProducts(response.products);
@@ -40,7 +48,7 @@ function AdminProducts() {
   useEffect(() => {
     loadProducts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, limit, search]);
+  }, [page, limit, search, sortBy, sortOrder]);
 
   const handleSearchChange = (e) => {
     setSearch(e.target.value);
@@ -50,6 +58,26 @@ function AdminProducts() {
   const handleLimitChange = (e) => {
     setLimit(Number(e.target.value));
     setPage(1);
+  };
+
+  const toggleSort = (field) => {
+    if (sortBy === field) {
+      setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortBy(field);
+      setSortOrder("asc");
+    }
+    setPage(1);
+  };
+
+  const renderSortIcon = (field) => {
+    if (sortBy !== field)
+      return <FaSort className="inline text-slate-300 ml-1" />;
+    return sortOrder === "asc" ? (
+      <FaSortUp className="inline text-slate-700 ml-1" />
+    ) : (
+      <FaSortDown className="inline text-slate-700 ml-1" />
+    );
   };
 
   const handleDelete = async (id) => {
@@ -191,12 +219,30 @@ function AdminProducts() {
             <thead className="bg-slate-50 text-slate-600">
               <tr>
                 <th className="text-left px-4 py-3 font-semibold">Image</th>
-                <th className="text-left px-4 py-3 font-semibold">Name</th>
+                <th
+                  className="text-left px-4 py-3 font-semibold cursor-pointer select-none hover:text-slate-900"
+                  onClick={() => toggleSort("name")}
+                >
+                  Name
+                  {renderSortIcon("name")}
+                </th>
                 <th className="text-left px-4 py-3 font-semibold">
                   Category
                 </th>
-                <th className="text-left px-4 py-3 font-semibold">Price</th>
-                <th className="text-left px-4 py-3 font-semibold">Stock</th>
+                <th
+                  className="text-left px-4 py-3 font-semibold cursor-pointer select-none hover:text-slate-900"
+                  onClick={() => toggleSort("price")}
+                >
+                  Price
+                  {renderSortIcon("price")}
+                </th>
+                <th
+                  className="text-left px-4 py-3 font-semibold cursor-pointer select-none hover:text-slate-900"
+                  onClick={() => toggleSort("stock")}
+                >
+                  Stock
+                  {renderSortIcon("stock")}
+                </th>
                 <th className="text-center px-4 py-3 font-semibold">
                   Status
                 </th>

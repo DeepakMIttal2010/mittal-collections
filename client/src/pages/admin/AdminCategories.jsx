@@ -1,7 +1,7 @@
 import { imgUrl } from "../../services/api";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { FaTh, FaList } from "react-icons/fa";
+import { FaTh, FaList, FaSort, FaSortUp, FaSortDown } from "react-icons/fa";
 
 import {
   getAllCategories,
@@ -20,11 +20,19 @@ function AdminCategories() {
   const [limit, setLimit] = useState(25);
   const [total, setTotal] = useState(0);
   const [pages, setPages] = useState(1);
+  const [sortBy, setSortBy] = useState("displayOrder");
+  const [sortOrder, setSortOrder] = useState("asc");
 
   const loadCategories = async () => {
     setLoading(true);
 
-    const response = await getAllCategories({ page, limit, search });
+    const response = await getAllCategories({
+      page,
+      limit,
+      search,
+      sortBy,
+      sortOrder,
+    });
 
     if (response.success) {
       setCategories(response.categories);
@@ -38,7 +46,7 @@ function AdminCategories() {
   useEffect(() => {
     loadCategories();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, limit, search]);
+  }, [page, limit, search, sortBy, sortOrder]);
 
   const handleSearchChange = (e) => {
     setSearch(e.target.value);
@@ -48,6 +56,26 @@ function AdminCategories() {
   const handleLimitChange = (e) => {
     setLimit(Number(e.target.value));
     setPage(1);
+  };
+
+  const toggleSort = (field) => {
+    if (sortBy === field) {
+      setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortBy(field);
+      setSortOrder("asc");
+    }
+    setPage(1);
+  };
+
+  const renderSortIcon = (field) => {
+    if (sortBy !== field)
+      return <FaSort className="inline text-slate-300 ml-1" />;
+    return sortOrder === "asc" ? (
+      <FaSortUp className="inline text-slate-700 ml-1" />
+    ) : (
+      <FaSortDown className="inline text-slate-700 ml-1" />
+    );
   };
 
   const handleDelete = async (id) => {
@@ -191,7 +219,13 @@ function AdminCategories() {
             <thead className="bg-slate-50 text-slate-600">
               <tr>
                 <th className="text-left px-4 py-3 font-semibold">Image</th>
-                <th className="text-left px-4 py-3 font-semibold">Name</th>
+                <th
+                  className="text-left px-4 py-3 font-semibold cursor-pointer select-none hover:text-slate-900"
+                  onClick={() => toggleSort("name")}
+                >
+                  Name
+                  {renderSortIcon("name")}
+                </th>
                 <th className="text-left px-4 py-3 font-semibold">
                   Description
                 </th>

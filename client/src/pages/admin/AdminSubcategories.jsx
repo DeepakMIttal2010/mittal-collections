@@ -1,5 +1,6 @@
 import { imgUrl } from "../../services/api";
 import { useEffect, useState } from "react";
+import { FaSort, FaSortUp, FaSortDown } from "react-icons/fa";
 
 import { getCategories } from "../../services/categoryService";
 import {
@@ -23,6 +24,8 @@ function AdminSubcategories() {
   const [limit, setLimit] = useState(25);
   const [total, setTotal] = useState(0);
   const [pages, setPages] = useState(1);
+  const [sortBy, setSortBy] = useState("displayOrder");
+  const [sortOrder, setSortOrder] = useState("asc");
 
   const [formData, setFormData] = useState({
     category: "",
@@ -40,7 +43,7 @@ function AdminSubcategories() {
 
     const [catRes, subcatRes] = await Promise.all([
       getCategories(),
-      getAllSubcategoriesAdmin({ page, limit, search }),
+      getAllSubcategoriesAdmin({ page, limit, search, sortBy, sortOrder }),
     ]);
 
     if (catRes.success) setCategories(catRes.categories);
@@ -57,11 +60,31 @@ function AdminSubcategories() {
   useEffect(() => {
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, limit, search]);
+  }, [page, limit, search, sortBy, sortOrder]);
 
   const handleSearchChange = (e) => {
     setSearch(e.target.value);
     setPage(1);
+  };
+
+  const toggleSort = (field) => {
+    if (sortBy === field) {
+      setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortBy(field);
+      setSortOrder("asc");
+    }
+    setPage(1);
+  };
+
+  const renderSortIcon = (field) => {
+    if (sortBy !== field)
+      return <FaSort className="inline text-slate-300 ml-1" />;
+    return sortOrder === "asc" ? (
+      <FaSortUp className="inline text-slate-700 ml-1" />
+    ) : (
+      <FaSortDown className="inline text-slate-700 ml-1" />
+    );
   };
 
   const handleLimitChange = (e) => {
@@ -367,14 +390,26 @@ function AdminSubcategories() {
                 <th className="text-left px-4 py-3 font-semibold">
                   Category
                 </th>
-                <th className="text-left px-4 py-3 font-semibold">
+                <th
+                  className="text-left px-4 py-3 font-semibold cursor-pointer select-none hover:text-slate-900"
+                  onClick={() => toggleSort("groupLabel")}
+                >
                   Group Label
+                  {renderSortIcon("groupLabel")}
                 </th>
-                <th className="text-left px-4 py-3 font-semibold">
+                <th
+                  className="text-left px-4 py-3 font-semibold cursor-pointer select-none hover:text-slate-900"
+                  onClick={() => toggleSort("name")}
+                >
                   Item Name
+                  {renderSortIcon("name")}
                 </th>
-                <th className="text-center px-4 py-3 font-semibold">
+                <th
+                  className="text-center px-4 py-3 font-semibold cursor-pointer select-none hover:text-slate-900"
+                  onClick={() => toggleSort("displayOrder")}
+                >
                   Order
+                  {renderSortIcon("displayOrder")}
                 </th>
                 <th className="text-center px-4 py-3 font-semibold">
                   Status

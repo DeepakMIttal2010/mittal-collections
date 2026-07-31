@@ -6,10 +6,14 @@ export const getAllSubcategoriesAdmin = async ({
   page = 1,
   limit = 25,
   search = "",
+  sortBy = "",
+  sortOrder = "",
 } = {}) => {
   try {
     const params = new URLSearchParams({ page, limit });
     if (search.trim()) params.set("search", search.trim());
+    if (sortBy) params.set("sortBy", sortBy);
+    if (sortOrder) params.set("sortOrder", sortOrder);
 
     const response = await fetch(
       `${API_BASE_URL}/subcategories/admin?${params.toString()}`,

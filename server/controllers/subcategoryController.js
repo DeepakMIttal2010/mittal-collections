@@ -47,11 +47,17 @@ export const getAllSubcategoriesAdmin = async (req, res) => {
     const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
     const limit = Math.max(parseInt(req.query.limit, 10) || 25, 1);
 
+    const allowedSortFields = ["name", "groupLabel", "displayOrder", "createdAt"];
+    const sortBy = allowedSortFields.includes(req.query.sortBy)
+      ? req.query.sortBy
+      : "displayOrder";
+    const sortOrder = req.query.sortOrder === "desc" ? -1 : 1;
+
     const total = await Subcategory.countDocuments(filter);
 
     const subcategories = await Subcategory.find(filter)
       .populate("category", "name slug")
-      .sort({ displayOrder: 1 })
+      .sort({ [sortBy]: sortOrder })
       .skip((page - 1) * limit)
       .limit(limit);
 

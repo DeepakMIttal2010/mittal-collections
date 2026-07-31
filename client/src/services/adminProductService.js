@@ -9,10 +9,14 @@ export const getAllProducts = async ({
   page = 1,
   limit = 25,
   search = "",
+  sortBy = "",
+  sortOrder = "",
 } = {}) => {
   try {
     const params = new URLSearchParams({ page, limit });
     if (search.trim()) params.set("search", search.trim());
+    if (sortBy) params.set("sortBy", sortBy);
+    if (sortOrder) params.set("sortOrder", sortOrder);
 
     const response = await fetch(
       `${API_BASE_URL}/products/admin?${params.toString()}`,

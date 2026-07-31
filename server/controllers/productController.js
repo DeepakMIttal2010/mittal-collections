@@ -58,12 +58,18 @@ export const getAllProductsAdmin = async (req, res) => {
     const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
     const limit = Math.max(parseInt(req.query.limit, 10) || 25, 1);
 
+    const allowedSortFields = ["name", "price", "stock", "createdAt"];
+    const sortBy = allowedSortFields.includes(req.query.sortBy)
+      ? req.query.sortBy
+      : "createdAt";
+    const sortOrder = req.query.sortOrder === "asc" ? 1 : -1;
+
     const total = await Product.countDocuments(filter);
 
     const products = await Product.find(filter)
       .populate("category", "name slug image")
       .populate("subcategory", "name slug")
-      .sort({ createdAt: -1 })
+      .sort({ [sortBy]: sortOrder })
       .skip((page - 1) * limit)
       .limit(limit);
 

@@ -47,10 +47,16 @@ export const getAllCategoriesAdmin = async (req, res) => {
     const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
     const limit = Math.max(parseInt(req.query.limit, 10) || 25, 1);
 
+    const allowedSortFields = ["name", "displayOrder", "createdAt"];
+    const sortBy = allowedSortFields.includes(req.query.sortBy)
+      ? req.query.sortBy
+      : "displayOrder";
+    const sortOrder = req.query.sortOrder === "desc" ? -1 : 1;
+
     const total = await Category.countDocuments(filter);
 
     const categories = await Category.find(filter)
-      .sort({ displayOrder: 1 })
+      .sort({ [sortBy]: sortOrder })
       .skip((page - 1) * limit)
       .limit(limit);
 
