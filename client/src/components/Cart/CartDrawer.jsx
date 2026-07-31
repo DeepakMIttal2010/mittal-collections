@@ -1,4 +1,4 @@
-import { SERVER_URL } from "../../services/api";
+import { imgUrl } from "../../services/api";
 import { Link, useNavigate } from "react-router-dom";
 import { FaTimes, FaPlus, FaMinus, FaLock } from "react-icons/fa";
 
@@ -106,7 +106,7 @@ function CartDrawer() {
                     src={
                       item.image?.startsWith("http")
                         ? item.image
-                        : `${SERVER_URL}${item.image}`
+                        : `${imgUrl(item.image)}`
                     }
                     alt={item.name}
                     className="w-20 h-20 object-cover rounded-lg shrink-0"

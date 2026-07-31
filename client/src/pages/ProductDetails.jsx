@@ -1,4 +1,4 @@
-import { SERVER_URL } from "../services/api";
+import { imgUrl } from "../services/api";
 import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import {
@@ -187,7 +187,7 @@ function ProductDetails() {
     {
       label: "Pinterest",
       icon: FaPinterestP,
-      href: `https://pinterest.com/pin/create/button/?url=${encodeURIComponent(shareUrl)}&media=${encodeURIComponent(`${SERVER_URL}${product.image}`)}&description=${encodeURIComponent(shareText)}`,
+      href: `https://pinterest.com/pin/create/button/?url=${encodeURIComponent(shareUrl)}&media=${encodeURIComponent(imgUrl(product.image))}&description=${encodeURIComponent(shareText)}`,
     },
     {
       label: "Email",
@@ -224,7 +224,7 @@ function ProductDetails() {
             onClick={openLightbox}
           >
             <img
-              src={`${SERVER_URL}${activeImage}`}
+              src={`${imgUrl(activeImage)}`}
               alt={product.name}
               style={zoomStyle}
               className="w-full h-full object-cover transition-transform duration-200 pointer-events-none"
@@ -251,7 +251,7 @@ function ProductDetails() {
                   className="aspect-square rounded-xl overflow-hidden border border-slate-200 hover:border-amber-400 transition-colors"
                 >
                   <img
-                    src={`${SERVER_URL}${img}`}
+                    src={`${imgUrl(img)}`}
                     alt={product.name}
                     className="w-full h-full object-cover"
                   />
@@ -456,7 +456,7 @@ function ProductDetails() {
           )}
 
           <img
-            src={`${SERVER_URL}${allImages[lightboxIndex]}`}
+            src={`${imgUrl(allImages[lightboxIndex])}`}
             alt={product.name}
             onClick={(e) => e.stopPropagation()}
             className="max-w-full max-h-[85vh] object-contain"

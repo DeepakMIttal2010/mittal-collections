@@ -1,4 +1,4 @@
-import { SERVER_URL } from "../../services/api";
+import { imgUrl } from "../../services/api";
 import { Link } from "react-router-dom";
 import { FaTimes, FaStar, FaShoppingCart, FaHeart } from "react-icons/fa";
 
@@ -45,7 +45,7 @@ function QuickViewModal({ product, onClose }) {
 
         <div className="relative">
           <img
-            src={`${SERVER_URL}${product.image}`}
+            src={`${imgUrl(product.image)}`}
             alt={product.name}
             className="w-full h-full object-cover"
           />

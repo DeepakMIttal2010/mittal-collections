@@ -96,7 +96,7 @@ export const addSubcategory = async (req, res) => {
       name,
       slug,
       subtitle: subtitle || "",
-      image: req.file ? `/uploads/products/${req.file.filename}` : "",
+      image: req.file ? req.file.path : "",
       displayOrder: displayOrder || 0,
       isActive: isActive === undefined ? true : isActive === "true",
     });
@@ -144,7 +144,7 @@ export const updateSubcategory = async (req, res) => {
     if (subtitle !== undefined) subcategory.subtitle = subtitle;
     if (displayOrder !== undefined) subcategory.displayOrder = displayOrder;
     if (isActive !== undefined) subcategory.isActive = isActive === "true";
-    if (req.file) subcategory.image = `/uploads/products/${req.file.filename}`;
+    if (req.file) subcategory.image = req.file.path;
 
     await subcategory.save();
 

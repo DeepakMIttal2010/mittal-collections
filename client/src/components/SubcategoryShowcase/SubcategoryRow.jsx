@@ -1,4 +1,4 @@
-import { SERVER_URL } from "../../services/api";
+import { imgUrl } from "../../services/api";
 import { useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
@@ -69,7 +69,7 @@ function SubcategoryRow({ category, groupLabel, items, activeSubcategory }) {
                 <div className="aspect-square">
                   {imageUrl && (
                     <img
-                      src={`${SERVER_URL}${imageUrl}`}
+                      src={`${imgUrl(imageUrl)}`}
                       alt={sub.name}
                       className="w-full h-full object-cover"
                     />

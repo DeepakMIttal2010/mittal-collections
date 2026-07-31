@@ -1,4 +1,4 @@
-import { SERVER_URL } from "../../services/api";
+import { imgUrl } from "../../services/api";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
@@ -78,7 +78,7 @@ function Hero() {
 
   const slide = slides[activeIndex];
   const backgroundImage = slide.image
-    ? `${SERVER_URL}${slide.image}`
+    ? `${imgUrl(slide.image)}`
     : heroBanner;
 
   const goPrev = () =>

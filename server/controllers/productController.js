@@ -178,9 +178,7 @@ export const addProduct = async (req, res) => {
       });
     }
 
-    const images = req.files.map(
-      (file) => `/uploads/products/${file.filename}`,
-    );
+    const images = req.files.map((file) => file.path);
 
     const mainIndex = Math.min(
       Math.max(parseInt(mainImageIndex, 10) || 0, 0),
@@ -258,9 +256,7 @@ export const updateProduct = async (req, res) => {
       }
     }
 
-    const newImages = (req.files || []).map(
-      (file) => `/uploads/products/${file.filename}`,
-    );
+    const newImages = (req.files || []).map((file) => file.path);
 
     const finalImages = [...existingImages, ...newImages];
 

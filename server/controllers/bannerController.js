@@ -80,7 +80,7 @@ export const addBanner = async (req, res) => {
     }
 
     const banner = await Banner.create({
-      image: `/uploads/products/${req.file.filename}`,
+      image: req.file.path,
       subtitle,
       title,
       description,
@@ -144,7 +144,7 @@ export const updateBanner = async (req, res) => {
     if (isActive !== undefined) banner.isActive = isActive === "true";
 
     if (req.file) {
-      banner.image = `/uploads/products/${req.file.filename}`;
+      banner.image = req.file.path;
     }
 
     await banner.save();

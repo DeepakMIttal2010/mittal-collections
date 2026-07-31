@@ -136,7 +136,7 @@ export const addCategory = async (req, res) => {
       name,
       slug,
       description: description || "",
-      image: `/uploads/${req.file.filename}`,
+      image: req.file.path,
       featured: featured === "true" || featured === true,
       displayOrder: displayOrder || 0,
       isActive: isActive === "true" || isActive === true,
@@ -186,7 +186,7 @@ export const updateCategory = async (req, res) => {
       category.isActive = isActive === "true" || isActive === true;
 
     if (req.file) {
-      category.image = `/uploads/${req.file.filename}`;
+      category.image = req.file.path;
     }
 
     await category.save();

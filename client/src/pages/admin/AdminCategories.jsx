@@ -1,4 +1,4 @@
-import { SERVER_URL } from "../../services/api";
+import { imgUrl } from "../../services/api";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { FaTh, FaList } from "react-icons/fa";
@@ -212,7 +212,7 @@ function AdminCategories() {
                 <tr key={category._id} className="hover:bg-slate-50">
                   <td className="px-4 py-3">
                     <img
-                      src={`${SERVER_URL}${category.image}`}
+                      src={`${imgUrl(category.image)}`}
                       alt={category.name}
                       className="w-12 h-12 object-cover rounded-lg"
                     />
@@ -283,7 +283,7 @@ function AdminCategories() {
               {/* Image + Status badge */}
               <div className="relative">
                 <img
-                  src={`${SERVER_URL}${category.image}`}
+                  src={`${imgUrl(category.image)}`}
                   alt={category.name}
                   className="w-full h-40 object-cover"
                 />

@@ -1,4 +1,4 @@
-import { SERVER_URL } from "../../services/api";
+import { imgUrl } from "../../services/api";
 import { useEffect, useState } from "react";
 
 import { getCategories } from "../../services/categoryService";
@@ -133,7 +133,7 @@ function AdminSubcategories() {
       isActive: sub.isActive,
     });
     setImage(null);
-    setPreview(sub.image ? `${SERVER_URL}${sub.image}` : null);
+    setPreview(sub.image ? `${imgUrl(sub.image)}` : null);
   };
 
   const handleDelete = async (id) => {
@@ -391,7 +391,7 @@ function AdminSubcategories() {
                   <td className="px-4 py-3">
                     {sub.image ? (
                       <img
-                        src={`${SERVER_URL}${sub.image}`}
+                        src={`${imgUrl(sub.image)}`}
                         alt={sub.name}
                         className="w-12 h-12 object-cover rounded-lg"
                       />

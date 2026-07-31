@@ -1,4 +1,4 @@
-import { SERVER_URL } from "../../services/api";
+import { imgUrl } from "../../services/api";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
@@ -41,7 +41,7 @@ function EditCategory() {
         image: null,
       });
 
-      setPreview(`${SERVER_URL}${category.image}`);
+      setPreview(`${imgUrl(category.image)}`);
     } else {
       alert(response.message || "Unable to load category");
       navigate("/admin/categories");

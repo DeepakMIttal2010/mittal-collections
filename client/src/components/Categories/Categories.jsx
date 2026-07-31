@@ -1,4 +1,4 @@
-import { SERVER_URL } from "../../services/api";
+import { imgUrl } from "../../services/api";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { getCategories } from "../../services/categoryService";
@@ -52,7 +52,7 @@ function Categories() {
               >
                 <div className="relative h-72 overflow-hidden">
                   <img
-                    src={`${SERVER_URL}${category.image}`}
+                    src={`${imgUrl(category.image)}`}
                     alt={category.name}
                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                   />
