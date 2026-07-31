@@ -15,6 +15,7 @@ import {
   FaEnvelopeOpenText,
   FaLink,
   FaImages,
+  FaTag,
 } from "react-icons/fa";
 
 import { logoutUser } from "../../services/authService";
@@ -68,6 +69,11 @@ function AdminSidebar() {
         <NavLink to="/admin/banners">
           <FaImages />
           <span>Home Banners</span>
+        </NavLink>
+
+        <NavLink to="/admin/price-ranges">
+          <FaTag />
+          <span>Shop by Price</span>
         </NavLink>
 
         <NavLink to="/admin/categories">

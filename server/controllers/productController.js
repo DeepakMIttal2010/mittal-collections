@@ -7,7 +7,7 @@ export const getProducts = async (req, res) => {
   try {
     const filter = { isActive: true };
 
-    const { search, category, subcategory } = req.query;
+    const { search, category, subcategory, maxPrice } = req.query;
     if (search && search.trim()) {
       const regex = new RegExp(search.trim(), "i");
       filter.$or = [{ name: regex }, { description: regex }];
@@ -17,6 +17,9 @@ export const getProducts = async (req, res) => {
     }
     if (subcategory && subcategory.trim()) {
       filter.subcategory = subcategory.trim();
+    }
+    if (maxPrice && !Number.isNaN(Number(maxPrice))) {
+      filter.price = { $lte: Number(maxPrice) };
     }
 
     const products = await Product.find(filter)
@@ -83,6 +86,42 @@ export const getAllProductsAdmin = async (req, res) => {
 };
 
 // ============================
+// GET TRENDING PRODUCTS (Public)
+// ============================
+export const getTrendingProducts = async (req, res) => {
+  try {
+    const limit = Math.max(parseInt(req.query.limit, 10) || 10, 1);
+
+    const products = await Product.find({ isActive: true, isTrending: true })
+      .populate("category", "name slug image")
+      .populate("subcategory", "name slug")
+      .sort({ trendingRank: 1, updatedAt: -1 })
+      .limit(limit);
+
+    const lastUpdated = products.length
+      ? products.reduce(
+          (latest, product) =>
+            product.updatedAt > latest ? product.updatedAt : latest,
+          products[0].updatedAt,
+        )
+      : null;
+
+    res.status(200).json({
+      success: true,
+      products,
+      lastUpdated,
+    });
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};
+
+// ============================
 // GET SINGLE PRODUCT
 // ============================
 export const getProductById = async (req, res) => {
@@ -127,6 +166,8 @@ export const addProduct = async (req, res) => {
       stock,
       featured,
       isActive,
+      isTrending,
+      trendingRank,
       mainImageIndex,
     } = req.body;
 
@@ -156,6 +197,8 @@ export const addProduct = async (req, res) => {
       stock,
       featured: featured === "true",
       isActive: isActive === "true",
+      isTrending: isTrending === "true",
+      trendingRank: trendingRank || 0,
 
       image: images[mainIndex],
       images,
@@ -200,6 +243,8 @@ export const updateProduct = async (req, res) => {
 
     product.featured = req.body.featured === "true";
     product.isActive = req.body.isActive === "true";
+    product.isTrending = req.body.isTrending === "true";
+    product.trendingRank = req.body.trendingRank || 0;
 
     let existingImages = product.images.length
       ? product.images

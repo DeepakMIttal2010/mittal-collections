@@ -27,9 +27,12 @@ function AdminSubcategories() {
     category: "",
     groupLabel: "",
     name: "",
+    subtitle: "",
     displayOrder: 0,
     isActive: true,
   });
+  const [image, setImage] = useState(null);
+  const [preview, setPreview] = useState(null);
 
   const loadData = async () => {
     setLoading(true);
@@ -78,10 +81,21 @@ function AdminSubcategories() {
       category: "",
       groupLabel: "",
       name: "",
+      subtitle: "",
       displayOrder: 0,
       isActive: true,
     });
+    setImage(null);
+    setPreview(null);
     setEditingId(null);
+  };
+
+  const handleImage = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setImage(file);
+    setPreview(URL.createObjectURL(file));
   };
 
   const handleSubmit = async (e) => {
@@ -89,9 +103,13 @@ function AdminSubcategories() {
 
     setSaving(true);
 
+    const data = new FormData();
+    Object.keys(formData).forEach((key) => data.append(key, formData[key]));
+    if (image) data.append("image", image);
+
     const response = editingId
-      ? await updateSubcategory(editingId, formData)
-      : await addSubcategory(formData);
+      ? await updateSubcategory(editingId, data)
+      : await addSubcategory(data);
 
     setSaving(false);
 
@@ -109,9 +127,12 @@ function AdminSubcategories() {
       category: sub.category?._id || "",
       groupLabel: sub.groupLabel,
       name: sub.name,
+      subtitle: sub.subtitle || "",
       displayOrder: sub.displayOrder,
       isActive: sub.isActive,
     });
+    setImage(null);
+    setPreview(sub.image ? `http://localhost:5000${sub.image}` : null);
   };
 
   const handleDelete = async (id) => {
@@ -151,89 +172,127 @@ function AdminSubcategories() {
       {/* Add / Edit Form */}
       <form
         onSubmit={handleSubmit}
-        className="bg-white border border-slate-200 rounded-xl p-6 mb-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 items-end"
+        className="bg-white border border-slate-200 rounded-xl p-6 mb-8 space-y-4"
       >
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">
-            Category
-          </label>
-          <select
-            name="category"
-            value={formData.category}
-            onChange={handleChange}
-            required
-            className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="">Select Category</option>
-            {categories.map((cat) => (
-              <option key={cat._id} value={cat._id}>
-                {cat.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">
-            Group Label
-          </label>
-          <input
-            type="text"
-            name="groupLabel"
-            placeholder="e.g. By Size"
-            value={formData.groupLabel}
-            onChange={handleChange}
-            required
-            className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">
-            Item Name
-          </label>
-          <input
-            type="text"
-            name="name"
-            placeholder="e.g. Single Bed Sheets"
-            value={formData.name}
-            onChange={handleChange}
-            required
-            className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">
-            Order
-          </label>
-          <input
-            type="number"
-            name="displayOrder"
-            value={formData.displayOrder}
-            onChange={handleChange}
-            className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
-
-        <div className="flex gap-2">
-          <button
-            type="submit"
-            disabled={saving}
-            className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg transition-colors disabled:opacity-60"
-          >
-            {saving ? "Saving..." : editingId ? "Update" : "+ Add"}
-          </button>
-
-          {editingId && (
-            <button
-              type="button"
-              onClick={resetForm}
-              className="px-4 py-2 rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50"
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Category
+            </label>
+            <select
+              name="category"
+              value={formData.category}
+              onChange={handleChange}
+              required
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              Cancel
-            </button>
+              <option value="">Select Category</option>
+              {categories.map((cat) => (
+                <option key={cat._id} value={cat._id}>
+                  {cat.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Group Label
+            </label>
+            <input
+              type="text"
+              name="groupLabel"
+              placeholder="e.g. By Size"
+              value={formData.groupLabel}
+              onChange={handleChange}
+              required
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Item Name
+            </label>
+            <input
+              type="text"
+              name="name"
+              placeholder="e.g. Single"
+              value={formData.name}
+              onChange={handleChange}
+              required
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Subtitle (optional)
+            </label>
+            <input
+              type="text"
+              name="subtitle"
+              placeholder={'e.g. 60" X 90"'}
+              value={formData.subtitle}
+              onChange={handleChange}
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Order
+            </label>
+            <input
+              type="number"
+              name="displayOrder"
+              value={formData.displayOrder}
+              onChange={handleChange}
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Tile Image (optional)
+            </label>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleImage}
+              className="w-full text-sm text-slate-600 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+            />
+          </div>
+
+          {preview && (
+            <img
+              src={preview}
+              alt="Preview"
+              className="w-20 h-20 object-cover rounded-lg border border-slate-200"
+            />
           )}
+
+          <div className="flex gap-2">
+            <button
+              type="submit"
+              disabled={saving}
+              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg transition-colors disabled:opacity-60"
+            >
+              {saving ? "Saving..." : editingId ? "Update" : "+ Add"}
+            </button>
+
+            {editingId && (
+              <button
+                type="button"
+                onClick={resetForm}
+                className="px-4 py-2 rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+            )}
+          </div>
         </div>
       </form>
 
@@ -303,6 +362,7 @@ function AdminSubcategories() {
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-slate-600">
               <tr>
+                <th className="text-left px-4 py-3 font-semibold">Image</th>
                 <th className="text-left px-4 py-3 font-semibold">
                   Category
                 </th>
@@ -327,6 +387,19 @@ function AdminSubcategories() {
             <tbody className="divide-y divide-slate-100">
               {subcategories.map((sub) => (
                 <tr key={sub._id} className="hover:bg-slate-50">
+                  <td className="px-4 py-3">
+                    {sub.image ? (
+                      <img
+                        src={`http://localhost:5000${sub.image}`}
+                        alt={sub.name}
+                        className="w-12 h-12 object-cover rounded-lg"
+                      />
+                    ) : (
+                      <span className="w-12 h-12 flex items-center justify-center rounded-lg bg-slate-100 text-slate-300 text-xs">
+                        —
+                      </span>
+                    )}
+                  </td>
                   <td className="px-4 py-3">{sub.category?.name}</td>
                   <td className="px-4 py-3 text-slate-600">
                     {sub.groupLabel}

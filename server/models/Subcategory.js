@@ -29,6 +29,18 @@ const subcategorySchema = new mongoose.Schema(
       trim: true,
     },
 
+    image: {
+      type: String,
+      default: "",
+    },
+
+    // Chhoti si extra line jaise size dimensions — "60\" X 90\""
+    subtitle: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
     displayOrder: {
       type: Number,
       default: 0,

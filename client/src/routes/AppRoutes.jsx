@@ -21,6 +21,8 @@ import EditProfile from "../pages/EditProfile";
 import Addresses from "../pages/Addresses";
 import AddressForm from "../pages/AddressForm";
 import ProductDetails from "../pages/ProductDetails";
+import TrendingPage from "../pages/TrendingPage";
+import PriceRangePage from "../pages/PriceRangePage";
 import SearchResults from "../pages/SearchResults";
 import CategoryPage from "../pages/CategoryPage";
 import Checkout from "../pages/Checkout";
@@ -48,6 +50,7 @@ import AdminSettings from "../pages/admin/AdminSettings";
 import AdminMessages from "../pages/admin/AdminMessages";
 import AdminFooterLinks from "../pages/admin/AdminFooterLinks";
 import AdminBanners from "../pages/admin/AdminBanners";
+import AdminPriceRanges from "../pages/admin/AdminPriceRanges";
 
 import AdminOrders from "../pages/admin/AdminOrders";
 
@@ -87,6 +90,8 @@ function AppRoutes() {
         <Route path="/policies/:slug" element={<PolicyPage />} />
         {/* Product Details */}
         <Route path="/product/:id" element={<ProductDetails />} />
+        <Route path="/trending" element={<TrendingPage />} />
+        <Route path="/price/:maxPrice" element={<PriceRangePage />} />
         <Route path="/search" element={<SearchResults />} />
         <Route path="/category/:categorySlug" element={<CategoryPage />} />
         <Route
@@ -121,6 +126,7 @@ function AppRoutes() {
         <Route path="messages" element={<AdminMessages />} />
         <Route path="footer-links" element={<AdminFooterLinks />} />
         <Route path="banners" element={<AdminBanners />} />
+        <Route path="price-ranges" element={<AdminPriceRanges />} />
         <Route path="categories/add" element={<AddCategory />} />
         <Route path="categories/edit/:id" element={<EditCategory />} />
         <Route path="orders" element={<AdminOrders />} />

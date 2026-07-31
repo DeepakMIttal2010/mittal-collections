@@ -29,6 +29,8 @@ function AddProduct() {
     stock: "",
     featured: false,
     isActive: true,
+    isTrending: false,
+    trendingRank: 0,
   });
 
   const loadCategories = async () => {
@@ -95,6 +97,8 @@ function AddProduct() {
     data.append("stock", formData.stock);
     data.append("featured", formData.featured);
     data.append("isActive", formData.isActive);
+    data.append("isTrending", formData.isTrending);
+    data.append("trendingRank", formData.trendingRank);
     data.append("mainImageIndex", mainImageIndex);
 
     images.forEach((file) => data.append("images", file));
@@ -277,7 +281,33 @@ function AddProduct() {
             />
             Active Product
           </label>
+
+          <label>
+            <input
+              type="checkbox"
+              name="isTrending"
+              checked={formData.isTrending}
+              onChange={handleChange}
+            />
+            Show in Trending
+          </label>
         </div>
+
+        {formData.isTrending && (
+          <div className="form-row">
+            <div className="form-group">
+              <label>Trending Rank (lower shows first)</label>
+
+              <input
+                type="number"
+                name="trendingRank"
+                value={formData.trendingRank}
+                onChange={handleChange}
+                min="0"
+              />
+            </div>
+          </div>
+        )}
 
         <button className="save-btn" type="submit" disabled={loading}>
           {loading ? "Saving..." : "Save Product"}

@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { getCategories } from "../../services/categoryService";
-import "./Categories.css";
 
 function Categories() {
   const [categories, setCategories] = useState([]);
@@ -28,42 +27,53 @@ function Categories() {
     loadCategories();
   }, []);
 
-  if (loading) {
-    return (
-      <section className="categories">
-        <div className="container">
-          <h2>Shop by Category</h2>
-          <p>Loading categories...</p>
-        </div>
-      </section>
-    );
-  }
-
   return (
-    <section className="categories" id="shop-categories">
-      <div className="container">
-        <h2>Shop by Category</h2>
+    <section className="py-20 bg-white" id="shop-categories">
+      <div className="max-w-7xl mx-auto px-4">
+        <div className="text-center mb-12">
+          <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-2">
+            Shop by Category
+          </h2>
+          <p className="text-slate-500">
+            Explore our curated collection for every corner of your home.
+          </p>
+        </div>
 
-        <div className="categories-grid">
-          {Array.isArray(categories) &&
-            categories.map((category) => (
+        {loading ? (
+          <p className="text-center text-slate-400">Loading categories...</p>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+            {categories.map((category) => (
               <Link
                 key={category._id}
                 to={`/category/${category.slug}`}
-                className="category-card"
+                className="group block rounded-2xl overflow-hidden bg-white shadow-sm border border-slate-100 hover:shadow-xl transition-shadow duration-300"
               >
-                <img
-                  src={`http://localhost:5000${category.image}`}
-                  alt={category.name}
-                  className="category-image"
-                />
+                <div className="relative h-72 overflow-hidden">
+                  <img
+                    src={`http://localhost:5000${category.image}`}
+                    alt={category.name}
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                  />
 
-                <h3>{category.name}</h3>
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
 
-                {category.description && <p>{category.description}</p>}
+                  <div className="absolute bottom-0 left-0 right-0 p-5 text-white">
+                    <h3 className="text-xl font-semibold mb-1">
+                      {category.name}
+                    </h3>
+
+                    {category.description && (
+                      <p className="text-sm text-white/80 line-clamp-1">
+                        {category.description}
+                      </p>
+                    )}
+                  </div>
+                </div>
               </Link>
             ))}
-        </div>
+          </div>
+        )}
       </div>
     </section>
   );

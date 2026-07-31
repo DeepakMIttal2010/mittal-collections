@@ -9,6 +9,7 @@ import Testimonial from "./models/Testimonial.js";
 import Page from "./models/Page.js";
 import FooterLink from "./models/FooterLink.js";
 import Banner from "./models/Banner.js";
+import PriceRange from "./models/PriceRange.js";
 
 import categoriesData from "./data/categories.js";
 import getProducts from "./data/products.js";
@@ -17,6 +18,7 @@ import testimonialsData from "./data/testimonials.js";
 import pagesData from "./data/pages.js";
 import footerLinksData from "./data/footerLinks.js";
 import bannersData from "./data/banners.js";
+import priceRangesData from "./data/priceRanges.js";
 
 dotenv.config();
 
@@ -128,6 +130,19 @@ const importBanners = async () => {
   }
 };
 
+const importPriceRanges = async () => {
+  try {
+    await PriceRange.deleteMany();
+    await PriceRange.insertMany(priceRangesData);
+
+    console.log("✅ Price Ranges Imported");
+    process.exit();
+  } catch (error) {
+    console.error(error);
+    process.exit(1);
+  }
+};
+
 const importAll = async () => {
   try {
     await Category.deleteMany();
@@ -137,6 +152,7 @@ const importAll = async () => {
     await Page.deleteMany();
     await FooterLink.deleteMany();
     await Banner.deleteMany();
+    await PriceRange.deleteMany();
 
     await Category.insertMany(categoriesData);
     const categories = await Category.insertMany(categoriesData);
@@ -155,6 +171,7 @@ const importAll = async () => {
     await Page.insertMany(pagesData);
     await FooterLink.insertMany(footerLinksData);
     await Banner.insertMany(bannersData);
+    await PriceRange.insertMany(priceRangesData);
 
     console.log("✅ Categories Imported");
     console.log("✅ Products Imported");
@@ -163,6 +180,7 @@ const importAll = async () => {
     console.log("✅ Pages Imported");
     console.log("✅ Footer Links Imported");
     console.log("✅ Banners Imported");
+    console.log("✅ Price Ranges Imported");
 
     process.exit();
   } catch (error) {
@@ -180,6 +198,7 @@ const destroyAll = async () => {
     await Page.deleteMany();
     await FooterLink.deleteMany();
     await Banner.deleteMany();
+    await PriceRange.deleteMany();
 
     console.log("🗑 Database Cleared");
 
@@ -221,6 +240,10 @@ switch (command) {
     importBanners();
     break;
 
+  case "price-ranges":
+    importPriceRanges();
+    break;
+
   case "all":
     importAll();
     break;
@@ -240,6 +263,7 @@ node seeder.js testimonials
 node seeder.js pages
 node seeder.js footer-links
 node seeder.js banners
+node seeder.js price-ranges
 node seeder.js all
 node seeder.js destroy
 `);

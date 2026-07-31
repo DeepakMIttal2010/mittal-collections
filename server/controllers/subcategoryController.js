@@ -78,7 +78,8 @@ export const getAllSubcategoriesAdmin = async (req, res) => {
 // ============================
 export const addSubcategory = async (req, res) => {
   try {
-    const { category, groupLabel, name, displayOrder, isActive } = req.body;
+    const { category, groupLabel, name, subtitle, displayOrder, isActive } =
+      req.body;
 
     if (!category || !groupLabel || !name) {
       return res.status(400).json({
@@ -94,8 +95,10 @@ export const addSubcategory = async (req, res) => {
       groupLabel,
       name,
       slug,
+      subtitle: subtitle || "",
+      image: req.file ? `/uploads/products/${req.file.filename}` : "",
       displayOrder: displayOrder || 0,
-      isActive: isActive === undefined ? true : isActive,
+      isActive: isActive === undefined ? true : isActive === "true",
     });
 
     res.status(201).json({
@@ -127,7 +130,8 @@ export const updateSubcategory = async (req, res) => {
       });
     }
 
-    const { category, groupLabel, name, displayOrder, isActive } = req.body;
+    const { category, groupLabel, name, subtitle, displayOrder, isActive } =
+      req.body;
 
     if (category) subcategory.category = category;
     if (groupLabel) subcategory.groupLabel = groupLabel;
@@ -137,8 +141,10 @@ export const updateSubcategory = async (req, res) => {
       subcategory.slug = generateSlug(name);
     }
 
+    if (subtitle !== undefined) subcategory.subtitle = subtitle;
     if (displayOrder !== undefined) subcategory.displayOrder = displayOrder;
-    if (isActive !== undefined) subcategory.isActive = isActive;
+    if (isActive !== undefined) subcategory.isActive = isActive === "true";
+    if (req.file) subcategory.image = `/uploads/products/${req.file.filename}`;
 
     await subcategory.save();
 

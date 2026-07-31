@@ -11,6 +11,7 @@ import {
 
 import authMiddleware from "../middleware/authMiddleware.js";
 import adminMiddleware from "../middleware/adminMiddleware.js";
+import upload from "../middleware/uploadMiddleware.js";
 
 const router = express.Router();
 
@@ -24,8 +25,20 @@ router.get(
   adminMiddleware,
   getAllSubcategoriesAdmin,
 );
-router.post("/", authMiddleware, adminMiddleware, addSubcategory);
-router.put("/:id", authMiddleware, adminMiddleware, updateSubcategory);
+router.post(
+  "/",
+  authMiddleware,
+  adminMiddleware,
+  upload.single("image"),
+  addSubcategory,
+);
+router.put(
+  "/:id",
+  authMiddleware,
+  adminMiddleware,
+  upload.single("image"),
+  updateSubcategory,
+);
 router.put(
   "/:id/restore",
   authMiddleware,

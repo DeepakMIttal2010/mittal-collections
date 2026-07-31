@@ -23,6 +23,7 @@ import siteSettingsRoutes from "./routes/siteSettingsRoutes.js";
 import contactRoutes from "./routes/contactRoutes.js";
 import footerLinkRoutes from "./routes/footerLinkRoutes.js";
 import bannerRoutes from "./routes/bannerRoutes.js";
+import priceRangeRoutes from "./routes/priceRangeRoutes.js";
 
 dotenv.config();
 
@@ -59,6 +60,7 @@ app.use("/api/settings", siteSettingsRoutes);
 app.use("/api/contact", contactRoutes);
 app.use("/api/footer-links", footerLinkRoutes);
 app.use("/api/banners", bannerRoutes);
+app.use("/api/price-ranges", priceRangeRoutes);
 
 // Health Check
 app.get("/api/health", (req, res) => {

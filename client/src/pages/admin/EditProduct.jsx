@@ -35,6 +35,8 @@ function EditProduct() {
     subcategory: "",
     featured: false,
     isActive: true,
+    isTrending: false,
+    trendingRank: 0,
   });
 
   const loadProduct = async () => {
@@ -61,6 +63,8 @@ function EditProduct() {
         subcategory: product.subcategory?._id || "",
         featured: product.featured,
         isActive: product.isActive,
+        isTrending: product.isTrending || false,
+        trendingRank: product.trendingRank || 0,
       });
 
       const images = product.images?.length
@@ -364,7 +368,33 @@ function EditProduct() {
             />
             Active
           </label>
+
+          <label>
+            <input
+              type="checkbox"
+              name="isTrending"
+              checked={formData.isTrending}
+              onChange={handleChange}
+            />
+            Show in Trending
+          </label>
         </div>
+
+        {formData.isTrending && (
+          <div className="form-row">
+            <div className="form-group">
+              <label>Trending Rank (lower shows first)</label>
+
+              <input
+                type="number"
+                name="trendingRank"
+                value={formData.trendingRank}
+                onChange={handleChange}
+                min="0"
+              />
+            </div>
+          </div>
+        )}
 
         <button className="save-btn" disabled={saving}>
           {saving ? "Updating..." : "Update Product"}

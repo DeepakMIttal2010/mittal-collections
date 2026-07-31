@@ -28,6 +28,37 @@ export const getProducts = async () => {
 };
 
 // ==========================
+// Get Trending Products
+// ==========================
+export const getTrendingProducts = async (limit = 10) => {
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/products/trending?limit=${limit}`,
+    );
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch trending products");
+    }
+
+    const data = await response.json();
+
+    return {
+      success: data.success,
+      products: data.products || [],
+      lastUpdated: data.lastUpdated || null,
+    };
+  } catch (error) {
+    console.error("Get Trending Products Error:", error);
+
+    return {
+      success: false,
+      products: [],
+      lastUpdated: null,
+    };
+  }
+};
+
+// ==========================
 // Search Products
 // ==========================
 export const searchProducts = async (query) => {
@@ -48,6 +79,35 @@ export const searchProducts = async (query) => {
     };
   } catch (error) {
     console.error("Search Products Error:", error);
+
+    return {
+      success: false,
+      products: [],
+    };
+  }
+};
+
+// ==========================
+// Get Products By Max Price
+// ==========================
+export const getProductsByMaxPrice = async (maxPrice) => {
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/products?maxPrice=${encodeURIComponent(maxPrice)}`,
+    );
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch products");
+    }
+
+    const data = await response.json();
+
+    return {
+      success: data.success,
+      products: data.products || [],
+    };
+  } catch (error) {
+    console.error("Get Products By Max Price Error:", error);
 
     return {
       success: false,

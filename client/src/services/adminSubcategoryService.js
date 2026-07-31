@@ -40,15 +40,12 @@ export const getAllSubcategoriesAdmin = async ({
   }
 };
 
-export const addSubcategory = async (payload) => {
+export const addSubcategory = async (formData) => {
   try {
     const response = await fetch(`${API_BASE_URL}/subcategories`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${getToken()}`,
-      },
-      body: JSON.stringify(payload),
+      headers: { Authorization: `Bearer ${getToken()}` },
+      body: formData,
     });
 
     return await response.json();
@@ -58,15 +55,12 @@ export const addSubcategory = async (payload) => {
   }
 };
 
-export const updateSubcategory = async (id, payload) => {
+export const updateSubcategory = async (id, formData) => {
   try {
     const response = await fetch(`${API_BASE_URL}/subcategories/${id}`, {
       method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${getToken()}`,
-      },
-      body: JSON.stringify(payload),
+      headers: { Authorization: `Bearer ${getToken()}` },
+      body: formData,
     });
 
     return await response.json();

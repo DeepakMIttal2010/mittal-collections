@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
+import { FaSearch } from "react-icons/fa";
 import { getProducts } from "../../services/productService";
 import { getCategories } from "../../services/categoryService";
 import ProductGrid from "../ProductGrid/ProductGrid";
-import "./ProductSection.css";
 
 function ProductSection() {
   const [products, setProducts] = useState([]);
@@ -12,10 +12,6 @@ function ProductSection() {
   const [searchTerm, setSearchTerm] = useState("");
   const [sortBy, setSortBy] = useState("featured");
   const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    loadData();
-  }, []);
 
   const loadData = async () => {
     try {
@@ -47,6 +43,10 @@ function ProductSection() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    loadData();
+  }, []);
 
   let filteredProducts = products.filter((product) => {
     const matchesCategory =
@@ -81,33 +81,46 @@ function ProductSection() {
   }
 
   return (
-    <section className="product-section">
-      <div className="container">
-        <h2 className="section-title">Our Products</h2>
+    <section className="py-16 bg-slate-50">
+      <div className="max-w-7xl mx-auto px-4">
+        <h2 className="text-3xl md:text-4xl font-bold text-slate-900 text-center mb-8">
+          Our Products
+        </h2>
 
-        <div className="search-box">
+        <div className="max-w-xl mx-auto mb-6 relative">
+          <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm" />
           <input
             type="text"
-            placeholder="🔍 Search products..."
+            placeholder="Search products..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full bg-white border border-slate-200 rounded-full pl-11 pr-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
           />
         </div>
 
-        <div className="category-filter">
-          {categories.map((category) => (
-            <button
-              key={category}
-              className={selectedCategory === category ? "active" : ""}
-              onClick={() => setSelectedCategory(category)}
-            >
-              {category}
-            </button>
-          ))}
-        </div>
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
+          <div className="flex flex-wrap gap-2">
+            {categories.map((category) => (
+              <button
+                key={category}
+                type="button"
+                onClick={() => setSelectedCategory(category)}
+                className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                  selectedCategory === category
+                    ? "bg-slate-900 text-white"
+                    : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-100"
+                }`}
+              >
+                {category}
+              </button>
+            ))}
+          </div>
 
-        <div className="sort-box">
-          <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            className="border border-slate-200 bg-white rounded-lg px-4 py-2.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-400"
+          >
             <option value="featured">Featured</option>
             <option value="priceLow">Price : Low → High</option>
             <option value="priceHigh">Price : High → Low</option>
@@ -117,9 +130,9 @@ function ProductSection() {
         </div>
 
         {loading ? (
-          <div style={{ textAlign: "center", padding: "40px" }}>
-            <h3>Loading products...</h3>
-          </div>
+          <p className="text-center text-slate-400 py-10">
+            Loading products...
+          </p>
         ) : (
           <ProductGrid products={filteredProducts} />
         )}

@@ -65,6 +65,16 @@ const productSchema = new mongoose.Schema(
       default: false,
     },
 
+    isTrending: {
+      type: Boolean,
+      default: false,
+    },
+
+    trendingRank: {
+      type: Number,
+      default: 0,
+    },
+
     isActive: {
       type: Boolean,
       default: true,
