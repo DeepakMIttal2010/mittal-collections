@@ -1,3 +1,4 @@
+import { SERVER_URL } from "../../services/api";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
@@ -23,10 +24,6 @@ function EditCategory() {
     image: null,
   });
 
-  useEffect(() => {
-    loadCategory();
-  }, [id]);
-
   const loadCategory = async () => {
     setFetching(true);
 
@@ -44,7 +41,7 @@ function EditCategory() {
         image: null,
       });
 
-      setPreview(`http://localhost:5000${category.image}`);
+      setPreview(`${SERVER_URL}${category.image}`);
     } else {
       alert(response.message || "Unable to load category");
       navigate("/admin/categories");
@@ -52,6 +49,10 @@ function EditCategory() {
 
     setFetching(false);
   };
+
+  useEffect(() => {
+    loadCategory();
+  }, [id]);
 
   const handleChange = (e) => {
     const { name, value, checked, type } = e.target;

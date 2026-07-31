@@ -1,3 +1,4 @@
+import { SERVER_URL } from "../../services/api";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { FaChevronLeft, FaChevronRight, FaFire } from "react-icons/fa";
@@ -107,7 +108,7 @@ function TrendingSection() {
             >
               <div className="relative rounded-xl overflow-hidden shadow-md aspect-[4/5] bg-slate-100">
                 <img
-                  src={`http://localhost:5000${product.image}`}
+                  src={`${SERVER_URL}${product.image}`}
                   alt={product.name}
                   className="w-full h-full object-cover"
                 />

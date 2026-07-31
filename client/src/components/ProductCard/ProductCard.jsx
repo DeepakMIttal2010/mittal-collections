@@ -1,3 +1,4 @@
+import { SERVER_URL } from "../../services/api";
 import { useState } from "react";
 import "./ProductCard.css";
 import { Link } from "react-router-dom";
@@ -19,7 +20,7 @@ function ProductCard({ product }) {
       <Link to={`/product/${product._id}`} className="product-link">
         <div className="product-image">
           <img
-            src={`http://localhost:5000${product.image}`}
+            src={`${SERVER_URL}${product.image}`}
             alt={product.name}
           />
 

@@ -1,3 +1,4 @@
+import { SERVER_URL } from "../services/api";
 import { Link } from "react-router-dom";
 import { FaTrash, FaPlus, FaMinus } from "react-icons/fa";
 
@@ -44,7 +45,7 @@ function Cart() {
                   src={
                     item.image?.startsWith("http")
                       ? item.image
-                      : `http://localhost:5000${item.image}`
+                      : `${SERVER_URL}${item.image}`
                   }
                   alt={item.name}
                 />

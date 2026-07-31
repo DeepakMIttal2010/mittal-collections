@@ -1,3 +1,4 @@
+import { SERVER_URL } from "../services/api";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { getMyOrders } from "../services/orderService";
@@ -134,7 +135,7 @@ function MyOrders() {
                     <div className="flex items-center gap-4 min-w-0">
                       {item.image && (
                         <img
-                          src={`http://localhost:5000${item.image}`}
+                          src={`${SERVER_URL}${item.image}`}
                           alt={item.name}
                           className="w-14 h-14 object-cover rounded-lg shrink-0"
                         />

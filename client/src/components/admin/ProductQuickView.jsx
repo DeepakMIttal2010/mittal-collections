@@ -1,3 +1,4 @@
+import { SERVER_URL } from "../../services/api";
 import { Link } from "react-router-dom";
 import { FaTimes } from "react-icons/fa";
 
@@ -23,7 +24,7 @@ function ProductQuickView({ product, onClose }) {
 
         <div className="bg-slate-50 p-4 flex flex-col gap-3 overflow-y-auto">
           <img
-            src={`http://localhost:5000${images[0]}`}
+            src={`${SERVER_URL}${images[0]}`}
             alt={product.name}
             className="w-full aspect-square object-cover rounded-lg border border-slate-200"
           />
@@ -33,7 +34,7 @@ function ProductQuickView({ product, onClose }) {
               {images.slice(1).map((img) => (
                 <img
                   key={img}
-                  src={`http://localhost:5000${img}`}
+                  src={`${SERVER_URL}${img}`}
                   alt={product.name}
                   className="w-14 h-14 object-cover rounded-lg border border-slate-200"
                 />

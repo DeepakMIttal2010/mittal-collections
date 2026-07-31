@@ -1,3 +1,4 @@
+import { SERVER_URL } from "../../services/api";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { FaTh, FaList } from "react-icons/fa";
@@ -210,7 +211,7 @@ function AdminProducts() {
                 <tr key={product._id} className="hover:bg-slate-50">
                   <td className="px-4 py-3">
                     <img
-                      src={`http://localhost:5000${product.image}`}
+                      src={`${SERVER_URL}${product.image}`}
                       alt={product.name}
                       onClick={() => setQuickViewProduct(product)}
                       className="w-12 h-12 object-cover rounded-lg cursor-pointer hover:opacity-80 transition-opacity"
@@ -285,7 +286,7 @@ function AdminProducts() {
               {/* Image + Status badge */}
               <div className="relative">
                 <img
-                  src={`http://localhost:5000${product.image}`}
+                  src={`${SERVER_URL}${product.image}`}
                   alt={product.name}
                   onClick={() => setQuickViewProduct(product)}
                   className="w-full h-44 object-cover cursor-pointer hover:opacity-90 transition-opacity"

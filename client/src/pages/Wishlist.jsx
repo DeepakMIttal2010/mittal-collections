@@ -1,3 +1,4 @@
+import { SERVER_URL } from "../services/api";
 import { Link } from "react-router-dom";
 import { FaTrash, FaShoppingCart } from "react-icons/fa";
 
@@ -48,7 +49,7 @@ function Wishlist() {
                 className="border border-slate-200 rounded-xl bg-white overflow-hidden"
               >
                 <img
-                  src={`http://localhost:5000${item.image}`}
+                  src={`${SERVER_URL}${item.image}`}
                   alt={item.name}
                   className="w-full h-48 object-cover"
                 />

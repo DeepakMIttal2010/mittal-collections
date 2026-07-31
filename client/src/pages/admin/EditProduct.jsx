@@ -1,3 +1,4 @@
+import { SERVER_URL } from "../../services/api";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
@@ -298,7 +299,7 @@ function EditProduct() {
                 onClick={() => setMainImageIndex(index)}
               >
                 <img
-                  src={`http://localhost:5000${url}`}
+                  src={`${SERVER_URL}${url}`}
                   alt={`Product ${index + 1}`}
                 />
                 <button

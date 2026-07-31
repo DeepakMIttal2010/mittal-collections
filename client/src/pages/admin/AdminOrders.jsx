@@ -1,3 +1,4 @@
+import { SERVER_URL } from "../../services/api";
 import { useEffect, useState } from "react";
 
 import {
@@ -209,7 +210,7 @@ function AdminOrders() {
                           >
                             {item.image && (
                               <img
-                                src={`http://localhost:5000${item.image}`}
+                                src={`${SERVER_URL}${item.image}`}
                                 alt={item.name}
                                 className="w-10 h-10 object-cover rounded-md border border-slate-200"
                               />

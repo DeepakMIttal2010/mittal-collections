@@ -1,3 +1,4 @@
+import { SERVER_URL } from "../../services/api";
 import { useEffect, useState } from "react";
 
 import {
@@ -89,7 +90,7 @@ function AdminBanners() {
       isActive: banner.isActive,
     });
     setImage(null);
-    setPreview(`http://localhost:5000${banner.image}`);
+    setPreview(`${SERVER_URL}${banner.image}`);
   };
 
   const handleSubmit = async (e) => {
@@ -369,7 +370,7 @@ function AdminBanners() {
                 >
                   <td className="px-4 py-3">
                     <img
-                      src={`http://localhost:5000${banner.image}`}
+                      src={`${SERVER_URL}${banner.image}`}
                       alt={banner.title}
                       className="w-20 h-12 object-cover rounded-lg"
                     />
