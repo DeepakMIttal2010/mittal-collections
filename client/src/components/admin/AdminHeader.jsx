@@ -11,6 +11,8 @@ import {
   FaChevronDown,
   FaShoppingCart,
   FaEnvelope,
+  FaStar,
+  FaQuestionCircle,
 } from "react-icons/fa";
 
 import { logoutUser } from "../../services/authService";
@@ -20,6 +22,8 @@ import {
   markOrderSeen,
   markMessageRead,
 } from "../../services/adminNotificationService";
+import { markReviewSeen } from "../../services/adminReviewService";
+import { markQuestionSeen } from "../../services/adminQuestionService";
 
 import "./AdminHeader.css";
 
@@ -70,8 +74,12 @@ function AdminHeader() {
 
     if (item.type === "order") {
       await markOrderSeen(item.id);
-    } else {
+    } else if (item.type === "message") {
       await markMessageRead(item.id);
+    } else if (item.type === "review") {
+      await markReviewSeen(item.id);
+    } else if (item.type === "question") {
+      await markQuestionSeen(item.id);
     }
 
     loadNotifications();
@@ -167,11 +175,19 @@ function AdminHeader() {
                         className={`mt-0.5 w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
                           item.type === "order"
                             ? "bg-blue-100 text-blue-600"
-                            : "bg-amber-100 text-amber-600"
+                            : item.type === "review"
+                              ? "bg-amber-100 text-amber-600"
+                              : item.type === "question"
+                                ? "bg-purple-100 text-purple-600"
+                                : "bg-slate-100 text-slate-600"
                         }`}
                       >
                         {item.type === "order" ? (
                           <FaShoppingCart className="text-xs" />
+                        ) : item.type === "review" ? (
+                          <FaStar className="text-xs" />
+                        ) : item.type === "question" ? (
+                          <FaQuestionCircle className="text-xs" />
                         ) : (
                           <FaEnvelope className="text-xs" />
                         )}

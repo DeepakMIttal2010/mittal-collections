@@ -26,6 +26,8 @@ import bannerRoutes from "./routes/bannerRoutes.js";
 import priceRangeRoutes from "./routes/priceRangeRoutes.js";
 import analyticsRoutes from "./routes/analyticsRoutes.js";
 import couponRoutes from "./routes/couponRoutes.js";
+import reviewRoutes from "./routes/reviewRoutes.js";
+import questionRoutes from "./routes/questionRoutes.js";
 
 dotenv.config();
 
@@ -69,6 +71,8 @@ app.use("/api/banners", bannerRoutes);
 app.use("/api/price-ranges", priceRangeRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/coupons", couponRoutes);
+app.use("/api/reviews", reviewRoutes);
+app.use("/api/questions", questionRoutes);
 
 // Health Check
 app.get("/api/health", (req, res) => {

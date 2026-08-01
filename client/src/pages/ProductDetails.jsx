@@ -1,6 +1,8 @@
 import { imgUrl } from "../services/api";
 import Seo from "../components/Seo";
 import ProductDetailsSkeleton from "./ProductDetailsSkeleton";
+import ProductReviews from "../components/ProductReviews";
+import ProductQuestions from "../components/ProductQuestions";
 import { getStockStatus } from "../utils/stock";
 import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
@@ -454,6 +456,9 @@ function ProductDetails() {
           </div>
         </div>
       )}
+
+      <ProductReviews productId={id} />
+      <ProductQuestions productId={id} />
 
       {lightboxIndex !== null && (
         <div

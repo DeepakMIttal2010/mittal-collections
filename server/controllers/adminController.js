@@ -3,6 +3,8 @@ import Order from "../models/Order.js";
 import User from "../models/User.js";
 import ContactMessage from "../models/ContactMessage.js";
 import PageVisit from "../models/PageVisit.js";
+import Review from "../models/Review.js";
+import Question from "../models/Question.js";
 
 export const getDashboardData = async (req, res) => {
   try {
@@ -65,6 +67,18 @@ export const getNotifications = async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(15);
 
+    const unseenReviews = await Review.find({ isSeenByAdmin: false })
+      .populate("user", "name")
+      .populate("product", "name")
+      .sort({ createdAt: -1 })
+      .limit(15);
+
+    const unseenQuestions = await Question.find({ isSeenByAdmin: false })
+      .populate("user", "name")
+      .populate("product", "name")
+      .sort({ createdAt: -1 })
+      .limit(15);
+
     const orderNotifications = unseenOrders.map((order) => ({
       id: order._id,
       type: "order",
@@ -83,7 +97,30 @@ export const getNotifications = async (req, res) => {
       link: "/admin/messages",
     }));
 
-    const notifications = [...orderNotifications, ...messageNotifications]
+    const reviewNotifications = unseenReviews.map((review) => ({
+      id: review._id,
+      type: "review",
+      title: `New review from ${review.user?.name || "a customer"}`,
+      subtitle: `${review.rating}★ on ${review.product?.name || "a product"}`,
+      createdAt: review.createdAt,
+      link: "/admin/reviews",
+    }));
+
+    const questionNotifications = unseenQuestions.map((question) => ({
+      id: question._id,
+      type: "question",
+      title: `New question from ${question.user?.name || "a customer"}`,
+      subtitle: `On ${question.product?.name || "a product"}`,
+      createdAt: question.createdAt,
+      link: "/admin/questions",
+    }));
+
+    const notifications = [
+      ...orderNotifications,
+      ...messageNotifications,
+      ...reviewNotifications,
+      ...questionNotifications,
+    ]
       .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
       .slice(0, 15);
 
@@ -92,7 +129,13 @@ export const getNotifications = async (req, res) => {
       notifications,
       unseenOrdersCount: unseenOrders.length,
       unreadMessagesCount: unreadMessages.length,
-      totalUnread: unseenOrders.length + unreadMessages.length,
+      unseenReviewsCount: unseenReviews.length,
+      unseenQuestionsCount: unseenQuestions.length,
+      totalUnread:
+        unseenOrders.length +
+        unreadMessages.length +
+        unseenReviews.length +
+        unseenQuestions.length,
     });
   } catch (error) {
     console.error("Get Notifications Error:", error);
@@ -116,6 +159,14 @@ export const markAllNotificationsRead = async (req, res) => {
     );
 
     await ContactMessage.updateMany({ isRead: false }, { isRead: true });
+    await Review.updateMany(
+      { isSeenByAdmin: false },
+      { isSeenByAdmin: true },
+    );
+    await Question.updateMany(
+      { isSeenByAdmin: false },
+      { isSeenByAdmin: true },
+    );
 
     res.status(200).json({
       success: true,

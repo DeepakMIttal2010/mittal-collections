@@ -17,6 +17,8 @@ import {
   FaImages,
   FaTag,
   FaPercent,
+  FaStar,
+  FaQuestionCircle,
 } from "react-icons/fa";
 
 import { logoutUser } from "../../services/authService";
@@ -95,6 +97,16 @@ function AdminSidebar() {
         <NavLink to="/admin/testimonials">
           <FaCommentDots />
           <span>Testimonials</span>
+        </NavLink>
+
+        <NavLink to="/admin/reviews">
+          <FaStar />
+          <span>Reviews</span>
+        </NavLink>
+
+        <NavLink to="/admin/questions">
+          <FaQuestionCircle />
+          <span>Questions</span>
         </NavLink>
 
         <NavLink to="/admin/pages">

@@ -46,6 +46,8 @@ import EditCategory from "../pages/admin/EditCategory";
 
 import AdminSubcategories from "../pages/admin/AdminSubcategories";
 import AdminTestimonials from "../pages/admin/AdminTestimonials";
+import AdminReviews from "../pages/admin/AdminReviews";
+import AdminQuestions from "../pages/admin/AdminQuestions";
 import AdminPages from "../pages/admin/AdminPages";
 import AdminSettings from "../pages/admin/AdminSettings";
 import AdminMessages from "../pages/admin/AdminMessages";
@@ -125,6 +127,8 @@ function AppRoutes() {
         <Route path="categories" element={<AdminCategories />} />
         <Route path="subcategories" element={<AdminSubcategories />} />
         <Route path="testimonials" element={<AdminTestimonials />} />
+        <Route path="reviews" element={<AdminReviews />} />
+        <Route path="questions" element={<AdminQuestions />} />
         <Route path="pages" element={<AdminPages />} />
         <Route path="settings" element={<AdminSettings />} />
         <Route path="messages" element={<AdminMessages />} />
