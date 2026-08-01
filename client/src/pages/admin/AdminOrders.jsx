@@ -1,6 +1,6 @@
 import { imgUrl } from "../../services/api";
 import { useEffect, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 
 import {
   getAllOrders,
@@ -233,14 +233,26 @@ function AdminOrders() {
                             className="flex items-center gap-3 text-sm"
                           >
                             {item.image && (
-                              <img
-                                src={`${imgUrl(item.image)}`}
-                                alt={item.name}
-                                className="w-10 h-10 object-cover rounded-md border border-slate-200"
-                              />
+                              <Link
+                                to={`/product/${item.product}`}
+                                target="_blank"
+                                className="shrink-0"
+                              >
+                                <img
+                                  src={`${imgUrl(item.image)}`}
+                                  alt={item.name}
+                                  className="w-14 h-14 object-cover rounded-lg border border-slate-200"
+                                />
+                              </Link>
                             )}
                             <div className="flex-1">
-                              <p className="text-slate-800">{item.name}</p>
+                              <Link
+                                to={`/product/${item.product}`}
+                                target="_blank"
+                                className="text-slate-800 hover:text-blue-600 hover:underline"
+                              >
+                                {item.name}
+                              </Link>
                               <p className="text-slate-500 text-xs">
                                 Qty: {item.quantity} × ₹{item.price}
                               </p>
