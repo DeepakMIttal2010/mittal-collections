@@ -180,10 +180,12 @@ function AdminOrders() {
                 </div>
 
                 <div className="text-sm text-slate-600">
-                  {new Date(order.createdAt).toLocaleDateString("en-IN", {
+                  {new Date(order.createdAt).toLocaleString("en-IN", {
                     day: "2-digit",
                     month: "short",
                     year: "numeric",
+                    hour: "numeric",
+                    minute: "2-digit",
                   })}
                 </div>
 
