@@ -27,6 +27,7 @@ import SearchResults from "../pages/SearchResults";
 import CategoryPage from "../pages/CategoryPage";
 import Checkout from "../pages/Checkout";
 import MyOrders from "../pages/MyOrders";
+import OrderDetails from "../pages/OrderDetails";
 import PolicyPage from "../pages/PolicyPage";
 import MainLayout from "../layouts/MainLayout";
 
@@ -89,6 +90,7 @@ function AppRoutes() {
         <Route path="/addresses/add" element={<AddressForm />} />
         <Route path="/addresses/edit/:id" element={<AddressForm />} />
         <Route path="/my-orders" element={<MyOrders />} />
+        <Route path="/my-orders/:id" element={<OrderDetails />} />
         <Route path="/policies/:slug" element={<PolicyPage />} />
         {/* Product Details */}
         <Route path="/product/:id" element={<ProductDetails />} />

@@ -9,14 +9,29 @@ const TABS = [
   { key: "buyAgain", label: "Buy Again" },
 ];
 
+const STATUS_COLORS = {
+  Pending: "bg-slate-100 text-slate-700",
+  Processing: "bg-blue-100 text-blue-700",
+  Shipped: "bg-amber-100 text-amber-700",
+  Delivered: "bg-green-100 text-green-700",
+  Cancelled: "bg-red-100 text-red-700",
+};
+
 function OrderCard({ order }) {
   return (
-    <div className="border border-slate-200 rounded-xl p-5 bg-white">
+    <Link
+      to={`/my-orders/${order._id}`}
+      className="block border border-slate-200 rounded-xl p-5 bg-white hover:border-amber-400 hover:shadow-sm transition-all"
+    >
       <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
         <h4 className="font-semibold text-slate-800">
           Order ID: {order._id}
         </h4>
-        <span className="text-xs font-medium px-3 py-1 rounded-full bg-amber-100 text-amber-700">
+        <span
+          className={`text-xs font-medium px-3 py-1 rounded-full ${
+            STATUS_COLORS[order.orderStatus] || "bg-slate-100 text-slate-700"
+          }`}
+        >
           {order.orderStatus}
         </span>
       </div>
@@ -35,7 +50,11 @@ function OrderCard({ order }) {
           ))}
         </ul>
       )}
-    </div>
+
+      <span className="inline-block mt-3 text-sm text-blue-700 font-medium">
+        View order details →
+      </span>
+    </Link>
   );
 }
 
