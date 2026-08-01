@@ -1,5 +1,6 @@
 import { imgUrl } from "../../services/api";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
 import {
   getAllOrders,
@@ -23,17 +24,48 @@ const STATUS_COLORS = {
 };
 
 function AdminOrders() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const highlightId = searchParams.get("highlight");
+
   const [orders, setOrders] = useState([]);
   const [filteredOrders, setFilteredOrders] = useState([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState(null);
-  const [expandedId, setExpandedId] = useState(null);
+  const [expandedId, setExpandedId] = useState(highlightId);
+
+  const highlightedRowRef = useRef(null);
+
+  const loadOrders = async () => {
+    setLoading(true);
+
+    const response = await getAllOrders();
+
+    if (response.success) {
+      setOrders(response.orders);
+      setFilteredOrders(response.orders);
+    }
+
+    setLoading(false);
+  };
 
   useEffect(() => {
     loadOrders();
   }, []);
+
+  useEffect(() => {
+    if (!highlightId || loading || !highlightedRowRef.current) return;
+
+    highlightedRowRef.current.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
+
+    // clean the URL so a page refresh doesn't keep forcing this order open
+    setSearchParams({}, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, highlightId]);
 
   useEffect(() => {
     let result = orders;
@@ -55,19 +87,6 @@ function AdminOrders() {
 
     setFilteredOrders(result);
   }, [search, statusFilter, orders]);
-
-  const loadOrders = async () => {
-    setLoading(true);
-
-    const response = await getAllOrders();
-
-    if (response.success) {
-      setOrders(response.orders);
-      setFilteredOrders(response.orders);
-    }
-
-    setLoading(false);
-  };
 
   const handleStatusChange = async (id, newStatus) => {
     setUpdatingId(id);
@@ -138,7 +157,12 @@ function AdminOrders() {
           {filteredOrders.map((order) => (
             <div
               key={order._id}
-              className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden"
+              ref={order._id === highlightId ? highlightedRowRef : null}
+              className={`bg-white rounded-xl border shadow-sm overflow-hidden ${
+                order._id === highlightId
+                  ? "border-amber-400 ring-2 ring-amber-200"
+                  : "border-slate-200"
+              }`}
             >
               {/* Order Summary Row */}
               <div

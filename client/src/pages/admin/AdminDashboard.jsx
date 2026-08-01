@@ -125,7 +125,13 @@ function AdminDashboard() {
                 </tr>
               ) : (
                 dashboard.recentOrders.map((order) => (
-                  <tr key={order._id}>
+                  <tr
+                    key={order._id}
+                    className="clickable-row"
+                    onClick={() =>
+                      navigate(`/admin/orders?highlight=${order._id}`)
+                    }
+                  >
                     <td>{order._id.slice(-6)}</td>
 
                     <td>{order.user?.name || "Guest"}</td>

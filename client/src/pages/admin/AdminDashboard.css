@@ -89,3 +89,11 @@
   padding: 14px;
   border-bottom: 1px solid #eee;
 }
+
+.clickable-row {
+  cursor: pointer;
+}
+
+.clickable-row:hover td {
+  background: #f8fafc;
+}
