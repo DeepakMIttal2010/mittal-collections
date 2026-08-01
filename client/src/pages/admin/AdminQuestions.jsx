@@ -48,13 +48,18 @@ function QuestionCard({ item, onSaved }) {
           )}
           <div>
             {item.product ? (
-              <Link
-                to={`/product/${item.product._id}`}
-                target="_blank"
-                className="text-xs text-blue-600 hover:underline"
-              >
-                {item.product.name}
-              </Link>
+              <>
+                <Link
+                  to={`/product/${item.product._id}`}
+                  target="_blank"
+                  className="text-xs text-blue-600 hover:underline"
+                >
+                  {item.product.name}
+                </Link>
+                <p className="text-[11px] text-slate-400 font-mono">
+                  Product ID: {item.product._id}
+                </p>
+              </>
             ) : (
               <p className="text-xs text-slate-500">Deleted product</p>
             )}

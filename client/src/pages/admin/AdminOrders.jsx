@@ -256,6 +256,9 @@ function AdminOrders() {
                               <p className="text-slate-500 text-xs">
                                 Qty: {item.quantity} × ₹{item.price}
                               </p>
+                              <p className="text-slate-400 text-xs font-mono">
+                                Product ID: {item.product}
+                              </p>
                             </div>
                           </div>
                         ))}

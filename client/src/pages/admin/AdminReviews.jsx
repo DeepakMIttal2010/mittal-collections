@@ -76,13 +76,18 @@ function AdminReviews() {
                   )}
                   <div>
                     {review.product ? (
-                      <Link
-                        to={`/product/${review.product._id}`}
-                        target="_blank"
-                        className="text-xs text-blue-600 hover:underline"
-                      >
-                        {review.product.name}
-                      </Link>
+                      <>
+                        <Link
+                          to={`/product/${review.product._id}`}
+                          target="_blank"
+                          className="text-xs text-blue-600 hover:underline"
+                        >
+                          {review.product.name}
+                        </Link>
+                        <p className="text-[11px] text-slate-400 font-mono">
+                          Product ID: {review.product._id}
+                        </p>
+                      </>
                     ) : (
                       <p className="text-xs text-slate-500">
                         Deleted product

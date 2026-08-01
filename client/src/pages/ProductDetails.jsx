@@ -300,9 +300,13 @@ function ProductDetails() {
             {product.subcategory?.name ? ` / ${product.subcategory.name}` : ""}
           </p>
 
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">
+          <h1 className="text-3xl font-bold text-slate-900 mb-1">
             {product.name}
           </h1>
+
+          <p className="text-xs text-slate-400 mb-3 font-mono">
+            Product ID: {product._id}
+          </p>
 
           <div className="flex items-center gap-1 text-amber-500 mb-4">
             <FaStar />
