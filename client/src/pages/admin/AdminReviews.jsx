@@ -1,4 +1,6 @@
+import { imgUrl } from "../../services/api";
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { FaStar } from "react-icons/fa";
 
 import {
@@ -63,25 +65,44 @@ function AdminReviews() {
               key={review._id}
               className="bg-white border border-slate-200 rounded-xl p-5"
             >
-              <div className="flex flex-wrap items-start justify-between gap-3 mb-2">
-                <div>
-                  <p className="text-xs text-slate-500">
-                    {review.product?.name || "Deleted product"}
-                  </p>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <span className="flex items-center gap-0.5 text-amber-500 text-sm">
-                      {Array.from({ length: 5 }).map((_, i) => (
-                        <FaStar
-                          key={i}
-                          className={
-                            i < review.rating ? "" : "text-slate-200"
-                          }
-                        />
-                      ))}
-                    </span>
-                    <h4 className="font-semibold text-slate-800">
-                      {review.title}
-                    </h4>
+              <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
+                <div className="flex items-start gap-3">
+                  {review.product?.image && (
+                    <img
+                      src={imgUrl(review.product.image)}
+                      alt={review.product.name}
+                      className="w-14 h-14 object-cover rounded-lg border border-slate-200 shrink-0"
+                    />
+                  )}
+                  <div>
+                    {review.product ? (
+                      <Link
+                        to={`/product/${review.product._id}`}
+                        target="_blank"
+                        className="text-xs text-blue-600 hover:underline"
+                      >
+                        {review.product.name}
+                      </Link>
+                    ) : (
+                      <p className="text-xs text-slate-500">
+                        Deleted product
+                      </p>
+                    )}
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="flex items-center gap-0.5 text-amber-500 text-sm">
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          <FaStar
+                            key={i}
+                            className={
+                              i < review.rating ? "" : "text-slate-200"
+                            }
+                          />
+                        ))}
+                      </span>
+                      <h4 className="font-semibold text-slate-800">
+                        {review.title}
+                      </h4>
+                    </div>
                   </div>
                 </div>
 

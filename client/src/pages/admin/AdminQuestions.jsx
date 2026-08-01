@@ -1,4 +1,6 @@
+import { imgUrl } from "../../services/api";
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 
 import {
   getAllQuestionsAdmin,
@@ -36,13 +38,30 @@ function QuestionCard({ item, onSaved }) {
   return (
     <div className="bg-white border border-slate-200 rounded-xl p-5">
       <div className="flex flex-wrap items-start justify-between gap-3 mb-2">
-        <div>
-          <p className="text-xs text-slate-500">
-            {item.product?.name || "Deleted product"}
-          </p>
-          <h4 className="font-semibold text-slate-800 mt-0.5">
-            {item.question}
-          </h4>
+        <div className="flex items-start gap-3">
+          {item.product?.image && (
+            <img
+              src={imgUrl(item.product.image)}
+              alt={item.product.name}
+              className="w-14 h-14 object-cover rounded-lg border border-slate-200 shrink-0"
+            />
+          )}
+          <div>
+            {item.product ? (
+              <Link
+                to={`/product/${item.product._id}`}
+                target="_blank"
+                className="text-xs text-blue-600 hover:underline"
+              >
+                {item.product.name}
+              </Link>
+            ) : (
+              <p className="text-xs text-slate-500">Deleted product</p>
+            )}
+            <h4 className="font-semibold text-slate-800 mt-0.5">
+              {item.question}
+            </h4>
+          </div>
         </div>
 
         <span
