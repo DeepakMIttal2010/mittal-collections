@@ -157,6 +157,9 @@ export const getReportsData = async (req, res) => {
       uniqueVisitorsAgg,
       visitsOverTime,
       topPages,
+      deviceBreakdown,
+      visitorsInRangeAgg,
+      visitorsBeforeRangeAgg,
     ] = await Promise.all([
       Order.countDocuments(),
 
@@ -275,10 +278,38 @@ export const getReportsData = async (req, res) => {
         { $sort: { visits: -1 } },
         { $limit: 8 },
       ]),
+
+      PageVisit.aggregate([
+        { $match: { createdAt: { $gte: since } } },
+        { $group: { _id: "$device", count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+      ]),
+
+      PageVisit.aggregate([
+        { $match: { createdAt: { $gte: since } } },
+        { $group: { _id: "$visitorId" } },
+      ]),
+
+      PageVisit.aggregate([
+        { $match: { createdAt: { $lt: since } } },
+        { $group: { _id: "$visitorId" } },
+      ]),
     ]);
 
     const totalRevenue = revenueAgg[0]?.total || 0;
     const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+
+    const visitorsBeforeRangeSet = new Set(
+      visitorsBeforeRangeAgg.map((v) => v._id),
+    );
+    let newVisitors = 0;
+    let returningVisitors = 0;
+
+    visitorsInRangeAgg.forEach((v) => {
+      if (visitorsBeforeRangeSet.has(v._id)) returningVisitors += 1;
+      else newVisitors += 1;
+    });
+
     const uniqueVisitors = uniqueVisitorsAgg[0]?.count || 0;
 
     res.status(200).json({
@@ -290,17 +321,64 @@ export const getReportsData = async (req, res) => {
         totalCustomers,
         totalVisits,
         uniqueVisitors,
+        newVisitors,
+        returningVisitors,
       },
       salesOverTime,
       ordersByStatus,
       visitsOverTime,
       topPages,
+      deviceBreakdown,
       topProducts,
       revenueByCategory,
       rangeDays: days,
     });
   } catch (error) {
     console.error("Get Reports Data Error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};
+
+// ============================
+// Get Visit Log (Admin — paginated, detailed)
+// ============================
+
+export const getVisitLog = async (req, res) => {
+  try {
+    const days = Math.min(Math.max(parseInt(req.query.days, 10) || 30, 7), 90);
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const limit = Math.max(parseInt(req.query.limit, 10) || 25, 1);
+
+    const since = new Date();
+    since.setDate(since.getDate() - (days - 1));
+    since.setHours(0, 0, 0, 0);
+
+    const filter = { createdAt: { $gte: since } };
+
+    const [total, visits] = await Promise.all([
+      PageVisit.countDocuments(filter),
+
+      PageVisit.find(filter)
+        .sort({ createdAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .select("path visitorId device country city createdAt"),
+    ]);
+
+    res.status(200).json({
+      success: true,
+      visits,
+      total,
+      page,
+      limit,
+      pages: Math.max(Math.ceil(total / limit), 1),
+    });
+  } catch (error) {
+    console.error("Get Visit Log Error:", error);
 
     res.status(500).json({
       success: false,

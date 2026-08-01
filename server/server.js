@@ -32,6 +32,10 @@ connectDB();
 
 const app = express();
 
+// Render sits behind a reverse proxy — trust X-Forwarded-For so req.ip
+// reflects the real visitor IP (needed for geo-location lookups)
+app.set("trust proxy", true);
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 

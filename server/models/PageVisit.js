@@ -12,6 +12,22 @@ const pageVisitSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+
+    device: {
+      type: String,
+      enum: ["Mobile", "Tablet", "Desktop"],
+      default: "Desktop",
+    },
+
+    country: {
+      type: String,
+      default: "",
+    },
+
+    city: {
+      type: String,
+      default: "",
+    },
   },
   {
     timestamps: { createdAt: true, updatedAt: false },
