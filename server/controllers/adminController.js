@@ -2,6 +2,7 @@ import Product from "../models/Product.js";
 import Order from "../models/Order.js";
 import User from "../models/User.js";
 import ContactMessage from "../models/ContactMessage.js";
+import PageVisit from "../models/PageVisit.js";
 
 export const getDashboardData = async (req, res) => {
   try {
@@ -152,6 +153,10 @@ export const getReportsData = async (req, res) => {
       ordersByStatus,
       topProducts,
       revenueByCategory,
+      totalVisits,
+      uniqueVisitorsAgg,
+      visitsOverTime,
+      topPages,
     ] = await Promise.all([
       Order.countDocuments(),
 
@@ -236,10 +241,45 @@ export const getReportsData = async (req, res) => {
         },
         { $sort: { revenue: -1 } },
       ]),
+
+      PageVisit.countDocuments(),
+
+      PageVisit.aggregate([
+        { $group: { _id: "$visitorId" } },
+        { $count: "count" },
+      ]),
+
+      PageVisit.aggregate([
+        { $match: { createdAt: { $gte: since } } },
+        {
+          $group: {
+            _id: {
+              $dateToString: { format: "%Y-%m-%d", date: "$createdAt" },
+            },
+            visits: { $sum: 1 },
+            visitors: { $addToSet: "$visitorId" },
+          },
+        },
+        {
+          $project: {
+            visits: 1,
+            uniqueVisitors: { $size: "$visitors" },
+          },
+        },
+        { $sort: { _id: 1 } },
+      ]),
+
+      PageVisit.aggregate([
+        { $match: { createdAt: { $gte: since } } },
+        { $group: { _id: "$path", visits: { $sum: 1 } } },
+        { $sort: { visits: -1 } },
+        { $limit: 8 },
+      ]),
     ]);
 
     const totalRevenue = revenueAgg[0]?.total || 0;
     const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+    const uniqueVisitors = uniqueVisitorsAgg[0]?.count || 0;
 
     res.status(200).json({
       success: true,
@@ -248,9 +288,13 @@ export const getReportsData = async (req, res) => {
         totalOrders,
         avgOrderValue,
         totalCustomers,
+        totalVisits,
+        uniqueVisitors,
       },
       salesOverTime,
       ordersByStatus,
+      visitsOverTime,
+      topPages,
       topProducts,
       revenueByCategory,
       rangeDays: days,

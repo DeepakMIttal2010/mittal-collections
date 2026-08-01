@@ -4,6 +4,8 @@ import {
   FaShoppingCart,
   FaChartLine,
   FaUsers,
+  FaEye,
+  FaUserFriends,
 } from "react-icons/fa";
 
 import { getReportsData } from "../../services/adminService";
@@ -20,6 +22,8 @@ const STATUS_COLORS = {
 
 const formatCurrency = (value) =>
   `₹${Math.round(value).toLocaleString("en-IN")}`;
+
+const formatNumber = (value) => Math.round(value).toLocaleString("en-IN");
 
 const formatDay = (isoDate) => {
   const d = new Date(isoDate);
@@ -42,28 +46,28 @@ function StatTile({ icon, label, value }) {
   );
 }
 
-function SalesOverTimeChart({ data }) {
+function BarTrendChart({ data, valueKey, formatValue, emptyText }) {
   if (data.length === 0) {
     return (
-      <p className="text-sm text-slate-400 py-12 text-center">
-        No sales in this range yet.
-      </p>
+      <p className="text-sm text-slate-400 py-12 text-center">{emptyText}</p>
     );
   }
 
-  const max = Math.max(...data.map((d) => d.revenue), 1);
+  const max = Math.max(...data.map((d) => d[valueKey]), 1);
 
   return (
     <div className="flex items-end gap-1.5 h-48">
       {data.map((d) => {
-        const heightPct = Math.max((d.revenue / max) * 100, 3);
+        const heightPct = Math.max((d[valueKey] / max) * 100, 3);
         return (
           <div
             key={d._id}
             className="group relative flex-1 flex flex-col items-center justify-end h-full"
           >
             <div className="absolute -top-9 hidden group-hover:flex flex-col items-center bg-slate-800 text-white text-xs rounded-md px-2 py-1 whitespace-nowrap z-10">
-              <span className="font-semibold">{formatCurrency(d.revenue)}</span>
+              <span className="font-semibold">
+                {formatValue(d[valueKey])}
+              </span>
               <span className="text-slate-300">{formatDay(d._id)}</span>
             </div>
             <div
@@ -117,7 +121,7 @@ function OrdersByStatus({ data }) {
   );
 }
 
-function RankedBarList({ items, labelKey, valueKey, emptyText }) {
+function RankedBarList({ items, labelKey, valueKey, formatValue, emptyText }) {
   if (items.length === 0) {
     return (
       <p className="text-sm text-slate-400 py-8 text-center">{emptyText}</p>
@@ -135,7 +139,7 @@ function RankedBarList({ items, labelKey, valueKey, emptyText }) {
               {item[labelKey]}
             </span>
             <span className="text-slate-500 shrink-0">
-              {formatCurrency(item[valueKey])}
+              {formatValue(item[valueKey])}
             </span>
           </div>
           <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
@@ -159,11 +163,15 @@ function AdminReports() {
       totalOrders: 0,
       avgOrderValue: 0,
       totalCustomers: 0,
+      totalVisits: 0,
+      uniqueVisitors: 0,
     },
     salesOverTime: [],
     ordersByStatus: [],
     topProducts: [],
     revenueByCategory: [],
+    visitsOverTime: [],
+    topPages: [],
   });
 
   const loadReport = async () => {
@@ -197,7 +205,7 @@ function AdminReports() {
         <div>
           <h2 className="text-2xl font-bold text-slate-800">Reports</h2>
           <p className="text-sm text-slate-500">
-            Sales and performance overview
+            Sales and traffic overview
           </p>
         </div>
 
@@ -219,7 +227,7 @@ function AdminReports() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
         <StatTile
           icon={<FaRupeeSign />}
           label="Total Revenue"
@@ -242,14 +250,46 @@ function AdminReports() {
         />
       </div>
 
-      <div className="bg-white border border-slate-200 rounded-xl p-5 mb-6">
-        <h3 className="font-semibold text-slate-800 mb-4">
-          Sales — last {days} days
-        </h3>
-        <SalesOverTimeChart data={report.salesOverTime} />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+        <StatTile
+          icon={<FaEye />}
+          label="Total Website Visits (all-time)"
+          value={formatNumber(summary.totalVisits)}
+        />
+        <StatTile
+          icon={<FaUserFriends />}
+          label="Unique Visitors (all-time)"
+          value={formatNumber(summary.uniqueVisitors)}
+        />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <div className="bg-white border border-slate-200 rounded-xl p-5">
+          <h3 className="font-semibold text-slate-800 mb-4">
+            Sales — last {days} days
+          </h3>
+          <BarTrendChart
+            data={report.salesOverTime}
+            valueKey="revenue"
+            formatValue={formatCurrency}
+            emptyText="No sales in this range yet."
+          />
+        </div>
+
+        <div className="bg-white border border-slate-200 rounded-xl p-5">
+          <h3 className="font-semibold text-slate-800 mb-4">
+            Website Visits — last {days} days
+          </h3>
+          <BarTrendChart
+            data={report.visitsOverTime}
+            valueKey="visits"
+            formatValue={(v) => `${formatNumber(v)} visits`}
+            emptyText="No visits recorded in this range yet."
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <div className="bg-white border border-slate-200 rounded-xl p-5">
           <h3 className="font-semibold text-slate-800 mb-4">
             Orders by Status
@@ -259,12 +299,28 @@ function AdminReports() {
 
         <div className="bg-white border border-slate-200 rounded-xl p-5">
           <h3 className="font-semibold text-slate-800 mb-4">
+            Most Visited Pages — last {days} days
+          </h3>
+          <RankedBarList
+            items={report.topPages}
+            labelKey="_id"
+            valueKey="visits"
+            formatValue={(v) => `${formatNumber(v)} visits`}
+            emptyText="No page visits recorded in this range yet."
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white border border-slate-200 rounded-xl p-5">
+          <h3 className="font-semibold text-slate-800 mb-4">
             Top Selling Products
           </h3>
           <RankedBarList
             items={report.topProducts}
             labelKey="name"
             valueKey="revenue"
+            formatValue={formatCurrency}
             emptyText="No product sales yet."
           />
         </div>
@@ -277,6 +333,7 @@ function AdminReports() {
             items={report.revenueByCategory}
             labelKey="name"
             valueKey="revenue"
+            formatValue={formatCurrency}
             emptyText="No category sales yet."
           />
         </div>
