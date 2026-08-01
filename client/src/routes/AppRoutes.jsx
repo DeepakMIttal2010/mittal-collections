@@ -59,6 +59,7 @@ import AdminChangePassword from "../pages/admin/AdminChangePassword";
 
 import AdminCustomers from "../pages/admin/AdminCustomers";
 import CustomerDetails from "../pages/admin/CustomerDetails";
+import AdminReports from "../pages/admin/AdminReports";
 
 function AppRoutes() {
   return (
@@ -134,6 +135,7 @@ function AppRoutes() {
         <Route path="change-password" element={<AdminChangePassword />} />
         <Route path="customers" element={<AdminCustomers />} />
         <Route path="customers/:id" element={<CustomerDetails />} />
+        <Route path="reports" element={<AdminReports />} />
       </Route>
     </Routes>
   );

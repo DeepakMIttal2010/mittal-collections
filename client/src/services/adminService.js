@@ -21,3 +21,26 @@ export const getDashboardData = async () => {
     };
   }
 };
+
+export const getReportsData = async (days = 30) => {
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/admin/reports?days=${days}`,
+      {
+        headers: {
+          Authorization: `Bearer ${getToken()}`,
+        },
+      },
+    );
+
+    const data = await response.json();
+
+    return data;
+  } catch (error) {
+    console.error("Reports Error:", error);
+
+    return {
+      success: false,
+    };
+  }
+};

@@ -4,6 +4,7 @@ import {
   getDashboardData,
   getNotifications,
   markAllNotificationsRead,
+  getReportsData,
 } from "../controllers/adminController.js";
 import authMiddleware from "../middleware/authMiddleware.js";
 import adminMiddleware from "../middleware/adminMiddleware.js";
@@ -26,5 +27,7 @@ router.put(
   adminMiddleware,
   markAllNotificationsRead,
 );
+
+router.get("/reports", authMiddleware, adminMiddleware, getReportsData);
 
 export default router;
