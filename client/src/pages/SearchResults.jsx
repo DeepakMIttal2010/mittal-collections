@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { searchProducts } from "../services/productService";
 import ProductGrid from "../components/ProductGrid/ProductGrid";
+import ProductGridSkeleton from "../components/ProductGrid/ProductGridSkeleton";
 
 function SearchResults() {
   const [searchParams] = useSearchParams();
@@ -38,7 +39,7 @@ function SearchResults() {
       {!hasQuery ? (
         <p className="text-slate-500">Type something in the search box above.</p>
       ) : loading ? (
-        <p className="text-slate-500">Loading...</p>
+        <ProductGridSkeleton />
       ) : (
         <ProductGrid products={products} />
       )}

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import { getTrendingProducts } from "../services/productService";
 import ProductGrid from "../components/ProductGrid/ProductGrid";
+import ProductGridSkeleton from "../components/ProductGrid/ProductGridSkeleton";
 import Seo from "../components/Seo";
 
 function TrendingPage() {
@@ -36,7 +37,7 @@ function TrendingPage() {
       </p>
 
       {loading ? (
-        <p className="text-center text-slate-400 py-10">Loading...</p>
+        <ProductGridSkeleton />
       ) : (
         <ProductGrid products={products} />
       )}

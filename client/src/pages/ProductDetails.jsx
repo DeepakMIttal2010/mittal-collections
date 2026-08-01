@@ -1,5 +1,6 @@
 import { imgUrl } from "../services/api";
 import Seo from "../components/Seo";
+import ProductDetailsSkeleton from "./ProductDetailsSkeleton";
 import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import {
@@ -153,9 +154,7 @@ function ProductDetails() {
   };
 
   if (loading) {
-    return (
-      <div className="p-16 text-center text-slate-500">Loading...</div>
-    );
+    return <ProductDetailsSkeleton />;
   }
 
   if (!product) {

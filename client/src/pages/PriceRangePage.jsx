@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 
 import { getProductsByMaxPrice } from "../services/productService";
 import ProductGrid from "../components/ProductGrid/ProductGrid";
+import ProductGridSkeleton from "../components/ProductGrid/ProductGridSkeleton";
 import Seo from "../components/Seo";
 
 function PriceRangePage() {
@@ -35,11 +36,13 @@ function PriceRangePage() {
         Products Under ₹{maxPrice}
       </h1>
       <p className="text-slate-500 mb-8">
-        {products.length} product{products.length !== 1 ? "s" : ""} found
+        {loading
+          ? "Loading products..."
+          : `${products.length} product${products.length !== 1 ? "s" : ""} found`}
       </p>
 
       {loading ? (
-        <p className="text-center text-slate-400 py-10">Loading...</p>
+        <ProductGridSkeleton />
       ) : (
         <ProductGrid products={products} />
       )}

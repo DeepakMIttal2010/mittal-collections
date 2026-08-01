@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { FaChevronLeft, FaChevronRight, FaFire } from "react-icons/fa";
 
 import { getTrendingProducts } from "../../services/productService";
+import Skeleton from "../Skeleton";
 
 const timeAgo = (dateString) => {
   const seconds = Math.floor((Date.now() - new Date(dateString)) / 1000);
@@ -22,6 +23,7 @@ const timeAgo = (dateString) => {
 function TrendingSection() {
   const [products, setProducts] = useState([]);
   const [lastUpdated, setLastUpdated] = useState(null);
+  const [loading, setLoading] = useState(true);
   const scrollRef = useRef(null);
 
   useEffect(() => {
@@ -32,6 +34,8 @@ function TrendingSection() {
         setProducts(response.products);
         setLastUpdated(response.lastUpdated);
       }
+
+      setLoading(false);
     };
 
     loadTrending();
@@ -46,7 +50,7 @@ function TrendingSection() {
     });
   };
 
-  if (products.length === 0) return null;
+  if (!loading && products.length === 0) return null;
 
   return (
     <section className="py-20 bg-white overflow-hidden">
@@ -100,7 +104,14 @@ function TrendingSection() {
           ref={scrollRef}
           className="flex gap-6 overflow-x-auto scroll-smooth pt-5 pb-4 pl-3"
         >
-          {products.map((product, index) => (
+          {loading
+            ? Array.from({ length: 5 }).map((_, index) => (
+                <Skeleton
+                  key={index}
+                  className="shrink-0 w-48 sm:w-60 aspect-[4/5] rounded-xl"
+                />
+              ))
+            : products.map((product, index) => (
             <Link
               key={product._id}
               to={`/product/${product._id}`}

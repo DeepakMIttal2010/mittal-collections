@@ -3,6 +3,7 @@ import { FaSearch } from "react-icons/fa";
 import { getProducts } from "../../services/productService";
 import { getCategories } from "../../services/categoryService";
 import ProductGrid from "../ProductGrid/ProductGrid";
+import ProductGridSkeleton from "../ProductGrid/ProductGridSkeleton";
 
 function ProductSection() {
   const [products, setProducts] = useState([]);
@@ -130,9 +131,7 @@ function ProductSection() {
         </div>
 
         {loading ? (
-          <p className="text-center text-slate-400 py-10">
-            Loading products...
-          </p>
+          <ProductGridSkeleton />
         ) : (
           <ProductGrid products={filteredProducts} />
         )}

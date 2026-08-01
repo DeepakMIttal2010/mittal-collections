@@ -2,6 +2,7 @@ import { imgUrl } from "../../services/api";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { getCategories } from "../../services/categoryService";
+import Skeleton from "../Skeleton";
 
 function Categories() {
   const [categories, setCategories] = useState([]);
@@ -41,7 +42,11 @@ function Categories() {
         </div>
 
         {loading ? (
-          <p className="text-center text-slate-400">Loading categories...</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <Skeleton key={index} className="h-72 rounded-2xl" />
+            ))}
+          </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
             {categories.map((category) => (

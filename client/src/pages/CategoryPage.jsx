@@ -7,6 +7,7 @@ import {
   getProductsBySubcategory,
 } from "../services/productService";
 import ProductGrid from "../components/ProductGrid/ProductGrid";
+import ProductGridSkeleton from "../components/ProductGrid/ProductGridSkeleton";
 import Seo from "../components/Seo";
 
 const SORT_OPTIONS = [
@@ -106,7 +107,7 @@ function CategoryPage() {
   if (status === "loading") {
     return (
       <div className="max-w-7xl mx-auto px-4 py-8">
-        <p className="text-slate-500">Loading...</p>
+        <ProductGridSkeleton />
       </div>
     );
   }
