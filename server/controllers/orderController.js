@@ -63,6 +63,7 @@ export const createOrder = async (req, res) => {
       totalPrice,
       couponCode: appliedCouponCode,
       discountAmount,
+      statusHistory: [{ status: "Pending", changedAt: new Date() }],
     });
 
     res.status(201).json({
@@ -221,6 +222,7 @@ export const updateOrderStatus = async (req, res) => {
     }
 
     order.orderStatus = status;
+    order.statusHistory.push({ status, changedAt: new Date() });
 
     if (status === "Delivered") {
       order.deliveredAt = Date.now();

@@ -193,14 +193,27 @@ function AdminOrders() {
                   ₹{order.totalPrice}
                 </div>
 
-                <span
-                  className={`text-xs font-semibold px-3 py-1 rounded-full w-fit ${
-                    STATUS_COLORS[order.orderStatus] ||
-                    "bg-slate-100 text-slate-700"
-                  }`}
-                >
-                  {order.orderStatus}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`text-xs font-semibold px-3 py-1 rounded-full w-fit ${
+                      STATUS_COLORS[order.orderStatus] ||
+                      "bg-slate-100 text-slate-700"
+                    }`}
+                  >
+                    {order.orderStatus}
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleExpand(order._id);
+                    }}
+                    className="text-xs font-medium text-blue-600 hover:underline whitespace-nowrap"
+                  >
+                    View History
+                  </button>
+                </div>
 
                 <select
                   value={order.orderStatus}
@@ -298,6 +311,50 @@ function AdminOrders() {
                         </p>
                       </div>
                     </div>
+                  </div>
+
+                  {/* Order History */}
+                  <div className="mt-6 pt-4 border-t border-slate-200">
+                    <h4 className="text-sm font-semibold text-slate-700 mb-3">
+                      Order History
+                    </h4>
+
+                    {order.statusHistory?.length > 0 ? (
+                      <ol className="space-y-2">
+                        {order.statusHistory.map((entry, idx) => (
+                          <li
+                            key={idx}
+                            className="flex items-center gap-2 text-sm"
+                          >
+                            <span
+                              className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${
+                                STATUS_COLORS[entry.status] ||
+                                "bg-slate-100 text-slate-700"
+                              }`}
+                            >
+                              {entry.status}
+                            </span>
+                            <span className="text-slate-500">
+                              {new Date(entry.changedAt).toLocaleString(
+                                "en-IN",
+                                {
+                                  day: "2-digit",
+                                  month: "short",
+                                  year: "numeric",
+                                  hour: "numeric",
+                                  minute: "2-digit",
+                                },
+                              )}
+                            </span>
+                          </li>
+                        ))}
+                      </ol>
+                    ) : (
+                      <p className="text-sm text-slate-400">
+                        No history recorded before this order's current
+                        status ({order.orderStatus}).
+                      </p>
+                    )}
                   </div>
                 </div>
               )}
