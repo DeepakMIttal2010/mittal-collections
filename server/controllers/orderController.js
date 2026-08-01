@@ -1,10 +1,47 @@
 import Order from "../models/Order.js";
 import Coupon from "../models/Coupon.js";
 import SiteSettings from "../models/SiteSettings.js";
+import Product from "../models/Product.js";
 import {
   calculateDiscount,
   isEligibleForFirstOrderCoupon,
 } from "./couponController.js";
+
+// Atomically reserve stock for every item. If any item doesn't have enough
+// stock, roll back the items already reserved and return that item's name.
+const reserveStock = async (orderItems) => {
+  const reserved = [];
+
+  for (const item of orderItems) {
+    const updated = await Product.findOneAndUpdate(
+      { _id: item.product, stock: { $gte: item.quantity } },
+      { $inc: { stock: -item.quantity } },
+      { new: true },
+    );
+
+    if (!updated) {
+      for (const r of reserved) {
+        await Product.findByIdAndUpdate(r.product, {
+          $inc: { stock: r.quantity },
+        });
+      }
+
+      return { success: false, failedItemName: item.name };
+    }
+
+    reserved.push({ product: item.product, quantity: item.quantity });
+  }
+
+  return { success: true };
+};
+
+const restoreStock = async (orderItems) => {
+  for (const item of orderItems) {
+    await Product.findByIdAndUpdate(item.product, {
+      $inc: { stock: item.quantity },
+    });
+  }
+};
 
 // ============================
 // Create New Order
@@ -55,16 +92,32 @@ export const createOrder = async (req, res) => {
 
     const totalPrice = Math.max(subtotal + deliveryFee - discountAmount, 0);
 
-    const order = await Order.create({
-      user: req.user._id,
-      orderItems,
-      shippingAddress,
-      paymentMethod,
-      totalPrice,
-      couponCode: appliedCouponCode,
-      discountAmount,
-      statusHistory: [{ status: "Pending", changedAt: new Date() }],
-    });
+    const stockResult = await reserveStock(orderItems);
+
+    if (!stockResult.success) {
+      return res.status(400).json({
+        success: false,
+        message: `Sorry, "${stockResult.failedItemName}" doesn't have enough stock available.`,
+      });
+    }
+
+    let order;
+
+    try {
+      order = await Order.create({
+        user: req.user._id,
+        orderItems,
+        shippingAddress,
+        paymentMethod,
+        totalPrice,
+        couponCode: appliedCouponCode,
+        discountAmount,
+        statusHistory: [{ status: "Pending", changedAt: new Date() }],
+      });
+    } catch (orderError) {
+      await restoreStock(orderItems);
+      throw orderError;
+    }
 
     res.status(201).json({
       success: true,
@@ -221,6 +274,8 @@ export const updateOrderStatus = async (req, res) => {
       });
     }
 
+    const wasAlreadyCancelled = order.orderStatus === "Cancelled";
+
     order.orderStatus = status;
     order.statusHistory.push({ status, changedAt: new Date() });
 
@@ -229,6 +284,10 @@ export const updateOrderStatus = async (req, res) => {
     }
 
     await order.save();
+
+    if (status === "Cancelled" && !wasAlreadyCancelled) {
+      await restoreStock(order.orderItems);
+    }
 
     res.status(200).json({
       success: true,
