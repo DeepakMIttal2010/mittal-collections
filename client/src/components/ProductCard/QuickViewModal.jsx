@@ -4,6 +4,7 @@ import { FaTimes, FaStar, FaShoppingCart, FaHeart } from "react-icons/fa";
 
 import { useCart } from "../../context/CartContext";
 import { useWishlist } from "../../context/WishlistContext";
+import { getStockStatus } from "../../utils/stock";
 
 function QuickViewModal({ product, onClose }) {
   const { addToCart } = useCart();
@@ -83,13 +84,11 @@ function QuickViewModal({ product, onClose }) {
           </div>
 
           <p
-            className={`text-sm font-medium mb-3 ${
-              product.stock > 0 ? "text-green-600" : "text-red-600"
+            className={`text-sm font-semibold mb-3 ${
+              getStockStatus(product.stock).className
             }`}
           >
-            {product.stock > 0
-              ? `In Stock (${product.stock})`
-              : "Out of Stock"}
+            {getStockStatus(product.stock).label}
           </p>
 
           <p className="text-sm text-slate-600 leading-relaxed mb-6 line-clamp-4">

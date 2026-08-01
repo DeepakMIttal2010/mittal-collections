@@ -1,6 +1,7 @@
 import { imgUrl } from "../services/api";
 import Seo from "../components/Seo";
 import ProductDetailsSkeleton from "./ProductDetailsSkeleton";
+import { getStockStatus } from "../utils/stock";
 import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import {
@@ -318,11 +319,11 @@ function ProductDetails() {
           </div>
 
           <p
-            className={`text-sm font-medium mb-4 ${
-              product.stock > 0 ? "text-green-600" : "text-red-600"
+            className={`text-sm font-semibold mb-4 ${
+              getStockStatus(product.stock).className
             }`}
           >
-            {product.stock > 0 ? `In Stock (${product.stock})` : "Out of Stock"}
+            {getStockStatus(product.stock).label}
           </p>
 
           <p className="text-slate-600 leading-relaxed mb-6">

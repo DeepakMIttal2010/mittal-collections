@@ -44,6 +44,18 @@
   font-weight: bold;
 }
 
+.stock-badge {
+  position: absolute;
+  bottom: 15px;
+  left: 15px;
+  background: #d97706;
+  color: white;
+  padding: 5px 11px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: bold;
+}
+
 .product-icons {
   position: absolute;
   top: 15px;

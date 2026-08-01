@@ -6,6 +6,7 @@ import { FaHeart, FaEye, FaShoppingCart, FaStar } from "react-icons/fa";
 import { useWishlist } from "../../context/WishlistContext";
 import { useCart } from "../../context/CartContext";
 import QuickViewModal from "./QuickViewModal";
+import { LOW_STOCK_THRESHOLD } from "../../utils/stock";
 
 function ProductCard({ product }) {
   const { addToCart } = useCart();
@@ -14,6 +15,7 @@ function ProductCard({ product }) {
   const discount = Math.round(
     ((product.oldPrice - product.price) / product.oldPrice) * 100,
   );
+  const isLowStock = product.stock > 0 && product.stock <= LOW_STOCK_THRESHOLD;
 
   return (
     <div className="product-card">
@@ -25,6 +27,10 @@ function ProductCard({ product }) {
           />
 
           <span className="discount-badge">{discount}% OFF</span>
+
+          {isLowStock && (
+            <span className="stock-badge">Only {product.stock} left!</span>
+          )}
 
           <div className="product-icons">
             <button
