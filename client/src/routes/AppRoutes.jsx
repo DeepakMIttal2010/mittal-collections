@@ -51,6 +51,7 @@ import AdminMessages from "../pages/admin/AdminMessages";
 import AdminFooterLinks from "../pages/admin/AdminFooterLinks";
 import AdminBanners from "../pages/admin/AdminBanners";
 import AdminPriceRanges from "../pages/admin/AdminPriceRanges";
+import AdminCoupons from "../pages/admin/AdminCoupons";
 
 import AdminOrders from "../pages/admin/AdminOrders";
 
@@ -128,6 +129,7 @@ function AppRoutes() {
         <Route path="footer-links" element={<AdminFooterLinks />} />
         <Route path="banners" element={<AdminBanners />} />
         <Route path="price-ranges" element={<AdminPriceRanges />} />
+        <Route path="coupons" element={<AdminCoupons />} />
         <Route path="categories/add" element={<AddCategory />} />
         <Route path="categories/edit/:id" element={<EditCategory />} />
         <Route path="orders" element={<AdminOrders />} />

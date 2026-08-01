@@ -1,4 +1,9 @@
 import Order from "../models/Order.js";
+import Coupon from "../models/Coupon.js";
+import {
+  calculateDiscount,
+  isEligibleForFirstOrderCoupon,
+} from "./couponController.js";
 
 // ============================
 // Create New Order
@@ -6,7 +11,13 @@ import Order from "../models/Order.js";
 
 export const createOrder = async (req, res) => {
   try {
-    const { orderItems, shippingAddress, paymentMethod, totalPrice } = req.body;
+    const {
+      orderItems,
+      shippingAddress,
+      paymentMethod,
+      deliveryFee = 0,
+      couponCode,
+    } = req.body;
 
     if (!orderItems || orderItems.length === 0) {
       return res.status(400).json({
@@ -15,12 +26,42 @@ export const createOrder = async (req, res) => {
       });
     }
 
+    const subtotal = orderItems.reduce(
+      (sum, item) => sum + item.price * item.quantity,
+      0,
+    );
+
+    let discountAmount = 0;
+    let appliedCouponCode = null;
+
+    if (couponCode) {
+      const coupon = await Coupon.findOne({
+        code: couponCode.trim().toUpperCase(),
+        isActive: true,
+      });
+
+      if (coupon) {
+        const eligible = coupon.firstOrderOnly
+          ? await isEligibleForFirstOrderCoupon(req.user._id)
+          : true;
+
+        if (eligible) {
+          discountAmount = calculateDiscount(coupon, subtotal);
+          appliedCouponCode = coupon.code;
+        }
+      }
+    }
+
+    const totalPrice = Math.max(subtotal + deliveryFee - discountAmount, 0);
+
     const order = await Order.create({
       user: req.user._id,
       orderItems,
       shippingAddress,
       paymentMethod,
       totalPrice,
+      couponCode: appliedCouponCode,
+      discountAmount,
     });
 
     res.status(201).json({

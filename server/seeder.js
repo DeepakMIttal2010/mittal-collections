@@ -10,6 +10,7 @@ import Page from "./models/Page.js";
 import FooterLink from "./models/FooterLink.js";
 import Banner from "./models/Banner.js";
 import PriceRange from "./models/PriceRange.js";
+import Coupon from "./models/Coupon.js";
 
 import categoriesData from "./data/categories.js";
 import getProducts from "./data/products.js";
@@ -19,6 +20,7 @@ import pagesData from "./data/pages.js";
 import footerLinksData from "./data/footerLinks.js";
 import bannersData from "./data/banners.js";
 import priceRangesData from "./data/priceRanges.js";
+import couponsData from "./data/coupons.js";
 
 dotenv.config();
 
@@ -143,6 +145,19 @@ const importPriceRanges = async () => {
   }
 };
 
+const importCoupons = async () => {
+  try {
+    await Coupon.deleteMany();
+    await Coupon.insertMany(couponsData);
+
+    console.log("✅ Coupons Imported");
+    process.exit();
+  } catch (error) {
+    console.error(error);
+    process.exit(1);
+  }
+};
+
 const importAll = async () => {
   try {
     await Category.deleteMany();
@@ -153,6 +168,7 @@ const importAll = async () => {
     await FooterLink.deleteMany();
     await Banner.deleteMany();
     await PriceRange.deleteMany();
+    await Coupon.deleteMany();
 
     const categories = await Category.insertMany(categoriesData);
 
@@ -171,6 +187,7 @@ const importAll = async () => {
     await FooterLink.insertMany(footerLinksData);
     await Banner.insertMany(bannersData);
     await PriceRange.insertMany(priceRangesData);
+    await Coupon.insertMany(couponsData);
 
     console.log("✅ Categories Imported");
     console.log("✅ Products Imported");
@@ -180,6 +197,7 @@ const importAll = async () => {
     console.log("✅ Footer Links Imported");
     console.log("✅ Banners Imported");
     console.log("✅ Price Ranges Imported");
+    console.log("✅ Coupons Imported");
 
     process.exit();
   } catch (error) {
@@ -198,6 +216,7 @@ const destroyAll = async () => {
     await FooterLink.deleteMany();
     await Banner.deleteMany();
     await PriceRange.deleteMany();
+    await Coupon.deleteMany();
 
     console.log("🗑 Database Cleared");
 
@@ -243,6 +262,10 @@ switch (command) {
     importPriceRanges();
     break;
 
+  case "coupons":
+    importCoupons();
+    break;
+
   case "all":
     importAll();
     break;
@@ -263,6 +286,7 @@ node seeder.js pages
 node seeder.js footer-links
 node seeder.js banners
 node seeder.js price-ranges
+node seeder.js coupons
 node seeder.js all
 node seeder.js destroy
 `);

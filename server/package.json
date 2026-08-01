@@ -14,6 +14,7 @@
     "seed:footer-links": "node seeder.js footer-links",
     "seed:banners": "node seeder.js banners",
     "seed:price-ranges": "node seeder.js price-ranges",
+    "seed:coupons": "node seeder.js coupons",
     "seed:all": "node seeder.js all",
     "seed:destroy": "node seeder.js destroy"
   },

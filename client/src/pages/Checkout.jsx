@@ -1,11 +1,16 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
+import { FaTag, FaTimes } from "react-icons/fa";
 
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
 import { createOrder } from "../services/orderService";
 import { getAddresses } from "../services/addressService";
+import {
+  getFirstOrderOffer,
+  validateCoupon,
+} from "../services/couponService";
 
 const FREE_SHIPPING_THRESHOLD = 999;
 const DELIVERY_FEE = 49;
@@ -23,11 +28,31 @@ function Checkout() {
   const [paymentMethod, setPaymentMethod] = useState("COD");
   const [placing, setPlacing] = useState(false);
 
+  const [firstOrderOffer, setFirstOrderOffer] = useState(null);
+  const [couponInput, setCouponInput] = useState("");
+  const [appliedCoupon, setAppliedCoupon] = useState(null);
+  const [couponError, setCouponError] = useState("");
+  const [checkingCoupon, setCheckingCoupon] = useState(false);
+
   useEffect(() => {
     if (!isLoggedIn) {
       navigate("/login?redirect=/checkout");
     }
   }, [isLoggedIn, navigate]);
+
+  useEffect(() => {
+    if (!isLoggedIn) return;
+
+    const loadOffer = async () => {
+      const response = await getFirstOrderOffer();
+
+      if (response.success && response.coupon) {
+        setFirstOrderOffer(response.coupon);
+      }
+    };
+
+    loadOffer();
+  }, [isLoggedIn]);
 
   useEffect(() => {
     const loadAddresses = async () => {
@@ -53,7 +78,38 @@ function Checkout() {
     totalPrice >= FREE_SHIPPING_THRESHOLD || totalPrice === 0
       ? 0
       : DELIVERY_FEE;
-  const orderTotal = totalPrice + deliveryFee;
+  const discountAmount = appliedCoupon?.discountAmount || 0;
+  const orderTotal = Math.max(totalPrice + deliveryFee - discountAmount, 0);
+
+  const handleApplyCoupon = async (code) => {
+    const codeToApply = (code || couponInput).trim();
+
+    if (!codeToApply) return;
+
+    setCheckingCoupon(true);
+    setCouponError("");
+
+    const response = await validateCoupon(codeToApply, totalPrice);
+
+    setCheckingCoupon(false);
+
+    if (response.success) {
+      setAppliedCoupon({
+        code: response.code,
+        discountAmount: response.discountAmount,
+      });
+      setCouponInput(response.code);
+      toast.success(`Coupon ${response.code} applied!`);
+    } else {
+      setCouponError(response.message || "Invalid coupon code");
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponInput("");
+    setCouponError("");
+  };
 
   const handlePlaceOrder = async () => {
     if (cartItems.length === 0) {
@@ -89,7 +145,8 @@ function Checkout() {
         pincode: selectedAddress.pincode,
       },
       paymentMethod,
-      totalPrice: orderTotal,
+      deliveryFee,
+      couponCode: appliedCoupon?.code || undefined,
     });
 
     setPlacing(false);
@@ -260,6 +317,70 @@ function Checkout() {
               {placing ? "Placing Order..." : "Place Order"}
             </button>
 
+            <div className="border-t border-slate-100 mt-4 pt-4">
+              {appliedCoupon ? (
+                <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-lg px-3 py-2 text-sm">
+                  <span className="text-green-700 font-medium flex items-center gap-1.5">
+                    <FaTag className="text-xs" />
+                    {appliedCoupon.code} applied
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleRemoveCoupon}
+                    className="text-green-700 hover:text-green-900"
+                    aria-label="Remove coupon"
+                  >
+                    <FaTimes className="text-xs" />
+                  </button>
+                </div>
+              ) : (
+                <>
+                  {firstOrderOffer && (
+                    <button
+                      type="button"
+                      onClick={() => handleApplyCoupon(firstOrderOffer.code)}
+                      disabled={checkingCoupon}
+                      className="w-full text-left bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5 mb-3 hover:bg-amber-100 transition-colors"
+                    >
+                      <span className="text-sm font-medium text-amber-800 flex items-center gap-1.5">
+                        <FaTag className="text-xs" />
+                        You&apos;re eligible for {firstOrderOffer.discountValue}
+                        % off (up to ₹{firstOrderOffer.maxDiscount})
+                      </span>
+                      <span className="text-xs text-amber-700">
+                        Tap to apply code {firstOrderOffer.code}
+                      </span>
+                    </button>
+                  )}
+
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={couponInput}
+                      onChange={(e) =>
+                        setCouponInput(e.target.value.toUpperCase())
+                      }
+                      placeholder="Coupon code"
+                      className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleApplyCoupon()}
+                      disabled={checkingCoupon || !couponInput.trim()}
+                      className="px-4 py-2 rounded-lg border border-slate-300 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                    >
+                      {checkingCoupon ? "..." : "Apply"}
+                    </button>
+                  </div>
+                  {couponError && (
+                    <p className="text-xs text-red-600 mt-1.5">
+                      {couponError}
+                    </p>
+                  )}
+                </>
+              )}
+            </div>
+
             <div className="border-t border-slate-100 mt-4 pt-4 space-y-2 text-sm">
               <div className="flex justify-between text-slate-600">
                 <span>Items:</span>
@@ -269,6 +390,12 @@ function Checkout() {
                 <span>Delivery:</span>
                 <span>{deliveryFee === 0 ? "FREE" : `₹${deliveryFee}`}</span>
               </div>
+              {discountAmount > 0 && (
+                <div className="flex justify-between text-green-600">
+                  <span>Discount ({appliedCoupon.code}):</span>
+                  <span>-₹{discountAmount}</span>
+                </div>
+              )}
             </div>
 
             <div className="border-t border-slate-100 mt-3 pt-3 flex justify-between">

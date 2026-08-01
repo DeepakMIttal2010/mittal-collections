@@ -16,6 +16,7 @@ import {
   FaLink,
   FaImages,
   FaTag,
+  FaPercent,
 } from "react-icons/fa";
 
 import { logoutUser } from "../../services/authService";
@@ -74,6 +75,11 @@ function AdminSidebar() {
         <NavLink to="/admin/price-ranges">
           <FaTag />
           <span>Shop by Price</span>
+        </NavLink>
+
+        <NavLink to="/admin/coupons">
+          <FaPercent />
+          <span>Coupons</span>
         </NavLink>
 
         <NavLink to="/admin/categories">
