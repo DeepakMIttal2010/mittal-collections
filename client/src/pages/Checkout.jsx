@@ -11,9 +11,7 @@ import {
   getFirstOrderOffer,
   validateCoupon,
 } from "../services/couponService";
-
-const FREE_SHIPPING_THRESHOLD = 999;
-const DELIVERY_FEE = 49;
+import { getSiteSettings } from "../services/settingsService";
 
 function Checkout() {
   const navigate = useNavigate();
@@ -34,11 +32,31 @@ function Checkout() {
   const [couponError, setCouponError] = useState("");
   const [checkingCoupon, setCheckingCoupon] = useState(false);
 
+  const [shipping, setShipping] = useState({
+    freeShippingThreshold: 499,
+    deliveryFee: 49,
+  });
+
   useEffect(() => {
     if (!isLoggedIn) {
       navigate("/login?redirect=/checkout");
     }
   }, [isLoggedIn, navigate]);
+
+  useEffect(() => {
+    const loadShippingSettings = async () => {
+      const response = await getSiteSettings();
+
+      if (response.success) {
+        setShipping({
+          freeShippingThreshold: response.settings.freeShippingThreshold ?? 499,
+          deliveryFee: response.settings.deliveryFee ?? 49,
+        });
+      }
+    };
+
+    loadShippingSettings();
+  }, []);
 
   useEffect(() => {
     if (!isLoggedIn) return;
@@ -75,9 +93,9 @@ function Checkout() {
   const selectedAddress = addresses.find((a) => a._id === selectedAddressId);
 
   const deliveryFee =
-    totalPrice >= FREE_SHIPPING_THRESHOLD || totalPrice === 0
+    totalPrice >= shipping.freeShippingThreshold || totalPrice === 0
       ? 0
-      : DELIVERY_FEE;
+      : shipping.deliveryFee;
   const discountAmount = appliedCoupon?.discountAmount || 0;
   const orderTotal = Math.max(totalPrice + deliveryFee - discountAmount, 0);
 
@@ -145,7 +163,6 @@ function Checkout() {
         pincode: selectedAddress.pincode,
       },
       paymentMethod,
-      deliveryFee,
       couponCode: appliedCoupon?.code || undefined,
     });
 

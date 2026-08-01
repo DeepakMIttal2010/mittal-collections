@@ -1,5 +1,6 @@
 import Order from "../models/Order.js";
 import Coupon from "../models/Coupon.js";
+import SiteSettings from "../models/SiteSettings.js";
 import {
   calculateDiscount,
   isEligibleForFirstOrderCoupon,
@@ -11,13 +12,8 @@ import {
 
 export const createOrder = async (req, res) => {
   try {
-    const {
-      orderItems,
-      shippingAddress,
-      paymentMethod,
-      deliveryFee = 0,
-      couponCode,
-    } = req.body;
+    const { orderItems, shippingAddress, paymentMethod, couponCode } =
+      req.body;
 
     if (!orderItems || orderItems.length === 0) {
       return res.status(400).json({
@@ -30,6 +26,11 @@ export const createOrder = async (req, res) => {
       (sum, item) => sum + item.price * item.quantity,
       0,
     );
+
+    const settings = await SiteSettings.findOne();
+    const freeShippingThreshold = settings?.freeShippingThreshold ?? 499;
+    const baseDeliveryFee = settings?.deliveryFee ?? 49;
+    const deliveryFee = subtotal >= freeShippingThreshold ? 0 : baseDeliveryFee;
 
     let discountAmount = 0;
     let appliedCouponCode = null;

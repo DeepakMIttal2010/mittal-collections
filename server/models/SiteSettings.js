@@ -11,6 +11,9 @@ const siteSettingsSchema = new mongoose.Schema(
     email: { type: String, default: "", trim: true },
     phone: { type: String, default: "", trim: true },
     supportHours: { type: String, default: "", trim: true },
+
+    freeShippingThreshold: { type: Number, default: 499 },
+    deliveryFee: { type: Number, default: 49 },
   },
   {
     timestamps: true,

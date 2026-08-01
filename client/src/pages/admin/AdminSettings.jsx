@@ -18,6 +18,8 @@ function AdminSettings() {
     email: "",
     phone: "",
     supportHours: "",
+    freeShippingThreshold: 499,
+    deliveryFee: 49,
   });
 
   const loadSettings = async () => {
@@ -35,6 +37,8 @@ function AdminSettings() {
         email: response.settings.email || "",
         phone: response.settings.phone || "",
         supportHours: response.settings.supportHours || "",
+        freeShippingThreshold: response.settings.freeShippingThreshold ?? 499,
+        deliveryFee: response.settings.deliveryFee ?? 49,
       });
     }
 
@@ -46,8 +50,11 @@ function AdminSettings() {
   }, []);
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    const { name, value, type } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: type === "number" ? Number(value) : value,
+    }));
   };
 
   const handleSubmit = async (e) => {
@@ -139,6 +146,44 @@ function AdminSettings() {
             onChange={handleChange}
             className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
+        </div>
+
+        <hr className="border-slate-200" />
+
+        <h3 className="font-semibold text-slate-800">Shipping</h3>
+        <p className="text-sm text-slate-500 -mt-2">
+          Controls the delivery fee and free-shipping threshold shown at
+          checkout.
+        </p>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Delivery Fee (₹)
+            </label>
+            <input
+              type="number"
+              name="deliveryFee"
+              min="0"
+              value={formData.deliveryFee}
+              onChange={handleChange}
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Free Shipping Above (₹)
+            </label>
+            <input
+              type="number"
+              name="freeShippingThreshold"
+              min="0"
+              value={formData.freeShippingThreshold}
+              onChange={handleChange}
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
         </div>
 
         <hr className="border-slate-200" />

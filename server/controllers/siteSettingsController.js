@@ -39,6 +39,8 @@ export const updateSiteSettings = async (req, res) => {
       email,
       phone,
       supportHours,
+      freeShippingThreshold,
+      deliveryFee,
     } = req.body;
 
     let settings = await SiteSettings.findOne();
@@ -55,6 +57,9 @@ export const updateSiteSettings = async (req, res) => {
     if (email !== undefined) settings.email = email;
     if (phone !== undefined) settings.phone = phone;
     if (supportHours !== undefined) settings.supportHours = supportHours;
+    if (freeShippingThreshold !== undefined)
+      settings.freeShippingThreshold = freeShippingThreshold;
+    if (deliveryFee !== undefined) settings.deliveryFee = deliveryFee;
 
     await settings.save();
 
