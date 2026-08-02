@@ -1,5 +1,5 @@
 function Skeleton({ className = "" }) {
-  return <div className={`animate-pulse bg-slate-200 rounded ${className}`} />;
+  return <div className={`skeleton-shimmer rounded ${className}`} />;
 }
 
 export default Skeleton;
