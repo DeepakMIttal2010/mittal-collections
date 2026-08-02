@@ -1,4 +1,5 @@
 import Product from "../models/Product.js";
+import Order from "../models/Order.js";
 
 // ============================
 // GET ALL PRODUCTS
@@ -379,6 +380,18 @@ export const permanentlyDeleteProduct = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Delete this product first before removing it permanently",
+      });
+    }
+
+    const hasOrders = await Order.exists({
+      "orderItems.product": product._id,
+    });
+
+    if (hasOrders) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "This product has existing orders and cannot be permanently deleted",
       });
     }
 

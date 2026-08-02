@@ -1,4 +1,5 @@
 import Subcategory from "../models/Subcategory.js";
+import Product from "../models/Product.js";
 
 const generateSlug = (name) =>
   name
@@ -250,6 +251,18 @@ export const permanentlyDeleteSubcategory = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Delete this subcategory first before removing it permanently",
+      });
+    }
+
+    const hasProducts = await Product.exists({
+      subcategory: subcategory._id,
+    });
+
+    if (hasProducts) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "This subcategory is still used by products and cannot be permanently deleted",
       });
     }
 

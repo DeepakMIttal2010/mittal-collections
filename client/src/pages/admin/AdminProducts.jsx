@@ -261,6 +261,13 @@ function AdminProducts() {
                   Stock
                   {renderSortIcon("stock")}
                 </th>
+                <th
+                  className="text-left px-4 py-3 font-semibold cursor-pointer select-none hover:text-slate-900"
+                  onClick={() => toggleSort("createdAt")}
+                >
+                  Created
+                  {renderSortIcon("createdAt")}
+                </th>
                 <th className="text-center px-4 py-3 font-semibold">
                   Status
                 </th>
@@ -296,6 +303,13 @@ function AdminProducts() {
                     }`}
                   >
                     {product.stock}
+                  </td>
+                  <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
+                    {new Date(product.createdAt).toLocaleDateString("en-IN", {
+                      day: "2-digit",
+                      month: "short",
+                      year: "numeric",
+                    })}
                   </td>
                   <td className="px-4 py-3 text-center">
                     <span

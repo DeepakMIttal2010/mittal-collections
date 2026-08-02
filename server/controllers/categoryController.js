@@ -1,4 +1,6 @@
 import Category from "../models/Category.js";
+import Product from "../models/Product.js";
+import Subcategory from "../models/Subcategory.js";
 
 // Simple slug generator from category name
 const generateSlug = (name) =>
@@ -293,6 +295,19 @@ export const permanentlyDeleteCategory = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Delete this category first before removing it permanently",
+      });
+    }
+
+    const [hasProducts, hasSubcategories] = await Promise.all([
+      Product.exists({ category: category._id }),
+      Subcategory.exists({ category: category._id }),
+    ]);
+
+    if (hasProducts || hasSubcategories) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "This category is still used by products or subcategories and cannot be permanently deleted",
       });
     }
 

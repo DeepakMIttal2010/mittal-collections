@@ -250,6 +250,13 @@ function AdminCategories() {
                 <th className="text-center px-4 py-3 font-semibold">
                   Featured
                 </th>
+                <th
+                  className="text-left px-4 py-3 font-semibold cursor-pointer select-none hover:text-slate-900"
+                  onClick={() => toggleSort("createdAt")}
+                >
+                  Created
+                  {renderSortIcon("createdAt")}
+                </th>
                 <th className="text-center px-4 py-3 font-semibold">
                   Status
                 </th>
@@ -280,6 +287,12 @@ function AdminCategories() {
                       <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-100 text-amber-700">
                         Featured
                       </span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
+                    {new Date(category.createdAt).toLocaleDateString(
+                      "en-IN",
+                      { day: "2-digit", month: "short", year: "numeric" },
                     )}
                   </td>
                   <td className="px-4 py-3 text-center">
