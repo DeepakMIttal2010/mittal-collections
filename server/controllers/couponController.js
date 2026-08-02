@@ -132,7 +132,13 @@ export const validateCoupon = async (req, res) => {
 // ============================
 export const getAllCouponsAdmin = async (req, res) => {
   try {
-    const coupons = await Coupon.find().sort({ createdAt: -1 });
+    const allowedSortFields = ["code", "discountValue", "createdAt"];
+    const sortBy = allowedSortFields.includes(req.query.sortBy)
+      ? req.query.sortBy
+      : "createdAt";
+    const sortOrder = req.query.sortOrder === "asc" ? 1 : -1;
+
+    const coupons = await Coupon.find().sort({ [sortBy]: sortOrder });
 
     res.status(200).json({
       success: true,

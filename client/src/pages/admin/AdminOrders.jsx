@@ -1,6 +1,7 @@
 import { imgUrl } from "../../services/api";
 import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import { FaSortAmountDown, FaSortAmountUp } from "react-icons/fa";
 
 import {
   getAllOrders,
@@ -34,13 +35,14 @@ function AdminOrders() {
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState(null);
   const [expandedId, setExpandedId] = useState(highlightId);
+  const [sortOrder, setSortOrder] = useState("desc");
 
   const highlightedRowRef = useRef(null);
 
   const loadOrders = async () => {
     setLoading(true);
 
-    const response = await getAllOrders();
+    const response = await getAllOrders({ sortOrder });
 
     if (response.success) {
       setOrders(response.orders);
@@ -52,7 +54,8 @@ function AdminOrders() {
 
   useEffect(() => {
     loadOrders();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sortOrder]);
 
   useEffect(() => {
     if (!highlightId || loading || !highlightedRowRef.current) return;
@@ -145,6 +148,21 @@ function AdminOrders() {
             </option>
           ))}
         </select>
+
+        <button
+          type="button"
+          onClick={() =>
+            setSortOrder((prev) => (prev === "desc" ? "asc" : "desc"))
+          }
+          className="flex items-center justify-center gap-1.5 text-sm font-medium text-slate-600 border border-slate-300 rounded-lg px-4 py-2 hover:bg-slate-50 whitespace-nowrap"
+        >
+          {sortOrder === "desc" ? (
+            <FaSortAmountDown className="text-xs" />
+          ) : (
+            <FaSortAmountUp className="text-xs" />
+          )}
+          {sortOrder === "desc" ? "Newest first" : "Oldest first"}
+        </button>
       </div>
 
       {/* Orders List */}

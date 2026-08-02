@@ -36,7 +36,13 @@ export const getPageBySlug = async (req, res) => {
 // ============================
 export const getAllPagesAdmin = async (req, res) => {
   try {
-    const pages = await Page.find().sort({ title: 1 });
+    const allowedSortFields = ["title", "createdAt", "updatedAt"];
+    const sortBy = allowedSortFields.includes(req.query.sortBy)
+      ? req.query.sortBy
+      : "title";
+    const sortOrder = req.query.sortOrder === "desc" ? -1 : 1;
+
+    const pages = await Page.find().sort({ [sortBy]: sortOrder });
 
     res.status(200).json({
       success: true,

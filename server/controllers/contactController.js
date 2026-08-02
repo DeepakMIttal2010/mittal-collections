@@ -50,7 +50,11 @@ export const submitMessage = async (req, res) => {
 // ============================
 export const getMessages = async (req, res) => {
   try {
-    const messages = await ContactMessage.find().sort({ createdAt: -1 });
+    const sortOrder = req.query.sortOrder === "asc" ? 1 : -1;
+
+    const messages = await ContactMessage.find().sort({
+      createdAt: sortOrder,
+    });
 
     res.status(200).json({
       success: true,

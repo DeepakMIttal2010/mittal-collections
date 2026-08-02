@@ -6,9 +6,15 @@ import Order from "../models/Order.js";
 // ============================
 export const getAllCustomers = async (req, res) => {
   try {
+    const allowedSortFields = ["name", "email", "createdAt"];
+    const sortBy = allowedSortFields.includes(req.query.sortBy)
+      ? req.query.sortBy
+      : "createdAt";
+    const sortOrder = req.query.sortOrder === "asc" ? 1 : -1;
+
     const customers = await User.find({ role: "user" })
       .select("-password")
-      .sort({ createdAt: -1 });
+      .sort({ [sortBy]: sortOrder });
 
     // Har customer ke liye order count aur total spent nikalo
     const customersWithStats = await Promise.all(

@@ -29,10 +29,18 @@ export const getFooterLinks = async (req, res) => {
 // ============================
 export const getAllFooterLinksAdmin = async (req, res) => {
   try {
-    const links = await FooterLink.find().sort({
-      displayOrder: 1,
-      createdAt: 1,
-    });
+    const allowedSortFields = ["displayOrder", "label", "createdAt"];
+    const sortBy = allowedSortFields.includes(req.query.sortBy)
+      ? req.query.sortBy
+      : "displayOrder";
+    const sortOrder = req.query.sortOrder === "desc" ? -1 : 1;
+
+    const sortSpec =
+      sortBy === "displayOrder"
+        ? { displayOrder: sortOrder, createdAt: 1 }
+        : { [sortBy]: sortOrder };
+
+    const links = await FooterLink.find().sort(sortSpec);
 
     res.status(200).json({
       success: true,

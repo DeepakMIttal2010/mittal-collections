@@ -163,9 +163,11 @@ export const getMyOrders = async (req, res) => {
 
 export const getAllOrders = async (req, res) => {
   try {
+    const sortOrder = req.query.sortOrder === "asc" ? 1 : -1;
+
     const orders = await Order.find()
       .populate("user", "name email mobile")
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: sortOrder });
 
     res.status(200).json({
       success: true,

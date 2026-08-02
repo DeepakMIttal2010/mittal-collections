@@ -1,7 +1,7 @@
 import { imgUrl } from "../../services/api";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { FaStar } from "react-icons/fa";
+import { FaStar, FaSortAmountDown, FaSortAmountUp } from "react-icons/fa";
 
 import {
   getAllReviewsAdmin,
@@ -12,11 +12,12 @@ import {
 function AdminReviews() {
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [sortOrder, setSortOrder] = useState("desc");
 
   const loadData = async () => {
     setLoading(true);
 
-    const response = await getAllReviewsAdmin();
+    const response = await getAllReviewsAdmin({ sortOrder });
 
     if (response.success) setReviews(response.reviews);
 
@@ -25,7 +26,8 @@ function AdminReviews() {
 
   useEffect(() => {
     loadData();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sortOrder]);
 
   const handleApprove = async (id) => {
     const response = await approveReview(id);
@@ -49,7 +51,24 @@ function AdminReviews() {
 
   return (
     <div className="p-6">
-      <h2 className="text-2xl font-bold text-slate-800 mb-2">Reviews</h2>
+      <div className="flex items-center justify-between mb-2 flex-wrap gap-3">
+        <h2 className="text-2xl font-bold text-slate-800">Reviews</h2>
+
+        <button
+          type="button"
+          onClick={() =>
+            setSortOrder((prev) => (prev === "desc" ? "asc" : "desc"))
+          }
+          className="flex items-center gap-1.5 text-sm font-medium text-slate-600 border border-slate-300 rounded-lg px-3 py-1.5 hover:bg-slate-50"
+        >
+          {sortOrder === "desc" ? (
+            <FaSortAmountDown className="text-xs" />
+          ) : (
+            <FaSortAmountUp className="text-xs" />
+          )}
+          {sortOrder === "desc" ? "Newest first" : "Oldest first"}
+        </button>
+      </div>
       <p className="text-sm text-slate-500 mb-6">
         New reviews stay hidden from customers until you approve them.
       </p>
@@ -126,7 +145,13 @@ function AdminReviews() {
 
               <p className="text-xs text-slate-400 mb-3">
                 {review.user?.name} ({review.user?.email}) ·{" "}
-                {new Date(review.createdAt).toLocaleDateString("en-IN")}
+                {new Date(review.createdAt).toLocaleString("en-IN", {
+                  day: "2-digit",
+                  month: "short",
+                  year: "numeric",
+                  hour: "numeric",
+                  minute: "2-digit",
+                })}
               </p>
 
               <div className="flex items-center gap-2">

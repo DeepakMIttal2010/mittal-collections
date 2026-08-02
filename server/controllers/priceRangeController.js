@@ -29,10 +29,18 @@ export const getPriceRanges = async (req, res) => {
 // ============================
 export const getAllPriceRangesAdmin = async (req, res) => {
   try {
-    const priceRanges = await PriceRange.find().sort({
-      displayOrder: 1,
-      maxPrice: 1,
-    });
+    const allowedSortFields = ["displayOrder", "label", "maxPrice", "createdAt"];
+    const sortBy = allowedSortFields.includes(req.query.sortBy)
+      ? req.query.sortBy
+      : "displayOrder";
+    const sortOrder = req.query.sortOrder === "desc" ? -1 : 1;
+
+    const sortSpec =
+      sortBy === "displayOrder"
+        ? { displayOrder: sortOrder, maxPrice: 1 }
+        : { [sortBy]: sortOrder };
+
+    const priceRanges = await PriceRange.find().sort(sortSpec);
 
     res.status(200).json({
       success: true,

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { FaSortAmountDown, FaSortAmountUp } from "react-icons/fa";
 
 import {
   getMessages,
@@ -11,11 +12,12 @@ function AdminMessages() {
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState(null);
   const [copiedId, setCopiedId] = useState(null);
+  const [sortOrder, setSortOrder] = useState("desc");
 
   const loadData = async () => {
     setLoading(true);
 
-    const response = await getMessages();
+    const response = await getMessages({ sortOrder });
 
     if (response.success) setMessages(response.messages);
 
@@ -24,7 +26,8 @@ function AdminMessages() {
 
   useEffect(() => {
     loadData();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sortOrder]);
 
   const handleExpand = async (item) => {
     const nextId = expandedId === item._id ? null : item._id;
@@ -64,9 +67,26 @@ function AdminMessages() {
 
   return (
     <div className="p-6">
-      <h2 className="text-2xl font-bold text-slate-800 mb-6">
-        Contact Messages
-      </h2>
+      <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+        <h2 className="text-2xl font-bold text-slate-800">
+          Contact Messages
+        </h2>
+
+        <button
+          type="button"
+          onClick={() =>
+            setSortOrder((prev) => (prev === "desc" ? "asc" : "desc"))
+          }
+          className="flex items-center gap-1.5 text-sm font-medium text-slate-600 border border-slate-300 rounded-lg px-3 py-1.5 hover:bg-slate-50"
+        >
+          {sortOrder === "desc" ? (
+            <FaSortAmountDown className="text-xs" />
+          ) : (
+            <FaSortAmountUp className="text-xs" />
+          )}
+          {sortOrder === "desc" ? "Newest first" : "Oldest first"}
+        </button>
+      </div>
 
       {messages.length === 0 ? (
         <div className="text-center text-slate-500 py-12 bg-white rounded-lg border border-slate-200">
@@ -99,7 +119,13 @@ function AdminMessages() {
                 </div>
 
                 <span className="text-xs text-slate-400 shrink-0">
-                  {new Date(item.createdAt).toLocaleDateString()}
+                  {new Date(item.createdAt).toLocaleString("en-IN", {
+                    day: "2-digit",
+                    month: "short",
+                    year: "numeric",
+                    hour: "numeric",
+                    minute: "2-digit",
+                  })}
                 </span>
               </button>
 

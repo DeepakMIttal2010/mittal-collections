@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { FaSort, FaSortUp, FaSortDown } from "react-icons/fa";
 
 import {
   getAllCustomers,
@@ -13,10 +14,26 @@ function AdminCustomers() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState(null);
+  const [sortBy, setSortBy] = useState("createdAt");
+  const [sortOrder, setSortOrder] = useState("desc");
+
+  const loadCustomers = async () => {
+    setLoading(true);
+
+    const response = await getAllCustomers({ sortBy, sortOrder });
+
+    if (response.success) {
+      setCustomers(response.customers);
+      setFilteredCustomers(response.customers);
+    }
+
+    setLoading(false);
+  };
 
   useEffect(() => {
     loadCustomers();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sortBy, sortOrder]);
 
   useEffect(() => {
     const q = search.toLowerCase();
@@ -31,17 +48,23 @@ function AdminCustomers() {
     setFilteredCustomers(result);
   }, [search, customers]);
 
-  const loadCustomers = async () => {
-    setLoading(true);
-
-    const response = await getAllCustomers();
-
-    if (response.success) {
-      setCustomers(response.customers);
-      setFilteredCustomers(response.customers);
+  const toggleSort = (field) => {
+    if (sortBy === field) {
+      setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortBy(field);
+      setSortOrder("asc");
     }
+  };
 
-    setLoading(false);
+  const renderSortIcon = (field) => {
+    if (sortBy !== field)
+      return <FaSort className="inline text-slate-300 ml-1" />;
+    return sortOrder === "asc" ? (
+      <FaSortUp className="inline text-slate-700 ml-1" />
+    ) : (
+      <FaSortDown className="inline text-slate-700 ml-1" />
+    );
   };
 
   const handleToggleBlock = async (id) => {
@@ -118,8 +141,12 @@ function AdminCustomers() {
                   <th className="text-left px-4 py-3 font-semibold">
                     Contact
                   </th>
-                  <th className="text-left px-4 py-3 font-semibold">
+                  <th
+                    className="text-left px-4 py-3 font-semibold cursor-pointer select-none hover:text-slate-900"
+                    onClick={() => toggleSort("createdAt")}
+                  >
                     Joined
+                    {renderSortIcon("createdAt")}
                   </th>
                   <th className="text-center px-4 py-3 font-semibold">
                     Orders
@@ -155,15 +182,14 @@ function AdminCustomers() {
                       </div>
                     </td>
 
-                    <td className="px-4 py-3 text-slate-600">
-                      {new Date(customer.createdAt).toLocaleDateString(
-                        "en-IN",
-                        {
-                          day: "2-digit",
-                          month: "short",
-                          year: "numeric",
-                        },
-                      )}
+                    <td className="px-4 py-3 text-slate-600 whitespace-nowrap">
+                      {new Date(customer.createdAt).toLocaleString("en-IN", {
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric",
+                        hour: "numeric",
+                        minute: "2-digit",
+                      })}
                     </td>
 
                     <td className="px-4 py-3 text-center text-slate-700">

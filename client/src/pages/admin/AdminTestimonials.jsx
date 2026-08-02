@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { FaSort, FaSortUp, FaSortDown } from "react-icons/fa";
 
 import {
   getAllTestimonialsAdmin,
@@ -22,10 +23,13 @@ function AdminTestimonials() {
     isActive: true,
   });
 
+  const [sortBy, setSortBy] = useState("displayOrder");
+  const [sortOrder, setSortOrder] = useState("asc");
+
   const loadData = async () => {
     setLoading(true);
 
-    const response = await getAllTestimonialsAdmin();
+    const response = await getAllTestimonialsAdmin({ sortBy, sortOrder });
 
     if (response.success) setTestimonials(response.testimonials);
 
@@ -34,7 +38,27 @@ function AdminTestimonials() {
 
   useEffect(() => {
     loadData();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sortBy, sortOrder]);
+
+  const toggleSort = (field) => {
+    if (sortBy === field) {
+      setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortBy(field);
+      setSortOrder("asc");
+    }
+  };
+
+  const renderSortIcon = (field) => {
+    if (sortBy !== field)
+      return <FaSort className="inline text-slate-300 ml-1" />;
+    return sortOrder === "asc" ? (
+      <FaSortUp className="inline text-slate-700 ml-1" />
+    ) : (
+      <FaSortDown className="inline text-slate-700 ml-1" />
+    );
+  };
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -241,6 +265,13 @@ function AdminTestimonials() {
                 <th className="text-center px-4 py-3 font-semibold">
                   Order
                 </th>
+                <th
+                  className="text-left px-4 py-3 font-semibold cursor-pointer select-none hover:text-slate-900"
+                  onClick={() => toggleSort("createdAt")}
+                >
+                  Created
+                  {renderSortIcon("createdAt")}
+                </th>
                 <th className="text-center px-4 py-3 font-semibold">
                   Status
                 </th>
@@ -263,6 +294,15 @@ function AdminTestimonials() {
                   </td>
                   <td className="px-4 py-3 text-center">
                     {item.displayOrder}
+                  </td>
+                  <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
+                    {new Date(item.createdAt).toLocaleString("en-IN", {
+                      day: "2-digit",
+                      month: "short",
+                      year: "numeric",
+                      hour: "numeric",
+                      minute: "2-digit",
+                    })}
                   </td>
                   <td className="px-4 py-3 text-center">
                     <span

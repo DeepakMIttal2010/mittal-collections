@@ -1,6 +1,7 @@
 import { imgUrl } from "../../services/api";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { FaSortAmountDown, FaSortAmountUp } from "react-icons/fa";
 
 import {
   getAllQuestionsAdmin,
@@ -82,7 +83,13 @@ function QuestionCard({ item, onSaved }) {
 
       <p className="text-xs text-slate-400 mb-3">
         {item.user?.name} ({item.user?.email}) ·{" "}
-        {new Date(item.createdAt).toLocaleDateString("en-IN")}
+        {new Date(item.createdAt).toLocaleString("en-IN", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+          hour: "numeric",
+          minute: "2-digit",
+        })}
       </p>
 
       <textarea
@@ -124,11 +131,12 @@ function QuestionCard({ item, onSaved }) {
 function AdminQuestions() {
   const [questions, setQuestions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [sortOrder, setSortOrder] = useState("desc");
 
   const loadData = async () => {
     setLoading(true);
 
-    const response = await getAllQuestionsAdmin();
+    const response = await getAllQuestionsAdmin({ sortOrder });
 
     if (response.success) setQuestions(response.questions);
 
@@ -137,7 +145,8 @@ function AdminQuestions() {
 
   useEffect(() => {
     loadData();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sortOrder]);
 
   if (loading) {
     return <div className="p-8 text-center text-slate-500">Loading...</div>;
@@ -145,9 +154,26 @@ function AdminQuestions() {
 
   return (
     <div className="p-6">
-      <h2 className="text-2xl font-bold text-slate-800 mb-2">
-        Questions &amp; Answers
-      </h2>
+      <div className="flex items-center justify-between mb-2 flex-wrap gap-3">
+        <h2 className="text-2xl font-bold text-slate-800">
+          Questions &amp; Answers
+        </h2>
+
+        <button
+          type="button"
+          onClick={() =>
+            setSortOrder((prev) => (prev === "desc" ? "asc" : "desc"))
+          }
+          className="flex items-center gap-1.5 text-sm font-medium text-slate-600 border border-slate-300 rounded-lg px-3 py-1.5 hover:bg-slate-50"
+        >
+          {sortOrder === "desc" ? (
+            <FaSortAmountDown className="text-xs" />
+          ) : (
+            <FaSortAmountUp className="text-xs" />
+          )}
+          {sortOrder === "desc" ? "Newest first" : "Oldest first"}
+        </button>
+      </div>
       <p className="text-sm text-slate-500 mb-6">
         Answer a question and publish it to show it on the product page.
       </p>

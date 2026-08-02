@@ -66,10 +66,12 @@ export const submitQuestion = async (req, res) => {
 // ============================
 export const getAllQuestionsAdmin = async (req, res) => {
   try {
+    const sortOrder = req.query.sortOrder === "asc" ? 1 : -1;
+
     const questions = await Question.find()
       .populate("user", "name email")
       .populate("product", "name image")
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: sortOrder });
 
     res.status(200).json({
       success: true,

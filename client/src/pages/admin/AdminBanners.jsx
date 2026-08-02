@@ -1,5 +1,6 @@
 import { imgUrl } from "../../services/api";
 import { useEffect, useState } from "react";
+import { FaSort, FaSortUp, FaSortDown } from "react-icons/fa";
 
 import {
   getAllBannersAdmin,
@@ -32,11 +33,13 @@ function AdminBanners() {
   const [formData, setFormData] = useState(EMPTY_FORM);
   const [image, setImage] = useState(null);
   const [preview, setPreview] = useState(null);
+  const [sortBy, setSortBy] = useState("displayOrder");
+  const [sortOrder, setSortOrder] = useState("asc");
 
   const loadData = async () => {
     setLoading(true);
 
-    const response = await getAllBannersAdmin();
+    const response = await getAllBannersAdmin({ sortBy, sortOrder });
 
     if (response.success) setBanners(response.banners);
 
@@ -45,7 +48,27 @@ function AdminBanners() {
 
   useEffect(() => {
     loadData();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sortBy, sortOrder]);
+
+  const toggleSort = (field) => {
+    if (sortBy === field) {
+      setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortBy(field);
+      setSortOrder("asc");
+    }
+  };
+
+  const renderSortIcon = (field) => {
+    if (sortBy !== field)
+      return <FaSort className="inline text-slate-300 ml-1" />;
+    return sortOrder === "asc" ? (
+      <FaSortUp className="inline text-slate-700 ml-1" />
+    ) : (
+      <FaSortDown className="inline text-slate-700 ml-1" />
+    );
+  };
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -367,6 +390,13 @@ function AdminBanners() {
                 <th className="text-left px-4 py-3 font-semibold">Image</th>
                 <th className="text-left px-4 py-3 font-semibold">Title</th>
                 <th className="text-center px-4 py-3 font-semibold">Order</th>
+                <th
+                  className="text-left px-4 py-3 font-semibold cursor-pointer select-none hover:text-slate-900"
+                  onClick={() => toggleSort("createdAt")}
+                >
+                  Created
+                  {renderSortIcon("createdAt")}
+                </th>
                 <th className="text-center px-4 py-3 font-semibold">
                   Status
                 </th>
@@ -396,6 +426,15 @@ function AdminBanners() {
                   </td>
                   <td className="px-4 py-3 text-center">
                     {banner.displayOrder}
+                  </td>
+                  <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
+                    {new Date(banner.createdAt).toLocaleString("en-IN", {
+                      day: "2-digit",
+                      month: "short",
+                      year: "numeric",
+                      hour: "numeric",
+                      minute: "2-digit",
+                    })}
                   </td>
                   <td className="px-4 py-3 text-center">
                     <span

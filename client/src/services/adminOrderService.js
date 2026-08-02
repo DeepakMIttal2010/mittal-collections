@@ -5,9 +5,12 @@ const getToken = () => localStorage.getItem("token");
 // ==============================
 // GET ALL ORDERS (Admin)
 // ==============================
-export const getAllOrders = async () => {
+export const getAllOrders = async ({ sortOrder = "" } = {}) => {
   try {
-    const response = await fetch(`${API_BASE_URL}/orders`, {
+    const params = new URLSearchParams();
+    if (sortOrder) params.set("sortOrder", sortOrder);
+
+    const response = await fetch(`${API_BASE_URL}/orders?${params.toString()}`, {
       headers: {
         Authorization: `Bearer ${getToken()}`,
       },

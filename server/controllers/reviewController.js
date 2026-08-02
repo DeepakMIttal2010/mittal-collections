@@ -87,10 +87,12 @@ export const submitReview = async (req, res) => {
 // ============================
 export const getAllReviewsAdmin = async (req, res) => {
   try {
+    const sortOrder = req.query.sortOrder === "asc" ? 1 : -1;
+
     const reviews = await Review.find()
       .populate("user", "name email")
       .populate("product", "name image")
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: sortOrder });
 
     res.status(200).json({
       success: true,

@@ -2,11 +2,21 @@ import API_BASE_URL from "./api";
 
 const getToken = () => localStorage.getItem("token");
 
-export const getAllTestimonialsAdmin = async () => {
+export const getAllTestimonialsAdmin = async ({
+  sortBy = "",
+  sortOrder = "",
+} = {}) => {
   try {
-    const response = await fetch(`${API_BASE_URL}/testimonials/admin`, {
-      headers: { Authorization: `Bearer ${getToken()}` },
-    });
+    const params = new URLSearchParams();
+    if (sortBy) params.set("sortBy", sortBy);
+    if (sortOrder) params.set("sortOrder", sortOrder);
+
+    const response = await fetch(
+      `${API_BASE_URL}/testimonials/admin?${params.toString()}`,
+      {
+        headers: { Authorization: `Bearer ${getToken()}` },
+      },
+    );
 
     const data = await response.json();
 

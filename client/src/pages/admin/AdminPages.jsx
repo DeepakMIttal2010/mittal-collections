@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { FaSort, FaSortUp, FaSortDown } from "react-icons/fa";
 
 import {
   getAllPagesAdmin,
@@ -32,10 +33,13 @@ function AdminPages() {
 
   const [formData, setFormData] = useState({ title: "", content: "" });
 
+  const [sortBy, setSortBy] = useState("title");
+  const [sortOrder, setSortOrder] = useState("asc");
+
   const loadData = async () => {
     setLoading(true);
 
-    const response = await getAllPagesAdmin();
+    const response = await getAllPagesAdmin({ sortBy, sortOrder });
 
     if (response.success) setPages(response.pages);
 
@@ -44,7 +48,27 @@ function AdminPages() {
 
   useEffect(() => {
     loadData();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sortBy, sortOrder]);
+
+  const toggleSort = (field) => {
+    if (sortBy === field) {
+      setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortBy(field);
+      setSortOrder("asc");
+    }
+  };
+
+  const renderSortIcon = (field) => {
+    if (sortBy !== field)
+      return <FaSort className="inline text-slate-300 ml-1" />;
+    return sortOrder === "asc" ? (
+      <FaSortUp className="inline text-slate-700 ml-1" />
+    ) : (
+      <FaSortDown className="inline text-slate-700 ml-1" />
+    );
+  };
 
   const handleEdit = (page) => {
     setIsCreating(false);
@@ -214,10 +238,27 @@ function AdminPages() {
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-slate-600">
               <tr>
-                <th className="text-left px-4 py-3 font-semibold">Title</th>
+                <th
+                  className="text-left px-4 py-3 font-semibold cursor-pointer select-none hover:text-slate-900"
+                  onClick={() => toggleSort("title")}
+                >
+                  Title
+                  {renderSortIcon("title")}
+                </th>
                 <th className="text-left px-4 py-3 font-semibold">Slug</th>
-                <th className="text-left px-4 py-3 font-semibold">
+                <th
+                  className="text-left px-4 py-3 font-semibold cursor-pointer select-none hover:text-slate-900"
+                  onClick={() => toggleSort("createdAt")}
+                >
+                  Created
+                  {renderSortIcon("createdAt")}
+                </th>
+                <th
+                  className="text-left px-4 py-3 font-semibold cursor-pointer select-none hover:text-slate-900"
+                  onClick={() => toggleSort("updatedAt")}
+                >
                   Last Updated
+                  {renderSortIcon("updatedAt")}
                 </th>
                 <th className="text-center px-4 py-3 font-semibold">
                   Status
@@ -240,8 +281,23 @@ function AdminPages() {
                     {page.title}
                   </td>
                   <td className="px-4 py-3 text-slate-500">{page.slug}</td>
-                  <td className="px-4 py-3 text-slate-500">
-                    {new Date(page.updatedAt).toLocaleDateString()}
+                  <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
+                    {new Date(page.createdAt).toLocaleString("en-IN", {
+                      day: "2-digit",
+                      month: "short",
+                      year: "numeric",
+                      hour: "numeric",
+                      minute: "2-digit",
+                    })}
+                  </td>
+                  <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
+                    {new Date(page.updatedAt).toLocaleString("en-IN", {
+                      day: "2-digit",
+                      month: "short",
+                      year: "numeric",
+                      hour: "numeric",
+                      minute: "2-digit",
+                    })}
                   </td>
                   <td className="px-4 py-3 text-center">
                     <span

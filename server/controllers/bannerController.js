@@ -29,10 +29,18 @@ export const getBanners = async (req, res) => {
 // ============================
 export const getAllBannersAdmin = async (req, res) => {
   try {
-    const banners = await Banner.find().sort({
-      displayOrder: 1,
-      createdAt: 1,
-    });
+    const allowedSortFields = ["displayOrder", "title", "createdAt"];
+    const sortBy = allowedSortFields.includes(req.query.sortBy)
+      ? req.query.sortBy
+      : "displayOrder";
+    const sortOrder = req.query.sortOrder === "desc" ? -1 : 1;
+
+    const sortSpec =
+      sortBy === "createdAt"
+        ? { createdAt: sortOrder }
+        : { [sortBy]: sortOrder, createdAt: 1 };
+
+    const banners = await Banner.find().sort(sortSpec);
 
     res.status(200).json({
       success: true,
