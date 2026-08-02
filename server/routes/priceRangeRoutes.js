@@ -7,6 +7,7 @@ import {
   updatePriceRange,
   restorePriceRange,
   deletePriceRange,
+  permanentlyDeletePriceRange,
 } from "../controllers/priceRangeController.js";
 
 import authMiddleware from "../middleware/authMiddleware.js";
@@ -28,5 +29,11 @@ router.put(
   restorePriceRange,
 );
 router.delete("/:id", authMiddleware, adminMiddleware, deletePriceRange);
+router.delete(
+  "/:id/permanent",
+  authMiddleware,
+  adminMiddleware,
+  permanentlyDeletePriceRange,
+);
 
 export default router;

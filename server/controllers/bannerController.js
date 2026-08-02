@@ -228,3 +228,40 @@ export const deleteBanner = async (req, res) => {
     });
   }
 };
+
+// ============================
+// Permanently Delete Banner (Admin)
+// ============================
+export const permanentlyDeleteBanner = async (req, res) => {
+  try {
+    const banner = await Banner.findById(req.params.id);
+
+    if (!banner) {
+      return res.status(404).json({
+        success: false,
+        message: "Banner not found",
+      });
+    }
+
+    if (banner.isActive) {
+      return res.status(400).json({
+        success: false,
+        message: "Delete this banner first before removing it permanently",
+      });
+    }
+
+    await banner.deleteOne();
+
+    res.status(200).json({
+      success: true,
+      message: "Banner permanently deleted",
+    });
+  } catch (error) {
+    console.error("Permanently Delete Banner Error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};

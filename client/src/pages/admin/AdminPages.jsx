@@ -6,6 +6,7 @@ import {
   updatePage,
   restorePage,
   deletePage,
+  permanentlyDeletePage,
 } from "../../services/adminPageService";
 
 const slugify = (title) =>
@@ -110,6 +111,21 @@ function AdminPages() {
       loadData();
     } else {
       alert(response.message || "Unable to restore page");
+    }
+  };
+
+  const handlePermanentDelete = async (page) => {
+    if (
+      !window.confirm("Permanently delete this page? This cannot be undone.")
+    )
+      return;
+
+    const response = await permanentlyDeletePage(page.slug);
+
+    if (response.success) {
+      loadData();
+    } else {
+      alert(response.message || "Unable to permanently delete page");
     }
   };
 
@@ -256,12 +272,20 @@ function AdminPages() {
                           </button>
                         </>
                       ) : (
-                        <button
-                          onClick={() => handleRestore(page)}
-                          className="text-xs font-medium px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white"
-                        >
-                          Restore
-                        </button>
+                        <>
+                          <button
+                            onClick={() => handleRestore(page)}
+                            className="text-xs font-medium px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white"
+                          >
+                            Restore
+                          </button>
+                          <button
+                            onClick={() => handlePermanentDelete(page)}
+                            className="text-xs font-medium px-3 py-1.5 rounded-lg border border-red-600 text-red-600 hover:bg-red-50"
+                          >
+                            Delete Permanently
+                          </button>
+                        </>
                       )}
                     </div>
                   </td>

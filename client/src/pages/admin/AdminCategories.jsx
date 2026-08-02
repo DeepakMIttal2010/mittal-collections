@@ -7,6 +7,7 @@ import {
   getAllCategories,
   restoreCategory,
   deleteCategory,
+  permanentlyDeleteCategory,
 } from "../../services/adminCategoryService";
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
@@ -96,6 +97,23 @@ function AdminCategories() {
 
   const handleRestore = async (id) => {
     const response = await restoreCategory(id);
+
+    if (response.success) {
+      loadCategories();
+    } else {
+      alert(response.message);
+    }
+  };
+
+  const handlePermanentDelete = async (id) => {
+    if (
+      !window.confirm(
+        "Permanently delete this category? This cannot be undone.",
+      )
+    )
+      return;
+
+    const response = await permanentlyDeleteCategory(id);
 
     if (response.success) {
       loadCategories();
@@ -293,12 +311,22 @@ function AdminCategories() {
                           </button>
                         </>
                       ) : (
-                        <button
-                          onClick={() => handleRestore(category._id)}
-                          className="text-xs font-medium px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white"
-                        >
-                          Restore
-                        </button>
+                        <>
+                          <button
+                            onClick={() => handleRestore(category._id)}
+                            className="text-xs font-medium px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white"
+                          >
+                            Restore
+                          </button>
+                          <button
+                            onClick={() =>
+                              handlePermanentDelete(category._id)
+                            }
+                            className="text-xs font-medium px-3 py-1.5 rounded-lg border border-red-600 text-red-600 hover:bg-red-50"
+                          >
+                            Delete Permanently
+                          </button>
+                        </>
                       )}
                     </div>
                   </td>
@@ -368,12 +396,20 @@ function AdminCategories() {
                       </button>
                     </>
                   ) : (
-                    <button
-                      onClick={() => handleRestore(category._id)}
-                      className="flex-1 text-center bg-green-600 hover:bg-green-700 text-white text-sm font-medium py-2 rounded-lg transition-colors"
-                    >
-                      Restore
-                    </button>
+                    <>
+                      <button
+                        onClick={() => handleRestore(category._id)}
+                        className="flex-1 text-center bg-green-600 hover:bg-green-700 text-white text-sm font-medium py-2 rounded-lg transition-colors"
+                      >
+                        Restore
+                      </button>
+                      <button
+                        onClick={() => handlePermanentDelete(category._id)}
+                        className="flex-1 text-center border border-red-600 text-red-600 hover:bg-red-50 text-sm font-medium py-2 rounded-lg transition-colors"
+                      >
+                        Delete Permanently
+                      </button>
+                    </>
                   )}
                 </div>
               </div>

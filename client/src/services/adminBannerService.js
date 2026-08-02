@@ -74,3 +74,20 @@ export const deleteBanner = async (id) => {
     return { success: false, message: "Unable to delete banner" };
   }
 };
+
+export const permanentlyDeleteBanner = async (id) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/banners/${id}/permanent`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${getToken()}` },
+    });
+
+    return await response.json();
+  } catch (error) {
+    console.error("Permanently Delete Banner Error:", error);
+    return {
+      success: false,
+      message: "Unable to permanently delete banner",
+    };
+  }
+};

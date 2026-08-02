@@ -219,3 +219,40 @@ export const deletePage = async (req, res) => {
     });
   }
 };
+
+// ============================
+// PERMANENTLY DELETE PAGE (Admin)
+// ============================
+export const permanentlyDeletePage = async (req, res) => {
+  try {
+    const page = await Page.findOne({ slug: req.params.slug });
+
+    if (!page) {
+      return res.status(404).json({
+        success: false,
+        message: "Page not found",
+      });
+    }
+
+    if (page.isActive) {
+      return res.status(400).json({
+        success: false,
+        message: "Delete this page first before removing it permanently",
+      });
+    }
+
+    await page.deleteOne();
+
+    res.status(200).json({
+      success: true,
+      message: "Page permanently deleted",
+    });
+  } catch (error) {
+    console.error("Permanently Delete Page Error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};

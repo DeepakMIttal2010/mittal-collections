@@ -7,6 +7,7 @@ import {
   getAllProducts,
   restoreProduct,
   deleteProduct,
+  permanentlyDeleteProduct,
 } from "../../services/adminProductService";
 import ProductQuickView from "../../components/admin/ProductQuickView";
 
@@ -98,6 +99,23 @@ function AdminProducts() {
 
   const handleRestore = async (id) => {
     const response = await restoreProduct(id);
+
+    if (response.success) {
+      loadProducts();
+    } else {
+      alert(response.message);
+    }
+  };
+
+  const handlePermanentDelete = async (id) => {
+    if (
+      !window.confirm(
+        "Permanently delete this product? This cannot be undone.",
+      )
+    )
+      return;
+
+    const response = await permanentlyDeleteProduct(id);
 
     if (response.success) {
       loadProducts();
@@ -308,12 +326,20 @@ function AdminProducts() {
                           </button>
                         </>
                       ) : (
-                        <button
-                          onClick={() => handleRestore(product._id)}
-                          className="text-xs font-medium px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white"
-                        >
-                          Restore
-                        </button>
+                        <>
+                          <button
+                            onClick={() => handleRestore(product._id)}
+                            className="text-xs font-medium px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white"
+                          >
+                            Restore
+                          </button>
+                          <button
+                            onClick={() => handlePermanentDelete(product._id)}
+                            className="text-xs font-medium px-3 py-1.5 rounded-lg border border-red-600 text-red-600 hover:bg-red-50"
+                          >
+                            Delete Permanently
+                          </button>
+                        </>
                       )}
                     </div>
                   </td>
@@ -392,12 +418,20 @@ function AdminProducts() {
                       </button>
                     </>
                   ) : (
-                    <button
-                      onClick={() => handleRestore(product._id)}
-                      className="flex-1 text-center bg-green-600 hover:bg-green-700 text-white text-sm font-medium py-2 rounded-lg transition-colors"
-                    >
-                      Restore
-                    </button>
+                    <>
+                      <button
+                        onClick={() => handleRestore(product._id)}
+                        className="flex-1 text-center bg-green-600 hover:bg-green-700 text-white text-sm font-medium py-2 rounded-lg transition-colors"
+                      >
+                        Restore
+                      </button>
+                      <button
+                        onClick={() => handlePermanentDelete(product._id)}
+                        className="flex-1 text-center border border-red-600 text-red-600 hover:bg-red-50 text-sm font-medium py-2 rounded-lg transition-colors"
+                      >
+                        Delete Permanently
+                      </button>
+                    </>
                   )}
                 </div>
               </div>

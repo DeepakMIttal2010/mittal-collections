@@ -7,6 +7,7 @@ import {
   updateBanner,
   restoreBanner,
   deleteBanner,
+  permanentlyDeleteBanner,
 } from "../controllers/bannerController.js";
 
 import upload from "../middleware/uploadMiddleware.js";
@@ -35,5 +36,11 @@ router.put(
   restoreBanner,
 );
 router.delete("/:id", authMiddleware, adminMiddleware, deleteBanner);
+router.delete(
+  "/:id/permanent",
+  authMiddleware,
+  adminMiddleware,
+  permanentlyDeleteBanner,
+);
 
 export default router;

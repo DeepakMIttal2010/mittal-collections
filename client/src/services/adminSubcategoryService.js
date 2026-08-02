@@ -104,3 +104,23 @@ export const deleteSubcategory = async (id) => {
     return { success: false, message: "Unable to delete subcategory" };
   }
 };
+
+export const permanentlyDeleteSubcategory = async (id) => {
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/subcategories/${id}/permanent`,
+      {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${getToken()}` },
+      },
+    );
+
+    return await response.json();
+  } catch (error) {
+    console.error("Permanently Delete Subcategory Error:", error);
+    return {
+      success: false,
+      message: "Unable to permanently delete subcategory",
+    };
+  }
+};

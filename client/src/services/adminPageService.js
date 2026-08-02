@@ -80,3 +80,20 @@ export const deletePage = async (slug) => {
     return { success: false, message: "Unable to delete page" };
   }
 };
+
+export const permanentlyDeletePage = async (slug) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/pages/${slug}/permanent`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${getToken()}` },
+    });
+
+    return await response.json();
+  } catch (error) {
+    console.error("Permanently Delete Page Error:", error);
+    return {
+      success: false,
+      message: "Unable to permanently delete page",
+    };
+  }
+};

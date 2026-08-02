@@ -12,6 +12,7 @@ import {
   updateProduct,
   restoreProduct,
   deleteProduct,
+  permanentlyDeleteProduct,
 } from "../controllers/productController.js";
 
 const router = express.Router();
@@ -49,5 +50,11 @@ router.put(
 );
 
 router.delete("/:id", authMiddleware, adminMiddleware, deleteProduct);
+router.delete(
+  "/:id/permanent",
+  authMiddleware,
+  adminMiddleware,
+  permanentlyDeleteProduct,
+);
 
 export default router;

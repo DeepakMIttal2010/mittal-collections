@@ -360,3 +360,40 @@ export const deleteProduct = async (req, res) => {
     });
   }
 };
+
+// ============================
+// PERMANENTLY DELETE PRODUCT (Admin)
+// ============================
+export const permanentlyDeleteProduct = async (req, res) => {
+  try {
+    const product = await Product.findById(req.params.id);
+
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: "Product not found",
+      });
+    }
+
+    if (product.isActive) {
+      return res.status(400).json({
+        success: false,
+        message: "Delete this product first before removing it permanently",
+      });
+    }
+
+    await product.deleteOne();
+
+    res.json({
+      success: true,
+      message: "Product permanently deleted",
+    });
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      success: false,
+      message: "Unable to permanently delete product",
+    });
+  }
+};

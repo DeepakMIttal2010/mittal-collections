@@ -7,6 +7,7 @@ import {
   updateCategory,
   restoreCategory,
   deleteCategory,
+  permanentlyDeleteCategory,
 } from "../controllers/categoryController.js";
 
 import upload from "../middleware/uploadMiddleware.js";
@@ -47,5 +48,11 @@ router.put(
 );
 
 router.delete("/:id", authMiddleware, adminMiddleware, deleteCategory);
+router.delete(
+  "/:id/permanent",
+  authMiddleware,
+  adminMiddleware,
+  permanentlyDeleteCategory,
+);
 
 export default router;

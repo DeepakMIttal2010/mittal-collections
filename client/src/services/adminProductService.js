@@ -165,3 +165,23 @@ export const deleteProduct = async (id) => {
     };
   }
 };
+
+export const permanentlyDeleteProduct = async (id) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/products/${id}/permanent`, {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${getToken()}`,
+      },
+    });
+
+    return await response.json();
+  } catch (error) {
+    console.error("Permanently Delete Product Error:", error);
+
+    return {
+      success: false,
+      message: "Unable to permanently delete product",
+    };
+  }
+};

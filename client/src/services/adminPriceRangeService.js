@@ -83,3 +83,23 @@ export const deletePriceRange = async (id) => {
     return { success: false, message: "Unable to delete price range" };
   }
 };
+
+export const permanentlyDeletePriceRange = async (id) => {
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/price-ranges/${id}/permanent`,
+      {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${getToken()}` },
+      },
+    );
+
+    return await response.json();
+  } catch (error) {
+    console.error("Permanently Delete Price Range Error:", error);
+    return {
+      success: false,
+      message: "Unable to permanently delete price range",
+    };
+  }
+};

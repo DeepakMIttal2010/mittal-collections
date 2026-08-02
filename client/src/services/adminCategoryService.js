@@ -165,3 +165,26 @@ export const deleteCategory = async (id) => {
     };
   }
 };
+
+export const permanentlyDeleteCategory = async (id) => {
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/categories/${id}/permanent`,
+      {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${getToken()}`,
+        },
+      },
+    );
+
+    return await response.json();
+  } catch (error) {
+    console.error("Permanently Delete Category Error:", error);
+
+    return {
+      success: false,
+      message: "Unable to permanently delete category",
+    };
+  }
+};

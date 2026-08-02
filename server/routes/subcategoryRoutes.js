@@ -7,6 +7,7 @@ import {
   updateSubcategory,
   restoreSubcategory,
   deleteSubcategory,
+  permanentlyDeleteSubcategory,
 } from "../controllers/subcategoryController.js";
 
 import authMiddleware from "../middleware/authMiddleware.js";
@@ -46,5 +47,11 @@ router.put(
   restoreSubcategory,
 );
 router.delete("/:id", authMiddleware, adminMiddleware, deleteSubcategory);
+router.delete(
+  "/:id/permanent",
+  authMiddleware,
+  adminMiddleware,
+  permanentlyDeleteSubcategory,
+);
 
 export default router;

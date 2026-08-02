@@ -9,6 +9,7 @@ import {
   updateSubcategory,
   restoreSubcategory,
   deleteSubcategory,
+  permanentlyDeleteSubcategory,
 } from "../../services/adminSubcategoryService";
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
@@ -173,6 +174,23 @@ function AdminSubcategories() {
 
   const handleRestore = async (id) => {
     const response = await restoreSubcategory(id);
+
+    if (response.success) {
+      loadData();
+    } else {
+      alert(response.message);
+    }
+  };
+
+  const handlePermanentDelete = async (id) => {
+    if (
+      !window.confirm(
+        "Permanently delete this subcategory? This cannot be undone.",
+      )
+    )
+      return;
+
+    const response = await permanentlyDeleteSubcategory(id);
 
     if (response.success) {
       loadData();
@@ -475,12 +493,20 @@ function AdminSubcategories() {
                           </button>
                         </>
                       ) : (
-                        <button
-                          onClick={() => handleRestore(sub._id)}
-                          className="text-xs font-medium px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white"
-                        >
-                          Restore
-                        </button>
+                        <>
+                          <button
+                            onClick={() => handleRestore(sub._id)}
+                            className="text-xs font-medium px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white"
+                          >
+                            Restore
+                          </button>
+                          <button
+                            onClick={() => handlePermanentDelete(sub._id)}
+                            className="text-xs font-medium px-3 py-1.5 rounded-lg border border-red-600 text-red-600 hover:bg-red-50"
+                          >
+                            Delete Permanently
+                          </button>
+                        </>
                       )}
                     </div>
                   </td>

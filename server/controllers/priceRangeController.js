@@ -186,3 +186,40 @@ export const deletePriceRange = async (req, res) => {
     });
   }
 };
+
+// ============================
+// PERMANENTLY DELETE PRICE RANGE (Admin)
+// ============================
+export const permanentlyDeletePriceRange = async (req, res) => {
+  try {
+    const priceRange = await PriceRange.findById(req.params.id);
+
+    if (!priceRange) {
+      return res.status(404).json({
+        success: false,
+        message: "Price range not found",
+      });
+    }
+
+    if (priceRange.isActive) {
+      return res.status(400).json({
+        success: false,
+        message: "Delete this price range first before removing it permanently",
+      });
+    }
+
+    await priceRange.deleteOne();
+
+    res.status(200).json({
+      success: true,
+      message: "Price range permanently deleted",
+    });
+  } catch (error) {
+    console.error("Permanently Delete Price Range Error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};

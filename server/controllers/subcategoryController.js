@@ -231,3 +231,40 @@ export const deleteSubcategory = async (req, res) => {
     });
   }
 };
+
+// ============================
+// Permanently Delete Subcategory (Admin)
+// ============================
+export const permanentlyDeleteSubcategory = async (req, res) => {
+  try {
+    const subcategory = await Subcategory.findById(req.params.id);
+
+    if (!subcategory) {
+      return res.status(404).json({
+        success: false,
+        message: "Subcategory not found",
+      });
+    }
+
+    if (subcategory.isActive) {
+      return res.status(400).json({
+        success: false,
+        message: "Delete this subcategory first before removing it permanently",
+      });
+    }
+
+    await subcategory.deleteOne();
+
+    res.status(200).json({
+      success: true,
+      message: "Subcategory permanently deleted",
+    });
+  } catch (error) {
+    console.error("Permanently Delete Subcategory Error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};

@@ -7,6 +7,7 @@ import {
   updateBanner,
   restoreBanner,
   deleteBanner,
+  permanentlyDeleteBanner,
 } from "../../services/adminBannerService";
 
 const EMPTY_FORM = {
@@ -135,6 +136,21 @@ function AdminBanners() {
 
   const handleRestore = async (id) => {
     const response = await restoreBanner(id);
+
+    if (response.success) {
+      loadData();
+    } else {
+      alert(response.message);
+    }
+  };
+
+  const handlePermanentDelete = async (id) => {
+    if (
+      !window.confirm("Permanently delete this banner? This cannot be undone.")
+    )
+      return;
+
+    const response = await permanentlyDeleteBanner(id);
 
     if (response.success) {
       loadData();
@@ -410,12 +426,20 @@ function AdminBanners() {
                           </button>
                         </>
                       ) : (
-                        <button
-                          onClick={() => handleRestore(banner._id)}
-                          className="text-xs font-medium px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white"
-                        >
-                          Restore
-                        </button>
+                        <>
+                          <button
+                            onClick={() => handleRestore(banner._id)}
+                            className="text-xs font-medium px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white"
+                          >
+                            Restore
+                          </button>
+                          <button
+                            onClick={() => handlePermanentDelete(banner._id)}
+                            className="text-xs font-medium px-3 py-1.5 rounded-lg border border-red-600 text-red-600 hover:bg-red-50"
+                          >
+                            Delete Permanently
+                          </button>
+                        </>
                       )}
                     </div>
                   </td>

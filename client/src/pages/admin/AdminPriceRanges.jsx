@@ -6,6 +6,7 @@ import {
   updatePriceRange,
   restorePriceRange,
   deletePriceRange,
+  permanentlyDeletePriceRange,
 } from "../../services/adminPriceRangeService";
 
 function AdminPriceRanges() {
@@ -91,6 +92,23 @@ function AdminPriceRanges() {
 
   const handleRestore = async (id) => {
     const response = await restorePriceRange(id);
+
+    if (response.success) {
+      loadData();
+    } else {
+      alert(response.message);
+    }
+  };
+
+  const handlePermanentDelete = async (id) => {
+    if (
+      !window.confirm(
+        "Permanently delete this price range? This cannot be undone.",
+      )
+    )
+      return;
+
+    const response = await permanentlyDeletePriceRange(id);
 
     if (response.success) {
       loadData();
@@ -262,12 +280,20 @@ function AdminPriceRanges() {
                           </button>
                         </>
                       ) : (
-                        <button
-                          onClick={() => handleRestore(item._id)}
-                          className="text-xs font-medium px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white"
-                        >
-                          Restore
-                        </button>
+                        <>
+                          <button
+                            onClick={() => handleRestore(item._id)}
+                            className="text-xs font-medium px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white"
+                          >
+                            Restore
+                          </button>
+                          <button
+                            onClick={() => handlePermanentDelete(item._id)}
+                            className="text-xs font-medium px-3 py-1.5 rounded-lg border border-red-600 text-red-600 hover:bg-red-50"
+                          >
+                            Delete Permanently
+                          </button>
+                        </>
                       )}
                     </div>
                   </td>
