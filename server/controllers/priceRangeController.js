@@ -1,5 +1,7 @@
 import PriceRange from "../models/PriceRange.js";
 
+const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 // ============================
 // GET ACTIVE PRICE RANGES (Public)
 // ============================
@@ -70,6 +72,17 @@ export const addPriceRange = async (req, res) => {
       });
     }
 
+    const duplicate = await PriceRange.findOne({
+      label: new RegExp(`^${escapeRegex(label.trim())}$`, "i"),
+    });
+
+    if (duplicate) {
+      return res.status(400).json({
+        success: false,
+        message: "A price range with this label already exists",
+      });
+    }
+
     const priceRange = await PriceRange.create({
       label,
       maxPrice,
@@ -107,6 +120,20 @@ export const updatePriceRange = async (req, res) => {
     }
 
     const { label, maxPrice, displayOrder, isActive } = req.body;
+
+    if (label !== undefined && label.trim() !== priceRange.label) {
+      const duplicate = await PriceRange.findOne({
+        _id: { $ne: priceRange._id },
+        label: new RegExp(`^${escapeRegex(label.trim())}$`, "i"),
+      });
+
+      if (duplicate) {
+        return res.status(400).json({
+          success: false,
+          message: "A price range with this label already exists",
+        });
+      }
+    }
 
     if (label !== undefined) priceRange.label = label;
     if (maxPrice !== undefined) priceRange.maxPrice = maxPrice;
