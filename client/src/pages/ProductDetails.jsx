@@ -11,6 +11,7 @@ import {
   FaShoppingCart,
   FaHeart,
   FaSearchPlus,
+  FaSearchMinus,
   FaTimes,
   FaChevronLeft,
   FaChevronRight,
@@ -42,6 +43,7 @@ function ProductDetails() {
   const [zoomStyle, setZoomStyle] = useState({});
   const [activeImage, setActiveImage] = useState("");
   const [lightboxIndex, setLightboxIndex] = useState(null);
+  const [isLightboxZoomed, setIsLightboxZoomed] = useState(false);
   const [relatedProducts, setRelatedProducts] = useState([]);
 
   const relatedScrollRef = useRef(null);
@@ -122,13 +124,22 @@ function ProductDetails() {
     setLightboxIndex(allImages.indexOf(activeImage));
   };
 
-  const closeLightbox = () => setLightboxIndex(null);
+  const closeLightbox = () => {
+    setIsLightboxZoomed(false);
+    setLightboxIndex(null);
+  };
 
-  const showPrevImage = () =>
+  const showPrevImage = () => {
+    setIsLightboxZoomed(false);
     setLightboxIndex((prev) => (prev - 1 + allImages.length) % allImages.length);
+  };
 
-  const showNextImage = () =>
+  const showNextImage = () => {
+    setIsLightboxZoomed(false);
     setLightboxIndex((prev) => (prev + 1) % allImages.length);
+  };
+
+  const toggleLightboxZoom = () => setIsLightboxZoomed((prev) => !prev);
 
   useEffect(() => {
     if (lightboxIndex === null) return;
@@ -474,6 +485,17 @@ function ProductDetails() {
           </span>
 
           <button
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleLightboxZoom();
+            }}
+            aria-label={isLightboxZoomed ? "Zoom out" : "Zoom in"}
+            className="absolute top-6 right-20 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center"
+          >
+            {isLightboxZoomed ? <FaSearchMinus /> : <FaSearchPlus />}
+          </button>
+
+          <button
             onClick={closeLightbox}
             aria-label="Close"
             className="absolute top-6 right-6 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center"
@@ -494,12 +516,25 @@ function ProductDetails() {
             </button>
           )}
 
-          <img
-            src={`${imgUrl(allImages[lightboxIndex])}`}
-            alt={product.name}
+          <div
             onClick={(e) => e.stopPropagation()}
-            className="max-w-full max-h-[85vh] object-contain"
-          />
+            className={
+              isLightboxZoomed
+                ? "max-w-[92vw] max-h-[85vh] overflow-auto"
+                : "max-w-full max-h-[85vh]"
+            }
+          >
+            <img
+              src={`${imgUrl(allImages[lightboxIndex])}`}
+              alt={product.name}
+              onClick={toggleLightboxZoom}
+              className={
+                isLightboxZoomed
+                  ? "max-w-none cursor-zoom-out"
+                  : "max-w-full max-h-[85vh] object-contain cursor-zoom-in"
+              }
+            />
+          </div>
 
           {allImages.length > 1 && (
             <button
