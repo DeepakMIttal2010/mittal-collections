@@ -44,25 +44,3 @@ export const getReportsData = async (days = 30) => {
     };
   }
 };
-
-export const getVisitLog = async ({ days = 30, page = 1, limit = 25 } = {}) => {
-  try {
-    const params = new URLSearchParams({ days, page, limit });
-
-    const response = await fetch(`${API_BASE_URL}/admin/visits?${params}`, {
-      headers: {
-        Authorization: `Bearer ${getToken()}`,
-      },
-    });
-
-    const data = await response.json();
-
-    return data;
-  } catch (error) {
-    console.error("Visit Log Error:", error);
-
-    return {
-      success: false,
-    };
-  }
-};

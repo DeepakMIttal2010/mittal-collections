@@ -10,7 +10,7 @@ import {
   FaUserCheck,
 } from "react-icons/fa";
 
-import { getReportsData, getVisitLog } from "../../services/adminService";
+import { getReportsData } from "../../services/adminService";
 
 const RANGE_OPTIONS = [7, 30, 90];
 
@@ -30,20 +30,6 @@ const formatNumber = (value) => Math.round(value).toLocaleString("en-IN");
 const formatDay = (isoDate) => {
   const d = new Date(isoDate);
   return d.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
-};
-
-const formatDateTime = (isoDate) =>
-  new Date(isoDate).toLocaleString("en-IN", {
-    day: "numeric",
-    month: "short",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-
-const formatLocation = (visit) => {
-  if (visit.city && visit.country) return `${visit.city}, ${visit.country}`;
-  if (visit.country) return visit.country;
-  return "Unknown";
 };
 
 function StatTile({ icon, label, value }) {
@@ -166,124 +152,6 @@ function RankedBarList({ items, labelKey, valueKey, formatValue, emptyText }) {
           </div>
         </div>
       ))}
-    </div>
-  );
-}
-
-function VisitLogTable({ days }) {
-  const [visits, setVisits] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [page, setPage] = useState(1);
-  const [pages, setPages] = useState(1);
-  const [total, setTotal] = useState(0);
-
-  useEffect(() => {
-    setPage(1);
-  }, [days]);
-
-  useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-
-      const response = await getVisitLog({ days, page, limit: 25 });
-
-      if (response.success) {
-        setVisits(response.visits);
-        setTotal(response.total);
-        setPages(response.pages);
-      }
-
-      setLoading(false);
-    };
-
-    load();
-  }, [days, page]);
-
-  return (
-    <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-      <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
-        <h3 className="font-semibold text-slate-800">
-          Visit Log — last {days} days
-        </h3>
-        <span className="text-sm text-slate-500">{total} visits</span>
-      </div>
-
-      {loading ? (
-        <p className="text-sm text-slate-400 py-8 text-center">Loading...</p>
-      ) : visits.length === 0 ? (
-        <p className="text-sm text-slate-400 py-8 text-center">
-          No visits recorded in this range yet.
-        </p>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-slate-600">
-              <tr>
-                <th className="text-left px-5 py-3 font-semibold">
-                  Date &amp; Time
-                </th>
-                <th className="text-left px-5 py-3 font-semibold">
-                  Page Visited
-                </th>
-                <th className="text-left px-5 py-3 font-semibold">
-                  Visitor
-                </th>
-                <th className="text-left px-5 py-3 font-semibold">
-                  Location
-                </th>
-                <th className="text-left px-5 py-3 font-semibold">
-                  Device
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {visits.map((visit) => (
-                <tr key={visit._id}>
-                  <td className="px-5 py-3 text-slate-600 whitespace-nowrap">
-                    {formatDateTime(visit.createdAt)}
-                  </td>
-                  <td className="px-5 py-3 text-slate-800 font-medium">
-                    {visit.path}
-                  </td>
-                  <td className="px-5 py-3 text-slate-500 font-mono text-xs">
-                    {visit.visitorId.slice(0, 8)}
-                  </td>
-                  <td className="px-5 py-3 text-slate-600">
-                    {formatLocation(visit)}
-                  </td>
-                  <td className="px-5 py-3 text-slate-600">
-                    {visit.device}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {pages > 1 && (
-        <div className="flex items-center justify-end gap-3 px-5 py-4 border-t border-slate-200 text-sm">
-          <button
-            type="button"
-            onClick={() => setPage((p) => Math.max(p - 1, 1))}
-            disabled={page <= 1}
-            className="px-3 py-1.5 rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            Prev
-          </button>
-          <span className="text-slate-600">
-            Page {page} of {pages}
-          </span>
-          <button
-            type="button"
-            onClick={() => setPage((p) => Math.min(p + 1, pages))}
-            disabled={page >= pages}
-            className="px-3 py-1.5 rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            Next
-          </button>
-        </div>
-      )}
     </div>
   );
 }
@@ -498,8 +366,6 @@ function AdminReports() {
           />
         </div>
       </div>
-
-      <VisitLogTable days={days} />
     </div>
   );
 }
