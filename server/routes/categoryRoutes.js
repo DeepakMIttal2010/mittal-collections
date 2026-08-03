@@ -11,6 +11,7 @@ import {
 } from "../controllers/categoryController.js";
 
 import upload from "../middleware/uploadMiddleware.js";
+import imageOptimizer from "../middleware/imageOptimizer.js";
 import authMiddleware from "../middleware/authMiddleware.js";
 import adminMiddleware from "../middleware/adminMiddleware.js";
 
@@ -29,6 +30,7 @@ router.post(
   authMiddleware,
   adminMiddleware,
   upload.single("image"),
+  imageOptimizer,
   addCategory,
 );
 
@@ -37,6 +39,7 @@ router.put(
   authMiddleware,
   adminMiddleware,
   upload.single("image"),
+  imageOptimizer,
   updateCategory,
 );
 

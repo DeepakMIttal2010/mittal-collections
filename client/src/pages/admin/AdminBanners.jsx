@@ -21,6 +21,7 @@ const EMPTY_FORM = {
   button2Link: "",
   displayOrder: 0,
   isActive: true,
+  optimizeImages: true,
 };
 
 function AdminBanners() {
@@ -112,6 +113,7 @@ function AdminBanners() {
       button2Link: banner.button2Link || "",
       displayOrder: banner.displayOrder || 0,
       isActive: banner.isActive,
+      optimizeImages: true,
     });
     setImage(null);
     setPreview(`${imgUrl(banner.image)}`);
@@ -338,6 +340,16 @@ function AdminBanners() {
               onChange={handleImage}
               className="w-full text-sm text-slate-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
             />
+            <label className="flex items-center gap-2 text-sm text-slate-700 mt-2">
+              <input
+                type="checkbox"
+                name="optimizeImages"
+                checked={formData.optimizeImages}
+                onChange={handleChange}
+                className="w-4 h-4"
+              />
+              Reduce image size (best quality)
+            </label>
           </div>
 
           {preview && (

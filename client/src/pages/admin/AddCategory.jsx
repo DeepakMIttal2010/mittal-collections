@@ -15,6 +15,7 @@ function AddCategory() {
     displayOrder: 0,
     featured: false,
     isActive: true,
+    optimizeImages: true,
     image: null,
   });
 
@@ -50,6 +51,7 @@ function AddCategory() {
     data.append("displayOrder", formData.displayOrder);
     data.append("featured", formData.featured);
     data.append("isActive", formData.isActive);
+    data.append("optimizeImages", formData.optimizeImages);
 
     if (formData.image) {
       data.append("image", formData.image);
@@ -128,6 +130,16 @@ function AddCategory() {
             required
             className="w-full text-sm text-slate-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
           />
+          <label className="flex items-center gap-2 text-sm text-slate-700 mt-2">
+            <input
+              type="checkbox"
+              name="optimizeImages"
+              checked={formData.optimizeImages}
+              onChange={handleChange}
+              className="w-4 h-4"
+            />
+            Reduce image size (best quality)
+          </label>
         </div>
 
         {preview && (

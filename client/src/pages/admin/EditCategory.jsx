@@ -21,6 +21,7 @@ function EditCategory() {
     displayOrder: 0,
     featured: false,
     isActive: true,
+    optimizeImages: true,
     image: null,
   });
 
@@ -38,6 +39,7 @@ function EditCategory() {
         displayOrder: category.displayOrder || 0,
         featured: category.featured,
         isActive: category.isActive,
+        optimizeImages: true,
         image: null,
       });
 
@@ -86,6 +88,7 @@ function EditCategory() {
     data.append("displayOrder", formData.displayOrder);
     data.append("featured", formData.featured);
     data.append("isActive", formData.isActive);
+    data.append("optimizeImages", formData.optimizeImages);
 
     if (formData.image) {
       data.append("image", formData.image);
@@ -172,6 +175,16 @@ function EditCategory() {
           <p className="text-xs text-slate-400 mt-1">
             Leave empty to keep the current image
           </p>
+          <label className="flex items-center gap-2 text-sm text-slate-700 mt-2">
+            <input
+              type="checkbox"
+              name="optimizeImages"
+              checked={formData.optimizeImages}
+              onChange={handleChange}
+              className="w-4 h-4"
+            />
+            Reduce image size (best quality)
+          </label>
         </div>
 
         {preview && (

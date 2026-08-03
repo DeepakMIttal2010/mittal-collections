@@ -38,6 +38,7 @@ function EditProduct() {
     isActive: true,
     isTrending: false,
     trendingRank: 0,
+    optimizeImages: true,
   });
 
   const loadProduct = async () => {
@@ -66,6 +67,7 @@ function EditProduct() {
         isActive: product.isActive,
         isTrending: product.isTrending || false,
         trendingRank: product.trendingRank || 0,
+        optimizeImages: true,
       });
 
       const images = product.images?.length
@@ -286,6 +288,18 @@ function EditProduct() {
           <label>Product Images</label>
 
           <input type="file" accept="image/*" multiple onChange={handleAddImages} />
+        </div>
+
+        <div className="checkbox-row">
+          <label>
+            <input
+              type="checkbox"
+              name="optimizeImages"
+              checked={formData.optimizeImages}
+              onChange={handleChange}
+            />
+            Reduce image size (best quality)
+          </label>
         </div>
 
         {(existingImages.length > 0 || newPreviews.length > 0) && (

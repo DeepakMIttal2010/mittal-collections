@@ -1,5 +1,6 @@
 import express from "express";
 import upload from "../middleware/uploadMiddleware.js";
+import imageOptimizer from "../middleware/imageOptimizer.js";
 import authMiddleware from "../middleware/authMiddleware.js";
 import adminMiddleware from "../middleware/adminMiddleware.js";
 
@@ -31,6 +32,7 @@ router.post(
   authMiddleware,
   adminMiddleware,
   upload.array("images", 6),
+  imageOptimizer,
   addProduct,
 );
 
@@ -39,6 +41,7 @@ router.put(
   authMiddleware,
   adminMiddleware,
   upload.array("images", 6),
+  imageOptimizer,
   updateProduct,
 );
 

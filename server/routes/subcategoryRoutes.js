@@ -13,6 +13,7 @@ import {
 import authMiddleware from "../middleware/authMiddleware.js";
 import adminMiddleware from "../middleware/adminMiddleware.js";
 import upload from "../middleware/uploadMiddleware.js";
+import imageOptimizer from "../middleware/imageOptimizer.js";
 
 const router = express.Router();
 
@@ -31,6 +32,7 @@ router.post(
   authMiddleware,
   adminMiddleware,
   upload.single("image"),
+  imageOptimizer,
   addSubcategory,
 );
 router.put(
@@ -38,6 +40,7 @@ router.put(
   authMiddleware,
   adminMiddleware,
   upload.single("image"),
+  imageOptimizer,
   updateSubcategory,
 );
 router.put(

@@ -1,6 +1,7 @@
+import "dotenv/config";
+
 import express from "express";
 import cors from "cors";
-import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -28,8 +29,6 @@ import analyticsRoutes from "./routes/analyticsRoutes.js";
 import couponRoutes from "./routes/couponRoutes.js";
 import reviewRoutes from "./routes/reviewRoutes.js";
 import questionRoutes from "./routes/questionRoutes.js";
-
-dotenv.config();
 
 connectDB();
 

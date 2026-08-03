@@ -35,6 +35,7 @@ function AdminSubcategories() {
     subtitle: "",
     displayOrder: 0,
     isActive: true,
+    optimizeImages: true,
   });
   const [image, setImage] = useState(null);
   const [preview, setPreview] = useState(null);
@@ -109,6 +110,7 @@ function AdminSubcategories() {
       subtitle: "",
       displayOrder: 0,
       isActive: true,
+      optimizeImages: true,
     });
     setImage(null);
     setPreview(null);
@@ -155,6 +157,7 @@ function AdminSubcategories() {
       subtitle: sub.subtitle || "",
       displayOrder: sub.displayOrder,
       isActive: sub.isActive,
+      optimizeImages: true,
     });
     setImage(null);
     setPreview(sub.image ? `${imgUrl(sub.image)}` : null);
@@ -306,6 +309,16 @@ function AdminSubcategories() {
               onChange={handleImage}
               className="w-full text-sm text-slate-600 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
             />
+            <label className="flex items-center gap-2 text-sm text-slate-700 mt-2">
+              <input
+                type="checkbox"
+                name="optimizeImages"
+                checked={formData.optimizeImages}
+                onChange={handleChange}
+                className="w-4 h-4"
+              />
+              Reduce size (best quality)
+            </label>
           </div>
 
           {preview && (

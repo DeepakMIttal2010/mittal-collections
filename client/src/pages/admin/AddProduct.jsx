@@ -31,6 +31,7 @@ function AddProduct() {
     isActive: true,
     isTrending: false,
     trendingRank: 0,
+    optimizeImages: true,
   });
 
   const loadCategories = async () => {
@@ -100,6 +101,7 @@ function AddProduct() {
     data.append("isTrending", formData.isTrending);
     data.append("trendingRank", formData.trendingRank);
     data.append("mainImageIndex", mainImageIndex);
+    data.append("optimizeImages", formData.optimizeImages);
 
     images.forEach((file) => data.append("images", file));
 
@@ -240,6 +242,18 @@ function AddProduct() {
             onChange={handleImages}
             required
           />
+        </div>
+
+        <div className="checkbox-row">
+          <label>
+            <input
+              type="checkbox"
+              name="optimizeImages"
+              checked={formData.optimizeImages}
+              onChange={handleChange}
+            />
+            Reduce image size (best quality)
+          </label>
         </div>
 
         {previews.length > 0 && (
