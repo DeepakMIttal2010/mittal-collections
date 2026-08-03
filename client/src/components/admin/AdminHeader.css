@@ -18,6 +18,31 @@
   color: #1e293b;
 }
 
+.admin-breadcrumb {
+  display: flex;
+  align-items: center;
+}
+
+.breadcrumb-separator {
+  margin: 0 10px;
+  color: #cbd5e1;
+  font-weight: 500;
+}
+
+.breadcrumb-link {
+  color: #94a3b8;
+  cursor: pointer;
+}
+
+.breadcrumb-link:hover {
+  color: #2563eb;
+  text-decoration: underline;
+}
+
+.breadcrumb-current {
+  color: #1e293b;
+}
+
 .header-center {
   flex: 1;
   display: flex;

@@ -91,15 +91,61 @@ function AdminHeader() {
     loadNotifications();
   };
 
-  const getTitle = () => {
-    if (location.pathname === "/admin") return "Dashboard";
-    if (location.pathname.includes("products")) return "Products";
-    if (location.pathname.includes("categories")) return "Categories";
-    if (location.pathname.includes("orders")) return "Orders";
-    if (location.pathname.includes("customers")) return "Customers";
-    if (location.pathname.includes("reports")) return "Reports";
-    if (location.pathname.includes("settings")) return "Settings";
-    return "Admin Panel";
+  const SECTION_LABELS = {
+    products: "Products",
+    categories: "Categories",
+    subcategories: "Sub Categories",
+    testimonials: "Testimonials",
+    reviews: "Reviews",
+    questions: "Questions & Answers",
+    pages: "Pages",
+    settings: "Settings",
+    messages: "Contact Messages",
+    "footer-links": "Footer Links",
+    banners: "Home Banners",
+    "price-ranges": "Shop by Price",
+    coupons: "Coupons",
+    orders: "Orders",
+    customers: "Customers",
+    reports: "Reports",
+    profile: "My Profile",
+    "change-password": "Change Password",
+  };
+
+  const SINGULAR_LABELS = {
+    products: "Product",
+    categories: "Category",
+  };
+
+  const getBreadcrumb = () => {
+    const segments = location.pathname.split("/").filter(Boolean).slice(1); // drop leading "admin"
+
+    if (segments.length === 0) return [{ label: "Dashboard" }];
+
+    const [section, subSegment] = segments;
+    const sectionLabel = SECTION_LABELS[section] || "Admin Panel";
+    const listPath = `/admin/${section}`;
+
+    if (segments.length === 1) return [{ label: sectionLabel }];
+
+    if (section === "customers") {
+      return [
+        { label: sectionLabel, path: listPath },
+        { label: "Customer Details" },
+      ];
+    }
+
+    if (subSegment === "add" || subSegment === "edit") {
+      const action = subSegment === "add" ? "Add" : "Edit";
+      const noun = SINGULAR_LABELS[section] || sectionLabel;
+
+      return [
+        { label: sectionLabel, path: listPath },
+        { label: `${action} ${noun}` },
+      ];
+    }
+
+    return [{ label: sectionLabel }];
   };
 
   const handleLogout = () => {
@@ -113,7 +159,29 @@ function AdminHeader() {
   return (
     <header className="admin-header">
       <div className="header-left">
-        <h2>{getTitle()}</h2>
+        <h2 className="admin-breadcrumb">
+          {getBreadcrumb().map((crumb, idx, arr) => (
+            <span key={idx}>
+              {idx > 0 && <span className="breadcrumb-separator">›</span>}
+              {crumb.path ? (
+                <span
+                  className="breadcrumb-link"
+                  onClick={() => navigate(crumb.path)}
+                >
+                  {crumb.label}
+                </span>
+              ) : (
+                <span
+                  className={
+                    idx === arr.length - 1 ? "breadcrumb-current" : undefined
+                  }
+                >
+                  {crumb.label}
+                </span>
+              )}
+            </span>
+          ))}
+        </h2>
       </div>
 
       <div className="header-center">
