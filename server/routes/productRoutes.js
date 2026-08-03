@@ -1,5 +1,5 @@
 import express from "express";
-import upload from "../middleware/uploadMiddleware.js";
+import { uploadProductMedia } from "../middleware/uploadMiddleware.js";
 import imageOptimizer from "../middleware/imageOptimizer.js";
 import authMiddleware from "../middleware/authMiddleware.js";
 import adminMiddleware from "../middleware/adminMiddleware.js";
@@ -27,11 +27,16 @@ router.get("/admin", authMiddleware, adminMiddleware, getAllProductsAdmin);
 
 router.get("/:id", getProductById);
 
+const productMediaFields = uploadProductMedia.fields([
+  { name: "images", maxCount: 6 },
+  { name: "videos", maxCount: 2 },
+]);
+
 router.post(
   "/",
   authMiddleware,
   adminMiddleware,
-  upload.array("images", 6),
+  productMediaFields,
   imageOptimizer,
   addProduct,
 );
@@ -40,7 +45,7 @@ router.put(
   "/:id",
   authMiddleware,
   adminMiddleware,
-  upload.array("images", 6),
+  productMediaFields,
   imageOptimizer,
   updateProduct,
 );

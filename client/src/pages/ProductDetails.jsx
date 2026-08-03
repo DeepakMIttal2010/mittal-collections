@@ -15,6 +15,7 @@ import {
   FaTimes,
   FaChevronLeft,
   FaChevronRight,
+  FaPlay,
 } from "react-icons/fa";
 import {
   FaFacebookF,
@@ -41,7 +42,7 @@ function ProductDetails() {
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
   const [zoomStyle, setZoomStyle] = useState({});
-  const [activeImage, setActiveImage] = useState("");
+  const [activeMediaIndex, setActiveMediaIndex] = useState(0);
   const [lightboxIndex, setLightboxIndex] = useState(null);
   const [isLightboxZoomed, setIsLightboxZoomed] = useState(false);
   const [relatedProducts, setRelatedProducts] = useState([]);
@@ -61,7 +62,11 @@ function ProductDetails() {
 
       if (response.success) {
         setProduct(response.product);
-        setActiveImage(response.product.image);
+
+        const initialIndex = response.product.images?.indexOf(
+          response.product.image,
+        );
+        setActiveMediaIndex(initialIndex >= 0 ? initialIndex : 0);
 
         const categoryId = response.product.category?._id;
 
@@ -91,10 +96,25 @@ function ProductDetails() {
     });
   };
 
-  const gallery = product?.images?.length ? product.images : [];
-  const secondaryImages = gallery.filter((img) => img !== activeImage);
-  const hasGallery = secondaryImages.length > 0;
-  const allImages = product?.images?.length ? product.images : [product?.image];
+  const THUMB_LIMIT = 5;
+
+  const productImages = product?.images?.length
+    ? product.images
+    : [product?.image].filter(Boolean);
+  const productVideos = product?.videos || [];
+
+  const mediaItems = [
+    ...productImages.map((url) => ({ type: "image", url })),
+    ...productVideos.map((url) => ({ type: "video", url })),
+  ];
+
+  const activeMedia = mediaItems[activeMediaIndex] || mediaItems[0];
+  const hasThumbnails = mediaItems.length > 1;
+
+  const visibleThumbCount =
+    mediaItems.length > THUMB_LIMIT ? THUMB_LIMIT - 1 : mediaItems.length;
+  const visibleThumbs = mediaItems.slice(0, visibleThumbCount);
+  const overflowCount = mediaItems.length - visibleThumbCount;
 
   const handleMouseMove = (e) => {
     const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
@@ -120,9 +140,12 @@ function ProductDetails() {
     navigate(isLoggedIn ? "/checkout" : "/login?redirect=/checkout");
   };
 
-  const openLightbox = () => {
-    setLightboxIndex(allImages.indexOf(activeImage));
+  const openLightboxAt = (index) => {
+    setIsLightboxZoomed(false);
+    setLightboxIndex(index);
   };
+
+  const openLightbox = () => openLightboxAt(activeMediaIndex);
 
   const closeLightbox = () => {
     setIsLightboxZoomed(false);
@@ -131,12 +154,14 @@ function ProductDetails() {
 
   const showPrevImage = () => {
     setIsLightboxZoomed(false);
-    setLightboxIndex((prev) => (prev - 1 + allImages.length) % allImages.length);
+    setLightboxIndex(
+      (prev) => (prev - 1 + mediaItems.length) % mediaItems.length,
+    );
   };
 
   const showNextImage = () => {
     setIsLightboxZoomed(false);
-    setLightboxIndex((prev) => (prev + 1) % allImages.length);
+    setLightboxIndex((prev) => (prev + 1) % mediaItems.length);
   };
 
   const toggleLightboxZoom = () => setIsLightboxZoomed((prev) => !prev);
@@ -257,49 +282,111 @@ function ProductDetails() {
         {/* Image gallery with zoom */}
         <div
           className={`grid grid-cols-1 gap-3 ${
-            hasGallery ? "sm:grid-cols-[2fr_1fr]" : ""
+            hasThumbnails ? "sm:grid-cols-[2fr_1fr]" : ""
           }`}
         >
-          <div
-            className="relative overflow-hidden rounded-xl border border-slate-200 bg-white cursor-zoom-in aspect-square"
-            onMouseMove={handleMouseMove}
-            onMouseLeave={handleMouseLeave}
-            onClick={openLightbox}
-          >
-            <img
-              src={`${imgUrl(activeImage)}`}
-              alt={product.name}
-              style={zoomStyle}
-              className="w-full h-full object-cover transition-transform duration-200 pointer-events-none"
-            />
+          <div>
+            <div
+              className={`relative overflow-hidden rounded-xl border border-slate-200 bg-white aspect-square ${
+                activeMedia?.type === "video" ? "" : "cursor-zoom-in"
+              }`}
+              onMouseMove={
+                activeMedia?.type === "image" ? handleMouseMove : undefined
+              }
+              onMouseLeave={
+                activeMedia?.type === "image" ? handleMouseLeave : undefined
+              }
+              onClick={
+                activeMedia?.type === "image" ? openLightbox : undefined
+              }
+            >
+              {activeMedia?.type === "video" ? (
+                <video
+                  key={activeMedia.url}
+                  src={`${imgUrl(activeMedia.url)}`}
+                  controls
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <>
+                  <img
+                    src={`${imgUrl(activeMedia?.url)}`}
+                    alt={product.name}
+                    style={zoomStyle}
+                    className="w-full h-full object-cover transition-transform duration-200 pointer-events-none"
+                  />
 
-            <span className="absolute top-3 right-3 bg-white/90 text-slate-600 rounded-full p-2 shadow">
-              <FaSearchPlus className="text-sm" />
-            </span>
+                  <span className="absolute top-3 right-3 bg-white/90 text-slate-600 rounded-full p-2 shadow">
+                    <FaSearchPlus className="text-sm" />
+                  </span>
+                </>
+              )}
 
-            {discount > 0 && (
-              <span className="absolute top-3 left-3 bg-red-600 text-white text-xs font-semibold px-2.5 py-1 rounded-full">
-                {discount}% OFF
-              </span>
-            )}
+              {discount > 0 && (
+                <span className="absolute top-3 left-3 bg-red-600 text-white text-xs font-semibold px-2.5 py-1 rounded-full">
+                  {discount}% OFF
+                </span>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={openLightbox}
+              className="w-full text-center text-sm text-blue-600 hover:underline mt-2"
+            >
+              Click to see full view
+            </button>
           </div>
 
-          {hasGallery && (
+          {hasThumbnails && (
             <div className="grid grid-cols-3 sm:grid-cols-1 gap-3">
-              {secondaryImages.map((img) => (
-                <button
-                  key={img}
-                  type="button"
-                  onClick={() => setActiveImage(img)}
-                  className="aspect-square rounded-xl overflow-hidden border border-slate-200 hover:border-amber-400 transition-colors"
-                >
-                  <img
-                    src={`${imgUrl(img)}`}
-                    alt={product.name}
-                    className="w-full h-full object-cover"
-                  />
-                </button>
-              ))}
+              {visibleThumbs.map((item, index) => {
+                const isOverflowTile =
+                  index === visibleThumbCount - 1 && overflowCount > 0;
+
+                return (
+                  <button
+                    key={`${item.url}-${index}`}
+                    type="button"
+                    onClick={() =>
+                      isOverflowTile
+                        ? openLightboxAt(visibleThumbCount)
+                        : setActiveMediaIndex(index)
+                    }
+                    className={`relative aspect-square rounded-xl overflow-hidden border-2 transition-colors ${
+                      index === activeMediaIndex
+                        ? "border-blue-600"
+                        : "border-slate-200 hover:border-amber-400"
+                    }`}
+                  >
+                    {item.type === "video" ? (
+                      <video
+                        src={`${imgUrl(item.url)}`}
+                        muted
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <img
+                        src={`${imgUrl(item.url)}`}
+                        alt={product.name}
+                        className="w-full h-full object-cover"
+                      />
+                    )}
+
+                    {item.type === "video" && !isOverflowTile && (
+                      <span className="absolute inset-0 flex items-center justify-center bg-black/20">
+                        <FaPlay className="text-white text-sm drop-shadow" />
+                      </span>
+                    )}
+
+                    {isOverflowTile && (
+                      <span className="absolute inset-0 flex items-center justify-center bg-black/50 text-white font-semibold">
+                        +{overflowCount}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>
@@ -481,19 +568,21 @@ function ProductDetails() {
           className="fixed inset-0 bg-black/90 z-[200] flex items-center justify-center p-4"
         >
           <span className="absolute top-6 left-6 text-white/80 text-sm font-medium">
-            {lightboxIndex + 1} / {allImages.length}
+            {lightboxIndex + 1} / {mediaItems.length}
           </span>
 
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              toggleLightboxZoom();
-            }}
-            aria-label={isLightboxZoomed ? "Zoom out" : "Zoom in"}
-            className="absolute top-6 right-20 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center"
-          >
-            {isLightboxZoomed ? <FaSearchMinus /> : <FaSearchPlus />}
-          </button>
+          {mediaItems[lightboxIndex]?.type === "image" && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleLightboxZoom();
+              }}
+              aria-label={isLightboxZoomed ? "Zoom out" : "Zoom in"}
+              className="absolute top-6 right-20 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center"
+            >
+              {isLightboxZoomed ? <FaSearchMinus /> : <FaSearchPlus />}
+            </button>
+          )}
 
           <button
             onClick={closeLightbox}
@@ -503,46 +592,57 @@ function ProductDetails() {
             <FaTimes />
           </button>
 
-          {allImages.length > 1 && (
+          {mediaItems.length > 1 && (
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 showPrevImage();
               }}
-              aria-label="Previous image"
+              aria-label="Previous"
               className="absolute left-4 sm:left-8 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center"
             >
               <FaChevronLeft />
             </button>
           )}
 
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className={
-              isLightboxZoomed
-                ? "max-w-[92vw] max-h-[85vh] overflow-auto"
-                : "max-w-full max-h-[85vh]"
-            }
-          >
-            <img
-              src={`${imgUrl(allImages[lightboxIndex])}`}
-              alt={product.name}
-              onClick={toggleLightboxZoom}
+          {mediaItems[lightboxIndex]?.type === "video" ? (
+            <video
+              key={mediaItems[lightboxIndex].url}
+              src={`${imgUrl(mediaItems[lightboxIndex].url)}`}
+              controls
+              autoPlay
+              onClick={(e) => e.stopPropagation()}
+              className="max-w-full max-h-[85vh]"
+            />
+          ) : (
+            <div
+              onClick={(e) => e.stopPropagation()}
               className={
                 isLightboxZoomed
-                  ? "max-w-none cursor-zoom-out"
-                  : "max-w-full max-h-[85vh] object-contain cursor-zoom-in"
+                  ? "max-w-[92vw] max-h-[85vh] overflow-auto"
+                  : "max-w-full max-h-[85vh]"
               }
-            />
-          </div>
+            >
+              <img
+                src={`${imgUrl(mediaItems[lightboxIndex]?.url)}`}
+                alt={product.name}
+                onClick={toggleLightboxZoom}
+                className={
+                  isLightboxZoomed
+                    ? "max-w-none cursor-zoom-out"
+                    : "max-w-full max-h-[85vh] object-contain cursor-zoom-in"
+                }
+              />
+            </div>
+          )}
 
-          {allImages.length > 1 && (
+          {mediaItems.length > 1 && (
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 showNextImage();
               }}
-              aria-label="Next image"
+              aria-label="Next"
               className="absolute right-4 sm:right-8 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center"
             >
               <FaChevronRight />

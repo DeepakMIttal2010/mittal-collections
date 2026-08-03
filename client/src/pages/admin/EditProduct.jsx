@@ -23,6 +23,10 @@ function EditProduct() {
   const [newPreviews, setNewPreviews] = useState([]);
   const [mainImageIndex, setMainImageIndex] = useState(0);
 
+  const [existingVideos, setExistingVideos] = useState([]);
+  const [newVideos, setNewVideos] = useState([]);
+  const [newVideoPreviews, setNewVideoPreviews] = useState([]);
+
   const [categories, setCategories] = useState([]);
   const [subcategories, setSubcategories] = useState([]);
 
@@ -76,6 +80,7 @@ function EditProduct() {
 
       setExistingImages(images);
       setMainImageIndex(Math.max(images.indexOf(product.image), 0));
+      setExistingVideos(product.videos || []);
     }
 
     setLoading(false);
@@ -134,6 +139,27 @@ function EditProduct() {
     });
   };
 
+  const handleAddVideos = (e) => {
+    const files = Array.from(e.target.files);
+
+    if (files.length === 0) return;
+
+    setNewVideos((prev) => [...prev, ...files]);
+    setNewVideoPreviews((prev) => [
+      ...prev,
+      ...files.map((file) => URL.createObjectURL(file)),
+    ]);
+  };
+
+  const handleRemoveExistingVideo = (index) => {
+    setExistingVideos((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleRemoveNewVideo = (index) => {
+    setNewVideos((prev) => prev.filter((_, i) => i !== index));
+    setNewVideoPreviews((prev) => prev.filter((_, i) => i !== index));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -155,6 +181,9 @@ function EditProduct() {
     data.append("existingImages", JSON.stringify(existingImages));
     data.append("mainImageIndex", mainImageIndex);
     newImages.forEach((file) => data.append("images", file));
+
+    data.append("existingVideos", JSON.stringify(existingVideos));
+    newVideos.forEach((file) => data.append("videos", file));
 
     const response = await updateProduct(id, data);
 
@@ -360,6 +389,47 @@ function EditProduct() {
                 </div>
               );
             })}
+          </div>
+        )}
+
+        <div className="form-group">
+          <label>Product Videos (optional, max 2)</label>
+
+          <input
+            type="file"
+            accept="video/mp4,video/webm,video/quicktime"
+            multiple
+            onChange={handleAddVideos}
+          />
+        </div>
+
+        {(existingVideos.length > 0 || newVideoPreviews.length > 0) && (
+          <div className="image-thumb-grid">
+            {existingVideos.map((url, index) => (
+              <div key={url} className="image-thumb">
+                <video src={`${imgUrl(url)}`} muted />
+                <button
+                  type="button"
+                  className="remove-btn"
+                  onClick={() => handleRemoveExistingVideo(index)}
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+
+            {newVideoPreviews.map((src, index) => (
+              <div key={src} className="image-thumb">
+                <video src={src} muted />
+                <button
+                  type="button"
+                  className="remove-btn"
+                  onClick={() => handleRemoveNewVideo(index)}
+                >
+                  ×
+                </button>
+              </div>
+            ))}
           </div>
         )}
 

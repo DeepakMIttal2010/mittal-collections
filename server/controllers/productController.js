@@ -178,14 +178,15 @@ export const addProduct = async (req, res) => {
       mainImageIndex,
     } = req.body;
 
-    if (!req.files || req.files.length === 0) {
+    const images = (req.files?.images || []).map((file) => file.path);
+    const videos = (req.files?.videos || []).map((file) => file.path);
+
+    if (images.length === 0) {
       return res.status(400).json({
         success: false,
         message: "At least one product image is required",
       });
     }
-
-    const images = req.files.map((file) => file.path);
 
     const mainIndex = Math.min(
       Math.max(parseInt(mainImageIndex, 10) || 0, 0),
@@ -207,6 +208,7 @@ export const addProduct = async (req, res) => {
 
       image: images[mainIndex],
       images,
+      videos,
     });
 
     res.status(201).json({
@@ -263,7 +265,7 @@ export const updateProduct = async (req, res) => {
       }
     }
 
-    const newImages = (req.files || []).map((file) => file.path);
+    const newImages = (req.files?.images || []).map((file) => file.path);
 
     const finalImages = [...existingImages, ...newImages];
 
@@ -281,6 +283,20 @@ export const updateProduct = async (req, res) => {
 
     product.images = finalImages;
     product.image = finalImages[mainIndex];
+
+    let existingVideos = product.videos || [];
+
+    if (req.body.existingVideos !== undefined) {
+      try {
+        existingVideos = JSON.parse(req.body.existingVideos);
+      } catch {
+        existingVideos = [];
+      }
+    }
+
+    const newVideos = (req.files?.videos || []).map((file) => file.path);
+
+    product.videos = [...existingVideos, ...newVideos];
 
     await product.save();
 

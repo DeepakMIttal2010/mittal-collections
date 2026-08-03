@@ -5,6 +5,8 @@ import cloudinary from "../config/cloudinary.js";
 const MAX_DIMENSION = 1600;
 const JPEG_QUALITY = 85;
 
+const isVideo = (mimetype) => mimetype.startsWith("video/");
+
 const optimizeBuffer = async (file) => {
   const pipeline = sharp(file.buffer)
     .rotate()
@@ -26,43 +28,62 @@ const optimizeBuffer = async (file) => {
   return pipeline.jpeg({ quality: JPEG_QUALITY, mozjpeg: true }).toBuffer();
 };
 
-const uploadBufferToCloudinary = (buffer) =>
+const uploadBufferToCloudinary = (buffer, resourceType) =>
   new Promise((resolve, reject) => {
-    const stream = cloudinary.uploader.upload_stream(
-      {
-        folder: "mittal-collections",
-        quality: "auto:good",
-        fetch_format: "auto",
-      },
-      (error, result) => {
-        if (error) reject(error);
-        else resolve(result);
-      },
-    );
+    const options = {
+      folder: "mittal-collections",
+      resource_type: resourceType,
+    };
+
+    if (resourceType === "image") {
+      options.quality = "auto:good";
+      options.fetch_format = "auto";
+    }
+
+    const stream = cloudinary.uploader.upload_stream(options, (error, result) => {
+      if (error) reject(error);
+      else resolve(result);
+    });
 
     stream.end(buffer);
   });
 
 const processFile = async (file, shouldOptimize) => {
+  if (isVideo(file.mimetype)) {
+    const result = await uploadBufferToCloudinary(file.buffer, "video");
+    file.path = result.secure_url;
+    return;
+  }
+
   const buffer = shouldOptimize ? await optimizeBuffer(file) : file.buffer;
-  const result = await uploadBufferToCloudinary(buffer);
+  const result = await uploadBufferToCloudinary(buffer, "image");
 
   file.path = result.secure_url;
 };
 
 // Uploads req.file / req.files to Cloudinary, optionally resizing + re-encoding
-// via sharp first. Controlled by the "optimizeImages" form field (default: on).
+// images via sharp first (videos always pass through untouched). Controlled by
+// the "optimizeImages" form field (default: on). Handles req.file (single),
+// req.files as an array (upload.array), and req.files as an object of arrays
+// (upload.fields).
 const imageOptimizer = async (req, res, next) => {
   try {
     const shouldOptimize = req.body.optimizeImages !== "false";
+    const tasks = [];
 
     if (req.file) {
-      await processFile(req.file, shouldOptimize);
+      tasks.push(processFile(req.file, shouldOptimize));
     }
 
-    if (req.files && req.files.length > 0) {
-      await Promise.all(req.files.map((file) => processFile(file, shouldOptimize)));
+    if (Array.isArray(req.files)) {
+      tasks.push(...req.files.map((file) => processFile(file, shouldOptimize)));
+    } else if (req.files && typeof req.files === "object") {
+      Object.values(req.files).forEach((fileArray) => {
+        tasks.push(...fileArray.map((file) => processFile(file, shouldOptimize)));
+      });
     }
+
+    await Promise.all(tasks);
 
     next();
   } catch (error) {

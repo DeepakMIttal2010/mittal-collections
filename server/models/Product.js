@@ -47,6 +47,11 @@ const productSchema = new mongoose.Schema(
       default: [],
     },
 
+    videos: {
+      type: [String],
+      default: [],
+    },
+
     stock: {
       type: Number,
       default: 0,

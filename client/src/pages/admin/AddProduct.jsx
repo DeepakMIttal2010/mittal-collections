@@ -17,6 +17,9 @@ function AddProduct() {
   const [previews, setPreviews] = useState([]);
   const [mainImageIndex, setMainImageIndex] = useState(0);
 
+  const [videos, setVideos] = useState([]);
+  const [videoPreviews, setVideoPreviews] = useState([]);
+
   const [loading, setLoading] = useState(false);
 
   const [formData, setFormData] = useState({
@@ -79,6 +82,15 @@ function AddProduct() {
     setMainImageIndex(0);
   };
 
+  const handleVideos = (e) => {
+    const files = Array.from(e.target.files);
+
+    if (files.length === 0) return;
+
+    setVideos(files);
+    setVideoPreviews(files.map((file) => URL.createObjectURL(file)));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -104,6 +116,7 @@ function AddProduct() {
     data.append("optimizeImages", formData.optimizeImages);
 
     images.forEach((file) => data.append("images", file));
+    videos.forEach((file) => data.append("videos", file));
 
     setLoading(true);
 
@@ -270,6 +283,27 @@ function AddProduct() {
                 {index === mainImageIndex && (
                   <span className="main-badge">Main</span>
                 )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="form-group">
+          <label>Product Videos (optional, max 2)</label>
+
+          <input
+            type="file"
+            accept="video/mp4,video/webm,video/quicktime"
+            multiple
+            onChange={handleVideos}
+          />
+        </div>
+
+        {videoPreviews.length > 0 && (
+          <div className="image-thumb-grid">
+            {videoPreviews.map((src) => (
+              <div key={src} className="image-thumb">
+                <video src={src} muted />
               </div>
             ))}
           </div>
