@@ -18,6 +18,7 @@ function Seo({ title, description, image, url, jsonLd }) {
       {description && <meta property="og:description" content={description} />}
       <meta property="og:image" content={image || DEFAULT_IMAGE} />
       {url && <meta property="og:url" content={url} />}
+      {url && <link rel="canonical" href={url} />}
 
       <meta name="twitter:card" content="summary_large_image" />
       <meta name="twitter:title" content={fullTitle} />

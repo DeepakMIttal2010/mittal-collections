@@ -28,6 +28,7 @@ function TrendingPage() {
       <Seo
         title="Top Trending"
         description="Handpicked by our team - the home furnishing pieces everyone's loving right now at Mittal Collections."
+        url="https://mittal-collections-five.vercel.app/trending"
       />
       <h1 className="text-3xl md:text-4xl font-bold text-slate-900 mb-2">
         Top Trending

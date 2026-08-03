@@ -141,6 +141,7 @@ function CategoryPage() {
       <Seo
         title={pageTitle}
         description={`Shop ${pageTitle} at Mittal Collections. ${category.description || ""}`.trim()}
+        url={`https://mittal-collections-five.vercel.app/category/${categorySlug}${subcategorySlug ? `/${subcategorySlug}` : ""}`}
       />
       <h2 className="text-xl font-semibold text-slate-800 mb-4">
         {category.name}
