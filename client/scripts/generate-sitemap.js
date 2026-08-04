@@ -1,7 +1,7 @@
 import fs from "fs";
 import path from "path";
 
-const SITE_URL = "https://mittal-collections-five.vercel.app";
+const SITE_URL = "https://www.mittalcollections.com";
 const API_URL =
   process.env.VITE_API_URL || "https://mittal-collections-api.onrender.com";
 

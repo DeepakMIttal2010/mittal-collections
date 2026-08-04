@@ -14,4 +14,4 @@ Disallow: /reset-password
 Disallow: /change-password
 Disallow: /search
 
-Sitemap: https://mittal-collections-five.vercel.app/sitemap.xml
+Sitemap: https://www.mittalcollections.com/sitemap.xml

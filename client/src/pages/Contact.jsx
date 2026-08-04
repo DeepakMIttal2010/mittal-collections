@@ -85,7 +85,7 @@ function Contact() {
       <Seo
         title="Contact Us"
         description="Get in touch with Mittal Collections for order support, returns, bulk orders or general questions about our home furnishing products."
-        url="https://mittal-collections-five.vercel.app/contact"
+        url="https://www.mittalcollections.com/contact"
       />
 
       <h1 className="text-4xl md:text-5xl font-bold text-slate-900 mb-4">

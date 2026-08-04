@@ -17,7 +17,7 @@ function Home() {
       <Seo
         title="Premium Home Furnishing"
         description="Shop premium bedsheets, towels, curtains, pillows, cushions and blankets at Mittal Collections. Quality home furnishing for every corner of your home."
-        url="https://mittal-collections-five.vercel.app/"
+        url="https://www.mittalcollections.com/"
       />
       <Hero />
       <TrustBar />

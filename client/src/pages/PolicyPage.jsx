@@ -55,7 +55,7 @@ function PolicyPage() {
       <Seo
         title={page.title}
         description={page.content.slice(0, 160)}
-        url={`https://mittal-collections-five.vercel.app/policies/${slug}`}
+        url={`https://www.mittalcollections.com/policies/${slug}`}
       />
 
       <h1 className="text-3xl font-bold text-slate-900 mb-6">

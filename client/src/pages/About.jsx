@@ -22,7 +22,7 @@ function About() {
       <Seo
         title="About Us"
         description="Mittal Collections is a home furnishing store offering premium bedsheets, towels, curtains, pillows, cushions and blankets — quality materials, fast delivery and easy returns."
-        url="https://mittal-collections-five.vercel.app/about"
+        url="https://www.mittalcollections.com/about"
       />
 
       <h1 className="text-4xl md:text-5xl font-bold text-slate-900 mb-4">

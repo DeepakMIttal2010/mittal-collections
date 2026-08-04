@@ -31,7 +31,7 @@ function PriceRangePage() {
       <Seo
         title={`Products Under ₹${maxPrice}`}
         description={`Shop home furnishing products under ₹${maxPrice} at Mittal Collections - bedsheets, towels, curtains and more.`}
-        url={`https://mittal-collections-five.vercel.app/price/${maxPrice}`}
+        url={`https://www.mittalcollections.com/price/${maxPrice}`}
       />
       <h1 className="text-3xl font-bold text-slate-900 mb-2">
         Products Under ₹{maxPrice}
