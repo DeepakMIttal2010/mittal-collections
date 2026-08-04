@@ -71,6 +71,7 @@ function SubcategoryRow({ category, groupLabel, items, activeSubcategory }) {
                     <img
                       src={`${imgUrl(imageUrl)}`}
                       alt={sub.name}
+                      loading="lazy"
                       className="w-full h-full object-cover"
                     />
                   )}

@@ -24,6 +24,7 @@ function ProductCard({ product }) {
           <img
             src={`${imgUrl(product.image)}`}
             alt={product.name}
+            loading="lazy"
           />
 
           <span className="discount-badge">{discount}% OFF</span>

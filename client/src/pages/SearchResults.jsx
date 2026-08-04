@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { searchProducts } from "../services/productService";
 import ProductGrid from "../components/ProductGrid/ProductGrid";
 import ProductGridSkeleton from "../components/ProductGrid/ProductGridSkeleton";
+import Seo from "../components/Seo";
 
 function SearchResults() {
   const [searchParams] = useSearchParams();
@@ -32,6 +33,15 @@ function SearchResults() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
+      <Seo
+        title={hasQuery ? `Search results for "${query}"` : "Search"}
+        description={
+          hasQuery
+            ? `Search results for "${query}" at Mittal Collections.`
+            : "Search Mittal Collections for bedsheets, towels, curtains and more."
+        }
+      />
+
       <h2 className="text-xl font-semibold text-slate-800 mb-6">
         {hasQuery ? `Search results for "${query}"` : "Search"}
       </h2>

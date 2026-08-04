@@ -121,6 +121,7 @@ function TrendingSection() {
                 <img
                   src={`${imgUrl(product.image)}`}
                   alt={product.name}
+                  loading="lazy"
                   className="w-full h-full object-cover"
                 />
 

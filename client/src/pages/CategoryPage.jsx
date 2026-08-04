@@ -143,10 +143,10 @@ function CategoryPage() {
         description={`Shop ${pageTitle} at Mittal Collections. ${category.description || ""}`.trim()}
         url={`https://mittal-collections-five.vercel.app/category/${categorySlug}${subcategorySlug ? `/${subcategorySlug}` : ""}`}
       />
-      <h2 className="text-xl font-semibold text-slate-800 mb-4">
+      <h1 className="text-xl font-semibold text-slate-800 mb-4">
         {category.name}
         {activeSubcategory ? ` / ${activeSubcategory.name}` : ""}
-      </h2>
+      </h1>
 
       {subcategoryList.length > 0 && (
         <div className="flex flex-wrap gap-3 mb-6">

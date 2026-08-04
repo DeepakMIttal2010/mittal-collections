@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { getPageBySlug } from "../services/pageService";
+import Seo from "../components/Seo";
 
 function PolicyPage() {
   const { slug } = useParams();
@@ -51,6 +52,12 @@ function PolicyPage() {
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-16">
+      <Seo
+        title={page.title}
+        description={page.content.slice(0, 160)}
+        url={`https://mittal-collections-five.vercel.app/policies/${slug}`}
+      />
+
       <h1 className="text-3xl font-bold text-slate-900 mb-6">
         {page.title}
       </h1>

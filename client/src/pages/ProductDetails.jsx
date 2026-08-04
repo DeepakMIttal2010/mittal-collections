@@ -38,6 +38,7 @@ import ProductCard from "../components/ProductCard/ProductCard";
 import RecentlyViewed from "../components/RecentlyViewed/RecentlyViewed";
 import { addRecentlyViewed } from "../utils/recentlyViewed";
 import { getProductViewCount } from "../services/analyticsService";
+import { getProductReviews } from "../services/reviewService";
 
 function ProductDetails() {
   const { id } = useParams();
@@ -52,6 +53,10 @@ function ProductDetails() {
   const [isLightboxZoomed, setIsLightboxZoomed] = useState(false);
   const [relatedProducts, setRelatedProducts] = useState([]);
   const [viewCount, setViewCount] = useState(0);
+  const [reviewStats, setReviewStats] = useState({
+    averageRating: 0,
+    totalReviews: 0,
+  });
 
   const relatedScrollRef = useRef(null);
 
@@ -72,6 +77,15 @@ function ProductDetails() {
 
         getProductViewCount(response.product._id).then((viewRes) => {
           if (viewRes.success) setViewCount(viewRes.count);
+        });
+
+        getProductReviews(response.product._id).then((reviewRes) => {
+          if (reviewRes.success) {
+            setReviewStats({
+              averageRating: reviewRes.averageRating,
+              totalReviews: reviewRes.totalReviews,
+            });
+          }
         });
 
         const initialIndex = response.product.images?.indexOf(
@@ -274,6 +288,13 @@ function ProductDetails() {
           : "https://schema.org/OutOfStock",
       url: shareUrl,
     },
+    ...(reviewStats.totalReviews > 0 && {
+      aggregateRating: {
+        "@type": "AggregateRating",
+        ratingValue: reviewStats.averageRating.toFixed(1),
+        reviewCount: reviewStats.totalReviews,
+      },
+    }),
   };
 
   return (
@@ -380,6 +401,7 @@ function ProductDetails() {
                       <img
                         src={`${imgUrl(item.url)}`}
                         alt={product.name}
+                        loading="lazy"
                         className="w-full h-full object-cover"
                       />
                     )}

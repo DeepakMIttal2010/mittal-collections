@@ -1,12 +1,6 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 
 import Home from "../pages/Home";
-import Bedsheets from "../pages/Bedsheets";
-import Towels from "../pages/Towels";
-import Curtains from "../pages/Curtains";
-import Pillows from "../pages/Pillows";
-import Blankets from "../pages/Blankets";
-import Offers from "../pages/Offers";
 import About from "../pages/About";
 import Contact from "../pages/Contact";
 import Cart from "../pages/Cart";
@@ -29,6 +23,7 @@ import Checkout from "../pages/Checkout";
 import MyOrders from "../pages/MyOrders";
 import OrderDetails from "../pages/OrderDetails";
 import PolicyPage from "../pages/PolicyPage";
+import NotFound from "../pages/NotFound";
 import MainLayout from "../layouts/MainLayout";
 
 import AdminProtectedRoute from "./AdminProtectedRoute";
@@ -71,12 +66,27 @@ function AppRoutes() {
     <Routes>
       <Route element={<MainLayout />}>
         <Route path="/" element={<Home />} />
-        <Route path="/bedsheets" element={<Bedsheets />} />
-        <Route path="/towels" element={<Towels />} />
-        <Route path="/curtains" element={<Curtains />} />
-        <Route path="/pillows" element={<Pillows />} />
-        <Route path="/blankets" element={<Blankets />} />
-        <Route path="/offers" element={<Offers />} />
+        <Route
+          path="/bedsheets"
+          element={<Navigate to="/category/bedsheets" replace />}
+        />
+        <Route
+          path="/towels"
+          element={<Navigate to="/category/towels" replace />}
+        />
+        <Route
+          path="/curtains"
+          element={<Navigate to="/category/curtains" replace />}
+        />
+        <Route
+          path="/pillows"
+          element={<Navigate to="/category/pillows" replace />}
+        />
+        <Route
+          path="/blankets"
+          element={<Navigate to="/category/blankets" replace />}
+        />
+        <Route path="/offers" element={<Navigate to="/trending" replace />} />
         <Route path="/about" element={<About />} />
         <Route path="/contact" element={<Contact />} />
         <Route path="/cart" element={<Cart />} />
@@ -105,6 +115,7 @@ function AppRoutes() {
           path="/category/:categorySlug/:subcategorySlug"
           element={<CategoryPage />}
         />
+        <Route path="*" element={<NotFound />} />
       </Route>
 
       {/* ================= ADMIN LOGIN ================= */}
