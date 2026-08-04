@@ -1,5 +1,6 @@
 import { NavLink } from "react-router-dom";
 import MegaMenu from "../MegaMenu";
+import MobileMenu from "../MobileMenu";
 
 function Navbar() {
   const linkClass = ({ isActive }) =>
@@ -10,12 +11,18 @@ function Navbar() {
   return (
     <nav className="bg-white border-b border-slate-200">
       <div className="max-w-7xl mx-auto px-4 flex items-center">
-        <NavLink to="/" className={linkClass}>
-          Home
-        </NavLink>
+        <div className="md:hidden">
+          <MobileMenu />
+        </div>
 
-        {/* Dynamic categories + subcategories mega menu */}
-        <MegaMenu linkClassName={linkClass} />
+        <div className="hidden md:flex items-center">
+          <NavLink to="/" className={linkClass}>
+            Home
+          </NavLink>
+
+          {/* Dynamic categories + subcategories mega menu */}
+          <MegaMenu linkClassName={linkClass} />
+        </div>
       </div>
     </nav>
   );

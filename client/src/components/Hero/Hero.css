@@ -96,6 +96,7 @@
 
 .hero-buttons {
   display: flex;
+  flex-wrap: wrap;
   gap: 20px;
 }
 
@@ -129,4 +130,32 @@
 .explore-btn:hover {
   background: white;
   color: #222;
+}
+
+@media (max-width: 640px) {
+  .hero {
+    height: 70vh;
+  }
+
+  .hero-content h1 {
+    font-size: 34px;
+    margin: 14px 0;
+  }
+
+  .hero-content p {
+    font-size: 16px;
+    margin-bottom: 24px;
+  }
+
+  .shop-btn,
+  .explore-btn {
+    padding: 12px 24px;
+    font-size: 14px;
+  }
+
+  .hero-arrow {
+    width: 36px;
+    height: 36px;
+    font-size: 13px;
+  }
 }
