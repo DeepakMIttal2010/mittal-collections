@@ -19,6 +19,7 @@ import {
   FaPercent,
   FaStar,
   FaQuestionCircle,
+  FaFileImport,
 } from "react-icons/fa";
 
 import { logoutUser } from "../../services/authService";
@@ -67,6 +68,11 @@ function AdminSidebar() {
         <NavLink to="/admin/products">
           <FaBoxOpen />
           <span>Products</span>
+        </NavLink>
+
+        <NavLink to="/admin/products/bulk-import">
+          <FaFileImport />
+          <span>Bulk Import</span>
         </NavLink>
 
         <NavLink to="/admin/banners">

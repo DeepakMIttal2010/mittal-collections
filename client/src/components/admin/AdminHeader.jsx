@@ -135,6 +135,13 @@ function AdminHeader() {
       ];
     }
 
+    if (subSegment === "bulk-import") {
+      return [
+        { label: sectionLabel, path: listPath },
+        { label: "Bulk Import" },
+      ];
+    }
+
     if (subSegment === "add" || subSegment === "edit") {
       const action = subSegment === "add" ? "Add" : "Edit";
       const noun = SINGULAR_LABELS[section] || sectionLabel;

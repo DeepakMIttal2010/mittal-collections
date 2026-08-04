@@ -39,6 +39,7 @@ import AdminLayout from "../layouts/AdminLayout";
 
 import AddProduct from "../pages/admin/AddProduct";
 import EditProduct from "../pages/admin/EditProduct";
+import AdminBulkImport from "../pages/admin/AdminBulkImport";
 
 import AdminCategories from "../pages/admin/AdminCategories";
 import AddCategory from "../pages/admin/AddCategory";
@@ -124,6 +125,7 @@ function AppRoutes() {
         <Route path="products" element={<AdminProducts />} />
         <Route path="products/add" element={<AddProduct />} />
         <Route path="products/edit/:id" element={<EditProduct />} />
+        <Route path="products/bulk-import" element={<AdminBulkImport />} />
         <Route path="categories" element={<AdminCategories />} />
         <Route path="subcategories" element={<AdminSubcategories />} />
         <Route path="testimonials" element={<AdminTestimonials />} />

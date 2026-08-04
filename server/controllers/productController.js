@@ -1,6 +1,13 @@
 import Product from "../models/Product.js";
 import Order from "../models/Order.js";
 
+const generateSlug = (name) =>
+  name
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+
 // ============================
 // GET ALL PRODUCTS
 // ============================
@@ -195,6 +202,7 @@ export const addProduct = async (req, res) => {
 
     const product = await Product.create({
       name,
+      slug: generateSlug(name),
       description,
       price,
       oldPrice,
@@ -241,6 +249,7 @@ export const updateProduct = async (req, res) => {
     }
 
     product.name = req.body.name;
+    product.slug = generateSlug(req.body.name);
     product.description = req.body.description;
     product.price = req.body.price;
     product.oldPrice = req.body.oldPrice;
