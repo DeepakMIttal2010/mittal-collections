@@ -16,6 +16,7 @@ import {
   FaChevronLeft,
   FaChevronRight,
   FaPlay,
+  FaCheckCircle,
 } from "react-icons/fa";
 import {
   FaFacebookF,
@@ -489,6 +490,23 @@ function ProductDetails() {
           >
             Buy it now
           </button>
+
+          <div className="grid grid-cols-2 gap-x-3 gap-y-2 mt-6 pt-6 border-t border-slate-200">
+            {[
+              "100% Genuine Product",
+              "Secure Payment",
+              "Fast Delivery",
+              "Easy Return",
+            ].map((label) => (
+              <div
+                key={label}
+                className="flex items-center gap-2 text-sm text-slate-600"
+              >
+                <FaCheckCircle className="text-green-600 shrink-0" />
+                <span>{label}</span>
+              </div>
+            ))}
+          </div>
 
           <div className="flex items-center gap-4 mt-6">
             <span className="text-sm font-medium text-slate-700">
