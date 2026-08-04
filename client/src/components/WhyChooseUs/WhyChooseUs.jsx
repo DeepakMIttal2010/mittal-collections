@@ -1,5 +1,12 @@
 import "./WhyChooseUs.css";
-import { FaAward, FaTruck, FaTags, FaHeadset } from "react-icons/fa";
+import {
+  FaAward,
+  FaTruck,
+  FaTags,
+  FaHeadset,
+  FaLock,
+  FaUndoAlt,
+} from "react-icons/fa";
 
 function WhyChooseUs() {
   const reasons = [
@@ -22,6 +29,16 @@ function WhyChooseUs() {
       icon: <FaHeadset />,
       title: "Customer Support",
       text: "Friendly support whenever you need assistance.",
+    },
+    {
+      icon: <FaLock />,
+      title: "Secure Payment",
+      text: "100% safe and secure checkout.",
+    },
+    {
+      icon: <FaUndoAlt />,
+      title: "Easy Returns",
+      text: "Easy return policy.",
     },
   ];
 
