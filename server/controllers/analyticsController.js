@@ -22,6 +22,33 @@ const getLocation = (rawIp = "") => {
 };
 
 // ============================
+// Get Product View Count — last 24h (Public)
+// ============================
+export const getProductViewCount = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+    const visitorIds = await PageVisit.distinct("visitorId", {
+      path: `/product/${id}`,
+      createdAt: { $gte: since },
+    });
+
+    res.json({
+      success: true,
+      count: visitorIds.length,
+    });
+  } catch (error) {
+    console.error("Get Product View Count Error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};
+
+// ============================
 // Record Page Visit (Public)
 // ============================
 export const recordVisit = async (req, res) => {

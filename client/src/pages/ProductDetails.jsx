@@ -17,6 +17,7 @@ import {
   FaChevronRight,
   FaPlay,
   FaCheckCircle,
+  FaEye,
 } from "react-icons/fa";
 import {
   FaFacebookF,
@@ -36,6 +37,7 @@ import { useAuth } from "../context/AuthContext";
 import ProductCard from "../components/ProductCard/ProductCard";
 import RecentlyViewed from "../components/RecentlyViewed/RecentlyViewed";
 import { addRecentlyViewed } from "../utils/recentlyViewed";
+import { getProductViewCount } from "../services/analyticsService";
 
 function ProductDetails() {
   const { id } = useParams();
@@ -49,6 +51,7 @@ function ProductDetails() {
   const [lightboxIndex, setLightboxIndex] = useState(null);
   const [isLightboxZoomed, setIsLightboxZoomed] = useState(false);
   const [relatedProducts, setRelatedProducts] = useState([]);
+  const [viewCount, setViewCount] = useState(0);
 
   const relatedScrollRef = useRef(null);
 
@@ -66,6 +69,10 @@ function ProductDetails() {
       if (response.success) {
         setProduct(response.product);
         addRecentlyViewed(response.product._id);
+
+        getProductViewCount(response.product._id).then((viewRes) => {
+          if (viewRes.success) setViewCount(viewRes.count);
+        });
 
         const initialIndex = response.product.images?.indexOf(
           response.product.image,
@@ -427,12 +434,20 @@ function ProductDetails() {
           </div>
 
           <p
-            className={`text-sm font-semibold mb-4 ${
-              getStockStatus(product.stock).className
-            }`}
+            className={`text-sm font-semibold ${
+              viewCount > 0 ? "mb-2" : "mb-4"
+            } ${getStockStatus(product.stock).className}`}
           >
             {getStockStatus(product.stock).label}
           </p>
+
+          {viewCount > 0 && (
+            <p className="flex items-center gap-1.5 text-sm text-slate-500 mb-4">
+              <FaEye className="text-slate-400" />
+              {viewCount} {viewCount === 1 ? "person" : "people"} viewed this
+              today
+            </p>
+          )}
 
           <p className="text-slate-600 leading-relaxed mb-6">
             {product.description}

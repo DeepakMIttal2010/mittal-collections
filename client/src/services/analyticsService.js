@@ -11,3 +11,25 @@ export const recordVisit = async (path, visitorId) => {
     // best-effort, tracking should never break the page
   }
 };
+
+export const getProductViewCount = async (productId) => {
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/analytics/product-views/${productId}`,
+    );
+
+    const data = await response.json();
+
+    return {
+      success: data.success,
+      count: data.count || 0,
+    };
+  } catch (error) {
+    console.error("Get Product View Count Error:", error);
+
+    return {
+      success: false,
+      count: 0,
+    };
+  }
+};
