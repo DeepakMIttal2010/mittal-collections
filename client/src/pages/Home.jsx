@@ -1,6 +1,7 @@
 import Seo from "../components/Seo";
 import Hero from "../components/Hero/Hero";
 import TrustBar from "../components/TrustBar/TrustBar";
+import RecentlyViewed from "../components/RecentlyViewed/RecentlyViewed";
 import Categories from "../components/Categories/Categories";
 import TrendingSection from "../components/TrendingSection/TrendingSection";
 import SizeShowcase from "../components/SubcategoryShowcase/SizeShowcase";
@@ -20,6 +21,7 @@ function Home() {
       />
       <Hero />
       <TrustBar />
+      <RecentlyViewed />
       <Categories />
       <TrendingSection />
       <SizeShowcase />

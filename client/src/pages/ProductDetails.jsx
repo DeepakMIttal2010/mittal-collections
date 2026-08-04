@@ -34,6 +34,8 @@ import { useCart } from "../context/CartContext";
 import { useWishlist } from "../context/WishlistContext";
 import { useAuth } from "../context/AuthContext";
 import ProductCard from "../components/ProductCard/ProductCard";
+import RecentlyViewed from "../components/RecentlyViewed/RecentlyViewed";
+import { addRecentlyViewed } from "../utils/recentlyViewed";
 
 function ProductDetails() {
   const { id } = useParams();
@@ -63,6 +65,7 @@ function ProductDetails() {
 
       if (response.success) {
         setProduct(response.product);
+        addRecentlyViewed(response.product._id);
 
         const initialIndex = response.product.images?.indexOf(
           response.product.image,
@@ -579,6 +582,8 @@ function ProductDetails() {
 
       <ProductReviews productId={id} />
       <ProductQuestions productId={id} />
+
+      <RecentlyViewed excludeId={id} />
 
       {lightboxIndex !== null && (
         <div
