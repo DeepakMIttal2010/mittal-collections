@@ -17,6 +17,7 @@ const getLocation = (rawIp = "") => {
 
   return {
     country: geo?.country || "",
+    region: geo?.region || "",
     city: geo?.city || "",
   };
 };
@@ -63,9 +64,9 @@ export const recordVisit = async (req, res) => {
     }
 
     const device = getDeviceType(req.headers["user-agent"]);
-    const { country, city } = getLocation(req.ip);
+    const { country, region, city } = getLocation(req.ip);
 
-    await PageVisit.create({ path, visitorId, device, country, city });
+    await PageVisit.create({ path, visitorId, device, country, region, city });
 
     res.status(201).json({ success: true });
   } catch (error) {

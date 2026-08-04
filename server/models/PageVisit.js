@@ -24,6 +24,11 @@ const pageVisitSchema = new mongoose.Schema(
       default: "",
     },
 
+    region: {
+      type: String,
+      default: "",
+    },
+
     city: {
       type: String,
       default: "",

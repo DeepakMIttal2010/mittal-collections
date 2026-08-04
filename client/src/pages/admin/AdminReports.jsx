@@ -177,6 +177,7 @@ function AdminReports() {
     visitsOverTime: [],
     topPages: [],
     deviceBreakdown: [],
+    locationBreakdown: [],
   });
 
   const loadReport = async () => {
@@ -365,6 +366,61 @@ function AdminReports() {
             emptyText="No category sales yet."
           />
         </div>
+      </div>
+
+      <div className="bg-white border border-slate-200 rounded-xl p-5 mb-6">
+        <h3 className="font-semibold text-slate-800 mb-4">
+          Visitor Locations — last {days} days
+        </h3>
+
+        {report.locationBreakdown.length === 0 ? (
+          <p className="text-sm text-slate-400 py-8 text-center">
+            No visits recorded in this range yet.
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 text-slate-600">
+                <tr>
+                  <th className="text-left px-4 py-2.5 font-semibold">
+                    City
+                  </th>
+                  <th className="text-left px-4 py-2.5 font-semibold">
+                    State
+                  </th>
+                  <th className="text-left px-4 py-2.5 font-semibold">
+                    Country
+                  </th>
+                  <th className="text-right px-4 py-2.5 font-semibold">
+                    Visits
+                  </th>
+                  <th className="text-right px-4 py-2.5 font-semibold">
+                    Unique Visitors
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {report.locationBreakdown.map((loc, index) => (
+                  <tr key={index}>
+                    <td className="px-4 py-2.5 text-slate-700">{loc.city}</td>
+                    <td className="px-4 py-2.5 text-slate-700">
+                      {loc.region}
+                    </td>
+                    <td className="px-4 py-2.5 text-slate-700">
+                      {loc.country}
+                    </td>
+                    <td className="px-4 py-2.5 text-right text-slate-700">
+                      {formatNumber(loc.visits)}
+                    </td>
+                    <td className="px-4 py-2.5 text-right text-slate-700">
+                      {formatNumber(loc.uniqueVisitors)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );

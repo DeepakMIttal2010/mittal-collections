@@ -6,6 +6,51 @@ import PageVisit from "../models/PageVisit.js";
 import Review from "../models/Review.js";
 import Question from "../models/Question.js";
 
+// ISO 3166-2:IN state/UT codes, for readable display in the location report
+const INDIAN_STATE_NAMES = {
+  AN: "Andaman and Nicobar Islands",
+  AP: "Andhra Pradesh",
+  AR: "Arunachal Pradesh",
+  AS: "Assam",
+  BR: "Bihar",
+  CH: "Chandigarh",
+  CT: "Chhattisgarh",
+  DN: "Dadra and Nagar Haveli",
+  DD: "Daman and Diu",
+  DL: "Delhi",
+  GA: "Goa",
+  GJ: "Gujarat",
+  HR: "Haryana",
+  HP: "Himachal Pradesh",
+  JK: "Jammu and Kashmir",
+  JH: "Jharkhand",
+  KA: "Karnataka",
+  KL: "Kerala",
+  LD: "Lakshadweep",
+  MP: "Madhya Pradesh",
+  MH: "Maharashtra",
+  MN: "Manipur",
+  ML: "Meghalaya",
+  MZ: "Mizoram",
+  NL: "Nagaland",
+  OR: "Odisha",
+  PY: "Puducherry",
+  PB: "Punjab",
+  RJ: "Rajasthan",
+  SK: "Sikkim",
+  TN: "Tamil Nadu",
+  TG: "Telangana",
+  TR: "Tripura",
+  UP: "Uttar Pradesh",
+  UT: "Uttarakhand",
+  WB: "West Bengal",
+};
+
+const formatRegion = (country, region) =>
+  country === "IN" && INDIAN_STATE_NAMES[region]
+    ? INDIAN_STATE_NAMES[region]
+    : region;
+
 export const getDashboardData = async (req, res) => {
   try {
     const totalProducts = await Product.countDocuments();
@@ -211,6 +256,7 @@ export const getReportsData = async (req, res) => {
       deviceBreakdown,
       visitorsInRangeAgg,
       visitorsBeforeRangeAgg,
+      locationBreakdownAgg,
     ] = await Promise.all([
       Order.countDocuments(),
 
@@ -345,6 +391,29 @@ export const getReportsData = async (req, res) => {
         { $match: { createdAt: { $lt: since } } },
         { $group: { _id: "$visitorId" } },
       ]),
+
+      PageVisit.aggregate([
+        { $match: { createdAt: { $gte: since } } },
+        {
+          $group: {
+            _id: { country: "$country", region: "$region", city: "$city" },
+            visits: { $sum: 1 },
+            visitors: { $addToSet: "$visitorId" },
+          },
+        },
+        {
+          $project: {
+            _id: 0,
+            country: "$_id.country",
+            region: "$_id.region",
+            city: "$_id.city",
+            visits: 1,
+            uniqueVisitors: { $size: "$visitors" },
+          },
+        },
+        { $sort: { visits: -1 } },
+        { $limit: 20 },
+      ]),
     ]);
 
     const totalRevenue = revenueAgg[0]?.total || 0;
@@ -362,6 +431,16 @@ export const getReportsData = async (req, res) => {
     });
 
     const uniqueVisitors = uniqueVisitorsAgg[0]?.count || 0;
+
+    const locationBreakdown = locationBreakdownAgg.map((entry) => ({
+      country: entry.country || "Unknown",
+      region: entry.region
+        ? formatRegion(entry.country, entry.region)
+        : "Unknown",
+      city: entry.city || "Unknown",
+      visits: entry.visits,
+      uniqueVisitors: entry.uniqueVisitors,
+    }));
 
     res.status(200).json({
       success: true,
@@ -382,6 +461,7 @@ export const getReportsData = async (req, res) => {
       deviceBreakdown,
       topProducts,
       revenueByCategory,
+      locationBreakdown,
       rangeDays: days,
     });
   } catch (error) {
