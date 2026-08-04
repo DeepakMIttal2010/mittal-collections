@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { FaChevronDown, FaChevronUp } from "react-icons/fa";
 import Papa from "papaparse";
 
 import { getCategories } from "../../services/categoryService";
@@ -39,6 +40,8 @@ function AdminBulkImport() {
   const [rows, setRows] = useState([]); // review rows
   const [unmatchedFolders, setUnmatchedFolders] = useState([]);
   const [unmatchedCsvKeys, setUnmatchedCsvKeys] = useState([]);
+
+  const [showHelp, setShowHelp] = useState(true);
 
   const [importing, setImporting] = useState(false);
   const [importProgress, setImportProgress] = useState({ done: 0, total: 0 });
@@ -236,11 +239,65 @@ function AdminBulkImport() {
       <h2 className="text-2xl font-bold text-slate-800 mb-1">
         Bulk Import Products
       </h2>
-      <p className="text-sm text-slate-500 mb-6">
+      <p className="text-sm text-slate-500 mb-4">
         Select a parent folder (with one subfolder per product) and a CSV
         with product details. Review everything below before publishing —
         nothing is created until you click Import.
       </p>
+
+      <div className="bg-blue-50 border border-blue-200 rounded-xl mb-6 overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setShowHelp((prev) => !prev)}
+          className="w-full flex items-center justify-between px-5 py-3 text-sm font-semibold text-blue-800"
+        >
+          How to use this tool
+          {showHelp ? <FaChevronUp /> : <FaChevronDown />}
+        </button>
+
+        {showHelp && (
+          <div className="px-5 pb-5 text-sm text-blue-900 space-y-3">
+            <ol className="list-decimal list-inside space-y-1">
+              <li>
+                Create a parent folder with one subfolder per product (e.g.
+                like the P1, P2, P3 folders used before) — each subfolder
+                holds only that product&apos;s images.
+              </li>
+              <li>
+                Create a CSV (in Excel, use &quot;Save As&quot; →
+                CSV) with these columns:
+                <code className="block bg-white border border-blue-200 rounded px-2 py-1 mt-1 text-xs font-mono text-slate-700">
+                  folder, name, category, subcategory, price, oldPrice,
+                  stock, size, extraDetails, description
+                </code>
+              </li>
+              <li>
+                Below, select the parent folder, then upload the CSV.
+              </li>
+              <li>
+                A review table appears — Category is auto-matched against
+                your existing categories, and Description is auto-drafted
+                using the size/extraDetails you provided. Everything in the
+                table is editable before you publish.
+              </li>
+              <li>
+                Click <strong>Import &amp; Publish</strong> — only rows
+                marked &quot;Ready&quot; are imported, one by one, with a
+                progress count.
+              </li>
+            </ol>
+
+            <p className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-amber-800">
+              <strong>Note:</strong> the <code>category</code> /{" "}
+              <code>subcategory</code> names in the CSV must exactly match
+              what already exists in the system (e.g. &quot;Doormats&quot;,
+              &quot;Cotton Doormats&quot;). If it doesn&apos;t match, the row
+              shows &quot;Category not matched&quot; in red and won&apos;t
+              import until you pick it manually from the dropdown.
+            </p>
+          </div>
+        )}
+      </div>
 
       <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-4 mb-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
