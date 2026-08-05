@@ -7,22 +7,21 @@ import { forgotPassword } from "../services/authService";
 function ForgotPassword() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
-  const [resetLink, setResetLink] = useState("");
+  const [sent, setSent] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     setLoading(true);
-    setResetLink("");
+    setSent(false);
 
     const data = await forgotPassword(email);
 
     if (data.success) {
-      const link = `${window.location.origin}/reset-password/${data.resetToken}`;
-      setResetLink(link);
-      toast.success("Reset link generated");
+      setSent(true);
+      toast.success("Reset link sent to your email");
     } else {
-      toast.error(data.message || "Unable to generate reset link");
+      toast.error(data.message || "Unable to send reset link");
     }
 
     setLoading(false);
@@ -58,17 +57,10 @@ function ForgotPassword() {
           </button>
         </form>
 
-        {resetLink && (
-          <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-lg text-sm text-slate-700 break-all">
-            Email sending isn't set up yet, so here's your reset link
-            directly:
-            <br />
-            <Link
-              to={resetLink.replace(window.location.origin, "")}
-              className="text-blue-800 underline"
-            >
-              {resetLink}
-            </Link>
+        {sent && (
+          <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-lg text-sm text-slate-700">
+            Check your inbox — we've emailed you a link to reset your
+            password. It expires in 30 minutes.
           </div>
         )}
 

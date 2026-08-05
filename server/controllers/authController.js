@@ -3,6 +3,7 @@ import jwt from "jsonwebtoken";
 import crypto from "crypto";
 
 import User from "../models/User.js";
+import { sendEmail } from "../config/mailer.js";
 
 export const register = async (req, res) => {
   try {
@@ -221,8 +222,7 @@ export const updateProfile = async (req, res) => {
 
 // ============================
 // Forgot Password
-// Generates a reset token. There is no email service configured yet,
-// so the raw reset link is returned directly in the response.
+// Generates a reset token and emails the reset link to the user.
 // ============================
 export const forgotPassword = async (req, res) => {
   try {
@@ -255,10 +255,22 @@ export const forgotPassword = async (req, res) => {
 
     await user.save();
 
+    const resetUrl = `${process.env.CLIENT_URL}/reset-password/${rawToken}`;
+
+    await sendEmail({
+      to: user.email,
+      subject: "Reset your Mittal Collections password",
+      html: `
+        <p>Hi ${user.name || "there"},</p>
+        <p>We received a request to reset your password. This link expires in 30 minutes.</p>
+        <p><a href="${resetUrl}">Reset your password</a></p>
+        <p>If you didn't request this, you can safely ignore this email.</p>
+      `,
+    });
+
     res.status(200).json({
       success: true,
-      message: "Reset link generated",
-      resetToken: rawToken,
+      message: "Reset link sent to your email",
     });
   } catch (error) {
     console.error("Forgot Password Error:", error);
