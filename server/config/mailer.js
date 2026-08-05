@@ -1,26 +1,28 @@
-import nodemailer from "nodemailer";
-
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: Number(process.env.SMTP_PORT),
-  secure: Number(process.env.SMTP_PORT) === 465,
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-  family: 4, // avoid long hangs on hosts where outbound IPv6 SMTP is unreachable
-  connectionTimeout: 10000,
-  greetingTimeout: 10000,
-  socketTimeout: 10000,
-});
+// Sends email via Brevo's HTTP API instead of raw SMTP — Render's free
+// tier blocks outbound SMTP ports, but HTTPS API calls go through fine.
+const BREVO_ENDPOINT = "https://api.brevo.com/v3/smtp/email";
 
 export const sendEmail = async ({ to, subject, html }) => {
-  await transporter.sendMail({
-    from: process.env.SMTP_FROM,
-    to,
-    subject,
-    html,
+  const response = await fetch(BREVO_ENDPOINT, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      "api-key": process.env.BREVO_API_KEY,
+    },
+    body: JSON.stringify({
+      sender: {
+        name: process.env.MAIL_FROM_NAME,
+        email: process.env.MAIL_FROM_EMAIL,
+      },
+      to: [{ email: to }],
+      subject,
+      htmlContent: html,
+    }),
   });
-};
 
-export default transporter;
+  if (!response.ok) {
+    const errorBody = await response.text();
+    throw new Error(`Brevo send failed (${response.status}): ${errorBody}`);
+  }
+};
