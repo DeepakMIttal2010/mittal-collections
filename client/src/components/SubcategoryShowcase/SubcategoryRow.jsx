@@ -89,13 +89,6 @@ function SubcategoryRow({ category, groupLabel, items, activeSubcategory }) {
                   )}
                 </div>
               </div>
-
-              <p className="flex items-center gap-2 text-[15px] text-slate-800 mt-3">
-                {sub.name} {category.name}
-                <span className="text-slate-400 group-hover:translate-x-0.5 transition-transform">
-                  →
-                </span>
-              </p>
             </button>
           );
         })}
