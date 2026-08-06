@@ -19,6 +19,26 @@ import {
   REFERRER_REWARD_POINTS,
   REFERRED_REWARD_POINTS,
 } from "../utils/referral.js";
+import { sendEmail } from "../config/mailer.js";
+
+const ORDER_STATUS_MESSAGES = {
+  Processing: {
+    subject: "Your order is being processed",
+    body: "Your order is now being processed and will be shipped soon.",
+  },
+  Shipped: {
+    subject: "Your order has shipped",
+    body: "Your order is on its way!",
+  },
+  Delivered: {
+    subject: "Your order has been delivered",
+    body: "Your order has been delivered. We hope you love it!",
+  },
+  Cancelled: {
+    subject: "Your order has been cancelled",
+    body: "Your order has been cancelled. If a coupon or loyalty points were used, they've been refunded to your account.",
+  },
+};
 
 // Atomically reserve stock for every item. If any item doesn't have enough
 // stock, roll back the items already reserved and return that item's name.
@@ -385,6 +405,30 @@ export const updateOrderStatus = async (req, res) => {
         referredUser.referralRewarded = true;
         await referredUser.save();
       }
+    }
+
+    const statusMessage = ORDER_STATUS_MESSAGES[status];
+
+    if (statusMessage) {
+      User.findById(order.user)
+        .select("name email")
+        .then((customer) => {
+          if (!customer?.email) return;
+
+          return sendEmail({
+            to: customer.email,
+            subject: statusMessage.subject,
+            html: `
+              <p>Hi ${customer.name || "there"},</p>
+              <p>${statusMessage.body}</p>
+              <p>Order ID: ${order._id}</p>
+              <p><a href="${process.env.CLIENT_URL}/my-orders/${order._id}">View your order</a></p>
+            `,
+          });
+        })
+        .catch((error) =>
+          console.error("Order Status Email Error:", error),
+        );
     }
 
     res.status(200).json({
