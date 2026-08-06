@@ -5,6 +5,9 @@ import { FaUser, FaHeart, FaShoppingCart, FaMicrophone } from "react-icons/fa";
 import { useCart } from "../../context/CartContext";
 import { useWishlist } from "../../context/WishlistContext";
 import { useAuth } from "../../context/AuthContext";
+import { getSearchSuggestions } from "../../services/productService";
+import { imgUrl } from "../../services/api";
+import { productUrl } from "../../utils/productUrl";
 
 function Header() {
   const { totalItems, openCart } = useCart();
@@ -15,16 +18,41 @@ function Header() {
   const [query, setQuery] = useState("");
   const [listening, setListening] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
+  const [suggestions, setSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const recognitionRef = useRef(null);
 
   const goToSearch = useCallback(
     (value) => {
       const trimmed = value.trim();
       if (!trimmed) return;
+      setShowSuggestions(false);
       navigate(`/search?q=${encodeURIComponent(trimmed)}`);
     },
     [navigate],
   );
+
+  useEffect(() => {
+    const trimmed = query.trim();
+
+    if (trimmed.length < 2) {
+      setSuggestions([]);
+      return;
+    }
+
+    const timeout = setTimeout(async () => {
+      const response = await getSearchSuggestions(trimmed);
+      if (response.success) setSuggestions(response.products);
+    }, 250);
+
+    return () => clearTimeout(timeout);
+  }, [query]);
+
+  const handleSuggestionClick = (product) => {
+    setShowSuggestions(false);
+    setQuery("");
+    navigate(productUrl(product));
+  };
 
   useEffect(() => {
     const SpeechRecognition =
@@ -83,13 +111,15 @@ function Header() {
         {/* Search */}
         <form
           onSubmit={handleSearchSubmit}
-          className="flex-1 max-w-2xl mx-auto hidden md:flex"
+          className="relative flex-1 max-w-2xl mx-auto hidden md:flex"
         >
           <div className="w-full flex items-center border border-slate-300 rounded-full overflow-hidden pl-5 pr-1.5 py-1.5">
             <input
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
+              onFocus={() => setShowSuggestions(true)}
+              onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
               placeholder="Search Bedsheets, Towels, Curtains..."
               className="flex-1 outline-none text-sm text-slate-700 placeholder:text-slate-400"
             />
@@ -112,6 +142,31 @@ function Header() {
               Go
             </button>
           </div>
+
+          {showSuggestions && suggestions.length > 0 && (
+            <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg z-50 overflow-hidden">
+              {suggestions.map((product) => (
+                <button
+                  key={product._id}
+                  type="button"
+                  onClick={() => handleSuggestionClick(product)}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 text-left"
+                >
+                  <img
+                    src={imgUrl(product.image)}
+                    alt={product.name}
+                    className="w-10 h-10 rounded-lg object-cover shrink-0"
+                  />
+                  <span className="flex-1 text-sm text-slate-700 truncate">
+                    {product.name}
+                  </span>
+                  <span className="text-sm font-medium text-slate-500">
+                    ₹{product.price}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
         </form>
 
         {/* Right Icons */}
@@ -216,12 +271,14 @@ function Header() {
       </div>
 
       {/* Mobile search (shows below on small screens) */}
-      <form onSubmit={handleSearchSubmit} className="px-4 pb-3 md:hidden">
+      <form onSubmit={handleSearchSubmit} className="relative px-4 pb-3 md:hidden">
         <div className="flex items-center border border-slate-300 rounded-full overflow-hidden pl-4 pr-1.5 py-1.5">
           <input
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
+            onFocus={() => setShowSuggestions(true)}
+            onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
             placeholder="Search products..."
             className="flex-1 outline-none text-sm text-slate-700 placeholder:text-slate-400"
           />
@@ -244,6 +301,31 @@ function Header() {
             Go
           </button>
         </div>
+
+        {showSuggestions && suggestions.length > 0 && (
+          <div className="absolute top-full left-4 right-4 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg z-50 overflow-hidden">
+            {suggestions.map((product) => (
+              <button
+                key={product._id}
+                type="button"
+                onClick={() => handleSuggestionClick(product)}
+                className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 text-left"
+              >
+                <img
+                  src={imgUrl(product.image)}
+                  alt={product.name}
+                  className="w-10 h-10 rounded-lg object-cover shrink-0"
+                />
+                <span className="flex-1 text-sm text-slate-700 truncate">
+                  {product.name}
+                </span>
+                <span className="text-sm font-medium text-slate-500">
+                  ₹{product.price}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
       </form>
     </header>
   );

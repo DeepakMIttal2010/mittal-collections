@@ -1,5 +1,6 @@
 import Product from "../models/Product.js";
 import Order from "../models/Order.js";
+import { rankProducts } from "../utils/fuzzySearch.js";
 
 const generateSlug = (name) =>
   name
@@ -15,11 +16,9 @@ export const getProducts = async (req, res) => {
   try {
     const filter = { isActive: true };
 
-    const { search, category, subcategory, maxPrice } = req.query;
-    if (search && search.trim()) {
-      const regex = new RegExp(search.trim(), "i");
-      filter.$or = [{ name: regex }, { description: regex }];
-    }
+    const { search, category, subcategory, maxPrice, minPrice, sortBy } =
+      req.query;
+
     if (category && category.trim()) {
       filter.category = category.trim();
     }
@@ -27,13 +26,31 @@ export const getProducts = async (req, res) => {
       filter.subcategory = subcategory.trim();
     }
     if (maxPrice && !Number.isNaN(Number(maxPrice))) {
-      filter.price = { $lte: Number(maxPrice) };
+      filter.price = { ...filter.price, $lte: Number(maxPrice) };
+    }
+    if (minPrice && !Number.isNaN(Number(minPrice))) {
+      filter.price = { ...filter.price, $gte: Number(minPrice) };
     }
 
-    const products = await Product.find(filter)
+    let products = await Product.find(filter)
       .populate("category", "name slug image")
       .populate("subcategory", "name slug")
       .sort({ createdAt: -1 });
+
+    const hasSearch = search && search.trim();
+    if (hasSearch) {
+      products = rankProducts(search.trim(), products);
+    }
+
+    if (sortBy === "price_asc") {
+      products = [...products].sort((a, b) => a.price - b.price);
+    } else if (sortBy === "price_desc") {
+      products = [...products].sort((a, b) => b.price - a.price);
+    } else if (sortBy === "newest" || (!hasSearch && !sortBy)) {
+      products = [...products].sort(
+        (a, b) => new Date(b.createdAt) - new Date(a.createdAt),
+      );
+    }
 
     res.status(200).json({
       success: true,
@@ -42,6 +59,37 @@ export const getProducts = async (req, res) => {
     });
   } catch (error) {
     console.error(error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};
+
+// ============================
+// GET SEARCH SUGGESTIONS (autocomplete)
+// ============================
+export const getSearchSuggestions = async (req, res) => {
+  try {
+    const { q } = req.query;
+
+    if (!q || !q.trim()) {
+      return res.status(200).json({ success: true, products: [] });
+    }
+
+    const products = await Product.find({ isActive: true }).select(
+      "name slug price image",
+    );
+
+    const ranked = rankProducts(q.trim(), products).slice(0, 6);
+
+    res.status(200).json({
+      success: true,
+      products: ranked,
+    });
+  } catch (error) {
+    console.error("Get Search Suggestions Error:", error);
 
     res.status(500).json({
       success: false,

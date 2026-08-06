@@ -61,11 +61,18 @@ export const getTrendingProducts = async (limit = 10) => {
 // ==========================
 // Search Products
 // ==========================
-export const searchProducts = async (query) => {
+export const searchProducts = async (
+  query,
+  { category = "", sortBy = "", minPrice = "", maxPrice = "" } = {},
+) => {
   try {
-    const response = await fetch(
-      `${API_BASE_URL}/products?search=${encodeURIComponent(query)}`,
-    );
+    const params = new URLSearchParams({ search: query });
+    if (category) params.set("category", category);
+    if (sortBy) params.set("sortBy", sortBy);
+    if (minPrice) params.set("minPrice", minPrice);
+    if (maxPrice) params.set("maxPrice", maxPrice);
+
+    const response = await fetch(`${API_BASE_URL}/products?${params}`);
 
     if (!response.ok) {
       throw new Error("Failed to search products");
@@ -79,6 +86,35 @@ export const searchProducts = async (query) => {
     };
   } catch (error) {
     console.error("Search Products Error:", error);
+
+    return {
+      success: false,
+      products: [],
+    };
+  }
+};
+
+// ==========================
+// Search Suggestions (autocomplete)
+// ==========================
+export const getSearchSuggestions = async (query) => {
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/products/suggestions?q=${encodeURIComponent(query)}`,
+    );
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch suggestions");
+    }
+
+    const data = await response.json();
+
+    return {
+      success: data.success,
+      products: data.products || [],
+    };
+  } catch (error) {
+    console.error("Get Search Suggestions Error:", error);
 
     return {
       success: false,
