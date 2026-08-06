@@ -3,6 +3,7 @@ import Coupon from "../models/Coupon.js";
 import SiteSettings from "../models/SiteSettings.js";
 import Product from "../models/Product.js";
 import User from "../models/User.js";
+import CartSnapshot from "../models/CartSnapshot.js";
 import {
   calculateDiscount,
   isEligibleForFirstOrderCoupon,
@@ -160,6 +161,8 @@ export const createOrder = async (req, res) => {
         $inc: { loyaltyPoints: -pointsRedeemed },
       });
     }
+
+    await CartSnapshot.deleteOne({ user: req.user._id });
 
     res.status(201).json({
       success: true,

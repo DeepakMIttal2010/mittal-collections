@@ -2,6 +2,9 @@ import { createContext, useContext, useEffect, useState } from "react";
 
 import { toast } from "react-toastify";
 
+import { syncCart } from "../services/cartService";
+import { useAuth } from "./AuthContext";
+
 const CartContext = createContext();
 
 export function CartProvider({ children }) {
@@ -11,10 +14,24 @@ export function CartProvider({ children }) {
   });
 
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const { isLoggedIn } = useAuth();
 
   useEffect(() => {
     localStorage.setItem("cartItems", JSON.stringify(cartItems));
   }, [cartItems]);
+
+  // Mirror the cart to the backend (debounced) so an abandoned-cart
+  // reminder can be sent later — purely a background sync, not used
+  // to render anything here.
+  useEffect(() => {
+    if (!isLoggedIn) return;
+
+    const timeout = setTimeout(() => {
+      syncCart(cartItems);
+    }, 2000);
+
+    return () => clearTimeout(timeout);
+  }, [cartItems, isLoggedIn]);
 
   const openCart = () => setIsCartOpen(true);
   const closeCart = () => setIsCartOpen(false);
