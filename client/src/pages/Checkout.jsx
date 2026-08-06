@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
-import { FaTag, FaTimes } from "react-icons/fa";
+import { FaTag, FaTimes, FaGift } from "react-icons/fa";
 
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
@@ -148,6 +148,10 @@ function Checkout() {
     totalPrice + deliveryFee - discountAmount - pointsDiscount,
     0,
   );
+
+  const pointsPreview = loyaltyRules.earnRate
+    ? Math.floor(orderTotal / loyaltyRules.earnRate)
+    : 0;
 
   const handleTogglePoints = (checked) => {
     setUsePoints(checked);
@@ -518,6 +522,13 @@ function Checkout() {
               <span className="font-bold text-slate-900">Order Total:</span>
               <span className="font-bold text-slate-900">₹{orderTotal}</span>
             </div>
+
+            {pointsPreview > 0 && (
+              <p className="flex items-center gap-1.5 text-xs text-amber-700 mt-3">
+                <FaGift />
+                You&apos;ll earn {pointsPreview} loyalty points on this order
+              </p>
+            )}
           </div>
         </div>
       </div>
