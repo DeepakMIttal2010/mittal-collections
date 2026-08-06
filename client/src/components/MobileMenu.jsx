@@ -161,6 +161,14 @@ function MobileMenu() {
               </div>
             );
           })}
+
+          <NavLink
+            to="/articles"
+            onClick={close}
+            className="block px-5 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-amber-600 border-t border-slate-100"
+          >
+            Guides
+          </NavLink>
         </div>
       </div>
     </>

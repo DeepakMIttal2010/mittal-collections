@@ -29,6 +29,7 @@ import analyticsRoutes from "./routes/analyticsRoutes.js";
 import couponRoutes from "./routes/couponRoutes.js";
 import reviewRoutes from "./routes/reviewRoutes.js";
 import questionRoutes from "./routes/questionRoutes.js";
+import articleRoutes from "./routes/articleRoutes.js";
 
 connectDB();
 
@@ -72,6 +73,7 @@ app.use("/api/analytics", analyticsRoutes);
 app.use("/api/coupons", couponRoutes);
 app.use("/api/reviews", reviewRoutes);
 app.use("/api/questions", questionRoutes);
+app.use("/api/articles", articleRoutes);
 
 // Health Check
 app.get("/api/health", (req, res) => {

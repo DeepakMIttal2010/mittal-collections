@@ -13,6 +13,7 @@ import {
   FaCommentDots,
   FaPaperPlane,
   FaFileAlt,
+  FaNewspaper,
   FaEnvelopeOpenText,
   FaLink,
   FaImages,
@@ -119,6 +120,11 @@ function AdminSidebar() {
         <NavLink to="/admin/pages">
           <FaFileAlt />
           <span>Site Content</span>
+        </NavLink>
+
+        <NavLink to="/admin/articles">
+          <FaNewspaper />
+          <span>Articles</span>
         </NavLink>
 
         <NavLink to="/admin/footer-links">

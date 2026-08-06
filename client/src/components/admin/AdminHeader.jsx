@@ -99,6 +99,7 @@ function AdminHeader() {
     reviews: "Reviews",
     questions: "Questions & Answers",
     pages: "Pages",
+    articles: "Articles",
     settings: "Settings",
     newsletter: "Newsletter",
     messages: "Contact Messages",

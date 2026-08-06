@@ -5,7 +5,7 @@ const SITE_URL = "https://www.mittalcollections.com";
 const API_URL =
   process.env.VITE_API_URL || "https://mittal-collections-api.onrender.com";
 
-const STATIC_ROUTES = ["/", "/trending", "/about", "/contact"];
+const STATIC_ROUTES = ["/", "/trending", "/about", "/contact", "/articles"];
 
 const fetchJson = async (url) => {
   const res = await fetch(url);
@@ -34,17 +34,20 @@ const buildSitemap = async () => {
   const urls = [...STATIC_ROUTES];
 
   try {
-    const [categoriesRes, productsRes, priceRangesRes] = await Promise.all([
-      fetchJson(`${API_URL}/api/categories`),
-      fetchJson(`${API_URL}/api/products?limit=1000`),
-      fetchJson(`${API_URL}/api/price-ranges`),
-    ]);
+    const [categoriesRes, productsRes, priceRangesRes, articlesRes] =
+      await Promise.all([
+        fetchJson(`${API_URL}/api/categories`),
+        fetchJson(`${API_URL}/api/products?limit=1000`),
+        fetchJson(`${API_URL}/api/price-ranges`),
+        fetchJson(`${API_URL}/api/articles`),
+      ]);
 
     categoriesRes.categories.forEach((c) => urls.push(`/category/${c.slug}`));
     productsRes.products.forEach((p) => urls.push(productUrl(p)));
     priceRangesRes.priceRanges.forEach((p) =>
       urls.push(`/price/${p.maxPrice}`),
     );
+    articlesRes.articles.forEach((a) => urls.push(`/articles/${a.slug}`));
   } catch (error) {
     console.warn(
       "⚠️  Could not fetch live data for sitemap, writing static routes only:",

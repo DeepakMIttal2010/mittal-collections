@@ -22,6 +22,10 @@ function Navbar() {
 
           {/* Dynamic categories + subcategories mega menu */}
           <MegaMenu linkClassName={linkClass} />
+
+          <NavLink to="/articles" className={linkClass}>
+            Guides
+          </NavLink>
         </div>
       </div>
     </nav>

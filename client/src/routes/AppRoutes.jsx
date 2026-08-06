@@ -23,6 +23,8 @@ import Checkout from "../pages/Checkout";
 import MyOrders from "../pages/MyOrders";
 import OrderDetails from "../pages/OrderDetails";
 import PolicyPage from "../pages/PolicyPage";
+import Articles from "../pages/Articles";
+import ArticleDetail from "../pages/ArticleDetail";
 import NotFound from "../pages/NotFound";
 import MainLayout from "../layouts/MainLayout";
 
@@ -45,6 +47,8 @@ import AdminTestimonials from "../pages/admin/AdminTestimonials";
 import AdminReviews from "../pages/admin/AdminReviews";
 import AdminQuestions from "../pages/admin/AdminQuestions";
 import AdminPages from "../pages/admin/AdminPages";
+import AdminArticles from "../pages/admin/AdminArticles";
+import AdminArticleForm from "../pages/admin/AdminArticleForm";
 import AdminSettings from "../pages/admin/AdminSettings";
 import AdminNewsletter from "../pages/admin/AdminNewsletter";
 import AdminMessages from "../pages/admin/AdminMessages";
@@ -106,6 +110,8 @@ function AppRoutes() {
         <Route path="/my-orders" element={<MyOrders />} />
         <Route path="/my-orders/:id" element={<OrderDetails />} />
         <Route path="/policies/:slug" element={<PolicyPage />} />
+        <Route path="/articles" element={<Articles />} />
+        <Route path="/articles/:slug" element={<ArticleDetail />} />
         {/* Product Details */}
         <Route path="/product/:id/:slug?" element={<ProductDetails />} />
         <Route path="/trending" element={<TrendingPage />} />
@@ -144,6 +150,9 @@ function AppRoutes() {
         <Route path="reviews" element={<AdminReviews />} />
         <Route path="questions" element={<AdminQuestions />} />
         <Route path="pages" element={<AdminPages />} />
+        <Route path="articles" element={<AdminArticles />} />
+        <Route path="articles/add" element={<AdminArticleForm />} />
+        <Route path="articles/edit/:id" element={<AdminArticleForm />} />
         <Route path="settings" element={<AdminSettings />} />
         <Route path="newsletter" element={<AdminNewsletter />} />
         <Route path="messages" element={<AdminMessages />} />
