@@ -12,6 +12,7 @@ import {
   validateCoupon,
 } from "../services/couponService";
 import { getSiteSettings } from "../services/settingsService";
+import { getProfile } from "../services/authService";
 
 function Checkout() {
   const navigate = useNavigate();
@@ -31,6 +32,10 @@ function Checkout() {
   const [appliedCoupon, setAppliedCoupon] = useState(null);
   const [couponError, setCouponError] = useState("");
   const [checkingCoupon, setCheckingCoupon] = useState(false);
+
+  const [availablePoints, setAvailablePoints] = useState(0);
+  const [redeemPoints, setRedeemPoints] = useState(0);
+  const [usePoints, setUsePoints] = useState(false);
 
   const [shipping, setShipping] = useState({
     freeShippingThreshold: 499,
@@ -73,6 +78,20 @@ function Checkout() {
   }, [isLoggedIn]);
 
   useEffect(() => {
+    if (!isLoggedIn) return;
+
+    const loadPoints = async () => {
+      const response = await getProfile();
+
+      if (response.success) {
+        setAvailablePoints(response.user.loyaltyPoints || 0);
+      }
+    };
+
+    loadPoints();
+  }, [isLoggedIn]);
+
+  useEffect(() => {
     const loadAddresses = async () => {
       const data = await getAddresses();
 
@@ -97,7 +116,24 @@ function Checkout() {
       ? 0
       : shipping.deliveryFee;
   const discountAmount = appliedCoupon?.discountAmount || 0;
-  const orderTotal = Math.max(totalPrice + deliveryFee - discountAmount, 0);
+
+  const maxRedeemablePoints = Math.max(
+    0,
+    Math.min(availablePoints, Math.floor(totalPrice * 0.5)),
+  );
+  const pointsDiscount = usePoints ? redeemPoints : 0;
+
+  const orderTotal = Math.max(
+    totalPrice + deliveryFee - discountAmount - pointsDiscount,
+    0,
+  );
+
+  const MIN_REDEEM_POINTS = 50;
+
+  const handleTogglePoints = (checked) => {
+    setUsePoints(checked);
+    setRedeemPoints(checked ? maxRedeemablePoints : 0);
+  };
 
   const handleApplyCoupon = async (code) => {
     const codeToApply = (code || couponInput).trim();
@@ -164,6 +200,7 @@ function Checkout() {
       },
       paymentMethod,
       couponCode: appliedCoupon?.code || undefined,
+      redeemPoints: usePoints ? redeemPoints : undefined,
     });
 
     setPlacing(false);
@@ -398,6 +435,41 @@ function Checkout() {
               )}
             </div>
 
+            {availablePoints >= MIN_REDEEM_POINTS && (
+              <div className="border-t border-slate-100 mt-4 pt-4">
+                <label className="flex items-center justify-between cursor-pointer">
+                  <span className="text-sm text-slate-700">
+                    Use loyalty points{" "}
+                    <span className="text-slate-400">
+                      ({availablePoints} available)
+                    </span>
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={usePoints}
+                    onChange={(e) => handleTogglePoints(e.target.checked)}
+                  />
+                </label>
+
+                {usePoints && (
+                  <div className="mt-2">
+                    <input
+                      type="range"
+                      min={0}
+                      max={maxRedeemablePoints}
+                      value={redeemPoints}
+                      onChange={(e) => setRedeemPoints(Number(e.target.value))}
+                      className="w-full"
+                    />
+                    <div className="flex justify-between text-xs text-slate-500 mt-1">
+                      <span>{redeemPoints} points</span>
+                      <span>-₹{redeemPoints} off</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="border-t border-slate-100 mt-4 pt-4 space-y-2 text-sm">
               <div className="flex justify-between text-slate-600">
                 <span>Items:</span>
@@ -411,6 +483,12 @@ function Checkout() {
                 <div className="flex justify-between text-green-600">
                   <span>Discount ({appliedCoupon.code}):</span>
                   <span>-₹{discountAmount}</span>
+                </div>
+              )}
+              {pointsDiscount > 0 && (
+                <div className="flex justify-between text-green-600">
+                  <span>Points redeemed ({redeemPoints}):</span>
+                  <span>-₹{pointsDiscount}</span>
                 </div>
               )}
             </div>

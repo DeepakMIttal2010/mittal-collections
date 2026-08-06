@@ -57,7 +57,11 @@ function OrderDetails() {
     (sum, item) => sum + item.price * item.quantity,
     0,
   );
-  const deliveryFee = order.totalPrice + (order.discountAmount || 0) - itemsSubtotal;
+  const deliveryFee =
+    order.totalPrice +
+    (order.discountAmount || 0) +
+    (order.pointsDiscount || 0) -
+    itemsSubtotal;
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
@@ -172,6 +176,12 @@ function OrderDetails() {
                   <span>-₹{order.discountAmount}</span>
                 </div>
               )}
+              {order.pointsDiscount > 0 && (
+                <div className="flex justify-between text-green-600">
+                  <span>Points redeemed ({order.pointsRedeemed}):</span>
+                  <span>-₹{order.pointsDiscount}</span>
+                </div>
+              )}
             </div>
 
             <div className="border-t border-slate-100 mt-3 pt-3 flex justify-between">
@@ -184,6 +194,11 @@ function OrderDetails() {
             <div className="border-t border-slate-100 mt-4 pt-4 text-sm text-slate-600 space-y-1">
               <p>Payment: {order.paymentMethod}</p>
               <p>{order.isPaid ? "Paid" : "Not yet paid"}</p>
+              {order.pointsEarned > 0 && (
+                <p className="text-amber-600">
+                  You earned {order.pointsEarned} loyalty points on this order
+                </p>
+              )}
             </div>
           </div>
         </div>

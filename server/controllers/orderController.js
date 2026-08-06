@@ -2,10 +2,17 @@ import Order from "../models/Order.js";
 import Coupon from "../models/Coupon.js";
 import SiteSettings from "../models/SiteSettings.js";
 import Product from "../models/Product.js";
+import User from "../models/User.js";
 import {
   calculateDiscount,
   isEligibleForFirstOrderCoupon,
 } from "./couponController.js";
+import {
+  pointsEarnedFor,
+  maxRedeemablePoints,
+  MIN_REDEEM_POINTS,
+  REDEEM_VALUE,
+} from "../utils/loyaltyPoints.js";
 
 // Atomically reserve stock for every item. If any item doesn't have enough
 // stock, roll back the items already reserved and return that item's name.
@@ -49,8 +56,13 @@ const restoreStock = async (orderItems) => {
 
 export const createOrder = async (req, res) => {
   try {
-    const { orderItems, shippingAddress, paymentMethod, couponCode } =
-      req.body;
+    const {
+      orderItems,
+      shippingAddress,
+      paymentMethod,
+      couponCode,
+      redeemPoints,
+    } = req.body;
 
     if (!orderItems || orderItems.length === 0) {
       return res.status(400).json({
@@ -90,7 +102,29 @@ export const createOrder = async (req, res) => {
       }
     }
 
-    const totalPrice = Math.max(subtotal + deliveryFee - discountAmount, 0);
+    // Loyalty points redemption — capped to what the user actually holds
+    // and to half the subtotal, so points can never fully zero an order.
+    let pointsRedeemed = 0;
+    let pointsDiscount = 0;
+
+    if (redeemPoints && Number(redeemPoints) > 0) {
+      const requestedPoints = Math.floor(Number(redeemPoints));
+      const currentUser = await User.findById(req.user._id).select(
+        "loyaltyPoints",
+      );
+      const allowed = maxRedeemablePoints(
+        subtotal,
+        currentUser?.loyaltyPoints || 0,
+      );
+
+      pointsRedeemed = Math.min(requestedPoints, allowed);
+      pointsDiscount = pointsRedeemed * REDEEM_VALUE;
+    }
+
+    const totalPrice = Math.max(
+      subtotal + deliveryFee - discountAmount - pointsDiscount,
+      0,
+    );
 
     const stockResult = await reserveStock(orderItems);
 
@@ -112,11 +146,19 @@ export const createOrder = async (req, res) => {
         totalPrice,
         couponCode: appliedCouponCode,
         discountAmount,
+        pointsRedeemed,
+        pointsDiscount,
         statusHistory: [{ status: "Pending", changedAt: new Date() }],
       });
     } catch (orderError) {
       await restoreStock(orderItems);
       throw orderError;
+    }
+
+    if (pointsRedeemed > 0) {
+      await User.findByIdAndUpdate(req.user._id, {
+        $inc: { loyaltyPoints: -pointsRedeemed },
+      });
     }
 
     res.status(201).json({
@@ -277,6 +319,7 @@ export const updateOrderStatus = async (req, res) => {
     }
 
     const wasAlreadyCancelled = order.orderStatus === "Cancelled";
+    const wasAlreadyCredited = order.pointsCredited;
 
     order.orderStatus = status;
     order.statusHistory.push({ status, changedAt: new Date() });
@@ -285,10 +328,31 @@ export const updateOrderStatus = async (req, res) => {
       order.deliveredAt = Date.now();
     }
 
+    if (status === "Delivered" && !wasAlreadyCredited) {
+      order.pointsEarned = pointsEarnedFor(order.totalPrice);
+      order.pointsCredited = true;
+    }
+
     await order.save();
 
     if (status === "Cancelled" && !wasAlreadyCancelled) {
       await restoreStock(order.orderItems);
+
+      // Give back any points spent on this order, and claw back any
+      // points already earned from it (covers a delivered order later
+      // being marked cancelled, e.g. a return).
+      const pointsAdjustment =
+        order.pointsRedeemed + (wasAlreadyCredited ? order.pointsEarned : 0);
+
+      if (pointsAdjustment > 0) {
+        await User.findByIdAndUpdate(order.user, {
+          $inc: { loyaltyPoints: pointsAdjustment },
+        });
+      }
+    } else if (status === "Delivered" && !wasAlreadyCredited) {
+      await User.findByIdAndUpdate(order.user, {
+        $inc: { loyaltyPoints: order.pointsEarned },
+      });
     }
 
     res.status(200).json({

@@ -135,6 +135,7 @@ export const login = async (req, res) => {
         email: user.email,
         mobile: user.mobile,
         role: user.role,
+        loyaltyPoints: user.loyaltyPoints,
       },
     });
   } catch (error) {
@@ -223,6 +224,7 @@ export const updateProfile = async (req, res) => {
         email: user.email,
         mobile: user.mobile,
         role: user.role,
+        loyaltyPoints: user.loyaltyPoints,
       },
     });
   } catch (error) {

@@ -40,6 +40,11 @@ const userSchema = new mongoose.Schema(
       default: false,
     },
 
+    loyaltyPoints: {
+      type: Number,
+      default: 0,
+    },
+
     resetPasswordToken: {
       type: String,
       default: null,

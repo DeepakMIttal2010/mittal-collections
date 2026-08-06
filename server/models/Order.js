@@ -79,6 +79,26 @@ const orderSchema = new mongoose.Schema(
       default: 0,
     },
 
+    pointsRedeemed: {
+      type: Number,
+      default: 0,
+    },
+
+    pointsDiscount: {
+      type: Number,
+      default: 0,
+    },
+
+    pointsEarned: {
+      type: Number,
+      default: 0,
+    },
+
+    pointsCredited: {
+      type: Boolean,
+      default: false,
+    },
+
     orderStatus: {
       type: String,
       enum: ["Pending", "Processing", "Shipped", "Delivered", "Cancelled"],

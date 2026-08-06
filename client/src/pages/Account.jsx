@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   FaBoxOpen,
@@ -5,8 +6,10 @@ import {
   FaUserEdit,
   FaLock,
   FaMapMarkerAlt,
+  FaGift,
 } from "react-icons/fa";
 import { useAuth } from "../context/AuthContext";
+import { getProfile } from "../services/authService";
 
 const ACCOUNT_LINKS = [
   {
@@ -43,11 +46,32 @@ const ACCOUNT_LINKS = [
 
 function Account() {
   const { user } = useAuth();
+  const [loyaltyPoints, setLoyaltyPoints] = useState(user?.loyaltyPoints || 0);
+
+  useEffect(() => {
+    getProfile().then((response) => {
+      if (response.success) setLoyaltyPoints(response.user.loyaltyPoints || 0);
+    });
+  }, []);
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-10">
       <h1 className="text-3xl font-bold text-slate-900 mb-1">Your Account</h1>
-      <p className="text-slate-500 mb-8">Hi, {user?.name}</p>
+      <p className="text-slate-500 mb-6">Hi, {user?.name}</p>
+
+      <div className="flex items-center gap-4 bg-amber-50 border border-amber-200 rounded-xl p-5 mb-8">
+        <span className="w-12 h-12 shrink-0 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center text-lg">
+          <FaGift />
+        </span>
+        <span>
+          <span className="block font-semibold text-slate-800">
+            {loyaltyPoints} Loyalty Points
+          </span>
+          <span className="block text-sm text-slate-500 mt-0.5">
+            Worth ₹{loyaltyPoints} — redeem at checkout on your next order
+          </span>
+        </span>
+      </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
         {ACCOUNT_LINKS.map(({ to, icon: Icon, title, description }) => (
