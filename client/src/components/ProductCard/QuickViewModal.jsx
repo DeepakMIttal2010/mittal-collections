@@ -5,6 +5,7 @@ import { FaTimes, FaStar, FaShoppingCart, FaHeart } from "react-icons/fa";
 import { useCart } from "../../context/CartContext";
 import { useWishlist } from "../../context/WishlistContext";
 import { getStockStatus } from "../../utils/stock";
+import { productUrl } from "../../utils/productUrl";
 
 function QuickViewModal({ product, onClose }) {
   const { addToCart } = useCart();
@@ -119,7 +120,7 @@ function QuickViewModal({ product, onClose }) {
           </div>
 
           <Link
-            to={`/product/${product._id}`}
+            to={productUrl(product)}
             onClick={onClose}
             className="text-center text-sm text-blue-700 hover:underline mt-4"
           >

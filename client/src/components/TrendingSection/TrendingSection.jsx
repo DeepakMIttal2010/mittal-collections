@@ -5,6 +5,7 @@ import { FaChevronLeft, FaChevronRight, FaFire } from "react-icons/fa";
 
 import { getTrendingProducts } from "../../services/productService";
 import Skeleton from "../Skeleton";
+import { productUrl } from "../../utils/productUrl";
 
 const timeAgo = (dateString) => {
   const seconds = Math.floor((Date.now() - new Date(dateString)) / 1000);
@@ -114,7 +115,7 @@ function TrendingSection() {
             : products.map((product, index) => (
             <Link
               key={product._id}
-              to={`/product/${product._id}`}
+              to={productUrl(product)}
               className="relative shrink-0 w-48 sm:w-60"
             >
               <div className="relative rounded-xl overflow-hidden shadow-md aspect-[4/5] bg-slate-100">

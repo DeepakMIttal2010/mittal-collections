@@ -4,6 +4,7 @@ import ProductDetailsSkeleton from "./ProductDetailsSkeleton";
 import ProductReviews from "../components/ProductReviews";
 import ProductQuestions from "../components/ProductQuestions";
 import { getStockStatus } from "../utils/stock";
+import { productUrl } from "../utils/productUrl";
 import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import {
@@ -234,7 +235,7 @@ function ProductDetails() {
     );
   }
 
-  const shareUrl = window.location.href;
+  const shareUrl = `${window.location.origin}${productUrl(product)}`;
   const shareText = product.name;
 
   const shareLinks = [
@@ -278,6 +279,10 @@ function ProductDetails() {
     name: product.name,
     description: product.description,
     image: imgUrl(product.image),
+    brand: {
+      "@type": "Brand",
+      name: "Mittal Collections",
+    },
     offers: {
       "@type": "Offer",
       priceCurrency: "INR",

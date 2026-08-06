@@ -7,6 +7,7 @@ import { useWishlist } from "../../context/WishlistContext";
 import { useCart } from "../../context/CartContext";
 import QuickViewModal from "./QuickViewModal";
 import { LOW_STOCK_THRESHOLD } from "../../utils/stock";
+import { productUrl } from "../../utils/productUrl";
 
 function ProductCard({ product }) {
   const { addToCart } = useCart();
@@ -19,7 +20,7 @@ function ProductCard({ product }) {
 
   return (
     <div className="product-card">
-      <Link to={`/product/${product._id}`} className="product-link">
+      <Link to={productUrl(product)} className="product-link">
         <div className="product-image">
           <img
             src={`${imgUrl(product.image)}`}

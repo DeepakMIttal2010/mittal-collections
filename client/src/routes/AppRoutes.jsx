@@ -107,7 +107,7 @@ function AppRoutes() {
         <Route path="/my-orders/:id" element={<OrderDetails />} />
         <Route path="/policies/:slug" element={<PolicyPage />} />
         {/* Product Details */}
-        <Route path="/product/:id" element={<ProductDetails />} />
+        <Route path="/product/:id/:slug?" element={<ProductDetails />} />
         <Route path="/trending" element={<TrendingPage />} />
         <Route path="/price/:maxPrice" element={<PriceRangePage />} />
         <Route path="/search" element={<SearchResults />} />

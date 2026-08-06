@@ -18,6 +18,18 @@ const fetchJson = async (url) => {
 const urlEntry = (loc) =>
   `  <url><loc>${SITE_URL}${loc}</loc></url>`;
 
+const slugify = (text) =>
+  text
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+
+const productUrl = (p) => {
+  const slug = p.slug || slugify(p.name || "");
+  return slug ? `/product/${p._id}/${slug}` : `/product/${p._id}`;
+};
+
 const buildSitemap = async () => {
   const urls = [...STATIC_ROUTES];
 
@@ -29,7 +41,7 @@ const buildSitemap = async () => {
     ]);
 
     categoriesRes.categories.forEach((c) => urls.push(`/category/${c.slug}`));
-    productsRes.products.forEach((p) => urls.push(`/product/${p._id}`));
+    productsRes.products.forEach((p) => urls.push(productUrl(p)));
     priceRangesRes.priceRanges.forEach((p) =>
       urls.push(`/price/${p.maxPrice}`),
     );
