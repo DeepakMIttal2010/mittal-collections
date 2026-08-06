@@ -46,6 +46,7 @@ import AdminReviews from "../pages/admin/AdminReviews";
 import AdminQuestions from "../pages/admin/AdminQuestions";
 import AdminPages from "../pages/admin/AdminPages";
 import AdminSettings from "../pages/admin/AdminSettings";
+import AdminNewsletter from "../pages/admin/AdminNewsletter";
 import AdminMessages from "../pages/admin/AdminMessages";
 import AdminFooterLinks from "../pages/admin/AdminFooterLinks";
 import AdminBanners from "../pages/admin/AdminBanners";
@@ -144,6 +145,7 @@ function AppRoutes() {
         <Route path="questions" element={<AdminQuestions />} />
         <Route path="pages" element={<AdminPages />} />
         <Route path="settings" element={<AdminSettings />} />
+        <Route path="newsletter" element={<AdminNewsletter />} />
         <Route path="messages" element={<AdminMessages />} />
         <Route path="footer-links" element={<AdminFooterLinks />} />
         <Route path="banners" element={<AdminBanners />} />

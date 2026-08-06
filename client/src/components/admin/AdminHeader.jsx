@@ -100,6 +100,7 @@ function AdminHeader() {
     questions: "Questions & Answers",
     pages: "Pages",
     settings: "Settings",
+    newsletter: "Newsletter",
     messages: "Contact Messages",
     "footer-links": "Footer Links",
     banners: "Home Banners",

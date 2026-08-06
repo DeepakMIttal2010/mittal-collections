@@ -11,6 +11,7 @@ import {
   FaCog,
   FaSignOutAlt,
   FaCommentDots,
+  FaPaperPlane,
   FaFileAlt,
   FaEnvelopeOpenText,
   FaLink,
@@ -143,6 +144,11 @@ function AdminSidebar() {
         <NavLink to="/admin/reports">
           <FaChartLine />
           <span>Reports</span>
+        </NavLink>
+
+        <NavLink to="/admin/newsletter">
+          <FaPaperPlane />
+          <span>Newsletter</span>
         </NavLink>
 
         <NavLink to="/admin/settings">
