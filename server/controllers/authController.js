@@ -43,6 +43,21 @@ export const register = async (req, res) => {
       password: hashedPassword,
     });
 
+    try {
+      await sendEmail({
+        to: user.email,
+        subject: "Welcome to Mittal Collections!",
+        html: `
+          <p>Hi ${user.name},</p>
+          <p>Welcome to Mittal Collections! Your account has been created successfully.</p>
+          <p>Explore premium bedsheets, towels, curtains, pillows and more at
+          <a href="${process.env.CLIENT_URL}">mittalcollections.com</a>.</p>
+        `,
+      });
+    } catch (error) {
+      console.error("Welcome Email Error:", error);
+    }
+
     res.status(201).json({
       success: true,
       message: "User registered successfully",
