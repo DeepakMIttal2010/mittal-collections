@@ -7,6 +7,7 @@ const loyaltySettingsSchema = new mongoose.Schema(
     redeemValue: { type: Number, default: 1 }, // ₹ discount per point redeemed
     maxRedeemPercent: { type: Number, default: 0.5 }, // cap as a fraction of subtotal
     minRedeemPoints: { type: Number, default: 50 }, // must hold at least this many to redeem
+    expiryMonths: { type: Number, default: 12 }, // balance expires after this many months of no new earning
   },
   {
     timestamps: true,

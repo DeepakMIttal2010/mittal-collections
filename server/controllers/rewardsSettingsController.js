@@ -1,6 +1,9 @@
 import SettingsChangeLog from "../models/SettingsChangeLog.js";
 import LoyaltyTransaction from "../models/LoyaltyTransaction.js";
-import { getLoyaltySettings } from "../utils/loyaltyPoints.js";
+import {
+  getLoyaltySettings,
+  expireInactivePoints,
+} from "../utils/loyaltyPoints.js";
 import { getReferralSettings } from "../utils/referral.js";
 
 // Writes one log row per field that actually changed.
@@ -52,8 +55,13 @@ export const getRewardsSettings = async (req, res) => {
 // ============================
 export const updateLoyaltySettings = async (req, res) => {
   try {
-    const { earnRate, redeemValue, maxRedeemPercent, minRedeemPoints } =
-      req.body;
+    const {
+      earnRate,
+      redeemValue,
+      maxRedeemPercent,
+      minRedeemPoints,
+      expiryMonths,
+    } = req.body;
 
     const settings = await getLoyaltySettings();
     const changedBy = { id: req.user._id, name: req.user.name };
@@ -61,7 +69,7 @@ export const updateLoyaltySettings = async (req, res) => {
     await logChanges(
       "loyalty",
       settings.toObject(),
-      { earnRate, redeemValue, maxRedeemPercent, minRedeemPoints },
+      { earnRate, redeemValue, maxRedeemPercent, minRedeemPoints, expiryMonths },
       changedBy,
     );
 
@@ -71,6 +79,7 @@ export const updateLoyaltySettings = async (req, res) => {
       settings.maxRedeemPercent = maxRedeemPercent;
     if (minRedeemPoints !== undefined)
       settings.minRedeemPoints = minRedeemPoints;
+    if (expiryMonths !== undefined) settings.expiryMonths = expiryMonths;
 
     await settings.save();
 
@@ -143,6 +152,7 @@ export const getPublicRewardsInfo = async (req, res) => {
         redeemValue: loyalty.redeemValue,
         maxRedeemPercent: loyalty.maxRedeemPercent,
         minRedeemPoints: loyalty.minRedeemPoints,
+        expiryMonths: loyalty.expiryMonths,
       },
       referral: {
         referrerPoints: referral.referrerPoints,
@@ -151,6 +161,34 @@ export const getPublicRewardsInfo = async (req, res) => {
     });
   } catch (error) {
     console.error("Get Public Rewards Info Error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};
+
+// ============================
+// EXPIRE INACTIVE POINTS — called by an external scheduler, protected
+// by a shared secret rather than JWT auth (same pattern as the
+// abandoned-cart-reminders cron endpoint).
+// ============================
+export const runPointsExpiry = async (req, res) => {
+  try {
+    if (req.query.secret !== process.env.CRON_SECRET) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
+    const expiredCount = await expireInactivePoints();
+
+    res.status(200).json({
+      success: true,
+      message: `Expired points for ${expiredCount} user(s)`,
+      expiredCount,
+    });
+  } catch (error) {
+    console.error("Run Points Expiry Error:", error);
 
     res.status(500).json({
       success: false,

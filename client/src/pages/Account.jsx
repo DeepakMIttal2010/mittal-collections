@@ -11,6 +11,7 @@ import {
   FaUserFriends,
   FaCopy,
 } from "react-icons/fa";
+import { FaWhatsapp } from "react-icons/fa6";
 import { useAuth } from "../context/AuthContext";
 import { getProfile } from "../services/authService";
 import { getPublicRewardsInfo } from "../services/rewardsService";
@@ -147,11 +148,23 @@ function Account() {
             <button
               type="button"
               onClick={handleCopyReferralLink}
-              className="w-full flex items-center justify-between gap-2 bg-white border border-blue-300 rounded-lg px-3 py-2 text-sm text-blue-700 hover:bg-blue-50 transition-colors mb-3"
+              className="w-full flex items-center justify-between gap-2 bg-white border border-blue-300 rounded-lg px-3 py-2 text-sm text-blue-700 hover:bg-blue-50 transition-colors mb-2"
             >
               <span className="truncate">{referralLink}</span>
               <FaCopy className="shrink-0" />
             </button>
+
+            <a
+              href={`https://wa.me/?text=${encodeURIComponent(
+                `Shop at Mittal Collections and get ${rewards.referral.referredPoints} bonus loyalty points on your first order! ${referralLink}`,
+              )}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg px-3 py-2 transition-colors mb-3"
+            >
+              <FaWhatsapp />
+              Share on WhatsApp
+            </a>
 
             <ul className="text-xs text-slate-600 space-y-1 bg-white/60 rounded-lg p-3">
               <li>Share your link with a friend who hasn&apos;t shopped here yet.</li>

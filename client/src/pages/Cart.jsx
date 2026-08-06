@@ -1,8 +1,10 @@
+import { useEffect, useState } from "react";
 import { imgUrl } from "../services/api";
 import { Link } from "react-router-dom";
-import { FaTrash, FaPlus, FaMinus } from "react-icons/fa";
+import { FaTrash, FaPlus, FaMinus, FaGift } from "react-icons/fa";
 
 import { useCart } from "../context/CartContext";
+import { getPublicRewardsInfo } from "../services/rewardsService";
 import "./Cart.css";
 
 function Cart() {
@@ -15,6 +17,16 @@ function Cart() {
     totalItems,
     totalPrice,
   } = useCart();
+
+  const [earnRate, setEarnRate] = useState(null);
+
+  useEffect(() => {
+    getPublicRewardsInfo().then((response) => {
+      if (response.success) setEarnRate(response.loyalty.earnRate);
+    });
+  }, []);
+
+  const pointsPreview = earnRate ? Math.floor(totalPrice / earnRate) : 0;
 
   if (cartItems.length === 0) {
     return (
@@ -108,6 +120,22 @@ function Cart() {
               <span>Total</span>
               <span>₹{totalPrice}</span>
             </div>
+
+            {pointsPreview > 0 && (
+              <p
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  fontSize: "0.85rem",
+                  color: "#b45309",
+                  margin: "10px 0",
+                }}
+              >
+                <FaGift />
+                You&apos;ll earn {pointsPreview} loyalty points on this order
+              </p>
+            )}
 
             <Link to="/checkout" className="checkout-btn">
               Proceed to Checkout

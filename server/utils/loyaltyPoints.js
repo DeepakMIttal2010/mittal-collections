@@ -6,12 +6,16 @@
 import User from "../models/User.js";
 import LoyaltySettings from "../models/LoyaltySettings.js";
 import LoyaltyTransaction from "../models/LoyaltyTransaction.js";
+import { sendEmail } from "../config/mailer.js";
+
+const EARNING_TYPES = ["earned", "referral_bonus"];
 
 const DEFAULTS = {
   earnRate: 20,
   redeemValue: 1,
   maxRedeemPercent: 0.5,
   minRedeemPoints: 50,
+  expiryMonths: 12,
 };
 
 // Returns the single settings doc, creating it with defaults on first use.
@@ -61,4 +65,61 @@ export const applyLoyaltyPointsChange = async ({
   });
 
   return user;
+};
+
+// Expires the full remaining balance for any user whose most recent
+// earning activity (not redemptions) is older than the configured
+// expiryMonths — the common "use it or lose it" loyalty program rule.
+// Returns how many users were affected.
+export const expireInactivePoints = async () => {
+  const settings = await getLoyaltySettings();
+  const cutoff = new Date();
+  cutoff.setMonth(cutoff.getMonth() - settings.expiryMonths);
+
+  const usersWithPoints = await User.find({ loyaltyPoints: { $gt: 0 } }).select(
+    "name email loyaltyPoints",
+  );
+
+  let expiredCount = 0;
+
+  for (const user of usersWithPoints) {
+    const lastEarn = await LoyaltyTransaction.findOne({
+      user: user._id,
+      type: { $in: EARNING_TYPES },
+    }).sort({ createdAt: -1 });
+
+    const lastEarnDate = lastEarn?.createdAt;
+    const isStale = !lastEarnDate || lastEarnDate < cutoff;
+
+    if (!isStale) continue;
+
+    const pointsToExpire = user.loyaltyPoints;
+
+    await applyLoyaltyPointsChange({
+      userId: user._id,
+      type: "expired",
+      points: -pointsToExpire,
+      description: `${pointsToExpire} points expired after ${settings.expiryMonths} months of inactivity`,
+    });
+
+    expiredCount += 1;
+
+    if (user.email) {
+      try {
+        await sendEmail({
+          to: user.email,
+          subject: "Your loyalty points have expired",
+          html: `
+            <p>Hi ${user.name || "there"},</p>
+            <p>${pointsToExpire} loyalty points on your Mittal Collections account expired due to
+            ${settings.expiryMonths} months of inactivity. Shop again to start earning fresh points!</p>
+          `,
+        });
+      } catch (error) {
+        console.error(`Points expiry email failed for ${user.email}:`, error);
+      }
+    }
+  }
+
+  return expiredCount;
 };

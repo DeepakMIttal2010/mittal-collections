@@ -5,6 +5,7 @@ import {
   updateReferralSettings,
   getPublicRewardsInfo,
   getMyLoyaltyTransactions,
+  runPointsExpiry,
 } from "../controllers/rewardsSettingsController.js";
 import authMiddleware from "../middleware/authMiddleware.js";
 import adminMiddleware from "../middleware/adminMiddleware.js";
@@ -12,6 +13,7 @@ import adminMiddleware from "../middleware/adminMiddleware.js";
 const router = express.Router();
 
 router.get("/public", getPublicRewardsInfo);
+router.post("/expire-points", runPointsExpiry);
 router.get(
   "/my-transactions",
   authMiddleware,

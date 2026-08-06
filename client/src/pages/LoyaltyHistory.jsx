@@ -13,6 +13,7 @@ const TYPE_LABELS = {
   clawback: "Reversed",
   referral_bonus: "Referral Bonus",
   admin_adjustment: "Adjustment",
+  expired: "Expired",
 };
 
 function LoyaltyHistory() {

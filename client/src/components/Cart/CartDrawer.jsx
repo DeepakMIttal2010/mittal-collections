@@ -1,9 +1,11 @@
+import { useEffect, useState } from "react";
 import { imgUrl } from "../../services/api";
 import { Link, useNavigate } from "react-router-dom";
-import { FaTimes, FaPlus, FaMinus, FaLock } from "react-icons/fa";
+import { FaTimes, FaPlus, FaMinus, FaLock, FaGift } from "react-icons/fa";
 
 import { useCart } from "../../context/CartContext";
 import { useAuth } from "../../context/AuthContext";
+import { getPublicRewardsInfo } from "../../services/rewardsService";
 
 const FREE_SHIPPING_THRESHOLD = 999;
 
@@ -20,6 +22,16 @@ function CartDrawer() {
     isCartOpen,
     closeCart,
   } = useCart();
+
+  const [earnRate, setEarnRate] = useState(null);
+
+  useEffect(() => {
+    getPublicRewardsInfo().then((response) => {
+      if (response.success) setEarnRate(response.loyalty.earnRate);
+    });
+  }, []);
+
+  const pointsPreview = earnRate ? Math.floor(totalPrice / earnRate) : 0;
 
   const handleCheckout = () => {
     closeCart();
@@ -156,7 +168,7 @@ function CartDrawer() {
                 Tax included. Shipping calculated at checkout.
               </p>
 
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center justify-between mb-2">
                 <span className="font-semibold text-slate-800">
                   Subtotal
                 </span>
@@ -164,6 +176,16 @@ function CartDrawer() {
                   ₹{totalPrice}
                 </span>
               </div>
+
+              <p className="flex items-center gap-1.5 text-xs text-amber-700 mb-4 min-h-[1em]">
+                {pointsPreview > 0 && (
+                  <>
+                    <FaGift />
+                    You&apos;ll earn {pointsPreview} loyalty points on this
+                    order
+                  </>
+                )}
+              </p>
 
               <button
                 type="button"

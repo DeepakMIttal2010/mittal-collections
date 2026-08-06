@@ -17,6 +17,7 @@ function AdminRewardsSettings() {
     redeemValue: 1,
     maxRedeemPercent: 0.5,
     minRedeemPoints: 50,
+    expiryMonths: 12,
   });
 
   const [referral, setReferral] = useState({
@@ -35,6 +36,7 @@ function AdminRewardsSettings() {
         redeemValue: response.loyalty.redeemValue,
         maxRedeemPercent: response.loyalty.maxRedeemPercent,
         minRedeemPoints: response.loyalty.minRedeemPoints,
+        expiryMonths: response.loyalty.expiryMonths,
       });
       setReferral({
         referrerPoints: response.referral.referrerPoints,
@@ -174,6 +176,28 @@ function AdminRewardsSettings() {
               }
               className={inputClass}
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Points expire after (months of inactivity)
+            </label>
+            <input
+              type="number"
+              min={1}
+              value={loyalty.expiryMonths}
+              onChange={(e) =>
+                setLoyalty({
+                  ...loyalty,
+                  expiryMonths: Number(e.target.value),
+                })
+              }
+              className={inputClass}
+            />
+            <p className="text-xs text-slate-500 mt-1">
+              If a customer earns no new points for this many months, their
+              remaining balance expires.
+            </p>
           </div>
 
           <button

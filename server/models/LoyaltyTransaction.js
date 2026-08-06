@@ -19,6 +19,7 @@ const loyaltyTransactionSchema = new mongoose.Schema(
         "clawback",
         "referral_bonus",
         "admin_adjustment",
+        "expired",
       ],
       required: true,
     },
