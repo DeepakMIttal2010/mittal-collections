@@ -102,6 +102,7 @@ function AdminHeader() {
     articles: "Articles",
     settings: "Settings",
     newsletter: "Newsletter",
+    "rewards-settings": "Rewards Settings",
     messages: "Contact Messages",
     "footer-links": "Footer Links",
     banners: "Home Banners",

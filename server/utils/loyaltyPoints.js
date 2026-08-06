@@ -1,16 +1,64 @@
-// Simple loyalty points scheme: earn 1 point per ₹20 spent (credited only
-// after delivery, to avoid rewarding cancelled/returned orders), redeemable
-// 1 point = ₹1 off, capped so points can't fully zero out an order.
+// Loyalty points scheme, now admin-configurable via LoyaltySettings
+// instead of hardcoded constants. Earn rate applies only on delivery
+// (never on cancelled/returned orders); redemption is capped so points
+// can't fully zero out an order.
 
-export const EARN_RATE = 20; // ₹ spent per point earned
-export const REDEEM_VALUE = 1; // ₹ discount per point redeemed
-export const MAX_REDEEM_PERCENT = 0.5; // can't cover more than 50% of subtotal
-export const MIN_REDEEM_POINTS = 50; // must hold at least this many to redeem
+import User from "../models/User.js";
+import LoyaltySettings from "../models/LoyaltySettings.js";
+import LoyaltyTransaction from "../models/LoyaltyTransaction.js";
 
-export const pointsEarnedFor = (orderTotal) =>
-  Math.floor(orderTotal / EARN_RATE);
+const DEFAULTS = {
+  earnRate: 20,
+  redeemValue: 1,
+  maxRedeemPercent: 0.5,
+  minRedeemPoints: 50,
+};
 
-export const maxRedeemablePoints = (subtotal, availablePoints) => {
-  const capByOrder = Math.floor((subtotal * MAX_REDEEM_PERCENT) / REDEEM_VALUE);
+// Returns the single settings doc, creating it with defaults on first use.
+export const getLoyaltySettings = async () => {
+  let settings = await LoyaltySettings.findOne();
+  if (!settings) settings = await LoyaltySettings.create(DEFAULTS);
+  return settings;
+};
+
+export const pointsEarnedFor = (orderTotal, earnRate) =>
+  Math.floor(orderTotal / earnRate);
+
+export const maxRedeemablePoints = (subtotal, availablePoints, settings) => {
+  const capByOrder = Math.floor(
+    (subtotal * settings.maxRedeemPercent) / settings.redeemValue,
+  );
   return Math.max(0, Math.min(availablePoints, capByOrder));
+};
+
+// Applies a loyalty point change to a user's balance and records it in
+// the ledger in one place, so every code path stays consistent and the
+// running balance is always accurate. `points` may be negative.
+export const applyLoyaltyPointsChange = async ({
+  userId,
+  type,
+  points,
+  order = null,
+  description = "",
+}) => {
+  if (!points) return null;
+
+  const user = await User.findByIdAndUpdate(
+    userId,
+    { $inc: { loyaltyPoints: points } },
+    { new: true },
+  );
+
+  if (!user) return null;
+
+  await LoyaltyTransaction.create({
+    user: userId,
+    type,
+    points,
+    balanceAfter: user.loyaltyPoints,
+    order,
+    description,
+  });
+
+  return user;
 };

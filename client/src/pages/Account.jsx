@@ -76,7 +76,10 @@ function Account() {
       <p className="text-slate-500 mb-6">Hi, {user?.name}</p>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
-        <div className="flex items-center gap-4 bg-amber-50 border border-amber-200 rounded-xl p-5">
+        <Link
+          to="/loyalty-history"
+          className="flex items-center gap-4 bg-amber-50 border border-amber-200 rounded-xl p-5 hover:border-amber-400 transition-colors"
+        >
           <span className="w-12 h-12 shrink-0 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center text-lg">
             <FaGift />
           </span>
@@ -85,10 +88,10 @@ function Account() {
               {loyaltyPoints} Loyalty Points
             </span>
             <span className="block text-sm text-slate-500 mt-0.5">
-              Worth ₹{loyaltyPoints} — redeem at checkout on your next order
+              Worth ₹{loyaltyPoints} — tap to see your points history
             </span>
           </span>
-        </div>
+        </Link>
 
         {referralCode && (
           <div className="bg-blue-50 border border-blue-200 rounded-xl p-5">

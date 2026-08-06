@@ -11,6 +11,7 @@ import ForgotPassword from "../pages/ForgotPassword";
 import ResetPassword from "../pages/ResetPassword";
 import ChangePassword from "../pages/ChangePassword";
 import Account from "../pages/Account";
+import LoyaltyHistory from "../pages/LoyaltyHistory";
 import EditProfile from "../pages/EditProfile";
 import Addresses from "../pages/Addresses";
 import AddressForm from "../pages/AddressForm";
@@ -51,6 +52,7 @@ import AdminArticles from "../pages/admin/AdminArticles";
 import AdminArticleForm from "../pages/admin/AdminArticleForm";
 import AdminSettings from "../pages/admin/AdminSettings";
 import AdminNewsletter from "../pages/admin/AdminNewsletter";
+import AdminRewardsSettings from "../pages/admin/AdminRewardsSettings";
 import AdminMessages from "../pages/admin/AdminMessages";
 import AdminFooterLinks from "../pages/admin/AdminFooterLinks";
 import AdminBanners from "../pages/admin/AdminBanners";
@@ -103,6 +105,7 @@ function AppRoutes() {
         <Route path="/reset-password/:token" element={<ResetPassword />} />
         <Route path="/change-password" element={<ChangePassword />} />
         <Route path="/account" element={<Account />} />
+        <Route path="/loyalty-history" element={<LoyaltyHistory />} />
         <Route path="/edit-profile" element={<EditProfile />} />
         <Route path="/addresses" element={<Addresses />} />
         <Route path="/addresses/add" element={<AddressForm />} />
@@ -155,6 +158,7 @@ function AppRoutes() {
         <Route path="articles/edit/:id" element={<AdminArticleForm />} />
         <Route path="settings" element={<AdminSettings />} />
         <Route path="newsletter" element={<AdminNewsletter />} />
+        <Route path="rewards-settings" element={<AdminRewardsSettings />} />
         <Route path="messages" element={<AdminMessages />} />
         <Route path="footer-links" element={<AdminFooterLinks />} />
         <Route path="banners" element={<AdminBanners />} />

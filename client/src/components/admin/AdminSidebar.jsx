@@ -14,6 +14,7 @@ import {
   FaPaperPlane,
   FaFileAlt,
   FaNewspaper,
+  FaAward,
   FaEnvelopeOpenText,
   FaLink,
   FaImages,
@@ -155,6 +156,11 @@ function AdminSidebar() {
         <NavLink to="/admin/newsletter">
           <FaPaperPlane />
           <span>Newsletter</span>
+        </NavLink>
+
+        <NavLink to="/admin/rewards-settings">
+          <FaAward />
+          <span>Rewards Settings</span>
         </NavLink>
 
         <NavLink to="/admin/settings">

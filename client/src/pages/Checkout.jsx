@@ -13,6 +13,7 @@ import {
 } from "../services/couponService";
 import { getSiteSettings } from "../services/settingsService";
 import { getProfile } from "../services/authService";
+import { getPublicRewardsInfo } from "../services/rewardsService";
 
 function Checkout() {
   const navigate = useNavigate();
@@ -36,6 +37,11 @@ function Checkout() {
   const [availablePoints, setAvailablePoints] = useState(0);
   const [redeemPoints, setRedeemPoints] = useState(0);
   const [usePoints, setUsePoints] = useState(false);
+  const [loyaltyRules, setLoyaltyRules] = useState({
+    redeemValue: 1,
+    maxRedeemPercent: 0.5,
+    minRedeemPoints: 50,
+  });
 
   const [shipping, setShipping] = useState({
     freeShippingThreshold: 499,
@@ -92,6 +98,12 @@ function Checkout() {
   }, [isLoggedIn]);
 
   useEffect(() => {
+    getPublicRewardsInfo().then((response) => {
+      if (response.success) setLoyaltyRules(response.loyalty);
+    });
+  }, []);
+
+  useEffect(() => {
     const loadAddresses = async () => {
       const data = await getAddresses();
 
@@ -119,16 +131,22 @@ function Checkout() {
 
   const maxRedeemablePoints = Math.max(
     0,
-    Math.min(availablePoints, Math.floor(totalPrice * 0.5)),
+    Math.min(
+      availablePoints,
+      Math.floor(
+        (totalPrice * loyaltyRules.maxRedeemPercent) /
+          loyaltyRules.redeemValue,
+      ),
+    ),
   );
-  const pointsDiscount = usePoints ? redeemPoints : 0;
+  const pointsDiscount = usePoints
+    ? redeemPoints * loyaltyRules.redeemValue
+    : 0;
 
   const orderTotal = Math.max(
     totalPrice + deliveryFee - discountAmount - pointsDiscount,
     0,
   );
-
-  const MIN_REDEEM_POINTS = 50;
 
   const handleTogglePoints = (checked) => {
     setUsePoints(checked);
@@ -435,7 +453,7 @@ function Checkout() {
               )}
             </div>
 
-            {availablePoints >= MIN_REDEEM_POINTS && (
+            {availablePoints >= loyaltyRules.minRedeemPoints && (
               <div className="border-t border-slate-100 mt-4 pt-4">
                 <label className="flex items-center justify-between cursor-pointer">
                   <span className="text-sm text-slate-700">
@@ -463,7 +481,9 @@ function Checkout() {
                     />
                     <div className="flex justify-between text-xs text-slate-500 mt-1">
                       <span>{redeemPoints} points</span>
-                      <span>-₹{redeemPoints} off</span>
+                      <span>
+                        -₹{redeemPoints * loyaltyRules.redeemValue} off
+                      </span>
                     </div>
                   </div>
                 )}

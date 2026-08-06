@@ -10,15 +10,12 @@ import {
   isEligibleForFirstOrderCoupon,
 } from "./couponController.js";
 import {
+  getLoyaltySettings,
   pointsEarnedFor,
   maxRedeemablePoints,
-  MIN_REDEEM_POINTS,
-  REDEEM_VALUE,
+  applyLoyaltyPointsChange,
 } from "../utils/loyaltyPoints.js";
-import {
-  REFERRER_REWARD_POINTS,
-  REFERRED_REWARD_POINTS,
-} from "../utils/referral.js";
+import { getReferralSettings } from "../utils/referral.js";
 import { sendEmail } from "../config/mailer.js";
 
 const ORDER_STATUS_MESSAGES = {
@@ -142,6 +139,7 @@ export const createOrder = async (req, res) => {
     // and to half the subtotal, so points can never fully zero an order.
     let pointsRedeemed = 0;
     let pointsDiscount = 0;
+    const loyaltySettings = await getLoyaltySettings();
 
     if (redeemPoints && Number(redeemPoints) > 0) {
       const requestedPoints = Math.floor(Number(redeemPoints));
@@ -151,10 +149,11 @@ export const createOrder = async (req, res) => {
       const allowed = maxRedeemablePoints(
         subtotal,
         currentUser?.loyaltyPoints || 0,
+        loyaltySettings,
       );
 
       pointsRedeemed = Math.min(requestedPoints, allowed);
-      pointsDiscount = pointsRedeemed * REDEEM_VALUE;
+      pointsDiscount = pointsRedeemed * loyaltySettings.redeemValue;
     }
 
     const totalPrice = Math.max(
@@ -192,8 +191,12 @@ export const createOrder = async (req, res) => {
     }
 
     if (pointsRedeemed > 0) {
-      await User.findByIdAndUpdate(req.user._id, {
-        $inc: { loyaltyPoints: -pointsRedeemed },
+      await applyLoyaltyPointsChange({
+        userId: req.user._id,
+        type: "redeemed",
+        points: -pointsRedeemed,
+        order: order._id,
+        description: `Redeemed on order ${order._id}`,
       });
     }
 
@@ -367,7 +370,11 @@ export const updateOrderStatus = async (req, res) => {
     }
 
     if (status === "Delivered" && !wasAlreadyCredited) {
-      order.pointsEarned = pointsEarnedFor(order.totalPrice);
+      const loyaltySettings = await getLoyaltySettings();
+      order.pointsEarned = pointsEarnedFor(
+        order.totalPrice,
+        loyaltySettings.earnRate,
+      );
       order.pointsCredited = true;
     }
 
@@ -376,32 +383,62 @@ export const updateOrderStatus = async (req, res) => {
     if (status === "Cancelled" && !wasAlreadyCancelled) {
       await restoreStock(order.orderItems);
 
-      // Give back any points spent on this order, and claw back any
-      // points already earned from it (covers a delivered order later
-      // being marked cancelled, e.g. a return).
-      const pointsAdjustment =
-        order.pointsRedeemed + (wasAlreadyCredited ? order.pointsEarned : 0);
+      // Give back any points spent on this order...
+      if (order.pointsRedeemed > 0) {
+        await applyLoyaltyPointsChange({
+          userId: order.user,
+          type: "refunded",
+          points: order.pointsRedeemed,
+          order: order._id,
+          description: `Refund for cancelled order ${order._id}`,
+        });
+      }
 
-      if (pointsAdjustment > 0) {
-        await User.findByIdAndUpdate(order.user, {
-          $inc: { loyaltyPoints: pointsAdjustment },
+      // ...and claw back any points already earned from it (covers a
+      // delivered order later being marked cancelled, e.g. a return).
+      if (wasAlreadyCredited && order.pointsEarned > 0) {
+        await applyLoyaltyPointsChange({
+          userId: order.user,
+          type: "clawback",
+          points: -order.pointsEarned,
+          order: order._id,
+          description: `Reversed earn from cancelled order ${order._id}`,
         });
       }
     } else if (status === "Delivered" && !wasAlreadyCredited) {
-      await User.findByIdAndUpdate(order.user, {
-        $inc: { loyaltyPoints: order.pointsEarned },
-      });
+      if (order.pointsEarned > 0) {
+        await applyLoyaltyPointsChange({
+          userId: order.user,
+          type: "earned",
+          points: order.pointsEarned,
+          order: order._id,
+          description: `Earned on order ${order._id}`,
+        });
+      }
 
       // First delivered order for a referred customer pays out the
       // referral bonus to both sides, once only.
       const referredUser = await User.findById(order.user);
 
       if (referredUser?.referredBy && !referredUser.referralRewarded) {
-        await User.findByIdAndUpdate(referredUser.referredBy, {
-          $inc: { loyaltyPoints: REFERRER_REWARD_POINTS },
+        const referralSettings = await getReferralSettings();
+
+        await applyLoyaltyPointsChange({
+          userId: referredUser.referredBy,
+          type: "referral_bonus",
+          points: referralSettings.referrerPoints,
+          order: order._id,
+          description: `Referral bonus for inviting ${referredUser.name}`,
         });
 
-        referredUser.loyaltyPoints += REFERRED_REWARD_POINTS;
+        await applyLoyaltyPointsChange({
+          userId: referredUser._id,
+          type: "referral_bonus",
+          points: referralSettings.referredPoints,
+          order: order._id,
+          description: "Referral signup bonus",
+        });
+
         referredUser.referralRewarded = true;
         await referredUser.save();
       }

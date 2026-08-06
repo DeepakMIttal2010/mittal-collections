@@ -1,7 +1,17 @@
 import User from "../models/User.js";
+import ReferralSettings from "../models/ReferralSettings.js";
 
-export const REFERRER_REWARD_POINTS = 100;
-export const REFERRED_REWARD_POINTS = 50;
+const DEFAULTS = {
+  referrerPoints: 100,
+  referredPoints: 50,
+};
+
+// Returns the single settings doc, creating it with defaults on first use.
+export const getReferralSettings = async () => {
+  let settings = await ReferralSettings.findOne();
+  if (!settings) settings = await ReferralSettings.create(DEFAULTS);
+  return settings;
+};
 
 const randomSuffix = () =>
   Math.random().toString(36).slice(2, 6).toUpperCase();
