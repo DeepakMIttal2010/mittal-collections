@@ -20,6 +20,7 @@ import {
   FaPlay,
   FaCheckCircle,
   FaEye,
+  FaGift,
 } from "react-icons/fa";
 import {
   FaFacebookF,
@@ -41,6 +42,7 @@ import RecentlyViewed from "../components/RecentlyViewed/RecentlyViewed";
 import { addRecentlyViewed } from "../utils/recentlyViewed";
 import { getProductViewCount } from "../services/analyticsService";
 import { getProductReviews } from "../services/reviewService";
+import { getPublicRewardsInfo } from "../services/rewardsService";
 
 function ProductDetails() {
   const { id } = useParams();
@@ -63,12 +65,19 @@ function ProductDetails() {
   const [notifyEmail, setNotifyEmail] = useState("");
   const [notifySubmitted, setNotifySubmitted] = useState(false);
   const [notifySending, setNotifySending] = useState(false);
+  const [earnRate, setEarnRate] = useState(null);
 
   const relatedScrollRef = useRef(null);
 
   const { addToCart } = useCart();
   const { wishlistItems, addToWishlist, removeFromWishlist } = useWishlist();
   const { user, isLoggedIn } = useAuth();
+
+  useEffect(() => {
+    getPublicRewardsInfo().then((response) => {
+      if (response.success) setEarnRate(response.loyalty.earnRate);
+    });
+  }, []);
 
   useEffect(() => {
     if (user?.email) setNotifyEmail(user.email);
@@ -246,6 +255,9 @@ function ProductDetails() {
 
   const shareUrl = `${window.location.origin}${productUrl(product)}`;
   const shareText = product.name;
+  const pointsPreview = earnRate
+    ? Math.floor((product.price * quantity) / earnRate)
+    : 0;
 
   const handleNotifySubmit = async (e) => {
     e.preventDefault();
@@ -578,6 +590,13 @@ function ProductDetails() {
               <FaHeart />
             </button>
           </div>
+
+          {pointsPreview > 0 && (
+            <p className="flex items-center gap-1.5 text-sm text-amber-700 mb-3">
+              <FaGift className="text-amber-500" />
+              You&apos;ll earn {pointsPreview} loyalty points on this order
+            </p>
+          )}
 
           <button
             onClick={handleBuyNow}
