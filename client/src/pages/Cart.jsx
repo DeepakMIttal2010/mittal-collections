@@ -5,6 +5,7 @@ import { FaTrash, FaPlus, FaMinus, FaGift } from "react-icons/fa";
 
 import { useCart } from "../context/CartContext";
 import { getPublicRewardsInfo } from "../services/rewardsService";
+import { getSiteSettings } from "../services/settingsService";
 import "./Cart.css";
 
 function Cart() {
@@ -19,14 +20,31 @@ function Cart() {
   } = useCart();
 
   const [earnRate, setEarnRate] = useState(null);
+  const [shipping, setShipping] = useState({
+    freeShippingThreshold: 499,
+    deliveryFee: 49,
+  });
 
   useEffect(() => {
     getPublicRewardsInfo().then((response) => {
       if (response.success) setEarnRate(response.loyalty.earnRate);
     });
+
+    getSiteSettings().then((response) => {
+      if (response.success) {
+        setShipping({
+          freeShippingThreshold:
+            response.settings.freeShippingThreshold ?? 499,
+          deliveryFee: response.settings.deliveryFee ?? 49,
+        });
+      }
+    });
   }, []);
 
   const pointsPreview = earnRate ? Math.floor(totalPrice / earnRate) : 0;
+  const deliveryFee =
+    totalPrice >= shipping.freeShippingThreshold ? 0 : shipping.deliveryFee;
+  const orderTotal = totalPrice + deliveryFee;
 
   if (cartItems.length === 0) {
     return (
@@ -111,14 +129,14 @@ function Cart() {
 
             <div className="summary-row">
               <span>Shipping</span>
-              <span>FREE</span>
+              <span>{deliveryFee === 0 ? "FREE" : `₹${deliveryFee}`}</span>
             </div>
 
             <hr />
 
             <div className="summary-row total">
               <span>Total</span>
-              <span>₹{totalPrice}</span>
+              <span>₹{orderTotal}</span>
             </div>
 
             {pointsPreview > 0 && (

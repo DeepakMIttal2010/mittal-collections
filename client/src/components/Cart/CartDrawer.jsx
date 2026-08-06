@@ -6,8 +6,7 @@ import { FaTimes, FaPlus, FaMinus, FaLock, FaGift } from "react-icons/fa";
 import { useCart } from "../../context/CartContext";
 import { useAuth } from "../../context/AuthContext";
 import { getPublicRewardsInfo } from "../../services/rewardsService";
-
-const FREE_SHIPPING_THRESHOLD = 999;
+import { getSiteSettings } from "../../services/settingsService";
 
 function CartDrawer() {
   const navigate = useNavigate();
@@ -24,10 +23,17 @@ function CartDrawer() {
   } = useCart();
 
   const [earnRate, setEarnRate] = useState(null);
+  const [freeShippingThreshold, setFreeShippingThreshold] = useState(499);
 
   useEffect(() => {
     getPublicRewardsInfo().then((response) => {
       if (response.success) setEarnRate(response.loyalty.earnRate);
+    });
+
+    getSiteSettings().then((response) => {
+      if (response.success) {
+        setFreeShippingThreshold(response.settings.freeShippingThreshold ?? 499);
+      }
     });
   }, []);
 
@@ -38,9 +44,9 @@ function CartDrawer() {
     navigate(isLoggedIn ? "/checkout" : "/login?redirect=/checkout");
   };
 
-  const remaining = Math.max(FREE_SHIPPING_THRESHOLD - totalPrice, 0);
+  const remaining = Math.max(freeShippingThreshold - totalPrice, 0);
   const progressPct = Math.min(
-    (totalPrice / FREE_SHIPPING_THRESHOLD) * 100,
+    (totalPrice / freeShippingThreshold) * 100,
     100,
   );
 
