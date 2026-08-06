@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
-import { getMyLoyaltyTransactions } from "../services/rewardsService";
+import {
+  getMyLoyaltyTransactions,
+  getPublicRewardsInfo,
+} from "../services/rewardsService";
 
 const TYPE_LABELS = {
   earned: "Earned",
@@ -17,6 +20,7 @@ function LoyaltyHistory() {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [pages, setPages] = useState(1);
+  const [loyaltyRules, setLoyaltyRules] = useState(null);
 
   useEffect(() => {
     const load = async () => {
@@ -34,6 +38,12 @@ function LoyaltyHistory() {
     load();
   }, [page]);
 
+  useEffect(() => {
+    getPublicRewardsInfo().then((response) => {
+      if (response.success) setLoyaltyRules(response.loyalty);
+    });
+  }, []);
+
   return (
     <div className="max-w-3xl mx-auto px-4 py-10">
       <Link
@@ -43,9 +53,18 @@ function LoyaltyHistory() {
         ← Your Account
       </Link>
 
-      <h1 className="text-2xl font-bold text-slate-900 mb-6">
+      <h1 className="text-2xl font-bold text-slate-900 mb-2">
         Points History
       </h1>
+
+      {loyaltyRules && (
+        <p className="text-sm text-slate-500 mb-6">
+          Earn 1 point per ₹{loyaltyRules.earnRate} spent (credited on
+          delivery). Redeem points for ₹{loyaltyRules.redeemValue} off each,
+          up to {Math.round(loyaltyRules.maxRedeemPercent * 100)}% of an
+          order — minimum {loyaltyRules.minRedeemPoints} points to redeem.
+        </p>
+      )}
 
       {loading ? (
         <p className="text-slate-500">Loading...</p>
