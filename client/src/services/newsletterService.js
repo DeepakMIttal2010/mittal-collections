@@ -40,6 +40,25 @@ export const getSubscribers = async () => {
   }
 };
 
+export const uploadCampaignImage = async (file) => {
+  try {
+    const formData = new FormData();
+    formData.append("image", file);
+
+    const response = await fetch(`${API_BASE_URL}/newsletter/upload-image`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${getToken()}` },
+      body: formData,
+    });
+
+    return await response.json();
+  } catch (error) {
+    console.error("Upload Campaign Image Error:", error);
+
+    return { success: false, message: "Unable to upload image" };
+  }
+};
+
 export const sendNewsletterCampaign = async (subject, html) => {
   try {
     const response = await fetch(`${API_BASE_URL}/newsletter/send`, {

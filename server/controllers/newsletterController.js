@@ -45,6 +45,34 @@ export const subscribe = async (req, res) => {
 };
 
 // ============================
+// UPLOAD CAMPAIGN IMAGE (Admin)
+// Uploads an image for use inside a newsletter message body and
+// returns its hosted URL. No DB record is created.
+// ============================
+export const uploadCampaignImage = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "No image uploaded",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      url: req.file.path,
+    });
+  } catch (error) {
+    console.error("Upload Campaign Image Error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};
+
+// ============================
 // GET ALL SUBSCRIBERS (Admin)
 // ============================
 export const getSubscribers = async (req, res) => {

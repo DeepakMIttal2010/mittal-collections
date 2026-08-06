@@ -1,8 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import ReactQuill from "react-quill-new";
+import "react-quill-new/dist/quill.snow.css";
 
 import {
   getSubscribers,
   sendNewsletterCampaign,
+  uploadCampaignImage,
 } from "../../services/newsletterService";
 
 function AdminNewsletter() {
@@ -12,6 +15,8 @@ function AdminNewsletter() {
 
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
+
+  const quillRef = useRef(null);
 
   const loadSubscribers = async () => {
     setLoading(true);
@@ -29,12 +34,47 @@ function AdminNewsletter() {
     loadSubscribers();
   }, []);
 
-  const buildHtml = () =>
-    message
-      .split("\n")
-      .filter((line) => line.trim())
-      .map((line) => `<p>${line}</p>`)
-      .join("");
+  const handleImageButton = () => {
+    const input = document.createElement("input");
+    input.setAttribute("type", "file");
+    input.setAttribute("accept", "image/*");
+    input.click();
+
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+
+      const editor = quillRef.current?.getEditor();
+      const range = editor?.getSelection(true);
+
+      const response = await uploadCampaignImage(file);
+
+      if (response.success) {
+        editor.insertEmbed(range?.index ?? 0, "image", response.url);
+        editor.setSelection((range?.index ?? 0) + 1);
+      } else {
+        alert(response.message || "Unable to upload image");
+      }
+    };
+  };
+
+  const modules = useMemo(
+    () => ({
+      toolbar: {
+        container: [
+          [{ header: [2, 3, false] }],
+          ["bold", "italic", "underline"],
+          [{ list: "ordered" }, { list: "bullet" }],
+          ["link", "image"],
+          ["clean"],
+        ],
+        handlers: {
+          image: handleImageButton,
+        },
+      },
+    }),
+    [],
+  );
 
   const handleSend = async (e) => {
     e.preventDefault();
@@ -54,7 +94,7 @@ function AdminNewsletter() {
 
     setSending(true);
 
-    const response = await sendNewsletterCampaign(subject, buildHtml());
+    const response = await sendNewsletterCampaign(subject, message);
 
     setSending(false);
 
@@ -98,13 +138,14 @@ function AdminNewsletter() {
           <label className="block text-sm font-medium text-slate-700 mb-1">
             Message
           </label>
-          <textarea
-            rows={10}
+          <ReactQuill
+            ref={quillRef}
+            theme="snow"
             value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            placeholder="Write your update here. Each line becomes its own paragraph."
-            required
-            className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            onChange={setMessage}
+            modules={modules}
+            placeholder="Write your update here. Use the toolbar to add images and links."
+            className="bg-white [&_.ql-editor]:min-h-[220px]"
           />
         </div>
 
