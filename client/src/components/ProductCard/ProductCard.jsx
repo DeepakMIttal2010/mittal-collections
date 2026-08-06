@@ -1,22 +1,29 @@
 import { imgUrl } from "../../services/api";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import "./ProductCard.css";
 import { Link } from "react-router-dom";
-import { FaHeart, FaEye, FaShoppingCart, FaStar } from "react-icons/fa";
+import { FaGift, FaHeart, FaEye, FaShoppingCart, FaStar } from "react-icons/fa";
 import { useWishlist } from "../../context/WishlistContext";
 import { useCart } from "../../context/CartContext";
 import QuickViewModal from "./QuickViewModal";
 import { LOW_STOCK_THRESHOLD } from "../../utils/stock";
 import { productUrl } from "../../utils/productUrl";
+import { getEarnRate } from "../../services/rewardsService";
 
 function ProductCard({ product }) {
   const { addToCart } = useCart();
   const { addToWishlist } = useWishlist();
   const [showQuickView, setShowQuickView] = useState(false);
+  const [earnRate, setEarnRate] = useState(null);
   const discount = Math.round(
     ((product.oldPrice - product.price) / product.oldPrice) * 100,
   );
   const isLowStock = product.stock > 0 && product.stock <= LOW_STOCK_THRESHOLD;
+  const pointsPreview = earnRate ? Math.floor(product.price / earnRate) : 0;
+
+  useEffect(() => {
+    getEarnRate().then(setEarnRate);
+  }, []);
 
   return (
     <div className="product-card">
@@ -72,6 +79,13 @@ function ProductCard({ product }) {
 
             <span className="old-price">₹{product.oldPrice}</span>
           </div>
+
+          {pointsPreview > 0 && (
+            <p className="points-preview">
+              <FaGift />
+              Earn {pointsPreview} loyalty points
+            </p>
+          )}
         </div>
       </Link>
 

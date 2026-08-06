@@ -1,15 +1,24 @@
 import { imgUrl } from "../../services/api";
 import { Link } from "react-router-dom";
-import { FaTimes, FaStar, FaShoppingCart, FaHeart } from "react-icons/fa";
+import { useEffect, useState } from "react";
+import { FaTimes, FaStar, FaShoppingCart, FaHeart, FaGift } from "react-icons/fa";
 
 import { useCart } from "../../context/CartContext";
 import { useWishlist } from "../../context/WishlistContext";
 import { getStockStatus } from "../../utils/stock";
 import { productUrl } from "../../utils/productUrl";
+import { getEarnRate } from "../../services/rewardsService";
 
 function QuickViewModal({ product, onClose }) {
   const { addToCart } = useCart();
   const { wishlistItems, addToWishlist, removeFromWishlist } = useWishlist();
+  const [earnRate, setEarnRate] = useState(null);
+
+  useEffect(() => {
+    getEarnRate().then(setEarnRate);
+  }, []);
+
+  const pointsPreview = earnRate ? Math.floor(product.price / earnRate) : 0;
 
   const isWishlisted = wishlistItems.some((item) => item._id === product._id);
 
@@ -83,6 +92,13 @@ function QuickViewModal({ product, onClose }) {
               </span>
             )}
           </div>
+
+          {pointsPreview > 0 && (
+            <p className="flex items-center gap-1.5 text-xs text-amber-700 mb-3">
+              <FaGift />
+              Earn {pointsPreview} loyalty points
+            </p>
+          )}
 
           <p
             className={`text-sm font-semibold mb-3 ${

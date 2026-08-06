@@ -12,6 +12,20 @@ export const getPublicRewardsInfo = async () => {
   }
 };
 
+// Cached earn-rate lookup so product grids with many cards share a single
+// network request instead of each card calling the API independently.
+let earnRatePromise = null;
+
+export const getEarnRate = () => {
+  if (!earnRatePromise) {
+    earnRatePromise = getPublicRewardsInfo().then((response) =>
+      response.success ? response.loyalty.earnRate : null,
+    );
+  }
+
+  return earnRatePromise;
+};
+
 export const getMyLoyaltyTransactions = async (page = 1) => {
   try {
     const response = await fetch(

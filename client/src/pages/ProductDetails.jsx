@@ -495,6 +495,13 @@ function ProductDetails() {
             )}
           </div>
 
+          {pointsPreview > 0 && (
+            <p className="flex items-center gap-1.5 text-sm text-amber-700 mb-4">
+              <FaGift className="text-amber-500" />
+              You&apos;ll earn {pointsPreview} loyalty points on this order
+            </p>
+          )}
+
           <p
             className={`text-sm font-semibold ${
               viewCount > 0 ? "mb-2" : "mb-4"
@@ -590,13 +597,6 @@ function ProductDetails() {
               <FaHeart />
             </button>
           </div>
-
-          {pointsPreview > 0 && (
-            <p className="flex items-center gap-1.5 text-sm text-amber-700 mb-3">
-              <FaGift className="text-amber-500" />
-              You&apos;ll earn {pointsPreview} loyalty points on this order
-            </p>
-          )}
 
           <button
             onClick={handleBuyNow}
