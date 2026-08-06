@@ -15,6 +15,7 @@ import {
   restoreProduct,
   deleteProduct,
   permanentlyDeleteProduct,
+  subscribeStockAlert,
 } from "../controllers/productController.js";
 
 const router = express.Router();
@@ -28,6 +29,7 @@ router.get("/suggestions", getSearchSuggestions);
 router.get("/admin", authMiddleware, adminMiddleware, getAllProductsAdmin);
 
 router.get("/:id", getProductById);
+router.post("/:id/notify", subscribeStockAlert);
 
 const productMediaFields = uploadProductMedia.fields([
   { name: "images", maxCount: 6 },

@@ -5,6 +5,7 @@ import ProductReviews from "../components/ProductReviews";
 import ProductQuestions from "../components/ProductQuestions";
 import { getStockStatus } from "../utils/stock";
 import { productUrl } from "../utils/productUrl";
+import { subscribeStockAlert } from "../services/productService";
 import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import {
@@ -59,11 +60,19 @@ function ProductDetails() {
     totalReviews: 0,
   });
 
+  const [notifyEmail, setNotifyEmail] = useState("");
+  const [notifySubmitted, setNotifySubmitted] = useState(false);
+  const [notifySending, setNotifySending] = useState(false);
+
   const relatedScrollRef = useRef(null);
 
   const { addToCart } = useCart();
   const { wishlistItems, addToWishlist, removeFromWishlist } = useWishlist();
-  const { isLoggedIn } = useAuth();
+  const { user, isLoggedIn } = useAuth();
+
+  useEffect(() => {
+    if (user?.email) setNotifyEmail(user.email);
+  }, [user]);
 
   useEffect(() => {
     const loadProduct = async () => {
@@ -237,6 +246,20 @@ function ProductDetails() {
 
   const shareUrl = `${window.location.origin}${productUrl(product)}`;
   const shareText = product.name;
+
+  const handleNotifySubmit = async (e) => {
+    e.preventDefault();
+
+    setNotifySending(true);
+    const response = await subscribeStockAlert(product._id, notifyEmail);
+    setNotifySending(false);
+
+    if (response.success) {
+      setNotifySubmitted(true);
+    } else {
+      alert(response.message || "Unable to subscribe");
+    }
+  };
 
   const shareLinks = [
     {
@@ -475,6 +498,34 @@ function ProductDetails() {
               today
             </p>
           )}
+
+          {product.stock <= 0 &&
+            (notifySubmitted ? (
+              <p className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-4 py-3 mb-6">
+                We&apos;ll email you when this is back in stock.
+              </p>
+            ) : (
+              <form
+                onSubmit={handleNotifySubmit}
+                className="flex gap-2 mb-6"
+              >
+                <input
+                  type="email"
+                  value={notifyEmail}
+                  onChange={(e) => setNotifyEmail(e.target.value)}
+                  placeholder="Your email"
+                  required
+                  className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <button
+                  type="submit"
+                  disabled={notifySending}
+                  className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-900 text-white text-sm font-medium disabled:opacity-60"
+                >
+                  {notifySending ? "..." : "Notify Me"}
+                </button>
+              </form>
+            ))}
 
           <p className="text-slate-600 leading-relaxed mb-6">
             {product.description}

@@ -213,6 +213,25 @@ export const getProductsBySubcategory = async (subcategoryId) => {
 // ==========================
 // Get Product By ID
 // ==========================
+export const subscribeStockAlert = async (productId, email) => {
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/products/${productId}/notify`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      },
+    );
+
+    return await response.json();
+  } catch (error) {
+    console.error("Subscribe Stock Alert Error:", error);
+
+    return { success: false, message: "Unable to subscribe" };
+  }
+};
+
 export const getProductById = async (id) => {
   try {
     const response = await fetch(`${API_BASE_URL}/products/${id}`);

@@ -4,6 +4,7 @@ import SiteSettings from "../models/SiteSettings.js";
 import Product from "../models/Product.js";
 import User from "../models/User.js";
 import CartSnapshot from "../models/CartSnapshot.js";
+import { notifyStockAlertSubscribers } from "./productController.js";
 import {
   calculateDiscount,
   isEligibleForFirstOrderCoupon,
@@ -45,9 +46,19 @@ const reserveStock = async (orderItems) => {
 
 const restoreStock = async (orderItems) => {
   for (const item of orderItems) {
-    await Product.findByIdAndUpdate(item.product, {
-      $inc: { stock: item.quantity },
-    });
+    const product = await Product.findByIdAndUpdate(
+      item.product,
+      { $inc: { stock: item.quantity } },
+      { new: true },
+    );
+
+    const wasOutOfStock = product && product.stock - item.quantity <= 0;
+
+    if (product && wasOutOfStock && product.stock > 0) {
+      notifyStockAlertSubscribers(product).catch((error) =>
+        console.error("Notify Stock Alert Subscribers Error:", error),
+      );
+    }
   }
 };
 

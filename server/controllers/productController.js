@@ -1,6 +1,8 @@
 import Product from "../models/Product.js";
 import Order from "../models/Order.js";
+import StockAlert from "../models/StockAlert.js";
 import { rankProducts } from "../utils/fuzzySearch.js";
+import { sendEmail } from "../config/mailer.js";
 
 const generateSlug = (name) =>
   name
@@ -8,6 +10,87 @@ const generateSlug = (name) =>
     .trim()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)/g, "");
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const slugify = (text) =>
+  (text || "")
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+
+// Emails every unnotified StockAlert subscriber for a product, then
+// marks them notified. Fire-and-forget — never blocks the caller.
+export const notifyStockAlertSubscribers = async (product) => {
+  const alerts = await StockAlert.find({ product: product._id, notified: false });
+
+  if (alerts.length === 0) return;
+
+  const slug = product.slug || slugify(product.name);
+  const productLink = `${process.env.CLIENT_URL}/product/${product._id}/${slug}`;
+
+  for (const alert of alerts) {
+    try {
+      await sendEmail({
+        to: alert.email,
+        subject: `${product.name} is back in stock!`,
+        html: `
+          <p>Good news — <strong>${product.name}</strong> is back in stock at Mittal Collections.</p>
+          <p><a href="${productLink}">Shop it now</a> before it sells out again.</p>
+        `,
+      });
+
+      alert.notified = true;
+      await alert.save();
+    } catch (error) {
+      console.error(`Stock alert email failed for ${alert.email}:`, error);
+    }
+  }
+};
+
+// ============================
+// SUBSCRIBE TO BACK-IN-STOCK ALERT (Public)
+// ============================
+export const subscribeStockAlert = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email || !EMAIL_REGEX.test(email)) {
+      return res.status(400).json({
+        success: false,
+        message: "Please enter a valid email address",
+      });
+    }
+
+    const product = await Product.findById(req.params.id);
+
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: "Product not found",
+      });
+    }
+
+    await StockAlert.findOneAndUpdate(
+      { product: product._id, email: email.toLowerCase().trim() },
+      { notified: false },
+      { upsert: true, setDefaultsOnInsert: true },
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "We'll email you when this is back in stock",
+    });
+  } catch (error) {
+    console.error("Subscribe Stock Alert Error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};
 
 // ============================
 // GET ALL PRODUCTS
@@ -296,6 +379,8 @@ export const updateProduct = async (req, res) => {
       });
     }
 
+    const wasOutOfStock = product.stock <= 0;
+
     product.name = req.body.name;
     product.slug = generateSlug(req.body.name);
     product.description = req.body.description;
@@ -356,6 +441,12 @@ export const updateProduct = async (req, res) => {
     product.videos = [...existingVideos, ...newVideos];
 
     await product.save();
+
+    if (wasOutOfStock && product.stock > 0) {
+      notifyStockAlertSubscribers(product).catch((error) =>
+        console.error("Notify Stock Alert Subscribers Error:", error),
+      );
+    }
 
     res.json({
       success: true,
