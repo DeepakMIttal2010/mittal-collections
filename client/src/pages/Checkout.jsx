@@ -14,6 +14,7 @@ import {
 import { getSiteSettings } from "../services/settingsService";
 import { getProfile } from "../services/authService";
 import { getPublicRewardsInfo } from "../services/rewardsService";
+import { calculateDeliveryFee } from "../utils/shipping";
 
 function Checkout() {
   const navigate = useNavigate();
@@ -46,6 +47,7 @@ function Checkout() {
   const [shipping, setShipping] = useState({
     freeShippingThreshold: 499,
     deliveryFee: 49,
+    shippingTiers: [],
   });
 
   useEffect(() => {
@@ -62,6 +64,7 @@ function Checkout() {
         setShipping({
           freeShippingThreshold: response.settings.freeShippingThreshold ?? 499,
           deliveryFee: response.settings.deliveryFee ?? 49,
+          shippingTiers: response.settings.shippingTiers || [],
         });
       }
     };
@@ -124,9 +127,7 @@ function Checkout() {
   const selectedAddress = addresses.find((a) => a._id === selectedAddressId);
 
   const deliveryFee =
-    totalPrice >= shipping.freeShippingThreshold || totalPrice === 0
-      ? 0
-      : shipping.deliveryFee;
+    totalPrice === 0 ? 0 : calculateDeliveryFee(totalPrice, shipping);
   const discountAmount = appliedCoupon?.discountAmount || 0;
 
   const maxRedeemablePoints = Math.max(

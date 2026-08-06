@@ -6,6 +6,7 @@ import { FaTrash, FaPlus, FaMinus, FaGift } from "react-icons/fa";
 import { useCart } from "../context/CartContext";
 import { getPublicRewardsInfo } from "../services/rewardsService";
 import { getSiteSettings } from "../services/settingsService";
+import { calculateDeliveryFee } from "../utils/shipping";
 import "./Cart.css";
 
 function Cart() {
@@ -23,6 +24,7 @@ function Cart() {
   const [shipping, setShipping] = useState({
     freeShippingThreshold: 499,
     deliveryFee: 49,
+    shippingTiers: [],
   });
 
   useEffect(() => {
@@ -36,14 +38,14 @@ function Cart() {
           freeShippingThreshold:
             response.settings.freeShippingThreshold ?? 499,
           deliveryFee: response.settings.deliveryFee ?? 49,
+          shippingTiers: response.settings.shippingTiers || [],
         });
       }
     });
   }, []);
 
   const pointsPreview = earnRate ? Math.floor(totalPrice / earnRate) : 0;
-  const deliveryFee =
-    totalPrice >= shipping.freeShippingThreshold ? 0 : shipping.deliveryFee;
+  const deliveryFee = calculateDeliveryFee(totalPrice, shipping);
   const orderTotal = totalPrice + deliveryFee;
 
   if (cartItems.length === 0) {

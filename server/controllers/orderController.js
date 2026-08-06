@@ -16,6 +16,7 @@ import {
   applyLoyaltyPointsChange,
 } from "../utils/loyaltyPoints.js";
 import { getReferralSettings } from "../utils/referral.js";
+import { calculateDeliveryFee } from "../utils/shipping.js";
 import { sendEmail } from "../config/mailer.js";
 
 const ORDER_STATUS_MESSAGES = {
@@ -109,10 +110,8 @@ export const createOrder = async (req, res) => {
       0,
     );
 
-    const settings = await SiteSettings.findOne();
-    const freeShippingThreshold = settings?.freeShippingThreshold ?? 499;
-    const baseDeliveryFee = settings?.deliveryFee ?? 49;
-    const deliveryFee = subtotal >= freeShippingThreshold ? 0 : baseDeliveryFee;
+    const settings = (await SiteSettings.findOne()) || {};
+    const deliveryFee = calculateDeliveryFee(subtotal, settings);
 
     let discountAmount = 0;
     let appliedCouponCode = null;

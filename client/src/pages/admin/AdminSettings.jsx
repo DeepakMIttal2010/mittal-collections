@@ -22,6 +22,8 @@ function AdminSettings() {
     deliveryFee: 49,
   });
 
+  const [shippingTiers, setShippingTiers] = useState([]);
+
   const loadSettings = async () => {
     setLoading(true);
 
@@ -40,9 +42,26 @@ function AdminSettings() {
         freeShippingThreshold: response.settings.freeShippingThreshold ?? 499,
         deliveryFee: response.settings.deliveryFee ?? 49,
       });
+      setShippingTiers(response.settings.shippingTiers || []);
     }
 
     setLoading(false);
+  };
+
+  const handleTierChange = (index, field, value) => {
+    setShippingTiers((prev) =>
+      prev.map((tier, i) =>
+        i === index ? { ...tier, [field]: Number(value) } : tier,
+      ),
+    );
+  };
+
+  const handleAddTier = () => {
+    setShippingTiers((prev) => [...prev, { maxOrderValue: 0, fee: 0 }]);
+  };
+
+  const handleRemoveTier = (index) => {
+    setShippingTiers((prev) => prev.filter((_, i) => i !== index));
   };
 
   useEffect(() => {
@@ -62,7 +81,7 @@ function AdminSettings() {
 
     setSaving(true);
 
-    const response = await updateSiteSettings(formData);
+    const response = await updateSiteSettings({ ...formData, shippingTiers });
 
     setSaving(false);
 
@@ -159,7 +178,7 @@ function AdminSettings() {
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">
-              Delivery Fee (₹)
+              Default Delivery Fee (₹)
             </label>
             <input
               type="number"
@@ -169,6 +188,9 @@ function AdminSettings() {
               onChange={handleChange}
               className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
+            <p className="text-xs text-slate-500 mt-1">
+              Used when no tier below matches an order.
+            </p>
           </div>
 
           <div>
@@ -184,6 +206,64 @@ function AdminSettings() {
               className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">
+            Graduated Fee Tiers (optional)
+          </label>
+          <p className="text-xs text-slate-500 mb-2">
+            Charge a smaller fee as the order gets closer to free shipping —
+            e.g. ₹49 for orders under ₹99, ₹19 for orders under ₹399.
+          </p>
+
+          {shippingTiers.length > 0 && (
+            <div className="space-y-2 mb-2">
+              {shippingTiers.map((tier, index) => (
+                <div key={index} className="flex items-center gap-2">
+                  <span className="text-xs text-slate-500 shrink-0">
+                    Order below ₹
+                  </span>
+                  <input
+                    type="number"
+                    min="0"
+                    value={tier.maxOrderValue}
+                    onChange={(e) =>
+                      handleTierChange(index, "maxOrderValue", e.target.value)
+                    }
+                    className="w-28 border border-slate-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <span className="text-xs text-slate-500 shrink-0">
+                    → fee ₹
+                  </span>
+                  <input
+                    type="number"
+                    min="0"
+                    value={tier.fee}
+                    onChange={(e) =>
+                      handleTierChange(index, "fee", e.target.value)
+                    }
+                    className="w-24 border border-slate-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveTier(index)}
+                    className="text-red-500 hover:text-red-700 text-sm px-2"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={handleAddTier}
+            className="text-sm text-blue-700 hover:text-blue-900 font-medium"
+          >
+            + Add Tier
+          </button>
         </div>
 
         <hr className="border-slate-200" />

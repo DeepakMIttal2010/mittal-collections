@@ -13,7 +13,16 @@ const siteSettingsSchema = new mongoose.Schema(
     supportHours: { type: String, default: "", trim: true },
 
     freeShippingThreshold: { type: Number, default: 499 },
-    deliveryFee: { type: Number, default: 49 },
+    deliveryFee: { type: Number, default: 49 }, // fallback fee below any tier and below the free threshold
+
+    // Graduated fee below freeShippingThreshold — e.g. order < ₹99 pays ₹49,
+    // < ₹199 pays ₹39, and so on, nudging customers toward free shipping.
+    shippingTiers: [
+      {
+        maxOrderValue: { type: Number, required: true },
+        fee: { type: Number, required: true },
+      },
+    ],
   },
   {
     timestamps: true,
