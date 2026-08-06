@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { FaRulerCombined, FaArrowRight } from "react-icons/fa";
 
 import { getArticles } from "../services/articleService";
 import { imgUrl } from "../services/api";
@@ -36,6 +37,25 @@ function Articles() {
         Buying guides and styling tips to help you choose the right home
         furnishing.
       </p>
+
+      <Link
+        to="/curtain-size-calculator"
+        className="group flex items-center justify-between gap-4 bg-gradient-to-r from-blue-900 to-blue-800 text-white rounded-xl p-6 mb-10"
+      >
+        <div className="flex items-center gap-4">
+          <span className="w-11 h-11 shrink-0 rounded-full bg-white/15 flex items-center justify-center text-lg">
+            <FaRulerCombined />
+          </span>
+          <div>
+            <p className="font-semibold">Curtain Size Calculator</p>
+            <p className="text-sm text-blue-100">
+              Enter your window size, get the exact curtain size to buy —
+              free tool.
+            </p>
+          </div>
+        </div>
+        <FaArrowRight className="shrink-0 group-hover:translate-x-1 transition-transform" />
+      </Link>
 
       {loading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">

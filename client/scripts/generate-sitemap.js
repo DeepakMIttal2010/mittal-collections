@@ -5,7 +5,14 @@ const SITE_URL = "https://www.mittalcollections.com";
 const API_URL =
   process.env.VITE_API_URL || "https://mittal-collections-api.onrender.com";
 
-const STATIC_ROUTES = ["/", "/trending", "/about", "/contact", "/articles"];
+const STATIC_ROUTES = [
+  "/",
+  "/trending",
+  "/about",
+  "/contact",
+  "/articles",
+  "/curtain-size-calculator",
+];
 
 const fetchJson = async (url) => {
   const res = await fetch(url);

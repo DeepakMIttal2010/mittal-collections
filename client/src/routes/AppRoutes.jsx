@@ -26,6 +26,7 @@ import OrderDetails from "../pages/OrderDetails";
 import PolicyPage from "../pages/PolicyPage";
 import Articles from "../pages/Articles";
 import ArticleDetail from "../pages/ArticleDetail";
+import CurtainSizeCalculator from "../pages/CurtainSizeCalculator";
 import NotFound from "../pages/NotFound";
 import MainLayout from "../layouts/MainLayout";
 
@@ -115,6 +116,10 @@ function AppRoutes() {
         <Route path="/policies/:slug" element={<PolicyPage />} />
         <Route path="/articles" element={<Articles />} />
         <Route path="/articles/:slug" element={<ArticleDetail />} />
+        <Route
+          path="/curtain-size-calculator"
+          element={<CurtainSizeCalculator />}
+        />
         {/* Product Details */}
         <Route path="/product/:id/:slug?" element={<ProductDetails />} />
         <Route path="/trending" element={<TrendingPage />} />
