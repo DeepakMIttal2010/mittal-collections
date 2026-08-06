@@ -21,8 +21,8 @@ function DeliveryOfferBanner() {
         <span className="shrink-0">🔔</span>
         <span>
           <strong>धमाकेदार ऑफर:</strong> वसुंधरा और उसके 10 किमी के दायरे में
-          (वैशाली, इंदिरापुरम, साहिबाबाद) <strong>FREE HOME DELIVERY!</strong>{" "}
-          📦🚀
+          (वैशाली, इंदिरापुरम, साहिबाबाद){" "}
+          <strong>FREE & FAST HOME DELIVERY within 24 Hours!</strong> 📦🚀
         </span>
       </div>
       <button
