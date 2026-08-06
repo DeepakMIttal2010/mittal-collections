@@ -4,10 +4,11 @@ import crypto from "crypto";
 
 import User from "../models/User.js";
 import { sendEmail } from "../config/mailer.js";
+import { generateUniqueReferralCode } from "../utils/referral.js";
 
 export const register = async (req, res) => {
   try {
-    const { name, email, mobile, password } = req.body;
+    const { name, email, mobile, password, referralCode } = req.body;
 
     if (!name || !email || !mobile || !password) {
       return res.status(400).json({
@@ -36,11 +37,22 @@ export const register = async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    let referrer = null;
+    if (referralCode && referralCode.trim()) {
+      referrer = await User.findOne({
+        referralCode: referralCode.trim().toUpperCase(),
+      });
+    }
+
+    const newReferralCode = await generateUniqueReferralCode(name);
+
     const user = await User.create({
       name,
       email,
       mobile,
       password: hashedPassword,
+      referralCode: newReferralCode,
+      referredBy: referrer?._id || null,
     });
 
     try {
@@ -66,6 +78,7 @@ export const register = async (req, res) => {
         name: user.name,
         email: user.email,
         mobile: user.mobile,
+        referralCode: user.referralCode,
       },
     });
   } catch (error) {
@@ -136,6 +149,7 @@ export const login = async (req, res) => {
         mobile: user.mobile,
         role: user.role,
         loyaltyPoints: user.loyaltyPoints,
+        referralCode: user.referralCode,
       },
     });
   } catch (error) {
@@ -157,6 +171,12 @@ export const getProfile = async (req, res) => {
         success: false,
         message: "User not found",
       });
+    }
+
+    // Backfill a referral code for accounts created before this feature
+    if (!user.referralCode) {
+      user.referralCode = await generateUniqueReferralCode(user.name);
+      await user.save();
     }
 
     res.status(200).json({
@@ -225,6 +245,7 @@ export const updateProfile = async (req, res) => {
         mobile: user.mobile,
         role: user.role,
         loyaltyPoints: user.loyaltyPoints,
+        referralCode: user.referralCode,
       },
     });
   } catch (error) {

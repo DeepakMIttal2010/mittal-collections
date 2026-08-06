@@ -15,6 +15,10 @@ import {
   MIN_REDEEM_POINTS,
   REDEEM_VALUE,
 } from "../utils/loyaltyPoints.js";
+import {
+  REFERRER_REWARD_POINTS,
+  REFERRED_REWARD_POINTS,
+} from "../utils/referral.js";
 
 // Atomically reserve stock for every item. If any item doesn't have enough
 // stock, roll back the items already reserved and return that item's name.
@@ -367,6 +371,20 @@ export const updateOrderStatus = async (req, res) => {
       await User.findByIdAndUpdate(order.user, {
         $inc: { loyaltyPoints: order.pointsEarned },
       });
+
+      // First delivered order for a referred customer pays out the
+      // referral bonus to both sides, once only.
+      const referredUser = await User.findById(order.user);
+
+      if (referredUser?.referredBy && !referredUser.referralRewarded) {
+        await User.findByIdAndUpdate(referredUser.referredBy, {
+          $inc: { loyaltyPoints: REFERRER_REWARD_POINTS },
+        });
+
+        referredUser.loyaltyPoints += REFERRED_REWARD_POINTS;
+        referredUser.referralRewarded = true;
+        await referredUser.save();
+      }
     }
 
     res.status(200).json({

@@ -9,6 +9,7 @@ function Register() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const redirectTo = searchParams.get("redirect") || "/";
+  const refFromUrl = searchParams.get("ref") || "";
 
   const [formData, setFormData] = useState({
     name: "",
@@ -16,6 +17,7 @@ function Register() {
     mobile: "",
     password: "",
     confirmPassword: "",
+    referralCode: refFromUrl,
   });
 
   const [subscribeNewsletter, setSubscribeNewsletter] = useState(false);
@@ -123,6 +125,20 @@ function Register() {
             value={formData.confirmPassword}
             onChange={handleChange}
             required
+            className={inputClass}
+          />
+
+          <input
+            type="text"
+            name="referralCode"
+            placeholder="Referral Code (optional)"
+            value={formData.referralCode}
+            onChange={(e) =>
+              setFormData({
+                ...formData,
+                referralCode: e.target.value.toUpperCase(),
+              })
+            }
             className={inputClass}
           />
 
