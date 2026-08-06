@@ -9,12 +9,20 @@ export const AuthProvider = ({ children }) => {
     return storedUser ? JSON.parse(storedUser) : null;
   });
 
+  // Flips true for one render right after a successful login, so
+  // components (like the welcome popup) can react to "just logged in"
+  // without guessing from the user object alone.
+  const [justLoggedIn, setJustLoggedIn] = useState(false);
+
   const login = (userData, token) => {
     localStorage.setItem("token", token);
     localStorage.setItem("user", JSON.stringify(userData));
 
     setUser(userData);
+    setJustLoggedIn(true);
   };
+
+  const clearJustLoggedIn = () => setJustLoggedIn(false);
 
   const logout = () => {
     localStorage.removeItem("token");
@@ -39,6 +47,8 @@ export const AuthProvider = ({ children }) => {
         logout,
         updateUser,
         isLoggedIn: !!user,
+        justLoggedIn,
+        clearJustLoggedIn,
       }}
     >
       {children}

@@ -6,7 +6,7 @@ import Footer from "../components/Footer/Footer";
 import CartDrawer from "../components/Cart/CartDrawer";
 import CouponBanner from "../components/CouponBanner";
 import DeliveryOfferBanner from "../components/DeliveryOfferBanner";
-import RewardsPromoPopup from "../components/RewardsPromoPopup";
+import WelcomeBenefitsPopup from "../components/WelcomeBenefitsPopup";
 
 function MainLayout() {
   return (
@@ -21,7 +21,7 @@ function MainLayout() {
       <Footer />
 
       <CartDrawer />
-      <RewardsPromoPopup />
+      <WelcomeBenefitsPopup />
     </>
   );
 }
