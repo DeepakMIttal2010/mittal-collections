@@ -15,6 +15,7 @@ import { getPublicRewardsInfo } from "../services/rewardsService";
 
 const SHOWN_KEY = "mc_welcome_popup_shown";
 const SHOW_AFTER_MS = 2500;
+const AUTO_CLOSE_MS = 5000;
 
 function WelcomeBenefitsPopup() {
   const { isLoggedIn, justLoggedIn, clearJustLoggedIn } = useAuth();
@@ -61,6 +62,16 @@ function WelcomeBenefitsPopup() {
     setTimeout(() => setVisible(false), 300);
   };
 
+  // Auto-dismiss shortly after it finishes appearing, so it doesn't
+  // block the page if the visitor doesn't interact with it.
+  useEffect(() => {
+    if (!entered) return;
+
+    const timer = setTimeout(handleClose, AUTO_CLOSE_MS);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entered]);
+
   if (!visible || !rewards) return null;
 
   const benefits = [
@@ -94,44 +105,55 @@ function WelcomeBenefitsPopup() {
       />
 
       <div
-        className={`relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 transition-all duration-300 ${
+        className={`relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transition-all duration-300 ${
           entered ? "scale-100 translate-y-0" : "scale-95 translate-y-3"
         }`}
       >
-        <button
-          type="button"
-          onClick={handleClose}
-          aria-label="Close"
-          className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"
-        >
-          <FaTimes />
-        </button>
+        <div className="relative bg-gradient-to-r from-orange-600 to-amber-500 px-6 pt-6 pb-8 overflow-hidden">
+          <div className="absolute -top-6 -right-8 w-32 h-32 rounded-full bg-white/10" />
+          <div className="absolute -bottom-10 -left-6 w-28 h-28 rounded-full bg-white/10" />
 
-        <h2 className="text-xl font-bold text-slate-900 mb-1">
-          Welcome to Mittal Collections!
-        </h2>
-        <p className="text-sm text-slate-500 mb-5">
-          Here&apos;s what you get when you shop with us:
-        </p>
+          <button
+            type="button"
+            onClick={handleClose}
+            aria-label="Close"
+            className="absolute top-4 right-4 w-8 h-8 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center transition-colors"
+          >
+            <FaTimes />
+          </button>
 
-        <ul className="space-y-3 mb-6">
-          {benefits.map((b, i) => (
-            <li key={i} className="flex items-center gap-3">
-              <span className="w-9 h-9 shrink-0 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center">
-                {b.icon}
-              </span>
-              <span className="text-sm text-slate-700">{b.text}</span>
-            </li>
-          ))}
-        </ul>
+          <span className="relative inline-flex w-11 h-11 rounded-full bg-white/20 text-white items-center justify-center text-xl mb-3">
+            <FaGift />
+          </span>
 
-        <Link
-          to={isLoggedIn ? "/account" : "/register"}
-          onClick={handleClose}
-          className="block text-center bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold rounded-full py-3 transition-colors"
-        >
-          {isLoggedIn ? "See My Rewards" : "Sign Up & Start Earning"}
-        </Link>
+          <h2 className="relative text-xl font-bold text-white mb-1">
+            Welcome to Mittal Collections!
+          </h2>
+          <p className="relative text-sm text-amber-50">
+            Here&apos;s what you get when you shop with us:
+          </p>
+        </div>
+
+        <div className="px-6 pt-5 pb-6">
+          <ul className="space-y-3 mb-6">
+            {benefits.map((b, i) => (
+              <li key={i} className="flex items-center gap-3">
+                <span className="w-9 h-9 shrink-0 rounded-full bg-orange-50 text-orange-600 flex items-center justify-center">
+                  {b.icon}
+                </span>
+                <span className="text-sm text-slate-700">{b.text}</span>
+              </li>
+            ))}
+          </ul>
+
+          <Link
+            to={isLoggedIn ? "/account" : "/register"}
+            onClick={handleClose}
+            className="block text-center bg-gradient-to-r from-orange-600 to-amber-500 hover:from-orange-700 hover:to-amber-600 text-white text-sm font-semibold rounded-full py-3 transition-colors"
+          >
+            {isLoggedIn ? "See My Rewards" : "Sign Up & Start Earning"}
+          </Link>
+        </div>
       </div>
     </div>
   );
