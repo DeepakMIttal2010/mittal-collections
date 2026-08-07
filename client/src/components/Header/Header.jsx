@@ -27,14 +27,21 @@ function Header() {
   const [accountOpen, setAccountOpen] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const [deliveryCity, setDeliveryCity] = useState("");
+  const [deliveryLocation, setDeliveryLocation] = useState("");
   const recognitionRef = useRef(null);
 
   useEffect(() => {
     getMyLocation().then((response) => {
-      if (response.success && response.location?.city) {
-        setDeliveryCity(response.location.city);
-      }
+      if (!response.success || !response.location) return;
+
+      // City-level geo data isn't available for every IP on the free
+      // database — fall back to state, then just "India", rather than
+      // showing nothing.
+      const { city, region, country } = response.location;
+
+      if (city) setDeliveryLocation(city);
+      else if (region) setDeliveryLocation(region);
+      else if (country === "IN") setDeliveryLocation("India");
     });
   }, []);
 
@@ -125,11 +132,11 @@ function Header() {
         </Link>
 
         {/* Delivery location (IP-based, approximate) */}
-        {deliveryCity && (
+        {deliveryLocation && (
           <div className="hidden lg:flex items-center gap-1.5 text-sm text-slate-600 shrink-0">
             <FaMapMarkerAlt className="text-amber-600" />
             <span>
-              Delivering to <span className="font-semibold text-slate-800">{deliveryCity}</span>
+              Delivering to <span className="font-semibold text-slate-800">{deliveryLocation}</span>
             </span>
           </div>
         )}
