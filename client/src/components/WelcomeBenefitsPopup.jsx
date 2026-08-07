@@ -29,8 +29,11 @@ function WelcomeBenefitsPopup() {
     });
   }, []);
 
-  // Show once per session, shortly after the site opens.
+  // Show once per session, shortly after the site opens — only for
+  // guests. Registered customers already know what the account offers,
+  // so the sign-up pitch would be redundant for them.
   useEffect(() => {
+    if (isLoggedIn) return;
     if (sessionStorage.getItem(SHOWN_KEY) === "1") return;
 
     const timer = setTimeout(() => {
@@ -39,14 +42,13 @@ function WelcomeBenefitsPopup() {
     }, SHOW_AFTER_MS);
 
     return () => clearTimeout(timer);
-  }, []);
+  }, [isLoggedIn]);
 
-  // Also show right after a successful login, even if already shown
-  // earlier this session.
+  // Clear the just-logged-in flag without showing the popup — an
+  // existing account logging in isn't a new-visitor moment.
   useEffect(() => {
     if (!justLoggedIn) return;
 
-    setVisible(true);
     clearJustLoggedIn();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [justLoggedIn]);
