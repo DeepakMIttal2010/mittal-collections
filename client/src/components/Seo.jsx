@@ -25,9 +25,14 @@ function Seo({ title, description, image, url, jsonLd }) {
       {description && <meta name="twitter:description" content={description} />}
       <meta name="twitter:image" content={image || DEFAULT_IMAGE} />
 
-      {jsonLd && (
-        <script type="application/ld+json">{JSON.stringify(jsonLd)}</script>
-      )}
+      {jsonLd &&
+        (Array.isArray(jsonLd) ? jsonLd : [jsonLd])
+          .filter(Boolean)
+          .map((block, i) => (
+            <script key={i} type="application/ld+json">
+              {JSON.stringify(block)}
+            </script>
+          ))}
     </Helmet>
   );
 }

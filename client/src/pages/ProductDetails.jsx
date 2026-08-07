@@ -5,6 +5,7 @@ import ProductReviews from "../components/ProductReviews";
 import ProductQuestions from "../components/ProductQuestions";
 import { getStockStatus } from "../utils/stock";
 import { productUrl } from "../utils/productUrl";
+import { buildBreadcrumbJsonLd } from "../utils/breadcrumbJsonLd";
 import { subscribeStockAlert } from "../services/productService";
 import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
@@ -337,6 +338,27 @@ function ProductDetails() {
     }),
   };
 
+  const breadcrumbJsonLd = buildBreadcrumbJsonLd([
+    { name: "Home", path: "/" },
+    ...(product.category
+      ? [
+          {
+            name: product.category.name,
+            path: `/category/${product.category.slug}`,
+          },
+        ]
+      : []),
+    ...(product.subcategory && product.category
+      ? [
+          {
+            name: product.subcategory.name,
+            path: `/category/${product.category.slug}/${product.subcategory.slug}`,
+          },
+        ]
+      : []),
+    { name: product.name },
+  ]);
+
   return (
     <div className="max-w-6xl mx-auto px-4 py-12">
       <Seo
@@ -348,7 +370,7 @@ function ProductDetails() {
         }
         image={imgUrl(product.image)}
         url={shareUrl}
-        jsonLd={productJsonLd}
+        jsonLd={[productJsonLd, breadcrumbJsonLd]}
       />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
         {/* Image gallery with zoom */}

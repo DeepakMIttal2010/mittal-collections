@@ -4,6 +4,7 @@ import { Link, useParams } from "react-router-dom";
 import { getArticleBySlug } from "../services/articleService";
 import { imgUrl } from "../services/api";
 import Seo from "../components/Seo";
+import { buildBreadcrumbJsonLd } from "../utils/breadcrumbJsonLd";
 
 function ArticleDetail() {
   const { slug } = useParams();
@@ -70,6 +71,12 @@ function ArticleDetail() {
     publisher: { "@type": "Organization", name: "Mittal Collections" },
   };
 
+  const breadcrumbJsonLd = buildBreadcrumbJsonLd([
+    { name: "Home", path: "/" },
+    { name: "Guides & Ideas", path: "/articles" },
+    { name: article.title },
+  ]);
+
   return (
     <div className="max-w-3xl mx-auto px-4 py-12">
       <Seo
@@ -77,7 +84,7 @@ function ArticleDetail() {
         description={article.excerpt || article.title}
         image={article.coverImage ? imgUrl(article.coverImage) : undefined}
         url={url}
-        jsonLd={articleJsonLd}
+        jsonLd={[articleJsonLd, breadcrumbJsonLd]}
       />
 
       <Link
