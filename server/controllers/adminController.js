@@ -7,6 +7,7 @@ import Review from "../models/Review.js";
 import Question from "../models/Question.js";
 import SearchLog from "../models/SearchLog.js";
 import CartSnapshot from "../models/CartSnapshot.js";
+import LoyaltyTransaction from "../models/LoyaltyTransaction.js";
 
 // ISO 3166-2:IN state/UT codes, for readable display in the location report
 const INDIAN_STATE_NAMES = {
@@ -304,6 +305,12 @@ export const getReportsData = async (req, res) => {
       topSearchesAgg,
       zeroResultSearchesAgg,
       totalSearches,
+      pointsEarnedAgg,
+      pointsRedeemedAgg,
+      pointsExpiredAgg,
+      referralSignups,
+      referralConversions,
+      referralPointsPaidAgg,
     ] = await Promise.all([
       Order.countDocuments({ createdAt: dateRange }),
 
@@ -516,6 +523,45 @@ export const getReportsData = async (req, res) => {
       ]),
 
       SearchLog.countDocuments({ createdAt: dateRange }),
+
+      LoyaltyTransaction.aggregate([
+        {
+          $match: {
+            type: { $in: ["earned", "referral_bonus"] },
+            createdAt: dateRange,
+          },
+        },
+        { $group: { _id: null, total: { $sum: "$points" } } },
+      ]),
+
+      LoyaltyTransaction.aggregate([
+        { $match: { type: "redeemed", createdAt: dateRange } },
+        { $group: { _id: null, total: { $sum: "$points" } } },
+      ]),
+
+      LoyaltyTransaction.aggregate([
+        { $match: { type: "expired", createdAt: dateRange } },
+        { $group: { _id: null, total: { $sum: "$points" } } },
+      ]),
+
+      // Referral signups: new accounts created in range that were
+      // referred by someone (conversion — i.e. their first order,
+      // which is when the bonus fires — may land in a different range).
+      User.countDocuments({ referredBy: { $ne: null }, createdAt: dateRange }),
+
+      // Referral conversions: referred users whose bonus actually paid
+      // out in this range. "Referral signup bonus" is the description
+      // used only on the referred side, so this can't double-count.
+      LoyaltyTransaction.countDocuments({
+        type: "referral_bonus",
+        description: "Referral signup bonus",
+        createdAt: dateRange,
+      }),
+
+      LoyaltyTransaction.aggregate([
+        { $match: { type: "referral_bonus", createdAt: dateRange } },
+        { $group: { _id: null, total: { $sum: "$points" } } },
+      ]),
     ]);
 
     // Cart abandonment is a current-state snapshot, not a date-range
@@ -606,6 +652,25 @@ export const getReportsData = async (req, res) => {
       count: s.count,
     }));
 
+    const pointsEarned = pointsEarnedAgg[0]?.total || 0;
+    const pointsRedeemed = Math.abs(pointsRedeemedAgg[0]?.total || 0);
+    const pointsExpired = Math.abs(pointsExpiredAgg[0]?.total || 0);
+    const referralPointsPaid = referralPointsPaidAgg[0]?.total || 0;
+
+    const loyalty = {
+      pointsEarned,
+      pointsRedeemed,
+      pointsExpired,
+      // % of points earned in this range that have also been redeemed in
+      // this range — a rough signal, not a precise cohort redemption rate
+      // (points earned now can be redeemed in a later period, and vice
+      // versa).
+      redemptionRate: pointsEarned > 0 ? (pointsRedeemed / pointsEarned) * 100 : null,
+      referralSignups,
+      referralConversions,
+      referralPointsPaid,
+    };
+
     res.status(200).json({
       success: true,
       summary: {
@@ -626,6 +691,7 @@ export const getReportsData = async (req, res) => {
         topSearches,
         zeroResultSearches,
       },
+      loyalty,
       salesOverTime,
       ordersByStatus,
       visitsOverTime,

@@ -13,6 +13,10 @@ import {
   FaArrowDown,
   FaDownload,
   FaExclamationTriangle,
+  FaCoins,
+  FaWallet,
+  FaHourglassEnd,
+  FaGift,
 } from "react-icons/fa";
 
 import { getReportsData } from "../../services/adminService";
@@ -284,6 +288,15 @@ function AdminReports() {
       abandonedValue: 0,
       reminderSentAwaitingRecovery: 0,
     },
+    loyalty: {
+      pointsEarned: 0,
+      pointsRedeemed: 0,
+      pointsExpired: 0,
+      redemptionRate: null,
+      referralSignups: 0,
+      referralConversions: 0,
+      referralPointsPaid: 0,
+    },
     salesOverTime: [],
     ordersByStatus: [],
     topProducts: [],
@@ -373,6 +386,23 @@ function AdminReports() {
         { stage: "Placed an Order", value: report.funnel.ordersPlaced },
       ],
       (s) => ({ Stage: s.stage, Count: s.value }),
+    );
+
+    blocks.push("");
+    blocks.push("Loyalty & Referral Performance");
+    blocks.push(
+      Papa.unparse([
+        {
+          "Points Earned": report.loyalty.pointsEarned,
+          "Points Redeemed": report.loyalty.pointsRedeemed,
+          "Redemption Rate %":
+            report.loyalty.redemptionRate?.toFixed(1) ?? "",
+          "Points Expired": report.loyalty.pointsExpired,
+          "Referral Signups": report.loyalty.referralSignups,
+          "Referral Conversions": report.loyalty.referralConversions,
+          "Referral Points Paid Out": report.loyalty.referralPointsPaid,
+        },
+      ]),
     );
 
     section("Top Search Queries", report.search.topSearches, (s) => ({
@@ -769,6 +799,55 @@ function AdminReports() {
             valueKey="revenue"
             formatValue={formatCurrency}
             emptyText="No category sales yet."
+          />
+        </div>
+      </div>
+
+      <div className="bg-white border border-slate-200 rounded-xl p-5 mb-6">
+        <h3 className="font-semibold text-slate-800 mb-1">
+          Loyalty & Referral Performance — {rangeLabel}
+        </h3>
+        <p className="text-xs text-slate-400 mb-4">
+          Redemption rate compares points earned and redeemed within this
+          range — since points can be earned in one period and redeemed in
+          another, treat it as a rough signal, not an exact cohort rate.
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatTile
+            icon={<FaCoins />}
+            label="Points Earned"
+            value={formatNumber(report.loyalty.pointsEarned)}
+          />
+          <StatTile
+            icon={<FaWallet />}
+            label="Points Redeemed"
+            value={
+              report.loyalty.redemptionRate === null
+                ? formatNumber(report.loyalty.pointsRedeemed)
+                : `${formatNumber(report.loyalty.pointsRedeemed)} (${report.loyalty.redemptionRate.toFixed(0)}%)`
+            }
+          />
+          <StatTile
+            icon={<FaHourglassEnd />}
+            label="Points Expired"
+            value={formatNumber(report.loyalty.pointsExpired)}
+          />
+          <StatTile
+            icon={<FaGift />}
+            label="Referral Bonus Paid"
+            value={formatNumber(report.loyalty.referralPointsPaid)}
+          />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+          <StatTile
+            icon={<FaUserPlus />}
+            label={`Referral Signups — ${rangeLabel}`}
+            value={formatNumber(report.loyalty.referralSignups)}
+          />
+          <StatTile
+            icon={<FaUserCheck />}
+            label={`Referral Conversions — ${rangeLabel}`}
+            value={formatNumber(report.loyalty.referralConversions)}
           />
         </div>
       </div>
