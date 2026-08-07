@@ -23,9 +23,13 @@ import {
   FaChevronLeft,
   FaChevronRight,
   FaPlay,
-  FaCheckCircle,
   FaEye,
   FaGift,
+  FaMoneyBillWave,
+  FaUndoAlt,
+  FaLock,
+  FaMedal,
+  FaBan,
 } from "react-icons/fa";
 import {
   FaFacebookF,
@@ -74,6 +78,7 @@ function ProductDetails() {
   const [earnRate, setEarnRate] = useState(null);
   const [faqItems, setFaqItems] = useState([]);
   const [whatsappPhone, setWhatsappPhone] = useState("");
+  const [defaultReturnPeriodDays, setDefaultReturnPeriodDays] = useState(7);
 
   const relatedScrollRef = useRef(null);
 
@@ -99,8 +104,11 @@ function ProductDetails() {
 
   useEffect(() => {
     getSiteSettings().then((response) => {
-      if (response.success && response.settings.phone) {
-        setWhatsappPhone(response.settings.phone);
+      if (!response.success) return;
+
+      if (response.settings.phone) setWhatsappPhone(response.settings.phone);
+      if (response.settings.defaultReturnPeriodDays) {
+        setDefaultReturnPeriodDays(response.settings.defaultReturnPeriodDays);
       }
     });
   }, []);
@@ -388,6 +396,9 @@ function ProductDetails() {
     { label: "Brand", value: product.brand },
     { label: "Country of Origin", value: product.countryOfOrigin },
   ].filter((row) => row.value);
+
+  const effectiveReturnDays =
+    product.returnPeriodDays || defaultReturnPeriodDays;
 
   const faqJsonLd = faqItems.length > 0 && {
     "@context": "https://schema.org",
@@ -718,20 +729,36 @@ function ProductDetails() {
               </a>
             ))}
 
-          <div className="grid grid-cols-2 gap-x-3 gap-y-2 mt-6 pt-6 border-t border-slate-200">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6 pt-6 border-t border-slate-200">
             {[
-              "100% Genuine Product",
-              "Secure Payment",
-              "Fast Delivery",
-              "Easy Return",
-              "Cash on Delivery Available",
-            ].map((label) => (
+              {
+                icon: <FaMoneyBillWave />,
+                label: "Pay on Delivery",
+              },
+              product.isReturnable
+                ? {
+                    icon: <FaUndoAlt />,
+                    label: `${effectiveReturnDays} days Return`,
+                  }
+                : {
+                    icon: <FaBan />,
+                    label: "Non-returnable",
+                  },
+              {
+                icon: <FaLock />,
+                label: "Secure Payment",
+              },
+              {
+                icon: <FaMedal />,
+                label: "100% Genuine",
+              },
+            ].map((item) => (
               <div
-                key={label}
-                className="flex items-center gap-2 text-sm text-slate-600"
+                key={item.label}
+                className="flex flex-col items-center text-center gap-1.5"
               >
-                <FaCheckCircle className="text-green-600 shrink-0" />
-                <span>{label}</span>
+                <span className="text-lg text-slate-500">{item.icon}</span>
+                <span className="text-xs text-slate-600">{item.label}</span>
               </div>
             ))}
           </div>
