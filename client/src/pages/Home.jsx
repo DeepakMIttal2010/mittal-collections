@@ -12,6 +12,7 @@ import WhyChooseUs from "../components/WhyChooseUs/WhyChooseUs";
 import Testimonials from "../components/Testimonials/Testimonials";
 import Newsletter from "../components/Newsletter/Newsletter";
 import NewArrivals from "../components/NewArrivals/NewArrivals";
+import Faq from "../components/Faq/Faq";
 import { getSiteSettings } from "../services/settingsService";
 
 function Home() {
@@ -64,11 +65,12 @@ function Home() {
       <RecentlyViewed />
       <Categories />
       <TrendingSection />
+      <WhyChooseUs />
       <SizeShowcase />
       <PriceShowcase />
       <NewArrivals />
-      <WhyChooseUs />
       <Testimonials />
+      <Faq />
       <Newsletter />
     </>
   );
