@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import { FaPlus, FaTicketAlt } from "react-icons/fa";
 
@@ -17,16 +17,20 @@ const STATUS_COLORS = {
 function Tickets() {
   const { isLoggedIn } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const preselectedOrder = searchParams.get("order") || "";
 
   const [tickets, setTickets] = useState([]);
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
+  const [showForm, setShowForm] = useState(Boolean(preselectedOrder));
   const [submitting, setSubmitting] = useState(false);
 
-  const [subject, setSubject] = useState("");
+  const [subject, setSubject] = useState(
+    preselectedOrder ? "Issue with my order" : "",
+  );
   const [message, setMessage] = useState("");
-  const [orderId, setOrderId] = useState("");
+  const [orderId, setOrderId] = useState(preselectedOrder);
 
   const loadTickets = async () => {
     const response = await getMyTickets();

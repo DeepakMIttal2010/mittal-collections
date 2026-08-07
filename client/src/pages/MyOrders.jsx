@@ -10,52 +10,180 @@ const TABS = [
   { key: "buyAgain", label: "Buy Again" },
 ];
 
-const STATUS_COLORS = {
-  Pending: "bg-slate-100 text-slate-700",
-  Processing: "bg-blue-100 text-blue-700",
-  Shipped: "bg-amber-100 text-amber-700",
-  Delivered: "bg-green-100 text-green-700",
-  Cancelled: "bg-red-100 text-red-700",
+const STATUS_TEXT = {
+  Pending: {
+    headline: "Order Placed",
+    subtext: "We've received your order and will process it shortly.",
+  },
+  Processing: {
+    headline: "Processing",
+    subtext: "Your order is being packed.",
+  },
+  Shipped: {
+    headline: "Shipped",
+    subtext: "Your order is on its way.",
+  },
+  Delivered: {
+    headline: "Delivered",
+    subtext: "Your package has been delivered.",
+  },
+  Cancelled: {
+    headline: "Order Cancelled",
+    subtext: "This order was cancelled.",
+  },
 };
 
-function OrderCard({ order }) {
+const STATUS_DOT = {
+  Pending: "text-slate-500",
+  Processing: "text-blue-600",
+  Shipped: "text-amber-600",
+  Delivered: "text-green-600",
+  Cancelled: "text-red-600",
+};
+
+function OrderCard({ order, onBuyAgain }) {
+  const navigate = useNavigate();
+  const statusInfo = STATUS_TEXT[order.orderStatus] || STATUS_TEXT.Pending;
+  const isDelivered = order.orderStatus === "Delivered";
+  const isCancelled = order.orderStatus === "Cancelled";
+  const deliveredDate = order.deliveredAt
+    ? new Date(order.deliveredAt).toLocaleDateString("en-IN", {
+        day: "numeric",
+        month: "long",
+      })
+    : null;
+
+  const handleGetSupport = (e) => {
+    e.preventDefault();
+    navigate(`/tickets?order=${order._id}`);
+  };
+
   return (
-    <Link
-      to={`/my-orders/${order._id}`}
-      className="block border border-slate-200 rounded-xl p-5 bg-white hover:border-amber-400 hover:shadow-sm transition-all"
-    >
-      <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-        <h4 className="font-semibold text-slate-800">
-          Order ID: {order._id}
-        </h4>
-        <span
-          className={`text-xs font-medium px-3 py-1 rounded-full ${
-            STATUS_COLORS[order.orderStatus] || "bg-slate-100 text-slate-700"
-          }`}
-        >
-          {order.orderStatus}
-        </span>
+    <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">
+      {/* Header bar */}
+      <div className="bg-slate-50 border-b border-slate-200 px-5 py-3 flex flex-wrap items-center justify-between gap-3 text-xs">
+        <div className="flex flex-wrap gap-x-8 gap-y-1">
+          <div>
+            <p className="text-slate-500 uppercase tracking-wide">
+              Order Placed
+            </p>
+            <p className="font-medium text-slate-800">
+              {new Date(order.createdAt).toLocaleDateString("en-IN", {
+                day: "numeric",
+                month: "long",
+                year: "numeric",
+              })}
+            </p>
+          </div>
+          <div>
+            <p className="text-slate-500 uppercase tracking-wide">Total</p>
+            <p className="font-medium text-slate-800">
+              ₹{order.totalPrice.toLocaleString("en-IN")}
+            </p>
+          </div>
+          <div>
+            <p className="text-slate-500 uppercase tracking-wide">Ship To</p>
+            <p className="font-medium text-slate-800">
+              {order.shippingAddress?.fullName || "—"}
+            </p>
+          </div>
+        </div>
+
+        <div className="text-right">
+          <p className="text-slate-500">
+            ORDER # {order._id.slice(-12).toUpperCase()}
+          </p>
+          <Link
+            to={`/my-orders/${order._id}`}
+            className="text-blue-700 hover:underline font-medium"
+          >
+            View order details
+          </Link>
+        </div>
       </div>
 
-      <p className="text-sm text-slate-600">Total: ₹{order.totalPrice}</p>
-      <p className="text-sm text-slate-600">
-        Date: {new Date(order.createdAt).toLocaleDateString()}
-      </p>
+      {/* Body */}
+      <div className="p-5 flex flex-col md:flex-row gap-5 md:items-start">
+        <div className="flex-1 min-w-0">
+          <p
+            className={`font-bold ${isCancelled ? "text-red-700" : "text-slate-900"}`}
+          >
+            {statusInfo.headline}
+            {isDelivered && deliveredDate ? ` ${deliveredDate}` : ""}
+          </p>
+          <p className="text-sm text-slate-500 mb-4">{statusInfo.subtext}</p>
 
-      {order.orderItems?.length > 0 && (
-        <ul className="mt-3 text-sm text-slate-500 space-y-1">
-          {order.orderItems.map((item, i) => (
-            <li key={i}>
-              {item.name} × {item.quantity}
-            </li>
-          ))}
-        </ul>
-      )}
+          <div className="space-y-3">
+            {order.orderItems?.map((item, i) => (
+              <div key={i} className="flex items-center gap-3">
+                {item.image && (
+                  <img
+                    src={imgUrl(item.image)}
+                    alt={item.name}
+                    className="w-14 h-14 object-cover rounded-lg shrink-0 border border-slate-100"
+                  />
+                )}
+                <div className="min-w-0">
+                  <p className="text-sm text-slate-800 line-clamp-2">
+                    {item.name}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    Qty {item.quantity} · ₹{item.price}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
 
-      <span className="inline-block mt-3 text-sm text-blue-700 font-medium">
-        View order details →
-      </span>
-    </Link>
+        {/* Actions */}
+        <div className="flex flex-col gap-2 w-full md:w-56 shrink-0">
+          {isDelivered && (
+            <button
+              type="button"
+              onClick={handleGetSupport}
+              className="bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold rounded-full py-2.5 transition-colors"
+            >
+              Get Product Support
+            </button>
+          )}
+
+          {!isDelivered && !isCancelled && (
+            <Link
+              to={`/my-orders/${order._id}`}
+              className="text-center bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold rounded-full py-2.5 transition-colors"
+            >
+              Track Order
+            </Link>
+          )}
+
+          <Link
+            to={`/my-orders/${order._id}`}
+            className="text-center border border-slate-300 hover:bg-slate-50 text-slate-700 text-sm font-medium rounded-full py-2.5 transition-colors"
+          >
+            View Order Details
+          </Link>
+
+          {(isDelivered || isCancelled) && (
+            <button
+              type="button"
+              onClick={() => onBuyAgain(order.orderItems)}
+              className="border border-slate-300 hover:bg-slate-50 text-slate-700 text-sm font-medium rounded-full py-2.5 transition-colors"
+            >
+              Buy It Again
+            </button>
+          )}
+
+          {!isCancelled && (
+            <span
+              className={`text-xs font-medium text-center ${STATUS_DOT[order.orderStatus]}`}
+            >
+              ● {order.orderStatus}
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -100,6 +228,17 @@ function MyOrders() {
     return Array.from(seen.values());
   }, [orders]);
 
+  const handleBuyAgain = (items) => {
+    items?.forEach((item) =>
+      addToCart({
+        _id: item.product,
+        name: item.name,
+        image: item.image,
+        price: item.price,
+      }),
+    );
+  };
+
   const tabClass = (key) =>
     `pb-3 text-sm font-medium border-b-2 transition-colors ${
       activeTab === key
@@ -142,7 +281,11 @@ function MyOrders() {
             ) : (
               <div className="space-y-4">
                 {orders.map((order) => (
-                  <OrderCard key={order._id} order={order} />
+                  <OrderCard
+                    key={order._id}
+                    order={order}
+                    onBuyAgain={handleBuyAgain}
+                  />
                 ))}
               </div>
             ))}
