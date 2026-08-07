@@ -6,6 +6,7 @@ import PageVisit from "../models/PageVisit.js";
 import Review from "../models/Review.js";
 import Question from "../models/Question.js";
 import SearchLog from "../models/SearchLog.js";
+import CartSnapshot from "../models/CartSnapshot.js";
 
 // ISO 3166-2:IN state/UT codes, for readable display in the location report
 const INDIAN_STATE_NAMES = {
@@ -517,6 +518,35 @@ export const getReportsData = async (req, res) => {
       SearchLog.countDocuments({ createdAt: dateRange }),
     ]);
 
+    // Cart abandonment is a current-state snapshot, not a date-range
+    // metric — a CartSnapshot row is deleted the moment its cart turns
+    // into an order, so there's no historical trail to scope by date.
+    // "Abandoned" matches the same 3-hour cutoff the reminder job uses.
+    const ABANDON_CUTOFF_HOURS = 3;
+    const abandonCutoff = new Date(
+      Date.now() - ABANDON_CUTOFF_HOURS * 60 * 60 * 1000,
+    );
+
+    const abandonedCarts = await CartSnapshot.find({
+      updatedAt: { $lte: abandonCutoff },
+    });
+
+    const cartAbandonment = {
+      abandonedCount: abandonedCarts.length,
+      abandonedValue: abandonedCarts.reduce(
+        (sum, cart) =>
+          sum +
+          cart.items.reduce(
+            (itemSum, item) => itemSum + item.price * item.quantity,
+            0,
+          ),
+        0,
+      ),
+      reminderSentAwaitingRecovery: abandonedCarts.filter(
+        (cart) => cart.reminderSentAt,
+      ).length,
+    };
+
     const totalRevenue = revenueAgg[0]?.total || 0;
     const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
 
@@ -590,6 +620,7 @@ export const getReportsData = async (req, res) => {
       },
       growth,
       funnel,
+      cartAbandonment,
       search: {
         totalSearches,
         topSearches,

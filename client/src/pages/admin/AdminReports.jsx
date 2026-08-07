@@ -12,6 +12,7 @@ import {
   FaArrowUp,
   FaArrowDown,
   FaDownload,
+  FaExclamationTriangle,
 } from "react-icons/fa";
 
 import { getReportsData } from "../../services/adminService";
@@ -278,6 +279,11 @@ function AdminReports() {
       ordersPlaced: 0,
     },
     search: { totalSearches: 0, topSearches: [], zeroResultSearches: [] },
+    cartAbandonment: {
+      abandonedCount: 0,
+      abandonedValue: 0,
+      reminderSentAwaitingRecovery: 0,
+    },
     salesOverTime: [],
     ordersByStatus: [],
     topProducts: [],
@@ -344,6 +350,8 @@ function AdminReports() {
           "Returning Visitors": summary.returningVisitors,
           "Revenue Growth %": report.growth?.revenue?.toFixed(1) ?? "",
           "Orders Growth %": report.growth?.orders?.toFixed(1) ?? "",
+          "Currently Abandoned Carts": report.cartAbandonment.abandonedCount,
+          "Abandoned Cart Value": report.cartAbandonment.abandonedValue,
         },
       ]),
     );
@@ -570,6 +578,44 @@ function AdminReports() {
           label={`Returning Visitors — ${rangeLabel}`}
           value={formatNumber(summary.returningVisitors)}
         />
+      </div>
+
+      <div className="bg-white border border-amber-200 bg-amber-50/40 rounded-xl p-5 mb-6">
+        <h3 className="font-semibold text-slate-800 mb-1 flex items-center gap-2">
+          <FaExclamationTriangle className="text-amber-500" />
+          Cart Abandonment — right now
+        </h3>
+        <p className="text-xs text-slate-400 mb-4">
+          A live snapshot, not scoped to the date range above — an
+          abandoned cart is cleared the moment it turns into an order, so
+          there's no historical trail to filter by date.
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div>
+            <p className="text-2xl font-bold text-slate-800">
+              {formatNumber(report.cartAbandonment.abandonedCount)}
+            </p>
+            <p className="text-sm text-slate-500">
+              Carts abandoned (3+ hrs inactive)
+            </p>
+          </div>
+          <div>
+            <p className="text-2xl font-bold text-slate-800">
+              {formatCurrency(report.cartAbandonment.abandonedValue)}
+            </p>
+            <p className="text-sm text-slate-500">Total value at stake</p>
+          </div>
+          <div>
+            <p className="text-2xl font-bold text-slate-800">
+              {formatNumber(
+                report.cartAbandonment.reminderSentAwaitingRecovery,
+              )}
+            </p>
+            <p className="text-sm text-slate-500">
+              Reminder sent, not yet recovered
+            </p>
+          </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
