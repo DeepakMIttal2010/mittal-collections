@@ -13,6 +13,7 @@ import { useWishlist } from "../../context/WishlistContext";
 import { useAuth } from "../../context/AuthContext";
 import { getSearchSuggestions } from "../../services/productService";
 import { getMyLocation } from "../../services/analyticsService";
+import { getAddresses } from "../../services/addressService";
 import { imgUrl } from "../../services/api";
 import { productUrl } from "../../utils/productUrl";
 
@@ -27,11 +28,33 @@ function Header() {
   const [accountOpen, setAccountOpen] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const [deliveryLocation, setDeliveryLocation] = useState("");
+  const [deliverName, setDeliverName] = useState("");
+  const [deliverPlace, setDeliverPlace] = useState("");
   const recognitionRef = useRef(null);
 
+  // Prefer the customer's own saved (default) address — real name, city
+  // and pincode. Only fall back to an IP-based city guess when logged
+  // out or when they haven't saved an address yet.
   useEffect(() => {
-    getMyLocation().then((response) => {
+    const loadDeliverTo = async () => {
+      if (isLoggedIn) {
+        const response = await getAddresses();
+
+        if (response.success && response.addresses.length > 0) {
+          const address =
+            response.addresses.find((a) => a.isDefault) ||
+            response.addresses[0];
+
+          setDeliverName(user?.name || "");
+          setDeliverPlace(
+            [address.city, address.pincode].filter(Boolean).join(" "),
+          );
+          return;
+        }
+      }
+
+      const response = await getMyLocation();
+
       if (!response.success || !response.location) return;
 
       // City-level geo data isn't available for every IP on the free
@@ -39,11 +62,14 @@ function Header() {
       // showing nothing.
       const { city, region, country } = response.location;
 
-      if (city) setDeliveryLocation(city);
-      else if (region) setDeliveryLocation(region);
-      else if (country === "IN") setDeliveryLocation("India");
-    });
-  }, []);
+      setDeliverName("Guest");
+      if (city) setDeliverPlace(city);
+      else if (region) setDeliverPlace(region);
+      else if (country === "IN") setDeliverPlace("India");
+    };
+
+    loadDeliverTo();
+  }, [isLoggedIn, user]);
 
   const goToSearch = useCallback(
     (value) => {
@@ -131,14 +157,22 @@ function Header() {
           </h2>
         </Link>
 
-        {/* Delivery location (IP-based, approximate) */}
-        {deliveryLocation && (
-          <div className="hidden lg:flex items-center gap-1.5 text-sm text-slate-600 shrink-0">
-            <FaMapMarkerAlt className="text-amber-600" />
+        {/* Delivery location — saved address if logged in, else an IP-based guess */}
+        {deliverPlace && (
+          <Link
+            to={isLoggedIn ? "/addresses" : "/login"}
+            className="hidden lg:flex items-start gap-1.5 shrink-0 leading-tight"
+          >
+            <FaMapMarkerAlt className="text-amber-600 mt-1 text-base shrink-0" />
             <span>
-              Delivering to <span className="font-semibold text-slate-800">{deliveryLocation}</span>
+              <span className="block text-xs text-slate-500">
+                Deliver to {deliverName}
+              </span>
+              <span className="block text-sm font-bold text-slate-900">
+                {deliverPlace}
+              </span>
             </span>
-          </div>
+          </Link>
         )}
 
         {/* Search */}
