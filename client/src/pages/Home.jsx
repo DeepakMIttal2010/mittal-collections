@@ -11,7 +11,7 @@ import PriceShowcase from "../components/PriceShowcase/PriceShowcase";
 import WhyChooseUs from "../components/WhyChooseUs/WhyChooseUs";
 import Testimonials from "../components/Testimonials/Testimonials";
 import Newsletter from "../components/Newsletter/Newsletter";
-import ProductSection from "../components/ProductSection/ProductSection";
+import NewArrivals from "../components/NewArrivals/NewArrivals";
 import { getSiteSettings } from "../services/settingsService";
 
 function Home() {
@@ -66,7 +66,7 @@ function Home() {
       <TrendingSection />
       <SizeShowcase />
       <PriceShowcase />
-      <ProductSection />
+      <NewArrivals />
       <WhyChooseUs />
       <Testimonials />
       <Newsletter />
