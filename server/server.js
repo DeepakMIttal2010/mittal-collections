@@ -2,6 +2,9 @@ import "dotenv/config";
 
 import express from "express";
 import cors from "cors";
+import helmet from "helmet";
+import compression from "compression";
+import rateLimit from "express-rate-limit";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -44,10 +47,55 @@ app.set("trust proxy", true);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Only the real storefront (and local dev) may call this API from a
+// browser. Server-to-server calls (cron-job.org, etc.) aren't affected —
+// CORS only governs browser-initiated cross-origin requests.
+const ALLOWED_ORIGINS = [
+  "https://www.mittalcollections.com",
+  "https://mittalcollections.com",
+  "http://localhost:5173",
+  "http://localhost:3000",
+];
+
 // Middlewares
-app.use(cors());
+app.use(
+  helmet({
+    // This is a pure JSON API with no HTML pages of its own, so a CSP
+    // header here is inert noise. crossOriginResourcePolicy must allow
+    // cross-origin loading since the client (www.mittalcollections.com)
+    // fetches images from this server's /uploads folder.
+    contentSecurityPolicy: false,
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+  }),
+);
+app.use(compression());
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (!origin || ALLOWED_ORIGINS.includes(origin)) {
+        return callback(null, true);
+      }
+
+      callback(new Error("Not allowed by CORS"));
+    },
+  }),
+);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Rate limit auth endpoints — 20 attempts per 15 minutes per IP, to
+// slow down password brute-forcing without blocking normal use.
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: "Too many attempts. Please try again later.",
+  },
+});
+app.use("/api/auth", authLimiter);
 
 // Static Upload Folder
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));

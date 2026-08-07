@@ -143,6 +143,13 @@ const orderSchema = new mongoose.Schema(
   },
 );
 
+// "My Orders" (user + newest-first) and the best-sellers aggregation
+// (orderStatus filter, then group by orderItems.product) are the two
+// hottest query patterns on this collection.
+orderSchema.index({ user: 1, createdAt: -1 });
+orderSchema.index({ orderStatus: 1 });
+orderSchema.index({ "orderItems.product": 1 });
+
 const Order = mongoose.model("Order", orderSchema);
 
 export default Order;

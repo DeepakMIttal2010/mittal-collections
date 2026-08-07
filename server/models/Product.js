@@ -106,6 +106,12 @@ const productSchema = new mongoose.Schema(
   },
 );
 
+// Matches the common getProducts filter (category + subcategory,
+// always scoped to isActive) and the default newest-first sort.
+productSchema.index({ isActive: 1, category: 1 });
+productSchema.index({ isActive: 1, subcategory: 1 });
+productSchema.index({ isActive: 1, createdAt: -1 });
+
 const Product = mongoose.model("Product", productSchema);
 
 export default Product;
