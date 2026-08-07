@@ -1,6 +1,7 @@
 import Product from "../models/Product.js";
 import Order from "../models/Order.js";
 import StockAlert from "../models/StockAlert.js";
+import SearchLog from "../models/SearchLog.js";
 import { rankProducts } from "../utils/fuzzySearch.js";
 import { sendEmail } from "../config/mailer.js";
 
@@ -123,6 +124,12 @@ export const getProducts = async (req, res) => {
     const hasSearch = search && search.trim();
     if (hasSearch) {
       products = rankProducts(search.trim(), products);
+
+      // Fire-and-forget — never let logging slow down or break a search.
+      SearchLog.create({
+        query: search.trim(),
+        resultCount: products.length,
+      }).catch((error) => console.error("Search Log Error:", error));
     }
 
     if (sortBy === "price_asc") {

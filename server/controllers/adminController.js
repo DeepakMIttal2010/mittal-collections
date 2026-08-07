@@ -5,6 +5,7 @@ import ContactMessage from "../models/ContactMessage.js";
 import PageVisit from "../models/PageVisit.js";
 import Review from "../models/Review.js";
 import Question from "../models/Question.js";
+import SearchLog from "../models/SearchLog.js";
 
 // ISO 3166-2:IN state/UT codes, for readable display in the location report
 const INDIAN_STATE_NAMES = {
@@ -299,6 +300,9 @@ export const getReportsData = async (req, res) => {
       productViewersAgg,
       cartViewersAgg,
       checkoutViewersAgg,
+      topSearchesAgg,
+      zeroResultSearchesAgg,
+      totalSearches,
     ] = await Promise.all([
       Order.countDocuments({ createdAt: dateRange }),
 
@@ -489,6 +493,28 @@ export const getReportsData = async (req, res) => {
         { $group: { _id: "$visitorId" } },
         { $count: "count" },
       ]),
+
+      SearchLog.aggregate([
+        { $match: { createdAt: dateRange } },
+        {
+          $group: {
+            _id: "$query",
+            count: { $sum: 1 },
+            avgResults: { $avg: "$resultCount" },
+          },
+        },
+        { $sort: { count: -1 } },
+        { $limit: 10 },
+      ]),
+
+      SearchLog.aggregate([
+        { $match: { createdAt: dateRange, resultCount: 0 } },
+        { $group: { _id: "$query", count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+        { $limit: 10 },
+      ]),
+
+      SearchLog.countDocuments({ createdAt: dateRange }),
     ]);
 
     const totalRevenue = revenueAgg[0]?.total || 0;
@@ -539,6 +565,17 @@ export const getReportsData = async (req, res) => {
       ordersPlaced: totalOrders,
     };
 
+    const topSearches = topSearchesAgg.map((s) => ({
+      query: s._id,
+      count: s.count,
+      avgResults: Math.round(s.avgResults * 10) / 10,
+    }));
+
+    const zeroResultSearches = zeroResultSearchesAgg.map((s) => ({
+      query: s._id,
+      count: s.count,
+    }));
+
     res.status(200).json({
       success: true,
       summary: {
@@ -553,6 +590,11 @@ export const getReportsData = async (req, res) => {
       },
       growth,
       funnel,
+      search: {
+        totalSearches,
+        topSearches,
+        zeroResultSearches,
+      },
       salesOverTime,
       ordersByStatus,
       visitsOverTime,

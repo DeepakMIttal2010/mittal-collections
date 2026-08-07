@@ -277,6 +277,7 @@ function AdminReports() {
       checkoutViewers: 0,
       ordersPlaced: 0,
     },
+    search: { totalSearches: 0, topSearches: [], zeroResultSearches: [] },
     salesOverTime: [],
     ordersByStatus: [],
     topProducts: [],
@@ -364,6 +365,17 @@ function AdminReports() {
         { stage: "Placed an Order", value: report.funnel.ordersPlaced },
       ],
       (s) => ({ Stage: s.stage, Count: s.value }),
+    );
+
+    section("Top Search Queries", report.search.topSearches, (s) => ({
+      Query: s.query,
+      Searches: s.count,
+      "Avg Results": s.avgResults,
+    }));
+    section(
+      "Zero-Result Searches",
+      report.search.zeroResultSearches,
+      (s) => ({ Query: s.query, Searches: s.count }),
     );
 
     section("Sales Over Time", report.salesOverTime, (d) => ({
@@ -591,6 +603,65 @@ function AdminReports() {
           Conversion Funnel — {rangeLabel}
         </h3>
         <ConversionFunnel funnel={report.funnel} />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <div className="bg-white border border-slate-200 rounded-xl p-5">
+          <h3 className="font-semibold text-slate-800 mb-1">
+            Top Search Queries — {rangeLabel}
+          </h3>
+          <p className="text-xs text-slate-400 mb-4">
+            {formatNumber(report.search.totalSearches)} total searches
+          </p>
+          {report.search.topSearches.length === 0 ? (
+            <p className="text-sm text-slate-400 py-8 text-center">
+              No searches recorded in this range yet.
+            </p>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {report.search.topSearches.map((s) => (
+                <div
+                  key={s.query}
+                  className="flex items-center justify-between text-sm border-b border-slate-50 pb-2"
+                >
+                  <span className="font-medium text-slate-700">
+                    {s.query}
+                  </span>
+                  <span className="text-slate-500">
+                    {s.count} searches · {s.avgResults} avg results
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="bg-white border border-slate-200 rounded-xl p-5">
+          <h3 className="font-semibold text-slate-800 mb-1">
+            Zero-Result Searches — {rangeLabel}
+          </h3>
+          <p className="text-xs text-slate-400 mb-4">
+            Searches where customers found nothing — potential missing
+            products or search gaps.
+          </p>
+          {report.search.zeroResultSearches.length === 0 ? (
+            <p className="text-sm text-slate-400 py-8 text-center">
+              No zero-result searches in this range. 🎉
+            </p>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {report.search.zeroResultSearches.map((s) => (
+                <div
+                  key={s.query}
+                  className="flex items-center justify-between text-sm border-b border-slate-50 pb-2"
+                >
+                  <span className="font-medium text-red-700">{s.query}</span>
+                  <span className="text-slate-500">{s.count}×</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
