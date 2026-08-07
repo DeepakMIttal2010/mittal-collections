@@ -1,11 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { FaUser, FaHeart, FaShoppingCart, FaMicrophone } from "react-icons/fa";
+import {
+  FaUser,
+  FaHeart,
+  FaShoppingCart,
+  FaMicrophone,
+  FaMapMarkerAlt,
+} from "react-icons/fa";
 
 import { useCart } from "../../context/CartContext";
 import { useWishlist } from "../../context/WishlistContext";
 import { useAuth } from "../../context/AuthContext";
 import { getSearchSuggestions } from "../../services/productService";
+import { getMyLocation } from "../../services/analyticsService";
 import { imgUrl } from "../../services/api";
 import { productUrl } from "../../utils/productUrl";
 
@@ -20,7 +27,16 @@ function Header() {
   const [accountOpen, setAccountOpen] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [deliveryCity, setDeliveryCity] = useState("");
   const recognitionRef = useRef(null);
+
+  useEffect(() => {
+    getMyLocation().then((response) => {
+      if (response.success && response.location?.city) {
+        setDeliveryCity(response.location.city);
+      }
+    });
+  }, []);
 
   const goToSearch = useCallback(
     (value) => {
@@ -107,6 +123,16 @@ function Header() {
             MITTAL <span className="text-amber-600">COLLECTIONS</span>
           </h2>
         </Link>
+
+        {/* Delivery location (IP-based, approximate) */}
+        {deliveryCity && (
+          <div className="hidden lg:flex items-center gap-1.5 text-sm text-slate-600 shrink-0">
+            <FaMapMarkerAlt className="text-amber-600" />
+            <span>
+              Delivering to <span className="font-semibold text-slate-800">{deliveryCity}</span>
+            </span>
+          </div>
+        )}
 
         {/* Search */}
         <form

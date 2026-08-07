@@ -50,6 +50,27 @@ export const getProductViewCount = async (req, res) => {
 };
 
 // ============================
+// Get My Location — IP-based approximate city (Public)
+// ============================
+export const getMyLocation = async (req, res) => {
+  try {
+    const { country, region, city } = getLocation(req.ip);
+
+    res.json({
+      success: true,
+      location: { country, region, city },
+    });
+  } catch (error) {
+    console.error("Get My Location Error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};
+
+// ============================
 // Record Page Visit (Public)
 // ============================
 export const recordVisit = async (req, res) => {

@@ -12,6 +12,25 @@ export const recordVisit = async (path, visitorId) => {
   }
 };
 
+export const getMyLocation = async () => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/analytics/my-location`);
+    const data = await response.json();
+
+    return {
+      success: data.success,
+      location: data.location || null,
+    };
+  } catch (error) {
+    console.error("Get My Location Error:", error);
+
+    return {
+      success: false,
+      location: null,
+    };
+  }
+};
+
 export const getProductViewCount = async (productId) => {
   try {
     const response = await fetch(
