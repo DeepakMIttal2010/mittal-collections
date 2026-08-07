@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import Papa from "papaparse";
 import {
   FaRupeeSign,
   FaShoppingCart,
@@ -10,6 +11,7 @@ import {
   FaUserCheck,
   FaArrowUp,
   FaArrowDown,
+  FaDownload,
 } from "react-icons/fa";
 
 import { getReportsData } from "../../services/adminService";
@@ -250,6 +252,89 @@ function AdminReports() {
     setShowCustomPicker(false);
   };
 
+  const exportCSV = () => {
+    const { summary } = report;
+    const blocks = [];
+
+    blocks.push(`Mittal Collections Report — ${rangeLabel}`);
+    blocks.push("");
+
+    blocks.push("Summary");
+    blocks.push(
+      Papa.unparse([
+        {
+          "Total Revenue": summary.totalRevenue,
+          "Total Orders": summary.totalOrders,
+          "Avg Order Value": summary.avgOrderValue.toFixed(2),
+          "Total Customers (all-time)": summary.totalCustomers,
+          "Website Visits": summary.totalVisits,
+          "Unique Visitors": summary.uniqueVisitors,
+          "New Visitors": summary.newVisitors,
+          "Returning Visitors": summary.returningVisitors,
+          "Revenue Growth %": report.growth?.revenue?.toFixed(1) ?? "",
+          "Orders Growth %": report.growth?.orders?.toFixed(1) ?? "",
+        },
+      ]),
+    );
+
+    const section = (title, rows, mapRow) => {
+      if (!rows || rows.length === 0) return;
+      blocks.push("");
+      blocks.push(title);
+      blocks.push(Papa.unparse(rows.map(mapRow)));
+    };
+
+    section("Sales Over Time", report.salesOverTime, (d) => ({
+      Date: d._id,
+      Revenue: d.revenue,
+      Orders: d.orders,
+    }));
+    section("Top Selling Products", report.topProducts, (p) => ({
+      Product: p.name,
+      "Units Sold": p.unitsSold,
+      Revenue: p.revenue,
+    }));
+    section("Revenue by Category", report.revenueByCategory, (c) => ({
+      Category: c.name,
+      Revenue: c.revenue,
+    }));
+    section("Orders by Status", report.ordersByStatus, (s) => ({
+      Status: s._id,
+      Count: s.count,
+    }));
+    section("Most Visited Pages", report.topPages, (p) => ({
+      Page: p._id,
+      Visits: p.visits,
+    }));
+    section("Visits by Device", report.deviceBreakdown, (d) => ({
+      Device: d._id,
+      Visits: d.count,
+    }));
+    section("Visitor Locations", report.locationBreakdown, (l) => ({
+      City: l.city,
+      State: l.region,
+      Country: l.country,
+      Visits: l.visits,
+      "Unique Visitors": l.uniqueVisitors,
+    }));
+
+    const blob = new Blob([blocks.join("\n")], {
+      type: "text/csv;charset=utf-8;",
+    });
+    const url = URL.createObjectURL(blob);
+    const rangeSlug = customRange
+      ? `${customRange.startDate}_to_${customRange.endDate}`
+      : `last-${days}-days`;
+
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `mittal-collections-report-${rangeSlug}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   if (loading) {
     return (
       <div className="p-8 text-center text-slate-500">Loading Reports...</div>
@@ -333,6 +418,15 @@ function AdminReports() {
               </button>
             </div>
           )}
+
+          <button
+            type="button"
+            onClick={exportCSV}
+            className="flex items-center gap-1.5 bg-white border border-slate-300 text-slate-600 hover:bg-slate-100 text-sm font-medium px-3 py-1.5 rounded-lg transition-colors"
+          >
+            <FaDownload className="text-xs" />
+            Export CSV
+          </button>
         </div>
       </div>
 
