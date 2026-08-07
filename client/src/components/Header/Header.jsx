@@ -99,7 +99,7 @@ function Header() {
   };
 
   return (
-    <header className="bg-white border-b border-slate-100">
+    <header className="sticky top-0 z-40 bg-white border-b border-slate-100">
       <div className="max-w-7xl mx-auto px-4 py-4 flex items-center gap-8">
         {/* Logo */}
         <Link to="/" className="shrink-0">
