@@ -80,6 +80,9 @@ function Hero() {
   const backgroundImage = slide.image
     ? `${imgUrl(slide.image)}`
     : heroBanner;
+  const imageAlt = slide.title
+    ? slide.title.replace(/\n/g, " ")
+    : "Mittal Collections home furnishing";
 
   const goPrev = () =>
     setActiveIndex((prev) => (prev - 1 + slides.length) % slides.length);
@@ -87,7 +90,8 @@ function Hero() {
   const goNext = () => setActiveIndex((prev) => (prev + 1) % slides.length);
 
   return (
-    <section className="hero" style={{ backgroundImage: `url(${backgroundImage})` }}>
+    <section className="hero">
+      <img src={backgroundImage} alt={imageAlt} className="hero-bg-image" />
       <div className="hero-overlay">
         <div className="container">
           <div className="hero-content">

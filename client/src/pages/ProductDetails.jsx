@@ -6,7 +6,9 @@ import ProductQuestions from "../components/ProductQuestions";
 import { getStockStatus } from "../utils/stock";
 import { productUrl } from "../utils/productUrl";
 import { buildBreadcrumbJsonLd } from "../utils/breadcrumbJsonLd";
+import Breadcrumbs from "../components/Breadcrumbs";
 import { subscribeStockAlert } from "../services/productService";
+import { getProductQuestions } from "../services/questionService";
 import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import {
@@ -67,6 +69,7 @@ function ProductDetails() {
   const [notifySubmitted, setNotifySubmitted] = useState(false);
   const [notifySending, setNotifySending] = useState(false);
   const [earnRate, setEarnRate] = useState(null);
+  const [faqItems, setFaqItems] = useState([]);
 
   const relatedScrollRef = useRef(null);
 
@@ -83,6 +86,12 @@ function ProductDetails() {
   useEffect(() => {
     if (user?.email) setNotifyEmail(user.email);
   }, [user]);
+
+  useEffect(() => {
+    getProductQuestions(id).then((response) => {
+      if (response.success) setFaqItems(response.questions);
+    });
+  }, [id]);
 
   useEffect(() => {
     const loadProduct = async () => {
@@ -338,7 +347,7 @@ function ProductDetails() {
     }),
   };
 
-  const breadcrumbJsonLd = buildBreadcrumbJsonLd([
+  const breadcrumbItems = [
     { name: "Home", path: "/" },
     ...(product.category
       ? [
@@ -357,7 +366,20 @@ function ProductDetails() {
         ]
       : []),
     { name: product.name },
-  ]);
+  ];
+
+  const faqJsonLd = faqItems.length > 0 && {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: faqItems.map((q) => ({
+      "@type": "Question",
+      name: q.question,
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: q.answer,
+      },
+    })),
+  };
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-12">
@@ -370,8 +392,13 @@ function ProductDetails() {
         }
         image={imgUrl(product.image)}
         url={shareUrl}
-        jsonLd={[productJsonLd, breadcrumbJsonLd]}
+        jsonLd={[
+          productJsonLd,
+          buildBreadcrumbJsonLd(breadcrumbItems),
+          faqJsonLd,
+        ]}
       />
+      <Breadcrumbs items={breadcrumbItems} />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
         {/* Image gallery with zoom */}
         <div

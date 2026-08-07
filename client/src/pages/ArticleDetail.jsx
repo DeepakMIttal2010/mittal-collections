@@ -4,6 +4,7 @@ import { Link, useParams } from "react-router-dom";
 import { getArticleBySlug } from "../services/articleService";
 import { imgUrl } from "../services/api";
 import Seo from "../components/Seo";
+import Breadcrumbs from "../components/Breadcrumbs";
 import { buildBreadcrumbJsonLd } from "../utils/breadcrumbJsonLd";
 
 function ArticleDetail() {
@@ -71,11 +72,11 @@ function ArticleDetail() {
     publisher: { "@type": "Organization", name: "Mittal Collections" },
   };
 
-  const breadcrumbJsonLd = buildBreadcrumbJsonLd([
+  const breadcrumbItems = [
     { name: "Home", path: "/" },
     { name: "Guides & Ideas", path: "/articles" },
     { name: article.title },
-  ]);
+  ];
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-12">
@@ -84,15 +85,10 @@ function ArticleDetail() {
         description={article.excerpt || article.title}
         image={article.coverImage ? imgUrl(article.coverImage) : undefined}
         url={url}
-        jsonLd={[articleJsonLd, breadcrumbJsonLd]}
+        jsonLd={[articleJsonLd, buildBreadcrumbJsonLd(breadcrumbItems)]}
       />
 
-      <Link
-        to="/articles"
-        className="text-sm text-blue-600 hover:underline mb-6 inline-block"
-      >
-        ← Guides & Ideas
-      </Link>
+      <Breadcrumbs items={breadcrumbItems} />
 
       <h1 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
         {article.title}

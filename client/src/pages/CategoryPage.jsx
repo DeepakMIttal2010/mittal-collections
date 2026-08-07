@@ -9,6 +9,7 @@ import {
 import ProductGrid from "../components/ProductGrid/ProductGrid";
 import ProductGridSkeleton from "../components/ProductGrid/ProductGridSkeleton";
 import Seo from "../components/Seo";
+import Breadcrumbs from "../components/Breadcrumbs";
 import { buildBreadcrumbJsonLd } from "../utils/breadcrumbJsonLd";
 
 const SORT_OPTIONS = [
@@ -137,11 +138,11 @@ function CategoryPage() {
     ? `${activeSubcategory.name} - ${category.name}`
     : category.name;
 
-  const breadcrumbJsonLd = buildBreadcrumbJsonLd([
+  const breadcrumbItems = [
     { name: "Home", path: "/" },
     { name: category.name, path: `/category/${categorySlug}` },
     ...(activeSubcategory ? [{ name: activeSubcategory.name }] : []),
-  ]);
+  ];
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
@@ -149,8 +150,9 @@ function CategoryPage() {
         title={pageTitle}
         description={`Shop ${pageTitle} at Mittal Collections. ${category.description || ""}`.trim()}
         url={`https://www.mittalcollections.com/category/${categorySlug}${subcategorySlug ? `/${subcategorySlug}` : ""}`}
-        jsonLd={breadcrumbJsonLd}
+        jsonLd={buildBreadcrumbJsonLd(breadcrumbItems)}
       />
+      <Breadcrumbs items={breadcrumbItems} />
       <h1 className="text-xl font-semibold text-slate-800 mb-4">
         {category.name}
         {activeSubcategory ? ` / ${activeSubcategory.name}` : ""}
