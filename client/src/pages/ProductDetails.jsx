@@ -9,6 +9,8 @@ import { buildBreadcrumbJsonLd } from "../utils/breadcrumbJsonLd";
 import Breadcrumbs from "../components/Breadcrumbs";
 import { subscribeStockAlert } from "../services/productService";
 import { getProductQuestions } from "../services/questionService";
+import { getSiteSettings } from "../services/settingsService";
+import { toWhatsAppNumber } from "../utils/whatsapp";
 import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import {
@@ -46,6 +48,7 @@ import { addRecentlyViewed } from "../utils/recentlyViewed";
 import { getProductViewCount } from "../services/analyticsService";
 import { getProductReviews } from "../services/reviewService";
 import { getPublicRewardsInfo } from "../services/rewardsService";
+import AutoCompareTable from "../components/AutoCompareTable";
 
 function ProductDetails() {
   const { id } = useParams();
@@ -70,6 +73,7 @@ function ProductDetails() {
   const [notifySending, setNotifySending] = useState(false);
   const [earnRate, setEarnRate] = useState(null);
   const [faqItems, setFaqItems] = useState([]);
+  const [whatsappPhone, setWhatsappPhone] = useState("");
 
   const relatedScrollRef = useRef(null);
 
@@ -92,6 +96,14 @@ function ProductDetails() {
       if (response.success) setFaqItems(response.questions);
     });
   }, [id]);
+
+  useEffect(() => {
+    getSiteSettings().then((response) => {
+      if (response.success && response.settings.phone) {
+        setWhatsappPhone(response.settings.phone);
+      }
+    });
+  }, []);
 
   useEffect(() => {
     const loadProduct = async () => {
@@ -368,6 +380,15 @@ function ProductDetails() {
     { name: product.name },
   ];
 
+  const specRows = [
+    { label: "Fabric", value: product.fabric },
+    { label: "Size", value: product.size },
+    { label: "GSM", value: product.gsm },
+    { label: "Wash Care", value: product.washCare },
+    { label: "Brand", value: product.brand },
+    { label: "Country of Origin", value: product.countryOfOrigin },
+  ].filter((row) => row.value);
+
   const faqJsonLd = faqItems.length > 0 && {
     "@context": "https://schema.org",
     "@type": "FAQPage",
@@ -599,6 +620,24 @@ function ProductDetails() {
             {product.description}
           </p>
 
+          {specRows.length > 0 && (
+            <div className="border border-slate-200 rounded-xl divide-y divide-slate-100 mb-6">
+              {specRows.map((row) => (
+                <div
+                  key={row.label}
+                  className="flex px-4 py-2.5 text-sm gap-4"
+                >
+                  <span className="w-36 shrink-0 text-slate-500">
+                    {row.label}
+                  </span>
+                  <span className="text-slate-800 font-medium">
+                    {row.value}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
           <div className="flex items-center gap-3 mb-6">
             <span className="text-sm font-medium text-slate-700">Qty:</span>
             <div className="flex items-center border border-slate-300 rounded-lg">
@@ -655,12 +694,37 @@ function ProductDetails() {
             Buy it now
           </button>
 
+          {whatsappPhone &&
+            (product.stock <= 0 ? (
+              <button
+                type="button"
+                disabled
+                className="flex items-center justify-center gap-2 w-full bg-slate-200 text-slate-400 font-semibold rounded-full px-6 py-3 mt-3 cursor-not-allowed"
+              >
+                <FaWhatsapp />
+                Order on WhatsApp
+              </button>
+            ) : (
+              <a
+                href={`https://wa.me/${toWhatsAppNumber(whatsappPhone)}?text=${encodeURIComponent(
+                  `Hi, I want to order this product:\n${product.name} (₹${product.price})\n${shareUrl}`,
+                )}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 w-full bg-[#25D366] hover:bg-[#1ebe5a] text-white font-semibold rounded-full px-6 py-3 mt-3 transition-colors"
+              >
+                <FaWhatsapp />
+                Order on WhatsApp
+              </a>
+            ))}
+
           <div className="grid grid-cols-2 gap-x-3 gap-y-2 mt-6 pt-6 border-t border-slate-200">
             {[
               "100% Genuine Product",
               "Secure Payment",
               "Fast Delivery",
               "Easy Return",
+              "Cash on Delivery Available",
             ].map((label) => (
               <div
                 key={label}
@@ -740,6 +804,11 @@ function ProductDetails() {
           </div>
         </div>
       )}
+
+      <AutoCompareTable
+        mainProduct={product}
+        similarProducts={relatedProducts.slice(0, 3)}
+      />
 
       <ProductReviews productId={id} />
       <ProductQuestions productId={id} />

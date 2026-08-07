@@ -2,14 +2,7 @@ import { useEffect, useState } from "react";
 import { FaWhatsapp } from "react-icons/fa6";
 
 import { getSiteSettings } from "../services/settingsService";
-
-const toWhatsAppNumber = (phone) => {
-  const digits = phone.replace(/\D/g, "");
-
-  if (digits.length === 10) return `91${digits}`;
-
-  return digits;
-};
+import { toWhatsAppNumber } from "../utils/whatsapp";
 
 function WhatsAppButton() {
   const [phone, setPhone] = useState("");

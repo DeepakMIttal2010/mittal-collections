@@ -370,6 +370,12 @@ export const addProduct = async (req, res) => {
       isTrending,
       trendingRank,
       mainImageIndex,
+      fabric,
+      size,
+      gsm,
+      washCare,
+      brand,
+      countryOfOrigin,
     } = req.body;
 
     const images = (req.files?.images || []).map((file) => file.path);
@@ -400,6 +406,13 @@ export const addProduct = async (req, res) => {
       isActive: isActive === "true",
       isTrending: isTrending === "true",
       trendingRank: trendingRank || 0,
+
+      fabric: fabric || "",
+      size: size || "",
+      gsm: gsm || "",
+      washCare: washCare || "",
+      brand: brand || "",
+      countryOfOrigin: countryOfOrigin || "",
 
       image: images[mainIndex],
       images,
@@ -450,6 +463,13 @@ export const updateProduct = async (req, res) => {
     product.isActive = req.body.isActive === "true";
     product.isTrending = req.body.isTrending === "true";
     product.trendingRank = req.body.trendingRank || 0;
+
+    product.fabric = req.body.fabric || "";
+    product.size = req.body.size || "";
+    product.gsm = req.body.gsm || "";
+    product.washCare = req.body.washCare || "";
+    product.brand = req.body.brand || "";
+    product.countryOfOrigin = req.body.countryOfOrigin || "";
 
     let existingImages = product.images.length
       ? product.images

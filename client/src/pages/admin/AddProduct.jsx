@@ -35,6 +35,12 @@ function AddProduct() {
     isTrending: false,
     trendingRank: 0,
     optimizeImages: true,
+    fabric: "",
+    size: "",
+    gsm: "",
+    washCare: "",
+    brand: "",
+    countryOfOrigin: "",
   });
 
   const loadCategories = async () => {
@@ -114,6 +120,12 @@ function AddProduct() {
     data.append("trendingRank", formData.trendingRank);
     data.append("mainImageIndex", mainImageIndex);
     data.append("optimizeImages", formData.optimizeImages);
+    data.append("fabric", formData.fabric);
+    data.append("size", formData.size);
+    data.append("gsm", formData.gsm);
+    data.append("washCare", formData.washCare);
+    data.append("brand", formData.brand);
+    data.append("countryOfOrigin", formData.countryOfOrigin);
 
     images.forEach((file) => data.append("images", file));
     videos.forEach((file) => data.append("videos", file));
@@ -241,6 +253,84 @@ function AddProduct() {
               value={formData.stock}
               onChange={handleChange}
               required
+            />
+          </div>
+        </div>
+
+        <div className="form-row">
+          <div className="form-group">
+            <label>Fabric (optional)</label>
+
+            <input
+              type="text"
+              name="fabric"
+              placeholder="e.g. 100% Cotton"
+              value={formData.fabric}
+              onChange={handleChange}
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Size (optional)</label>
+
+            <input
+              type="text"
+              name="size"
+              placeholder="e.g. 90 x 100 inches"
+              value={formData.size}
+              onChange={handleChange}
+            />
+          </div>
+        </div>
+
+        <div className="form-row">
+          <div className="form-group">
+            <label>GSM (optional)</label>
+
+            <input
+              type="text"
+              name="gsm"
+              placeholder="e.g. 180 GSM"
+              value={formData.gsm}
+              onChange={handleChange}
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Wash Care (optional)</label>
+
+            <input
+              type="text"
+              name="washCare"
+              placeholder="e.g. Machine wash cold"
+              value={formData.washCare}
+              onChange={handleChange}
+            />
+          </div>
+        </div>
+
+        <div className="form-row">
+          <div className="form-group">
+            <label>Brand (optional)</label>
+
+            <input
+              type="text"
+              name="brand"
+              placeholder="e.g. Mittal Collections"
+              value={formData.brand}
+              onChange={handleChange}
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Country of Origin (optional)</label>
+
+            <input
+              type="text"
+              name="countryOfOrigin"
+              placeholder="e.g. India"
+              value={formData.countryOfOrigin}
+              onChange={handleChange}
             />
           </div>
         </div>

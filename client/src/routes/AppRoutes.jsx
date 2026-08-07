@@ -34,6 +34,7 @@ const ArticleDetail = lazy(() => import("../pages/ArticleDetail"));
 const CurtainSizeCalculator = lazy(
   () => import("../pages/CurtainSizeCalculator"),
 );
+const Compare = lazy(() => import("../pages/Compare"));
 
 const AdminProtectedRoute = lazy(() => import("./AdminProtectedRoute"));
 const AdminLogin = lazy(() => import("../pages/admin/AdminLogin"));
@@ -125,6 +126,7 @@ function AppRoutes() {
           <Route path="/cart" element={<Cart />} />
           <Route path="/checkout" element={<Checkout />} />
           <Route path="/wishlist" element={<Wishlist />} />
+          <Route path="/compare" element={<Compare />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />

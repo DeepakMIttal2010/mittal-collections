@@ -1,0 +1,58 @@
+import { Link } from "react-router-dom";
+import { FaTimes, FaExchangeAlt } from "react-icons/fa";
+
+import { useCompare } from "../context/CompareContext";
+import { imgUrl } from "../services/api";
+
+function CompareBar() {
+  const { compareItems, removeFromCompare, clearCompare } = useCompare();
+
+  if (compareItems.length === 0) return null;
+
+  return (
+    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-white shadow-xl border border-slate-200 rounded-full pl-3 pr-4 py-2">
+      <div className="flex items-center -space-x-2">
+        {compareItems.map((product) => (
+          <div key={product._id} className="relative">
+            <img
+              src={imgUrl(product.image)}
+              alt={product.name}
+              className="w-9 h-9 rounded-full object-cover border-2 border-white"
+            />
+            <button
+              type="button"
+              onClick={() => removeFromCompare(product._id)}
+              aria-label={`Remove ${product.name} from compare`}
+              className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-slate-700 text-white flex items-center justify-center text-[9px]"
+            >
+              <FaTimes />
+            </button>
+          </div>
+        ))}
+      </div>
+
+      <span className="text-sm font-medium text-slate-700 whitespace-nowrap">
+        {compareItems.length} selected
+      </span>
+
+      <Link
+        to="/compare"
+        className="flex items-center gap-1.5 bg-blue-900 hover:bg-blue-950 text-white text-sm font-semibold rounded-full px-4 py-2 transition-colors whitespace-nowrap"
+      >
+        <FaExchangeAlt className="text-xs" />
+        Compare
+      </Link>
+
+      <button
+        type="button"
+        onClick={clearCompare}
+        aria-label="Clear compare list"
+        className="text-slate-400 hover:text-slate-600 text-xs shrink-0"
+      >
+        Clear
+      </button>
+    </div>
+  );
+}
+
+export default CompareBar;

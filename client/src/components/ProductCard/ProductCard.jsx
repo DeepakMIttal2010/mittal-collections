@@ -2,9 +2,17 @@ import { imgUrl } from "../../services/api";
 import { useEffect, useState } from "react";
 import "./ProductCard.css";
 import { Link } from "react-router-dom";
-import { FaGift, FaHeart, FaEye, FaShoppingCart, FaStar } from "react-icons/fa";
+import {
+  FaGift,
+  FaHeart,
+  FaEye,
+  FaShoppingCart,
+  FaStar,
+  FaExchangeAlt,
+} from "react-icons/fa";
 import { useWishlist } from "../../context/WishlistContext";
 import { useCart } from "../../context/CartContext";
+import { useCompare } from "../../context/CompareContext";
 import QuickViewModal from "./QuickViewModal";
 import { LOW_STOCK_THRESHOLD } from "../../utils/stock";
 import { productUrl } from "../../utils/productUrl";
@@ -13,7 +21,9 @@ import { getEarnRate } from "../../services/rewardsService";
 function ProductCard({ product }) {
   const { addToCart } = useCart();
   const { addToWishlist } = useWishlist();
+  const { toggleCompare, isInCompare } = useCompare();
   const [showQuickView, setShowQuickView] = useState(false);
+  const inCompare = isInCompare(product._id);
   const [earnRate, setEarnRate] = useState(null);
   const discount = Math.round(
     ((product.oldPrice - product.price) / product.oldPrice) * 100,
@@ -60,6 +70,18 @@ function ProductCard({ product }) {
               }}
             >
               <FaEye />
+            </button>
+
+            <button
+              type="button"
+              aria-label="Toggle compare"
+              className={inCompare ? "active" : ""}
+              onClick={(e) => {
+                e.preventDefault();
+                toggleCompare(product);
+              }}
+            >
+              <FaExchangeAlt />
             </button>
           </div>
         </div>

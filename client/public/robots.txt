@@ -5,6 +5,7 @@ Disallow: /account
 Disallow: /cart
 Disallow: /checkout
 Disallow: /wishlist
+Disallow: /compare
 Disallow: /my-orders
 Disallow: /addresses
 Disallow: /login

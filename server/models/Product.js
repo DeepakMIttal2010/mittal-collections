@@ -65,6 +65,15 @@ const productSchema = new mongoose.Schema(
       min: 0,
     },
 
+    // Optional specs — shown on the product page only when filled in,
+    // never required so admins aren't blocked adding a product quickly.
+    fabric: { type: String, default: "", trim: true },
+    size: { type: String, default: "", trim: true },
+    gsm: { type: String, default: "", trim: true },
+    washCare: { type: String, default: "", trim: true },
+    brand: { type: String, default: "", trim: true },
+    countryOfOrigin: { type: String, default: "", trim: true },
+
     rating: {
       type: Number,
       default: 5,

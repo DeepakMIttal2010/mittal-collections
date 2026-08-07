@@ -6,6 +6,7 @@ import BackToTopButton from "./components/BackToTopButton";
 import ZoomControl from "./components/ZoomControl";
 import VisitTracker from "./components/VisitTracker";
 import WhatsAppButton from "./components/WhatsAppButton";
+import CompareBar from "./components/CompareBar";
 
 function App() {
   const { pathname } = useLocation();
@@ -19,6 +20,7 @@ function App() {
       {isAdmin && <ZoomControl />}
       {!isAdmin && <VisitTracker />}
       {!isAdmin && <WhatsAppButton />}
+      {!isAdmin && <CompareBar />}
     </>
   );
 }

@@ -89,6 +89,11 @@
   color: white;
 }
 
+.product-icons button.active {
+  background: #2563eb;
+  color: white;
+}
+
 .product-info {
   padding: 20px;
 }

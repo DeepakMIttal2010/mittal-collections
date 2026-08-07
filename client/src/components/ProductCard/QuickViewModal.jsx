@@ -1,10 +1,18 @@
 import { imgUrl } from "../../services/api";
 import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { FaTimes, FaStar, FaShoppingCart, FaHeart, FaGift } from "react-icons/fa";
+import {
+  FaTimes,
+  FaStar,
+  FaShoppingCart,
+  FaHeart,
+  FaGift,
+  FaExchangeAlt,
+} from "react-icons/fa";
 
 import { useCart } from "../../context/CartContext";
 import { useWishlist } from "../../context/WishlistContext";
+import { useCompare } from "../../context/CompareContext";
 import { getStockStatus } from "../../utils/stock";
 import { productUrl } from "../../utils/productUrl";
 import { getEarnRate } from "../../services/rewardsService";
@@ -12,7 +20,9 @@ import { getEarnRate } from "../../services/rewardsService";
 function QuickViewModal({ product, onClose }) {
   const { addToCart } = useCart();
   const { wishlistItems, addToWishlist, removeFromWishlist } = useWishlist();
+  const { toggleCompare, isInCompare } = useCompare();
   const [earnRate, setEarnRate] = useState(null);
+  const inCompare = isInCompare(product._id);
 
   useEffect(() => {
     getEarnRate().then(setEarnRate);
@@ -132,6 +142,18 @@ function QuickViewModal({ product, onClose }) {
               }`}
             >
               <FaHeart />
+            </button>
+
+            <button
+              onClick={() => toggleCompare(product)}
+              aria-label="Toggle compare"
+              className={`w-11 h-11 shrink-0 rounded-full border flex items-center justify-center transition-colors ${
+                inCompare
+                  ? "bg-blue-50 border-blue-200 text-blue-700"
+                  : "border-slate-300 text-slate-600 hover:bg-slate-50"
+              }`}
+            >
+              <FaExchangeAlt />
             </button>
           </div>
 

@@ -43,6 +43,12 @@ function EditProduct() {
     isTrending: false,
     trendingRank: 0,
     optimizeImages: true,
+    fabric: "",
+    size: "",
+    gsm: "",
+    washCare: "",
+    brand: "",
+    countryOfOrigin: "",
   });
 
   const loadProduct = async () => {
@@ -72,6 +78,12 @@ function EditProduct() {
         isTrending: product.isTrending || false,
         trendingRank: product.trendingRank || 0,
         optimizeImages: true,
+        fabric: product.fabric || "",
+        size: product.size || "",
+        gsm: product.gsm || "",
+        washCare: product.washCare || "",
+        brand: product.brand || "",
+        countryOfOrigin: product.countryOfOrigin || "",
       });
 
       const images = product.images?.length
@@ -310,6 +322,84 @@ function EditProduct() {
                 </option>
               ))}
             </select>
+          </div>
+        </div>
+
+        <div className="form-row">
+          <div className="form-group">
+            <label>Fabric (optional)</label>
+
+            <input
+              type="text"
+              name="fabric"
+              placeholder="e.g. 100% Cotton"
+              value={formData.fabric}
+              onChange={handleChange}
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Size (optional)</label>
+
+            <input
+              type="text"
+              name="size"
+              placeholder="e.g. 90 x 100 inches"
+              value={formData.size}
+              onChange={handleChange}
+            />
+          </div>
+        </div>
+
+        <div className="form-row">
+          <div className="form-group">
+            <label>GSM (optional)</label>
+
+            <input
+              type="text"
+              name="gsm"
+              placeholder="e.g. 180 GSM"
+              value={formData.gsm}
+              onChange={handleChange}
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Wash Care (optional)</label>
+
+            <input
+              type="text"
+              name="washCare"
+              placeholder="e.g. Machine wash cold"
+              value={formData.washCare}
+              onChange={handleChange}
+            />
+          </div>
+        </div>
+
+        <div className="form-row">
+          <div className="form-group">
+            <label>Brand (optional)</label>
+
+            <input
+              type="text"
+              name="brand"
+              placeholder="e.g. Mittal Collections"
+              value={formData.brand}
+              onChange={handleChange}
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Country of Origin (optional)</label>
+
+            <input
+              type="text"
+              name="countryOfOrigin"
+              placeholder="e.g. India"
+              value={formData.countryOfOrigin}
+              onChange={handleChange}
+            />
           </div>
         </div>
 
