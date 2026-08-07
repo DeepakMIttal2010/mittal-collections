@@ -1,6 +1,7 @@
 import Ticket from "../models/Ticket.js";
 import SiteSettings from "../models/SiteSettings.js";
 import { sendEmail } from "../config/mailer.js";
+import { notifyUser } from "../utils/notify.js";
 
 const notifyAdmin = async (ticket, latestMessage) => {
   try {
@@ -234,6 +235,13 @@ export const addTicketMessage = async (req, res) => {
 
     if (isAdmin) {
       notifyCustomer(ticket, ticket.user.email, newMessage).catch(() => {});
+      notifyUser({
+        userId: ticket.user._id || ticket.user,
+        type: "ticket_reply",
+        title: `New reply on your support ticket: ${ticket.subject}`,
+        message: newMessage.message,
+        link: `/tickets/${ticket._id}`,
+      });
     } else {
       notifyAdmin(ticket, newMessage).catch(() => {});
     }

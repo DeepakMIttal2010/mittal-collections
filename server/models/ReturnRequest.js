@@ -53,6 +53,11 @@ const returnRequestSchema = new mongoose.Schema(
       default: "",
       trim: true,
     },
+
+    isSeenByAdmin: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
     timestamps: true,

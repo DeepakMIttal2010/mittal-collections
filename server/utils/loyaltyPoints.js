@@ -7,6 +7,7 @@ import User from "../models/User.js";
 import LoyaltySettings from "../models/LoyaltySettings.js";
 import LoyaltyTransaction from "../models/LoyaltyTransaction.js";
 import { sendEmail } from "../config/mailer.js";
+import { notifyUser } from "./notify.js";
 
 const EARNING_TYPES = ["earned", "referral_bonus"];
 
@@ -103,6 +104,14 @@ export const expireInactivePoints = async () => {
     });
 
     expiredCount += 1;
+
+    notifyUser({
+      userId: user._id,
+      type: "loyalty_points",
+      title: "Your loyalty points have expired",
+      message: `${pointsToExpire} points expired after ${settings.expiryMonths} months of inactivity`,
+      link: "/account",
+    });
 
     if (user.email) {
       try {

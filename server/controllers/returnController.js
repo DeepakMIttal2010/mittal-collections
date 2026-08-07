@@ -3,6 +3,7 @@ import Order from "../models/Order.js";
 import Product from "../models/Product.js";
 import SiteSettings from "../models/SiteSettings.js";
 import { sendEmail } from "../config/mailer.js";
+import { notifyUser } from "../utils/notify.js";
 
 const notifyAdmin = async (returnRequest) => {
   try {
@@ -246,6 +247,13 @@ export const updateReturnStatus = async (req, res) => {
     await returnRequest.save();
 
     notifyCustomer(returnRequest, returnRequest.user.email).catch(() => {});
+    notifyUser({
+      userId: returnRequest.user._id,
+      type: "return_status",
+      title: `Your return request is now "${returnRequest.status}"`,
+      message: returnRequest.productName,
+      link: "/returns",
+    });
 
     res.status(200).json({
       success: true,
@@ -253,6 +261,38 @@ export const updateReturnStatus = async (req, res) => {
     });
   } catch (error) {
     console.error("Update Return Status Error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};
+
+// ============================
+// MARK SEEN (Admin)
+// ============================
+export const markReturnSeen = async (req, res) => {
+  try {
+    const returnRequest = await ReturnRequest.findByIdAndUpdate(
+      req.params.id,
+      { isSeenByAdmin: true },
+      { new: true },
+    );
+
+    if (!returnRequest) {
+      return res.status(404).json({
+        success: false,
+        message: "Return request not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      returnRequest,
+    });
+  } catch (error) {
+    console.error("Mark Return Seen Error:", error);
 
     res.status(500).json({
       success: false,

@@ -38,6 +38,7 @@ const Compare = lazy(() => import("../pages/Compare"));
 const Tickets = lazy(() => import("../pages/Tickets"));
 const TicketDetail = lazy(() => import("../pages/TicketDetail"));
 const Returns = lazy(() => import("../pages/Returns"));
+const Notifications = lazy(() => import("../pages/Notifications"));
 
 const AdminProtectedRoute = lazy(() => import("./AdminProtectedRoute"));
 const AdminLogin = lazy(() => import("../pages/admin/AdminLogin"));
@@ -151,6 +152,7 @@ function AppRoutes() {
           <Route path="/tickets" element={<Tickets />} />
           <Route path="/tickets/:id" element={<TicketDetail />} />
           <Route path="/returns" element={<Returns />} />
+          <Route path="/notifications" element={<Notifications />} />
           <Route path="/policies/:slug" element={<PolicyPage />} />
           <Route path="/articles" element={<Articles />} />
           <Route path="/articles/:slug" element={<ArticleDetail />} />

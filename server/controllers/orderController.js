@@ -18,6 +18,7 @@ import {
 import { getReferralSettings } from "../utils/referral.js";
 import { calculateDeliveryFee } from "../utils/shipping.js";
 import { sendEmail } from "../config/mailer.js";
+import { notifyUser } from "../utils/notify.js";
 
 // Computes per-item return eligibility (whether the product allows
 // returns at all, and whether "deliveredAt + return period" hasn't
@@ -493,6 +494,14 @@ export const updateOrderStatus = async (req, res) => {
     const statusMessage = ORDER_STATUS_MESSAGES[status];
 
     if (statusMessage) {
+      notifyUser({
+        userId: order.user,
+        type: "order_status",
+        title: statusMessage.subject,
+        message: `Order ID: ${order._id}`,
+        link: `/my-orders/${order._id}`,
+      });
+
       User.findById(order.user)
         .select("name email")
         .then((customer) => {

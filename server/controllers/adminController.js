@@ -8,6 +8,13 @@ import Question from "../models/Question.js";
 import SearchLog from "../models/SearchLog.js";
 import CartSnapshot from "../models/CartSnapshot.js";
 import LoyaltyTransaction from "../models/LoyaltyTransaction.js";
+import Ticket from "../models/Ticket.js";
+import ReturnRequest from "../models/ReturnRequest.js";
+
+// Matches the customer-facing "Only X left in stock!" threshold in
+// client/src/utils/stock.js — kept in sync manually since one lives on
+// each side of the API boundary.
+const LOW_STOCK_THRESHOLD = 5;
 
 // ISO 3166-2:IN state/UT codes, for readable display in the location report
 const INDIAN_STATE_NAMES = {
@@ -127,6 +134,23 @@ export const getNotifications = async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(15);
 
+    const unseenTickets = await Ticket.find({ isSeenByAdmin: false })
+      .populate("user", "name")
+      .sort({ lastMessageAt: -1 })
+      .limit(15);
+
+    const unseenReturns = await ReturnRequest.find({ isSeenByAdmin: false })
+      .populate("user", "name")
+      .sort({ createdAt: -1 })
+      .limit(15);
+
+    // Low stock is a live gauge, not a discrete "new" event — there's no
+    // isSeenByAdmin to clear, it just stops appearing once restocked.
+    const lowStockCount = await Product.countDocuments({
+      stock: { $gt: 0, $lte: LOW_STOCK_THRESHOLD },
+    });
+    const outOfStockCount = await Product.countDocuments({ stock: 0 });
+
     const orderNotifications = unseenOrders.map((order) => ({
       id: order._id,
       type: "order",
@@ -163,14 +187,51 @@ export const getNotifications = async (req, res) => {
       link: "/admin/questions",
     }));
 
+    const ticketNotifications = unseenTickets.map((ticket) => ({
+      id: ticket._id,
+      type: "ticket",
+      title: `New support message from ${ticket.user?.name || "a customer"}`,
+      subtitle: ticket.subject,
+      createdAt: ticket.lastMessageAt,
+      link: `/admin/tickets/${ticket._id}`,
+    }));
+
+    const returnNotifications = unseenReturns.map((returnRequest) => ({
+      id: returnRequest._id,
+      type: "return",
+      title: `New return request from ${returnRequest.user?.name || "a customer"}`,
+      subtitle: returnRequest.productName,
+      createdAt: returnRequest.createdAt,
+      link: "/admin/returns",
+    }));
+
+    const stockNotifications = [];
+    if (outOfStockCount > 0 || lowStockCount > 0) {
+      const parts = [];
+      if (outOfStockCount > 0) parts.push(`${outOfStockCount} out of stock`);
+      if (lowStockCount > 0) parts.push(`${lowStockCount} running low`);
+
+      stockNotifications.push({
+        id: "stock-alert",
+        type: "stock",
+        title: "Products need restocking",
+        subtitle: parts.join(" · "),
+        createdAt: new Date(),
+        link: "/admin/products",
+      });
+    }
+
     const notifications = [
       ...orderNotifications,
       ...messageNotifications,
       ...reviewNotifications,
       ...questionNotifications,
+      ...ticketNotifications,
+      ...returnNotifications,
+      ...stockNotifications,
     ]
       .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-      .slice(0, 15);
+      .slice(0, 20);
 
     res.status(200).json({
       success: true,
@@ -179,11 +240,18 @@ export const getNotifications = async (req, res) => {
       unreadMessagesCount: unreadMessages.length,
       unseenReviewsCount: unseenReviews.length,
       unseenQuestionsCount: unseenQuestions.length,
+      unseenTicketsCount: unseenTickets.length,
+      unseenReturnsCount: unseenReturns.length,
+      lowStockCount,
+      outOfStockCount,
       totalUnread:
         unseenOrders.length +
         unreadMessages.length +
         unseenReviews.length +
-        unseenQuestions.length,
+        unseenQuestions.length +
+        unseenTickets.length +
+        unseenReturns.length +
+        stockNotifications.length,
     });
   } catch (error) {
     console.error("Get Notifications Error:", error);
@@ -212,6 +280,14 @@ export const markAllNotificationsRead = async (req, res) => {
       { isSeenByAdmin: true },
     );
     await Question.updateMany(
+      { isSeenByAdmin: false },
+      { isSeenByAdmin: true },
+    );
+    await Ticket.updateMany(
+      { isSeenByAdmin: false },
+      { isSeenByAdmin: true },
+    );
+    await ReturnRequest.updateMany(
       { isSeenByAdmin: false },
       { isSeenByAdmin: true },
     );

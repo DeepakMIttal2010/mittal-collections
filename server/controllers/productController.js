@@ -2,8 +2,10 @@ import Product from "../models/Product.js";
 import Order from "../models/Order.js";
 import StockAlert from "../models/StockAlert.js";
 import SearchLog from "../models/SearchLog.js";
+import User from "../models/User.js";
 import { rankProducts } from "../utils/fuzzySearch.js";
 import { sendEmail } from "../config/mailer.js";
+import { notifyUser } from "../utils/notify.js";
 
 const generateSlug = (name) =>
   name
@@ -44,6 +46,18 @@ export const notifyStockAlertSubscribers = async (product) => {
 
       alert.notified = true;
       await alert.save();
+
+      // Only registered accounts get an in-app notification too — a
+      // stock-alert email address doesn't have to belong to one.
+      const subscriber = await User.findOne({ email: alert.email }).select("_id");
+      if (subscriber) {
+        notifyUser({
+          userId: subscriber._id,
+          type: "back_in_stock",
+          title: `${product.name} is back in stock!`,
+          link: `/product/${product._id}/${slug}`,
+        });
+      }
     } catch (error) {
       console.error(`Stock alert email failed for ${alert.email}:`, error);
     }

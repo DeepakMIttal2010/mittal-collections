@@ -7,6 +7,7 @@ import {
   getMyReturnRequests,
   getAllReturnRequestsAdmin,
   updateReturnStatus,
+  markReturnSeen,
 } from "../controllers/returnController.js";
 
 const router = express.Router();
@@ -20,5 +21,6 @@ router.put(
   adminMiddleware,
   updateReturnStatus,
 );
+router.put("/:id/seen", authMiddleware, adminMiddleware, markReturnSeen);
 
 export default router;

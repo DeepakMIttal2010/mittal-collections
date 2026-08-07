@@ -13,6 +13,9 @@ import {
   FaEnvelope,
   FaStar,
   FaQuestionCircle,
+  FaHeadset,
+  FaUndoAlt,
+  FaExclamationTriangle,
 } from "react-icons/fa";
 
 import { logoutUser } from "../../services/authService";
@@ -24,6 +27,8 @@ import {
 } from "../../services/adminNotificationService";
 import { markReviewSeen } from "../../services/adminReviewService";
 import { markQuestionSeen } from "../../services/adminQuestionService";
+import { markTicketSeen } from "../../services/ticketService";
+import { markReturnSeen } from "../../services/returnService";
 
 import "./AdminHeader.css";
 
@@ -80,6 +85,10 @@ function AdminHeader() {
       await markReviewSeen(item.id);
     } else if (item.type === "question") {
       await markQuestionSeen(item.id);
+    } else if (item.type === "ticket") {
+      await markTicketSeen(item.id);
+    } else if (item.type === "return") {
+      await markReturnSeen(item.id);
     }
 
     loadNotifications();
@@ -257,7 +266,13 @@ function AdminHeader() {
                               ? "bg-amber-100 text-amber-600"
                               : item.type === "question"
                                 ? "bg-purple-100 text-purple-600"
-                                : "bg-slate-100 text-slate-600"
+                                : item.type === "ticket"
+                                  ? "bg-teal-100 text-teal-600"
+                                  : item.type === "return"
+                                    ? "bg-orange-100 text-orange-600"
+                                    : item.type === "stock"
+                                      ? "bg-red-100 text-red-600"
+                                      : "bg-slate-100 text-slate-600"
                         }`}
                       >
                         {item.type === "order" ? (
@@ -266,6 +281,12 @@ function AdminHeader() {
                           <FaStar className="text-xs" />
                         ) : item.type === "question" ? (
                           <FaQuestionCircle className="text-xs" />
+                        ) : item.type === "ticket" ? (
+                          <FaHeadset className="text-xs" />
+                        ) : item.type === "return" ? (
+                          <FaUndoAlt className="text-xs" />
+                        ) : item.type === "stock" ? (
+                          <FaExclamationTriangle className="text-xs" />
                         ) : (
                           <FaEnvelope className="text-xs" />
                         )}

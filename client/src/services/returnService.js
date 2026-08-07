@@ -68,3 +68,17 @@ export const updateReturnStatus = async (id, status, adminNote) => {
     return { success: false };
   }
 };
+
+export const markReturnSeen = async (id) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/returns/${id}/seen`, {
+      method: "PUT",
+      headers: authHeaders(),
+    });
+
+    return await response.json();
+  } catch (error) {
+    console.error("Mark Return Seen Error:", error);
+    return { success: false };
+  }
+};
