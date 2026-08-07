@@ -100,6 +100,19 @@ const productSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+
+    isReturnable: {
+      type: Boolean,
+      default: true,
+    },
+
+    // Overrides the site-wide default return window for this specific
+    // product. 0/unset means "use SiteSettings.defaultReturnPeriodDays".
+    returnPeriodDays: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
   },
   {
     timestamps: true,

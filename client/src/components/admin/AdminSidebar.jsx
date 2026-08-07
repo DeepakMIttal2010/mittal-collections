@@ -24,6 +24,7 @@ import {
   FaQuestionCircle,
   FaFileImport,
   FaTicketAlt,
+  FaUndoAlt,
 } from "react-icons/fa";
 
 import { logoutUser } from "../../services/authService";
@@ -142,6 +143,11 @@ function AdminSidebar() {
         <NavLink to="/admin/tickets">
           <FaTicketAlt />
           <span>Support Tickets</span>
+        </NavLink>
+
+        <NavLink to="/admin/returns">
+          <FaUndoAlt />
+          <span>Returns</span>
         </NavLink>
 
         <NavLink to="/admin/orders">

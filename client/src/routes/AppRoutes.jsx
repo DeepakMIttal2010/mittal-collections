@@ -37,6 +37,7 @@ const CurtainSizeCalculator = lazy(
 const Compare = lazy(() => import("../pages/Compare"));
 const Tickets = lazy(() => import("../pages/Tickets"));
 const TicketDetail = lazy(() => import("../pages/TicketDetail"));
+const Returns = lazy(() => import("../pages/Returns"));
 
 const AdminProtectedRoute = lazy(() => import("./AdminProtectedRoute"));
 const AdminLogin = lazy(() => import("../pages/admin/AdminLogin"));
@@ -96,6 +97,7 @@ const AdminTickets = lazy(() => import("../pages/admin/AdminTickets"));
 const AdminTicketDetail = lazy(
   () => import("../pages/admin/AdminTicketDetail"),
 );
+const AdminReturns = lazy(() => import("../pages/admin/AdminReturns"));
 
 function AppRoutes() {
   return (
@@ -148,6 +150,7 @@ function AppRoutes() {
           <Route path="/my-orders/:id" element={<OrderDetails />} />
           <Route path="/tickets" element={<Tickets />} />
           <Route path="/tickets/:id" element={<TicketDetail />} />
+          <Route path="/returns" element={<Returns />} />
           <Route path="/policies/:slug" element={<PolicyPage />} />
           <Route path="/articles" element={<Articles />} />
           <Route path="/articles/:slug" element={<ArticleDetail />} />
@@ -214,6 +217,7 @@ function AppRoutes() {
           <Route path="reports" element={<AdminReports />} />
           <Route path="tickets" element={<AdminTickets />} />
           <Route path="tickets/:id" element={<AdminTicketDetail />} />
+          <Route path="returns" element={<AdminReturns />} />
         </Route>
       </Routes>
     </Suspense>

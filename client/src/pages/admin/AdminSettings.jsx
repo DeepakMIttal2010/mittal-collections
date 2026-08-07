@@ -20,6 +20,7 @@ function AdminSettings() {
     supportHours: "",
     freeShippingThreshold: 499,
     deliveryFee: 49,
+    defaultReturnPeriodDays: 7,
   });
 
   const [shippingTiers, setShippingTiers] = useState([]);
@@ -41,6 +42,8 @@ function AdminSettings() {
         supportHours: response.settings.supportHours || "",
         freeShippingThreshold: response.settings.freeShippingThreshold ?? 499,
         deliveryFee: response.settings.deliveryFee ?? 49,
+        defaultReturnPeriodDays:
+          response.settings.defaultReturnPeriodDays ?? 7,
       });
       setShippingTiers(response.settings.shippingTiers || []);
     }
@@ -264,6 +267,28 @@ function AdminSettings() {
           >
             + Add Tier
           </button>
+        </div>
+
+        <hr className="border-slate-200" />
+
+        <h3 className="font-semibold text-slate-800">Returns</h3>
+        <p className="text-sm text-slate-500 -mt-2">
+          Default return window for products that don't set their own
+          custom period.
+        </p>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">
+            Default Return Period (days)
+          </label>
+          <input
+            type="number"
+            name="defaultReturnPeriodDays"
+            min="0"
+            value={formData.defaultReturnPeriodDays}
+            onChange={handleChange}
+            className="w-full max-w-xs border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
         </div>
 
         <hr className="border-slate-200" />

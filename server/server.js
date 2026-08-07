@@ -36,6 +36,7 @@ import articleRoutes from "./routes/articleRoutes.js";
 import cartRoutes from "./routes/cartRoutes.js";
 import rewardsRoutes from "./routes/rewardsRoutes.js";
 import ticketRoutes from "./routes/ticketRoutes.js";
+import returnRoutes from "./routes/returnRoutes.js";
 
 connectDB();
 
@@ -128,6 +129,7 @@ app.use("/api/articles", articleRoutes);
 app.use("/api/cart", cartRoutes);
 app.use("/api/rewards", rewardsRoutes);
 app.use("/api/tickets", ticketRoutes);
+app.use("/api/returns", returnRoutes);
 
 // Health Check
 app.get("/api/health", (req, res) => {

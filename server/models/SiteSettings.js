@@ -23,6 +23,10 @@ const siteSettingsSchema = new mongoose.Schema(
         fee: { type: Number, required: true },
       },
     ],
+
+    // Default return window (days from delivery) for any product that
+    // doesn't set its own returnPeriodDays override.
+    defaultReturnPeriodDays: { type: Number, default: 7 },
   },
   {
     timestamps: true,

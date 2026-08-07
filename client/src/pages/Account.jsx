@@ -11,6 +11,7 @@ import {
   FaUserFriends,
   FaCopy,
   FaTicketAlt,
+  FaUndoAlt,
 } from "react-icons/fa";
 import { FaWhatsapp } from "react-icons/fa6";
 import { useAuth } from "../context/AuthContext";
@@ -41,6 +42,12 @@ const ACCOUNT_LINKS = [
     icon: FaTicketAlt,
     title: "Support Tickets",
     description: "Raise an issue and chat with our support team",
+  },
+  {
+    to: "/returns",
+    icon: FaUndoAlt,
+    title: "Your Returns",
+    description: "Track the status of items you've returned",
   },
   {
     to: "/edit-profile",

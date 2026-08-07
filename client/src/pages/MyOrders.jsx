@@ -4,6 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { getMyOrders } from "../services/orderService";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
+import ReturnRequestModal from "../components/ReturnRequestModal";
 
 const TABS = [
   { key: "orders", label: "Orders" },
@@ -43,6 +44,8 @@ const STATUS_DOT = {
 
 function OrderCard({ order, onBuyAgain }) {
   const navigate = useNavigate();
+  const [returnModalItem, setReturnModalItem] = useState(null);
+  const [returnedProductIds, setReturnedProductIds] = useState(new Set());
   const statusInfo = STATUS_TEXT[order.orderStatus] || STATUS_TEXT.Pending;
   const isDelivered = order.orderStatus === "Delivered";
   const isCancelled = order.orderStatus === "Cancelled";
@@ -127,14 +130,60 @@ function OrderCard({ order, onBuyAgain }) {
                   <p className="text-sm text-slate-800 line-clamp-2">
                     {item.name}
                   </p>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-slate-500 mb-1">
                     Qty {item.quantity} · ₹{item.price}
                   </p>
+
+                  {isDelivered && item.returnInfo && (
+                    <>
+                      {returnedProductIds.has(item.product) ? (
+                        <p className="text-xs font-medium text-green-700">
+                          Return requested
+                        </p>
+                      ) : item.returnInfo.eligible ? (
+                        <button
+                          type="button"
+                          onClick={() => setReturnModalItem(item)}
+                          className="text-xs font-medium text-blue-700 hover:underline"
+                        >
+                          Return this item
+                        </button>
+                      ) : item.returnInfo.isReturnable &&
+                        item.returnInfo.deadline ? (
+                        <p className="text-xs text-slate-400">
+                          Return window closed on{" "}
+                          {new Date(
+                            item.returnInfo.deadline,
+                          ).toLocaleDateString("en-IN", {
+                            day: "numeric",
+                            month: "short",
+                          })}
+                        </p>
+                      ) : !item.returnInfo.isReturnable ? (
+                        <p className="text-xs text-slate-400">
+                          Non-returnable item
+                        </p>
+                      ) : null}
+                    </>
+                  )}
                 </div>
               </div>
             ))}
           </div>
         </div>
+
+        {returnModalItem && (
+          <ReturnRequestModal
+            order={order}
+            item={returnModalItem}
+            onClose={() => setReturnModalItem(null)}
+            onSubmitted={() =>
+              setReturnedProductIds(
+                (prev) => new Set([...prev, returnModalItem.product]),
+              )
+            }
+          />
+        )}
 
         {/* Actions */}
         <div className="flex flex-col gap-2 w-full md:w-56 shrink-0">

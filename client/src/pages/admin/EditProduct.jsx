@@ -49,6 +49,8 @@ function EditProduct() {
     washCare: "",
     brand: "",
     countryOfOrigin: "",
+    isReturnable: true,
+    returnPeriodDays: "",
   });
 
   const loadProduct = async () => {
@@ -84,6 +86,9 @@ function EditProduct() {
         washCare: product.washCare || "",
         brand: product.brand || "",
         countryOfOrigin: product.countryOfOrigin || "",
+        isReturnable:
+          product.isReturnable === undefined ? true : product.isReturnable,
+        returnPeriodDays: product.returnPeriodDays || "",
       });
 
       const images = product.images?.length
@@ -553,7 +558,34 @@ function EditProduct() {
             />
             Show in Trending
           </label>
+
+          <label>
+            <input
+              type="checkbox"
+              name="isReturnable"
+              checked={formData.isReturnable}
+              onChange={handleChange}
+            />
+            Returnable
+          </label>
         </div>
+
+        {formData.isReturnable && (
+          <div className="form-row">
+            <div className="form-group">
+              <label>Custom Return Period (days, optional)</label>
+
+              <input
+                type="number"
+                name="returnPeriodDays"
+                min="0"
+                placeholder="Leave blank to use site default"
+                value={formData.returnPeriodDays}
+                onChange={handleChange}
+              />
+            </div>
+          </div>
+        )}
 
         {formData.isTrending && (
           <div className="form-row">

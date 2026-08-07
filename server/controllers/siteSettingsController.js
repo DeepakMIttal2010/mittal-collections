@@ -42,6 +42,7 @@ export const updateSiteSettings = async (req, res) => {
       freeShippingThreshold,
       deliveryFee,
       shippingTiers,
+      defaultReturnPeriodDays,
     } = req.body;
 
     let settings = await SiteSettings.findOne();
@@ -62,6 +63,8 @@ export const updateSiteSettings = async (req, res) => {
       settings.freeShippingThreshold = freeShippingThreshold;
     if (deliveryFee !== undefined) settings.deliveryFee = deliveryFee;
     if (shippingTiers !== undefined) settings.shippingTiers = shippingTiers;
+    if (defaultReturnPeriodDays !== undefined)
+      settings.defaultReturnPeriodDays = defaultReturnPeriodDays;
 
     await settings.save();
 

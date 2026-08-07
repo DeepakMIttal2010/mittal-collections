@@ -19,6 +19,52 @@ import { getReferralSettings } from "../utils/referral.js";
 import { calculateDeliveryFee } from "../utils/shipping.js";
 import { sendEmail } from "../config/mailer.js";
 
+// Computes per-item return eligibility (whether the product allows
+// returns at all, and whether "deliveredAt + return period" hasn't
+// passed yet) and attaches it as `returnInfo` on each order item, so
+// the client never has to duplicate this date math.
+const attachReturnEligibility = async (orders) => {
+  const settings = await SiteSettings.findOne();
+  const defaultDays = settings?.defaultReturnPeriodDays ?? 7;
+
+  const wasArray = Array.isArray(orders);
+  const list = wasArray ? orders : [orders];
+
+  const decorated = list.map((order) => {
+    const obj = order.toObject ? order.toObject() : order;
+
+    obj.orderItems = (obj.orderItems || []).map((item) => {
+      const product = item.product;
+      const isPopulated = product && typeof product === "object";
+
+      const isReturnableProduct = isPopulated
+        ? product.isReturnable !== false
+        : true;
+      const periodDays =
+        (isPopulated && product.returnPeriodDays) || defaultDays;
+
+      let deadline = null;
+      let eligible = false;
+
+      if (obj.orderStatus === "Delivered" && obj.deliveredAt && isReturnableProduct) {
+        deadline = new Date(obj.deliveredAt);
+        deadline.setDate(deadline.getDate() + periodDays);
+        eligible = new Date() <= deadline;
+      }
+
+      return {
+        ...item,
+        product: isPopulated ? product._id : product,
+        returnInfo: { isReturnable: isReturnableProduct, periodDays, deadline, eligible },
+      };
+    });
+
+    return obj;
+  });
+
+  return wasArray ? decorated : decorated[0];
+};
+
 const ORDER_STATUS_MESSAGES = {
   Processing: {
     subject: "Your order is being processed",
@@ -223,11 +269,13 @@ export const getMyOrders = async (req, res) => {
   try {
     const orders = await Order.find({
       user: req.user._id,
-    }).sort({ createdAt: -1 });
+    })
+      .populate("orderItems.product", "isReturnable returnPeriodDays")
+      .sort({ createdAt: -1 });
 
     res.status(200).json({
       success: true,
-      orders,
+      orders: await attachReturnEligibility(orders),
     });
   } catch (error) {
     console.error("Get Orders Error:", error);
@@ -271,10 +319,9 @@ export const getAllOrders = async (req, res) => {
 
 export const getOrderById = async (req, res) => {
   try {
-    const order = await Order.findById(req.params.id).populate(
-      "user",
-      "name email mobile",
-    );
+    const order = await Order.findById(req.params.id)
+      .populate("user", "name email mobile")
+      .populate("orderItems.product", "isReturnable returnPeriodDays");
 
     if (!order) {
       return res.status(404).json({
@@ -296,7 +343,7 @@ export const getOrderById = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      order,
+      order: await attachReturnEligibility(order),
     });
   } catch (error) {
     console.error("Get Order Error:", error);

@@ -41,6 +41,8 @@ function AddProduct() {
     washCare: "",
     brand: "",
     countryOfOrigin: "",
+    isReturnable: true,
+    returnPeriodDays: "",
   });
 
   const loadCategories = async () => {
@@ -126,6 +128,8 @@ function AddProduct() {
     data.append("washCare", formData.washCare);
     data.append("brand", formData.brand);
     data.append("countryOfOrigin", formData.countryOfOrigin);
+    data.append("isReturnable", formData.isReturnable);
+    data.append("returnPeriodDays", formData.returnPeriodDays);
 
     images.forEach((file) => data.append("images", file));
     videos.forEach((file) => data.append("videos", file));
@@ -429,7 +433,34 @@ function AddProduct() {
             />
             Show in Trending
           </label>
+
+          <label>
+            <input
+              type="checkbox"
+              name="isReturnable"
+              checked={formData.isReturnable}
+              onChange={handleChange}
+            />
+            Returnable
+          </label>
         </div>
+
+        {formData.isReturnable && (
+          <div className="form-row">
+            <div className="form-group">
+              <label>Custom Return Period (days, optional)</label>
+
+              <input
+                type="number"
+                name="returnPeriodDays"
+                min="0"
+                placeholder="Leave blank to use site default"
+                value={formData.returnPeriodDays}
+                onChange={handleChange}
+              />
+            </div>
+          </div>
+        )}
 
         {formData.isTrending && (
           <div className="form-row">

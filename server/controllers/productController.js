@@ -376,6 +376,8 @@ export const addProduct = async (req, res) => {
       washCare,
       brand,
       countryOfOrigin,
+      isReturnable,
+      returnPeriodDays,
     } = req.body;
 
     const images = (req.files?.images || []).map((file) => file.path);
@@ -413,6 +415,9 @@ export const addProduct = async (req, res) => {
       washCare: washCare || "",
       brand: brand || "",
       countryOfOrigin: countryOfOrigin || "",
+
+      isReturnable: isReturnable === undefined ? true : isReturnable === "true",
+      returnPeriodDays: returnPeriodDays || 0,
 
       image: images[mainIndex],
       images,
@@ -470,6 +475,12 @@ export const updateProduct = async (req, res) => {
     product.washCare = req.body.washCare || "";
     product.brand = req.body.brand || "";
     product.countryOfOrigin = req.body.countryOfOrigin || "";
+
+    product.isReturnable =
+      req.body.isReturnable === undefined
+        ? true
+        : req.body.isReturnable === "true";
+    product.returnPeriodDays = req.body.returnPeriodDays || 0;
 
     let existingImages = product.images.length
       ? product.images
