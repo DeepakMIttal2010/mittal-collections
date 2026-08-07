@@ -10,14 +10,14 @@ function CompareBar() {
   if (compareItems.length === 0) return null;
 
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-white shadow-xl border border-slate-200 rounded-full pl-3 pr-4 py-2">
-      <div className="flex items-center -space-x-2">
+    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 sm:gap-3 max-w-[94vw] bg-white shadow-xl border border-slate-200 rounded-full pl-2.5 sm:pl-3 pr-3 sm:pr-4 py-2 overflow-hidden">
+      <div className="hidden sm:flex items-center -space-x-2 shrink-0">
         {compareItems.map((product) => (
           <div key={product._id} className="relative">
             <img
               src={imgUrl(product.image)}
               alt={product.name}
-              className="w-9 h-9 rounded-full object-cover border-2 border-white"
+              className="w-8 h-8 sm:w-9 sm:h-9 rounded-full object-cover border-2 border-white"
             />
             <button
               type="button"
@@ -31,13 +31,13 @@ function CompareBar() {
         ))}
       </div>
 
-      <span className="text-sm font-medium text-slate-700 whitespace-nowrap">
+      <span className="text-sm font-medium text-slate-700 whitespace-nowrap shrink-0">
         {compareItems.length} selected
       </span>
 
       <Link
         to="/compare"
-        className="flex items-center gap-1.5 bg-blue-900 hover:bg-blue-950 text-white text-sm font-semibold rounded-full px-4 py-2 transition-colors whitespace-nowrap"
+        className="flex items-center gap-1.5 bg-blue-900 hover:bg-blue-950 text-white text-sm font-semibold rounded-full px-3 sm:px-4 py-2 transition-colors whitespace-nowrap shrink-0"
       >
         <FaExchangeAlt className="text-xs" />
         Compare
