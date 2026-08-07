@@ -296,6 +296,9 @@ export const getReportsData = async (req, res) => {
       visitorsInRangeAgg,
       visitorsBeforeRangeAgg,
       locationBreakdownAgg,
+      productViewersAgg,
+      cartViewersAgg,
+      checkoutViewersAgg,
     ] = await Promise.all([
       Order.countDocuments({ createdAt: dateRange }),
 
@@ -464,6 +467,28 @@ export const getReportsData = async (req, res) => {
         { $sort: { visits: -1 } },
         { $limit: 20 },
       ]),
+
+      // Approximate conversion funnel — based on distinct visitors who
+      // reached each page, not exact session-to-order stitching (visits
+      // are tracked by an anonymous visitorId, not linked to a user
+      // account, so this can't be joined precisely to Orders).
+      PageVisit.aggregate([
+        { $match: { createdAt: dateRange, path: /^\/product\// } },
+        { $group: { _id: "$visitorId" } },
+        { $count: "count" },
+      ]),
+
+      PageVisit.aggregate([
+        { $match: { createdAt: dateRange, path: "/cart" } },
+        { $group: { _id: "$visitorId" } },
+        { $count: "count" },
+      ]),
+
+      PageVisit.aggregate([
+        { $match: { createdAt: dateRange, path: "/checkout" } },
+        { $group: { _id: "$visitorId" } },
+        { $count: "count" },
+      ]),
     ]);
 
     const totalRevenue = revenueAgg[0]?.total || 0;
@@ -506,6 +531,14 @@ export const getReportsData = async (req, res) => {
       uniqueVisitors: entry.uniqueVisitors,
     }));
 
+    const funnel = {
+      visitors: uniqueVisitors,
+      productViewers: productViewersAgg[0]?.count || 0,
+      cartViewers: cartViewersAgg[0]?.count || 0,
+      checkoutViewers: checkoutViewersAgg[0]?.count || 0,
+      ordersPlaced: totalOrders,
+    };
+
     res.status(200).json({
       success: true,
       summary: {
@@ -519,6 +552,7 @@ export const getReportsData = async (req, res) => {
         returningVisitors,
       },
       growth,
+      funnel,
       salesOverTime,
       ordersByStatus,
       visitsOverTime,

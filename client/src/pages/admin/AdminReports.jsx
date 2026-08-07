@@ -152,6 +152,69 @@ function OrdersByStatus({ data }) {
   );
 }
 
+function ConversionFunnel({ funnel }) {
+  const stages = [
+    { label: "Website Visitors", value: funnel.visitors },
+    { label: "Viewed a Product", value: funnel.productViewers },
+    { label: "Viewed Cart", value: funnel.cartViewers },
+    { label: "Reached Checkout", value: funnel.checkoutViewers },
+    { label: "Placed an Order", value: funnel.ordersPlaced },
+  ];
+
+  const max = Math.max(stages[0].value, 1);
+
+  if (funnel.visitors === 0) {
+    return (
+      <p className="text-sm text-slate-400 py-8 text-center">
+        No visits recorded in this range yet.
+      </p>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      {stages.map((stage, index) => {
+        const widthPct = Math.max((stage.value / max) * 100, 2);
+        const prevValue = index > 0 ? stages[index - 1].value : null;
+        const dropOffPct =
+          prevValue && prevValue > 0
+            ? (((prevValue - stage.value) / prevValue) * 100).toFixed(0)
+            : null;
+
+        return (
+          <div key={stage.label}>
+            <div className="flex items-center justify-between text-sm mb-1">
+              <span className="font-medium text-slate-700">
+                {stage.label}
+              </span>
+              <span className="text-slate-500">
+                {stage.value.toLocaleString("en-IN")}
+                {dropOffPct !== null && Number(dropOffPct) > 0 && (
+                  <span className="text-red-500 ml-2 text-xs">
+                    −{dropOffPct}%
+                  </span>
+                )}
+              </span>
+            </div>
+            <div className="h-3 rounded-full bg-slate-100 overflow-hidden">
+              <div
+                className="h-full rounded-full bg-blue-600"
+                style={{ width: `${widthPct}%` }}
+              />
+            </div>
+          </div>
+        );
+      })}
+
+      <p className="text-xs text-slate-400 mt-1">
+        Based on anonymous visitor tracking — visits aren&apos;t linked to
+        accounts, so this approximates the journey rather than tracing
+        individual customers.
+      </p>
+    </div>
+  );
+}
+
 function RankedBarList({ items, labelKey, valueKey, formatValue, emptyText }) {
   if (items.length === 0) {
     return (
@@ -207,6 +270,13 @@ function AdminReports() {
       returningVisitors: 0,
     },
     growth: { revenue: null, orders: null },
+    funnel: {
+      visitors: 0,
+      productViewers: 0,
+      cartViewers: 0,
+      checkoutViewers: 0,
+      ordersPlaced: 0,
+    },
     salesOverTime: [],
     ordersByStatus: [],
     topProducts: [],
@@ -283,6 +353,18 @@ function AdminReports() {
       blocks.push(title);
       blocks.push(Papa.unparse(rows.map(mapRow)));
     };
+
+    section(
+      "Conversion Funnel",
+      [
+        { stage: "Website Visitors", value: report.funnel.visitors },
+        { stage: "Viewed a Product", value: report.funnel.productViewers },
+        { stage: "Viewed Cart", value: report.funnel.cartViewers },
+        { stage: "Reached Checkout", value: report.funnel.checkoutViewers },
+        { stage: "Placed an Order", value: report.funnel.ordersPlaced },
+      ],
+      (s) => ({ Stage: s.stage, Count: s.value }),
+    );
 
     section("Sales Over Time", report.salesOverTime, (d) => ({
       Date: d._id,
@@ -502,6 +584,13 @@ function AdminReports() {
             emptyText="No visits recorded in this range yet."
           />
         </div>
+      </div>
+
+      <div className="bg-white border border-slate-200 rounded-xl p-5 mb-6">
+        <h3 className="font-semibold text-slate-800 mb-4">
+          Conversion Funnel — {rangeLabel}
+        </h3>
+        <ConversionFunnel funnel={report.funnel} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
