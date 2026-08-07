@@ -7,6 +7,7 @@ Disallow: /checkout
 Disallow: /wishlist
 Disallow: /compare
 Disallow: /my-orders
+Disallow: /tickets
 Disallow: /addresses
 Disallow: /login
 Disallow: /register

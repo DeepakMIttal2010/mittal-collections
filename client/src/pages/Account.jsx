@@ -10,6 +10,7 @@ import {
   FaGift,
   FaUserFriends,
   FaCopy,
+  FaTicketAlt,
 } from "react-icons/fa";
 import { FaWhatsapp } from "react-icons/fa6";
 import { useAuth } from "../context/AuthContext";
@@ -34,6 +35,12 @@ const ACCOUNT_LINKS = [
     icon: FaMapMarkerAlt,
     title: "Your Addresses",
     description: "Edit, remove or set a default address",
+  },
+  {
+    to: "/tickets",
+    icon: FaTicketAlt,
+    title: "Support Tickets",
+    description: "Raise an issue and chat with our support team",
   },
   {
     to: "/edit-profile",
