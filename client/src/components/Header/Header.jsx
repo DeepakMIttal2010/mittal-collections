@@ -62,7 +62,7 @@ function Header() {
       // showing nothing.
       const { city, region, country } = response.location;
 
-      setDeliverName("Guest");
+      setDeliverName(isLoggedIn ? user?.name || "" : "Guest");
       if (city) setDeliverPlace(city);
       else if (region) setDeliverPlace(region);
       else if (country === "IN") setDeliverPlace("India");
