@@ -8,6 +8,7 @@ import {
   getProducts,
   getAllProductsAdmin,
   getTrendingProducts,
+  getBestSellers,
   getSearchSuggestions,
   getProductById,
   addProduct,
@@ -23,6 +24,7 @@ const router = express.Router();
 // Public routes — koi bhi dekh sakta hai
 router.get("/", getProducts);
 router.get("/trending", getTrendingProducts);
+router.get("/best-sellers", getBestSellers);
 router.get("/suggestions", getSearchSuggestions);
 
 // Admin-only routes — login + admin role dono zaroori (must come before /:id)

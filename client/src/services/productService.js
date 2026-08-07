@@ -28,6 +28,35 @@ export const getProducts = async () => {
 };
 
 // ==========================
+// Get Best Sellers (ranked by actual units sold)
+// ==========================
+export const getBestSellers = async (limit = 10) => {
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/products/best-sellers?limit=${limit}`,
+    );
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch best sellers");
+    }
+
+    const data = await response.json();
+
+    return {
+      success: data.success,
+      products: data.products || [],
+    };
+  } catch (error) {
+    console.error("Get Best Sellers Error:", error);
+
+    return {
+      success: false,
+      products: [],
+    };
+  }
+};
+
+// ==========================
 // Get Trending Products
 // ==========================
 export const getTrendingProducts = async (limit = 10) => {

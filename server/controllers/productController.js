@@ -267,6 +267,62 @@ export const getTrendingProducts = async (req, res) => {
 };
 
 // ============================
+// GET BEST SELLERS (Public) — ranked by actual units sold, not a
+// manually curated list like "trending".
+// ============================
+export const getBestSellers = async (req, res) => {
+  try {
+    const limit = Math.max(parseInt(req.query.limit, 10) || 10, 1);
+
+    const salesByProduct = await Order.aggregate([
+      { $match: { orderStatus: { $ne: "Cancelled" } } },
+      { $unwind: "$orderItems" },
+      {
+        $group: {
+          _id: "$orderItems.product",
+          totalSold: { $sum: "$orderItems.quantity" },
+        },
+      },
+      { $sort: { totalSold: -1 } },
+      { $limit: limit * 2 }, // headroom for any inactive products filtered out below
+    ]);
+
+    const productIds = salesByProduct.map((entry) => entry._id);
+
+    const products = await Product.find({
+      _id: { $in: productIds },
+      isActive: true,
+    })
+      .populate("category", "name slug image")
+      .populate("subcategory", "name slug");
+
+    const soldCountById = new Map(
+      salesByProduct.map((entry) => [entry._id.toString(), entry.totalSold]),
+    );
+
+    const bestSellers = products
+      .sort(
+        (a, b) =>
+          (soldCountById.get(b._id.toString()) || 0) -
+          (soldCountById.get(a._id.toString()) || 0),
+      )
+      .slice(0, limit);
+
+    res.status(200).json({
+      success: true,
+      products: bestSellers,
+    });
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};
+
+// ============================
 // GET SINGLE PRODUCT
 // ============================
 export const getProductById = async (req, res) => {

@@ -65,10 +65,10 @@ function Home() {
       <RecentlyViewed />
       <Categories />
       <TrendingSection />
-      <WhyChooseUs />
       <SizeShowcase />
       <PriceShowcase />
       <NewArrivals />
+      <WhyChooseUs />
       <Testimonials />
       <Faq />
       <Newsletter />
