@@ -233,18 +233,57 @@ export const markAllNotificationsRead = async (req, res) => {
 
 export const getReportsData = async (req, res) => {
   try {
-    const days = Math.min(Math.max(parseInt(req.query.days, 10) || 30, 7), 90);
+    // Either an explicit ?startDate=&endDate= (YYYY-MM-DD) custom range,
+    // or the older ?days= preset — custom range wins if both are given.
+    let since;
+    let until;
+    let days;
 
-    const since = new Date();
-    since.setDate(since.getDate() - (days - 1));
-    since.setHours(0, 0, 0, 0);
+    if (req.query.startDate && req.query.endDate) {
+      since = new Date(req.query.startDate);
+      since.setHours(0, 0, 0, 0);
 
+      until = new Date(req.query.endDate);
+      until.setHours(23, 59, 59, 999);
+
+      days = Math.max(
+        Math.round((until - since) / (1000 * 60 * 60 * 24)) + 1,
+        1,
+      );
+    } else {
+      days = Math.min(Math.max(parseInt(req.query.days, 10) || 30, 7), 90);
+
+      since = new Date();
+      since.setDate(since.getDate() - (days - 1));
+      since.setHours(0, 0, 0, 0);
+
+      until = new Date();
+      until.setHours(23, 59, 59, 999);
+    }
+
+    const dateRange = { $gte: since, $lte: until };
+
+    // Previous period of equal length immediately before `since`, used
+    // to compute growth % against the currently selected range.
+    const prevUntil = new Date(since.getTime() - 1);
+    const prevSince = new Date(since);
+    prevSince.setDate(prevSince.getDate() - days);
+    const prevDateRange = { $gte: prevSince, $lte: prevUntil };
+
+    // Orders that count toward revenue — excludes Cancelled, always
+    // scoped to whichever range is being asked about.
     const revenueOrdersFilter = { orderStatus: { $ne: "Cancelled" } };
+    const revenueOrdersInRange = {
+      ...revenueOrdersFilter,
+      createdAt: dateRange,
+    };
 
     const [
       totalOrders,
       totalCustomers,
       revenueAgg,
+      prevRevenueAgg,
+      prevOrdersCount,
       salesOverTime,
       ordersByStatus,
       topProducts,
@@ -258,17 +297,26 @@ export const getReportsData = async (req, res) => {
       visitorsBeforeRangeAgg,
       locationBreakdownAgg,
     ] = await Promise.all([
-      Order.countDocuments(),
+      Order.countDocuments({ createdAt: dateRange }),
 
       User.countDocuments({ role: "user" }),
 
       Order.aggregate([
-        { $match: revenueOrdersFilter },
+        { $match: revenueOrdersInRange },
         { $group: { _id: null, total: { $sum: "$totalPrice" } } },
       ]),
 
       Order.aggregate([
-        { $match: { ...revenueOrdersFilter, createdAt: { $gte: since } } },
+        {
+          $match: { ...revenueOrdersFilter, createdAt: prevDateRange },
+        },
+        { $group: { _id: null, total: { $sum: "$totalPrice" } } },
+      ]),
+
+      Order.countDocuments({ createdAt: prevDateRange }),
+
+      Order.aggregate([
+        { $match: revenueOrdersInRange },
         {
           $group: {
             _id: {
@@ -282,11 +330,12 @@ export const getReportsData = async (req, res) => {
       ]),
 
       Order.aggregate([
+        { $match: { createdAt: dateRange } },
         { $group: { _id: "$orderStatus", count: { $sum: 1 } } },
       ]),
 
       Order.aggregate([
-        { $match: revenueOrdersFilter },
+        { $match: revenueOrdersInRange },
         { $unwind: "$orderItems" },
         {
           $group: {
@@ -303,7 +352,7 @@ export const getReportsData = async (req, res) => {
       ]),
 
       Order.aggregate([
-        { $match: revenueOrdersFilter },
+        { $match: revenueOrdersInRange },
         { $unwind: "$orderItems" },
         {
           $lookup: {
@@ -342,15 +391,16 @@ export const getReportsData = async (req, res) => {
         { $sort: { revenue: -1 } },
       ]),
 
-      PageVisit.countDocuments(),
+      PageVisit.countDocuments({ createdAt: dateRange }),
 
       PageVisit.aggregate([
+        { $match: { createdAt: dateRange } },
         { $group: { _id: "$visitorId" } },
         { $count: "count" },
       ]),
 
       PageVisit.aggregate([
-        { $match: { createdAt: { $gte: since } } },
+        { $match: { createdAt: dateRange } },
         {
           $group: {
             _id: {
@@ -370,20 +420,20 @@ export const getReportsData = async (req, res) => {
       ]),
 
       PageVisit.aggregate([
-        { $match: { createdAt: { $gte: since } } },
+        { $match: { createdAt: dateRange } },
         { $group: { _id: "$path", visits: { $sum: 1 } } },
         { $sort: { visits: -1 } },
         { $limit: 8 },
       ]),
 
       PageVisit.aggregate([
-        { $match: { createdAt: { $gte: since } } },
+        { $match: { createdAt: dateRange } },
         { $group: { _id: "$device", count: { $sum: 1 } } },
         { $sort: { count: -1 } },
       ]),
 
       PageVisit.aggregate([
-        { $match: { createdAt: { $gte: since } } },
+        { $match: { createdAt: dateRange } },
         { $group: { _id: "$visitorId" } },
       ]),
 
@@ -393,7 +443,7 @@ export const getReportsData = async (req, res) => {
       ]),
 
       PageVisit.aggregate([
-        { $match: { createdAt: { $gte: since } } },
+        { $match: { createdAt: dateRange } },
         {
           $group: {
             _id: { country: "$country", region: "$region", city: "$city" },
@@ -418,6 +468,20 @@ export const getReportsData = async (req, res) => {
 
     const totalRevenue = revenueAgg[0]?.total || 0;
     const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+
+    const prevRevenue = prevRevenueAgg[0]?.total || 0;
+
+    // null growth (rather than 0% or +Infinity) when the previous period
+    // had nothing to compare against — the UI shows "—" in that case.
+    const growthPercent = (current, previous) => {
+      if (previous === 0) return current > 0 ? null : 0;
+      return ((current - previous) / previous) * 100;
+    };
+
+    const growth = {
+      revenue: growthPercent(totalRevenue, prevRevenue),
+      orders: growthPercent(totalOrders, prevOrdersCount),
+    };
 
     const visitorsBeforeRangeSet = new Set(
       visitorsBeforeRangeAgg.map((v) => v._id),
@@ -454,6 +518,7 @@ export const getReportsData = async (req, res) => {
         newVisitors,
         returningVisitors,
       },
+      growth,
       salesOverTime,
       ordersByStatus,
       visitsOverTime,
@@ -463,6 +528,7 @@ export const getReportsData = async (req, res) => {
       revenueByCategory,
       locationBreakdown,
       rangeDays: days,
+      range: { since, until },
     });
   } catch (error) {
     console.error("Get Reports Data Error:", error);

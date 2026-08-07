@@ -22,16 +22,18 @@ export const getDashboardData = async () => {
   }
 };
 
-export const getReportsData = async (days = 30) => {
+export const getReportsData = async ({ days, startDate, endDate } = {}) => {
   try {
-    const response = await fetch(
-      `${API_BASE_URL}/admin/reports?days=${days}`,
-      {
-        headers: {
-          Authorization: `Bearer ${getToken()}`,
-        },
+    const params =
+      startDate && endDate
+        ? `startDate=${startDate}&endDate=${endDate}`
+        : `days=${days || 30}`;
+
+    const response = await fetch(`${API_BASE_URL}/admin/reports?${params}`, {
+      headers: {
+        Authorization: `Bearer ${getToken()}`,
       },
-    );
+    });
 
     const data = await response.json();
 

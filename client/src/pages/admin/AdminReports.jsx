@@ -8,6 +8,8 @@ import {
   FaUserFriends,
   FaUserPlus,
   FaUserCheck,
+  FaArrowUp,
+  FaArrowDown,
 } from "react-icons/fa";
 
 import { getReportsData } from "../../services/adminService";
@@ -32,7 +34,27 @@ const formatDay = (isoDate) => {
   return d.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
 };
 
-function StatTile({ icon, label, value }) {
+function GrowthBadge({ percent }) {
+  if (percent === null || percent === undefined) {
+    return <span className="text-xs text-slate-400">vs previous period —</span>;
+  }
+
+  const isUp = percent >= 0;
+  const Icon = isUp ? FaArrowUp : FaArrowDown;
+
+  return (
+    <span
+      className={`inline-flex items-center gap-1 text-xs font-semibold ${
+        isUp ? "text-green-600" : "text-red-600"
+      }`}
+    >
+      <Icon className="text-[10px]" />
+      {Math.abs(percent).toFixed(1)}% vs previous period
+    </span>
+  );
+}
+
+function StatTile({ icon, label, value, growth }) {
   return (
     <div className="bg-white border border-slate-200 rounded-xl p-5 flex items-center gap-4">
       <div className="w-11 h-11 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center text-lg shrink-0">
@@ -43,6 +65,11 @@ function StatTile({ icon, label, value }) {
           {value}
         </p>
         <p className="text-sm text-slate-500">{label}</p>
+        {growth !== undefined && (
+          <div className="mt-0.5">
+            <GrowthBadge percent={growth} />
+          </div>
+        )}
       </div>
     </div>
   );
@@ -156,9 +183,16 @@ function RankedBarList({ items, labelKey, valueKey, formatValue, emptyText }) {
   );
 }
 
+const todayISO = () => new Date().toISOString().slice(0, 10);
+
 function AdminReports() {
   const [loading, setLoading] = useState(true);
   const [days, setDays] = useState(30);
+  const [customRange, setCustomRange] = useState(null); // { startDate, endDate } | null
+  const [showCustomPicker, setShowCustomPicker] = useState(false);
+  const [draftStart, setDraftStart] = useState("");
+  const [draftEnd, setDraftEnd] = useState(todayISO());
+
   const [report, setReport] = useState({
     summary: {
       totalRevenue: 0,
@@ -170,6 +204,7 @@ function AdminReports() {
       newVisitors: 0,
       returningVisitors: 0,
     },
+    growth: { revenue: null, orders: null },
     salesOverTime: [],
     ordersByStatus: [],
     topProducts: [],
@@ -183,7 +218,9 @@ function AdminReports() {
   const loadReport = async () => {
     setLoading(true);
 
-    const response = await getReportsData(days);
+    const response = await getReportsData(
+      customRange ? customRange : { days },
+    );
 
     if (response.success) {
       setReport(response);
@@ -195,7 +232,23 @@ function AdminReports() {
   useEffect(() => {
     loadReport();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [days]);
+  }, [days, customRange]);
+
+  const rangeLabel = customRange
+    ? `${new Date(customRange.startDate).toLocaleDateString("en-IN", { day: "numeric", month: "short" })} – ${new Date(customRange.endDate).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}`
+    : `last ${days} days`;
+
+  const applyCustomRange = () => {
+    if (!draftStart || !draftEnd) return;
+    setCustomRange({ startDate: draftStart, endDate: draftEnd });
+    setShowCustomPicker(false);
+  };
+
+  const selectPreset = (opt) => {
+    setCustomRange(null);
+    setDays(opt);
+    setShowCustomPicker(false);
+  };
 
   if (loading) {
     return (
@@ -215,34 +268,86 @@ function AdminReports() {
           </p>
         </div>
 
-        <div className="flex items-center gap-1 bg-white border border-slate-300 rounded-lg p-1">
-          {RANGE_OPTIONS.map((opt) => (
+        <div className="relative flex items-center gap-2">
+          <div className="flex items-center gap-1 bg-white border border-slate-300 rounded-lg p-1">
+            {RANGE_OPTIONS.map((opt) => (
+              <button
+                key={opt}
+                type="button"
+                onClick={() => selectPreset(opt)}
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                  !customRange && days === opt
+                    ? "bg-blue-600 text-white"
+                    : "text-slate-500 hover:bg-slate-100"
+                }`}
+              >
+                {opt} days
+              </button>
+            ))}
             <button
-              key={opt}
               type="button"
-              onClick={() => setDays(opt)}
+              onClick={() => setShowCustomPicker((v) => !v)}
               className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                days === opt
+                customRange
                   ? "bg-blue-600 text-white"
                   : "text-slate-500 hover:bg-slate-100"
               }`}
             >
-              {opt} days
+              {customRange ? rangeLabel : "Custom"}
             </button>
-          ))}
+          </div>
+
+          {showCustomPicker && (
+            <div className="absolute right-0 top-full mt-2 z-10 bg-white border border-slate-200 rounded-lg shadow-lg p-4 flex items-end gap-3">
+              <div>
+                <label className="block text-xs font-medium text-slate-500 mb-1">
+                  From
+                </label>
+                <input
+                  type="date"
+                  value={draftStart}
+                  max={draftEnd}
+                  onChange={(e) => setDraftStart(e.target.value)}
+                  className="border border-slate-300 rounded-lg px-2 py-1.5 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-500 mb-1">
+                  To
+                </label>
+                <input
+                  type="date"
+                  value={draftEnd}
+                  max={todayISO()}
+                  onChange={(e) => setDraftEnd(e.target.value)}
+                  className="border border-slate-300 rounded-lg px-2 py-1.5 text-sm"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={applyCustomRange}
+                disabled={!draftStart || !draftEnd}
+                className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-1.5 rounded-lg disabled:opacity-50"
+              >
+                Apply
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
         <StatTile
           icon={<FaRupeeSign />}
-          label="Total Revenue"
+          label={`Revenue — ${rangeLabel}`}
           value={formatCurrency(summary.totalRevenue)}
+          growth={report.growth?.revenue}
         />
         <StatTile
           icon={<FaShoppingCart />}
-          label="Total Orders"
+          label={`Orders — ${rangeLabel}`}
           value={summary.totalOrders}
+          growth={report.growth?.orders}
         />
         <StatTile
           icon={<FaChartLine />}
@@ -251,7 +356,7 @@ function AdminReports() {
         />
         <StatTile
           icon={<FaUsers />}
-          label="Total Customers"
+          label="Total Customers (all-time)"
           value={summary.totalCustomers}
         />
       </div>
@@ -259,22 +364,22 @@ function AdminReports() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <StatTile
           icon={<FaEye />}
-          label="Total Website Visits (all-time)"
+          label={`Website Visits — ${rangeLabel}`}
           value={formatNumber(summary.totalVisits)}
         />
         <StatTile
           icon={<FaUserFriends />}
-          label="Unique Visitors (all-time)"
+          label={`Unique Visitors — ${rangeLabel}`}
           value={formatNumber(summary.uniqueVisitors)}
         />
         <StatTile
           icon={<FaUserPlus />}
-          label={`New Visitors — last ${days} days`}
+          label={`New Visitors — ${rangeLabel}`}
           value={formatNumber(summary.newVisitors)}
         />
         <StatTile
           icon={<FaUserCheck />}
-          label={`Returning Visitors — last ${days} days`}
+          label={`Returning Visitors — ${rangeLabel}`}
           value={formatNumber(summary.returningVisitors)}
         />
       </div>
@@ -282,7 +387,7 @@ function AdminReports() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <div className="bg-white border border-slate-200 rounded-xl p-5">
           <h3 className="font-semibold text-slate-800 mb-4">
-            Sales — last {days} days
+            Sales — {rangeLabel}
           </h3>
           <BarTrendChart
             data={report.salesOverTime}
@@ -294,7 +399,7 @@ function AdminReports() {
 
         <div className="bg-white border border-slate-200 rounded-xl p-5">
           <h3 className="font-semibold text-slate-800 mb-4">
-            Website Visits — last {days} days
+            Website Visits — {rangeLabel}
           </h3>
           <BarTrendChart
             data={report.visitsOverTime}
@@ -315,7 +420,7 @@ function AdminReports() {
 
         <div className="bg-white border border-slate-200 rounded-xl p-5">
           <h3 className="font-semibold text-slate-800 mb-4">
-            Most Visited Pages — last {days} days
+            Most Visited Pages — {rangeLabel}
           </h3>
           <RankedBarList
             items={report.topPages}
@@ -328,7 +433,7 @@ function AdminReports() {
 
         <div className="bg-white border border-slate-200 rounded-xl p-5">
           <h3 className="font-semibold text-slate-800 mb-4">
-            Visits by Device — last {days} days
+            Visits by Device — {rangeLabel}
           </h3>
           <RankedBarList
             items={report.deviceBreakdown}
@@ -370,7 +475,7 @@ function AdminReports() {
 
       <div className="bg-white border border-slate-200 rounded-xl p-5 mb-6">
         <h3 className="font-semibold text-slate-800 mb-4">
-          Visitor Locations — last {days} days
+          Visitor Locations — {rangeLabel}
         </h3>
 
         {report.locationBreakdown.length === 0 ? (
