@@ -35,7 +35,7 @@ function AutoCompareTable({ mainProduct, similarProducts }) {
     products.some((p) => row.get(p)),
   );
 
-  if (similarProducts.length === 0 || visibleRows.length <= 2) return null;
+  if (similarProducts.length === 0) return null;
 
   return (
     <div className="mt-16">
