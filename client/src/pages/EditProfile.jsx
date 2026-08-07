@@ -6,7 +6,7 @@ import { useAuth } from "../context/AuthContext";
 
 function EditProfile() {
   const navigate = useNavigate();
-  const { updateUser } = useAuth();
+  const { updateUser, isLoggedIn } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -18,6 +18,11 @@ function EditProfile() {
   });
 
   useEffect(() => {
+    if (!isLoggedIn) {
+      navigate("/login?redirect=/edit-profile");
+      return;
+    }
+
     const loadProfile = async () => {
       const data = await getProfile();
 
@@ -35,7 +40,7 @@ function EditProfile() {
     };
 
     loadProfile();
-  }, []);
+  }, [isLoggedIn, navigate]);
 
   const handleChange = (e) => {
     setFormData({

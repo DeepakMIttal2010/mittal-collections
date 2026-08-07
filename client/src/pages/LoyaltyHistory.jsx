@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 import {
   getMyLoyaltyTransactions,
   getPublicRewardsInfo,
 } from "../services/rewardsService";
+import { useAuth } from "../context/AuthContext";
 
 const TYPE_LABELS = {
   earned: "Earned",
@@ -17,6 +18,9 @@ const TYPE_LABELS = {
 };
 
 function LoyaltyHistory() {
+  const { isLoggedIn } = useAuth();
+  const navigate = useNavigate();
+
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -24,6 +28,11 @@ function LoyaltyHistory() {
   const [loyaltyRules, setLoyaltyRules] = useState(null);
 
   useEffect(() => {
+    if (!isLoggedIn) {
+      navigate("/login?redirect=/loyalty-history");
+      return;
+    }
+
     const load = async () => {
       setLoading(true);
       const response = await getMyLoyaltyTransactions(page);
@@ -37,7 +46,7 @@ function LoyaltyHistory() {
     };
 
     load();
-  }, [page]);
+  }, [page, isLoggedIn, navigate]);
 
   useEffect(() => {
     getPublicRewardsInfo().then((response) => {

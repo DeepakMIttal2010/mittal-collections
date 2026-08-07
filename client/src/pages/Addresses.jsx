@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { FaPlus } from "react-icons/fa";
 import {
@@ -7,8 +7,12 @@ import {
   deleteAddress,
   setDefaultAddress,
 } from "../services/addressService";
+import { useAuth } from "../context/AuthContext";
 
 function Addresses() {
+  const { isLoggedIn } = useAuth();
+  const navigate = useNavigate();
+
   const [addresses, setAddresses] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -25,8 +29,14 @@ function Addresses() {
   };
 
   useEffect(() => {
+    if (!isLoggedIn) {
+      navigate("/login?redirect=/addresses");
+      return;
+    }
+
     loadAddresses();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoggedIn, navigate]);
 
   const handleRemove = async (id) => {
     const data = await deleteAddress(id);

@@ -1,8 +1,9 @@
 import { imgUrl } from "../services/api";
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useNavigate } from "react-router-dom";
 
 import { getOrderById } from "../services/orderService";
+import { useAuth } from "../context/AuthContext";
 
 const STATUS_COLORS = {
   Pending: "bg-slate-100 text-slate-700",
@@ -14,11 +15,18 @@ const STATUS_COLORS = {
 
 function OrderDetails() {
   const { id } = useParams();
+  const navigate = useNavigate();
+  const { isLoggedIn } = useAuth();
 
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!isLoggedIn) {
+      navigate(`/login?redirect=/my-orders/${id}`);
+      return;
+    }
+
     const load = async () => {
       setLoading(true);
 
@@ -30,7 +38,7 @@ function OrderDetails() {
     };
 
     load();
-  }, [id]);
+  }, [id, isLoggedIn, navigate]);
 
   if (loading) {
     return (

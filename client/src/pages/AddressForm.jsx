@@ -7,10 +7,12 @@ import {
   updateAddress,
 } from "../services/addressService";
 import { getStates } from "../services/stateService";
+import { useAuth } from "../context/AuthContext";
 
 function AddressForm() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { isLoggedIn } = useAuth();
   const [searchParams] = useSearchParams();
   const redirectTo = searchParams.get("redirect") || "/addresses";
   const isEdit = Boolean(id);
@@ -18,6 +20,16 @@ function AddressForm() {
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
   const [states, setStates] = useState([]);
+
+  useEffect(() => {
+    if (!isLoggedIn) {
+      navigate(
+        `/login?redirect=${encodeURIComponent(
+          isEdit ? `/addresses/edit/${id}` : "/addresses/add",
+        )}`,
+      );
+    }
+  }, [isLoggedIn, navigate, isEdit, id]);
 
   const [formData, setFormData] = useState({
     fullName: "",

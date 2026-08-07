@@ -1,8 +1,9 @@
 import { imgUrl } from "../services/api";
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { getMyOrders } from "../services/orderService";
 import { useCart } from "../context/CartContext";
+import { useAuth } from "../context/AuthContext";
 
 const TABS = [
   { key: "orders", label: "Orders" },
@@ -63,8 +64,15 @@ function MyOrders() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("orders");
   const { addToCart } = useCart();
+  const { isLoggedIn } = useAuth();
+  const navigate = useNavigate();
 
   useEffect(() => {
+    if (!isLoggedIn) {
+      navigate("/login?redirect=/my-orders");
+      return;
+    }
+
     const loadOrders = async () => {
       const response = await getMyOrders();
 
@@ -76,7 +84,7 @@ function MyOrders() {
     };
 
     loadOrders();
-  }, []);
+  }, [isLoggedIn, navigate]);
 
   const buyAgainItems = useMemo(() => {
     const seen = new Map();
