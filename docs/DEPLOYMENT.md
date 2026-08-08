@@ -163,11 +163,12 @@ running). If that happens: open the Render dashboard for the service
 
 ## 6a. Backup & Recovery
 
-Database backups are **not currently confirmed to exist** — see
-`BACKUP_RECOVERY.md` for the full audit. MongoDB Atlas's free tier
-(M0) has no automated backup feature at all; if this cluster is on
-M0, there is no recovery path for the production database today. This
-is worth resolving before treating the site as fully production-ready.
+MongoDB Atlas's free tier (M0, confirmed as this project's tier) has
+no automated backup feature at all, so `.github/workflows/mongodb-backup.yml`
+runs a weekly `mongodump` and stores it as a GitHub Actions artifact
+(90-day rolling retention) instead. Requires a `MONGODB_URI` repository
+secret (Settings → Secrets and variables → Actions) to actually run —
+see `BACKUP_RECOVERY.md` for full setup and restore instructions.
 
 ## 7. Rollback
 

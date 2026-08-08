@@ -1,0 +1,41 @@
+name: MongoDB Backup
+
+# MongoDB Atlas's free tier (M0) has no automated backup feature at
+# all — see docs/BACKUP_RECOVERY.md. This is the free-tier substitute:
+# a weekly mongodump, stored as a GitHub Actions artifact. Requires a
+# repo secret named MONGODB_URI (Settings -> Secrets and variables ->
+# Actions -> New repository secret) pointing at the production
+# connection string.
+
+on:
+  schedule:
+    - cron: "0 3 * * 0" # Every Sunday, 03:00 UTC (~8:30 AM IST)
+  workflow_dispatch: {} # lets you trigger an on-demand backup from the Actions tab
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install MongoDB Database Tools
+        run: |
+          curl -fsSL -o mongodb-database-tools.tgz \
+            https://fastdl.mongodb.org/tools/db/mongodb-database-tools-ubuntu2204-x86_64-100.17.0.tgz
+          tar -xzf mongodb-database-tools.tgz
+          sudo cp mongodb-database-tools-*/bin/* /usr/local/bin/
+
+      - name: Dump database
+        env:
+          MONGODB_URI: ${{ secrets.MONGODB_URI }}
+        run: |
+          if [ -z "$MONGODB_URI" ]; then
+            echo "::error::MONGODB_URI secret is not set — see the comment at the top of this workflow file."
+            exit 1
+          fi
+          mongodump --uri="$MONGODB_URI" --archive=mittal-collections-backup.gz --gzip
+
+      - name: Upload backup artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mongodb-backup-${{ github.run_id }}
+          path: mittal-collections-backup.gz
+          retention-days: 90
