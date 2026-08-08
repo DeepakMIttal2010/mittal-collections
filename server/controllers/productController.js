@@ -46,20 +46,23 @@ export const notifyStockAlertSubscribers = async (product) => {
 
       alert.notified = true;
       await alert.save();
-
-      // Only registered accounts get an in-app notification too — a
-      // stock-alert email address doesn't have to belong to one.
-      const subscriber = await User.findOne({ email: alert.email }).select("_id");
-      if (subscriber) {
-        notifyUser({
-          userId: subscriber._id,
-          type: "back_in_stock",
-          title: `${product.name} is back in stock!`,
-          link: `/product/${product._id}/${slug}`,
-        });
-      }
     } catch (error) {
       console.error(`Stock alert email failed for ${alert.email}:`, error);
+    }
+
+    // In-app notification is independent of email delivery — matches
+    // every other notification type in the app (order status, ticket
+    // reply, return status all fire notifyUser() regardless of whether
+    // the accompanying email succeeds), so a bounced email doesn't
+    // silently also cost the customer the bell notification.
+    const subscriber = await User.findOne({ email: alert.email }).select("_id");
+    if (subscriber) {
+      notifyUser({
+        userId: subscriber._id,
+        type: "back_in_stock",
+        title: `${product.name} is back in stock!`,
+        link: `/product/${product._id}/${slug}`,
+      });
     }
   }
 };

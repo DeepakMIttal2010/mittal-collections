@@ -36,13 +36,16 @@ Coverage today (`server/tests/`):
 - **Auth rate limiting** — the 21st request to `/api/auth/*` within the window gets `429`, not silently allowed through.
 - **Admin Reports date-range scoping** — `totalOrders`/`totalRevenue` correctly include only orders inside the selected `days` preset or custom `startDate`/`endDate`, both narrow and widened ranges checked against the same fixture data; `totalCustomers` stays all-time regardless of range (the one deliberate exception). This is a direct regression guard for the real historical bug where several summary metrics silently ignored the selected range.
 - **Abandoned cart targeting** — the reminder endpoint's secret guard, and that only carts past the delay *and* not yet reminded are matched (a too-recent cart and an already-reminded cart are both correctly excluded); a second run doesn't re-target a cart once reminded. Doesn't depend on the outbound email actually succeeding — asserts on the query's `total` count, which is computed before any email is attempted.
+- **Back-in-stock alerts** — duplicate subscriptions don't create a second `StockAlert`; restocking from 0 notifies every subscriber and marks them notified (with email mocked via `vi.mock` for determinism — this environment has real outbound network access, so hitting the real Brevo API would make the test depend on live credentials); only a subscriber with a matching registered account gets an in-app notification; restocking a product that was never at 0 doesn't fire anything. **Writing this test caught and fixed a real bug**: the in-app notification was nested inside the email's `try` block, so a bounced email silently also cost the customer the bell notification — moved it out to fire independently, matching every other notification type in the app.
+- **Notification de-duplication** — exactly one `order_status` notification per status change (not zero, not duplicated across changes); ticket replies notify the customer exactly once per admin reply and never for their own reply; `mark-all-read` clears only that user's unread notifications; a user cannot mark another user's notification as read (404, not silently succeeding).
 
 Everything else in this document is still manual — a local build/lint
 pass, direct API smoke tests via `curl` against both local and
 production, and manual verification in-browser for anything
-UI/visual. Expanding automated coverage to other resources (tickets,
-notification de-duplication, back-in-stock alert targeting) is a
-reasonable future investment, not yet done.
+UI/visual. Expanding automated coverage to CSV export, mobile layout,
+and SEO structured data would need a frontend test framework (not
+currently set up) — a separate, larger investment, not undertaken
+here.
 
 ## 2. Pre-Deploy Sanity Checks (every change)
 
@@ -89,7 +92,7 @@ reasonable future investment, not yet done.
 ### 3.6 Marketing Widgets
 - [ ] Welcome popup: appears once per session on site open (after the delay) for a **guest** only; does **not** appear for a logged-in visitor, either on page load or immediately after login — auto-fades after ~5s or on manual close when it does show.
 - [ ] WhatsApp buttons: site-wide button opens a generic chat; product-page button is pre-filled with that product's name/price/link and is disabled (not clickable) when the product is out of stock.
-- [ ] Back-in-stock: subscribe on an out-of-stock product, restock it (as admin), confirm the subscriber receives an email (and, if the subscribed email belongs to a registered account, an in-app notification too) and isn't double-subscribed on repeat sign-up.
+- [x] Back-in-stock alert wiring (duplicate-subscription guard, notified flag, in-app notification independent of email success) — automated in `server/tests/back-in-stock.test.js`. Still do one manual pass to confirm the actual email content/delivery in production.
 - [x] Abandoned cart targeting logic (stale + not-yet-reminded only) — automated in `server/tests/abandoned-cart.test.js`. Still do one manual pass: add items while logged in, wait past the sync debounce, confirm a `CartSnapshot` exists via `syncCart` — that write path itself isn't covered by the automated test.
 
 ### 3.7 Returns & Support Tickets
@@ -101,7 +104,7 @@ reasonable future investment, not yet done.
 - [ ] Bell only renders when logged in; shows the correct unread count and clears it on "Mark all as read".
 - [ ] Clicking an unread notification marks it read, closes the dropdown, and navigates to its `link` (order detail, ticket, returns page, product, or account).
 - [ ] `/notifications` full-history page loads independently of the dropdown and reflects the same read/unread state.
-- [ ] One notification is created per underlying event (order status change, ticket reply, return status change, back-in-stock, points expiry) — not duplicated, not missing.
+- [x] One notification is created per underlying event, not duplicated and not missing, for order status changes and ticket replies — automated in `server/tests/notifications.test.js` (return status and back-in-stock covered separately in `returns.test.js`/`back-in-stock.test.js`). Points expiry is cron-only and still manual.
 
 ## 4. Admin Flows
 
