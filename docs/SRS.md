@@ -84,6 +84,7 @@ feature-level functional requirements, see `FRS.md`.
 - NFR-SEO1: Every public page must set a unique `<title>` and meta description.
 - NFR-SEO2: Structured data must reflect what's actually visible on the page (e.g. breadcrumb schema is paired with a matching visible breadcrumb trail, not schema-only).
 - NFR-SEO3: `sitemap.xml` must be regenerated on every frontend build so new content (products, articles, categories) is always included.
+- NFR-SEO4: Legacy/renamed URLs must redirect via real HTTP redirects (Vercel `redirects` in `client/vercel.json`, 308 status), not client-side-only `<Navigate>`. **Resolved (2026-08-08):** Google Search Console flagged "Page with redirect" for 6 legacy top-level category paths (`/bedsheets`, `/towels`, `/curtains`, `/pillows`, `/blankets`, `/offers`) that redirected purely via React Router `<Navigate replace>` — Googlebot's crawl saw a 200 response, then a JS-driven `history.replaceState`, which GSC excludes from indexing. Added matching entries to `client/vercel.json` `redirects` so Vercel's edge now serves a real 308 for these paths before the SPA ever loads; the `<Navigate>` routes in `AppRoutes.jsx` are kept as a harmless fallback for local dev (Vite's dev server doesn't apply `vercel.json`).
 
 ### 2.6 Maintainability
 - NFR-M1: No ORM/query abstraction beyond Mongoose — controllers query models directly; kept simple deliberately given team size.
