@@ -137,6 +137,7 @@ npm run seed:destroy    # wipe seeded data
 
 Before merging to `main`:
 ```bash
+cd server && npm test          # order placement + loyalty points integration tests
 cd client && npm run build     # must complete with no errors
                                  # (also regenerates public/sitemap.xml via the "prebuild" script)
 ```

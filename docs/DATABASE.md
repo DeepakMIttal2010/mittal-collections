@@ -155,8 +155,8 @@ fire-and-forget from `productController.getProducts`.
 
 ### `LoyaltySettings` (singleton — one document, found via `findOne()`)
 earnRate (₹ per point, default 20), redeemValue (₹ per point on
-redemption, default 1), maxRedeemPercent (default 0.10 = 10% of order),
-minRedeemPoints (default 1), expiryMonths (default 12).
+redemption, default 1), maxRedeemPercent (default 0.5 = 50% of order),
+minRedeemPoints (default 50), expiryMonths (default 12).
 
 ### `ReferralSettings` (singleton)
 referrerPoints (default 100), referredPoints (default 50) — points

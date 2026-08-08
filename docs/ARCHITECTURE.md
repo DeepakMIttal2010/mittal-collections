@@ -63,7 +63,9 @@ mittal-collections/
 │   ├── middleware/            authMiddleware, adminMiddleware, uploadMiddleware, imageOptimizer
 │   ├── config/                db.js (Mongo connection), cloudinary.js, mailer.js
 │   ├── utils/                 Shared logic: shipping fee calc, loyalty points, referral codes, fuzzy search
-│   └── server.js              App entry point — middleware + route mounting
+│   ├── tests/                 Vitest + Supertest integration tests (order placement, loyalty points) against an in-memory MongoDB
+│   ├── app.js                 Express app — middleware + route mounting, no DB connect or listen (this is what tests import)
+│   └── server.js              Process entry point — connects to MongoDB, then starts `app` listening
 │
 └── docs/                     This documentation set
 ```

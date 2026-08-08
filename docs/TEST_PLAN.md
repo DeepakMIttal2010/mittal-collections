@@ -5,19 +5,35 @@
 
 ## 1. Testing Approach
 
-There is no automated test suite (no Jest/Vitest/Playwright configured)
-— quality is currently maintained through manual testing before every
-deploy: a local build/lint pass, direct API smoke tests via `curl`
-against both local and production, and manual verification in-browser
-for anything UI/visual. This document is the manual regression
-checklist that should be run before/after any significant change,
-organized by flow. Adding an automated suite (at minimum: API
-integration tests for order placement and loyalty points, since those
-have the most interlocking business logic) is a reasonable future
-investment, not yet done.
+An automated suite now exists for the highest-value, most
+interlocking business logic — **order placement** and **loyalty
+points** — using **Vitest + Supertest + `mongodb-memory-server`**
+(`server/tests/`). Run it with:
+```bash
+cd server
+npm test          # single run
+npm run test:watch # watch mode
+```
+Each test file spins up its own isolated in-memory MongoDB instance
+(no shared state between files, nothing touches the real dev/prod
+database) and drives the real Express `app` (`server/app.js`) through
+Supertest — these are integration tests against actual routes and
+controllers, not unit tests against mocked pieces.
+
+Coverage today: order placement (stock reserve + atomic rollback on a
+short item, delivery-fee/total calculation, auth requirement) and the
+full loyalty lifecycle (earn on delivery, no double-credit, clawback
+on cancelling a *delivered* order, refund-only on cancelling a
+*pending* order, redemption cap, one-time referral bonus payout).
+Everything else in this document is still manual — a local build/lint
+pass, direct API smoke tests via `curl` against both local and
+production, and manual verification in-browser for anything
+UI/visual. Expanding automated coverage to other resources (returns,
+tickets, coupons) is a reasonable future investment, not yet done.
 
 ## 2. Pre-Deploy Sanity Checks (every change)
 
+- [ ] `npm test` (server) passes — especially before touching `orderController.js`, `loyaltyPoints.js`, or anything under `server/tests/`.
 - [ ] `npm run build` (client) completes with no errors.
 - [ ] `npx eslint src` (client) shows no *new* errors versus the baseline.
 - [ ] Backend starts cleanly (`node server.js`) with no console errors, and connects to MongoDB.
