@@ -18,20 +18,25 @@ Each test file spins up its own isolated in-memory MongoDB instance
 (no shared state between files, nothing touches the real dev/prod
 database) and drives the real Express `app` (`server/app.js`) through
 Supertest — these are integration tests against actual routes and
-controllers, not unit tests against mocked pieces.
+controllers, not unit tests against mocked pieces. Test files run
+sequentially, not in parallel (`fileParallelism: false` in
+`vitest.config.js`) — starting several `mongod` instances at once
+reliably times out on a modest dev machine, and this suite is small
+enough that running one file at a time costs seconds, not minutes.
 
-Coverage today: order placement (stock reserve + atomic rollback on a
-short item, delivery-fee/total calculation, auth requirement); the
-full loyalty lifecycle (earn on delivery, no double-credit, clawback
-on cancelling a *delivered* order, refund-only on cancelling a
-*pending* order, redemption cap, one-time referral bonus payout); and
-return approval side effects (stock restore on Picked Up/Refunded,
-proportional loyalty clawback on Refunded, idempotency of both).
+Coverage today (`server/tests/`):
+- **Order placement** — stock reserve + atomic rollback on a short item, delivery-fee/total calculation, auth requirement.
+- **Loyalty points** — earn on delivery, no double-credit, clawback on cancelling a *delivered* order, refund-only on cancelling a *pending* order, redemption cap, one-time referral bonus payout.
+- **Return approval side effects** — stock restore on Picked Up/Refunded, proportional loyalty clawback on Refunded (only the returned item's share, only if the order was ever delivered/credited), idempotency of both.
+- **Return eligibility** — delivered-order-only, product-must-be-in-order, non-returnable products rejected, product-level `returnPeriodDays` override vs. `SiteSettings.defaultReturnPeriodDays` fallback, window-closed rejection, duplicate-request blocking.
+- **Coupon restrictions** — unknown/inactive code rejected, percentage discount capped at `maxDiscount`, flat discount capped at the subtotal, first-order-only eligibility (both on `/validate` and silently during actual order placement — an ineligible coupon never blocks the order, it just doesn't apply).
+
 Everything else in this document is still manual — a local build/lint
 pass, direct API smoke tests via `curl` against both local and
 production, and manual verification in-browser for anything
-UI/visual. Expanding automated coverage to other resources (returns,
-tickets, coupons) is a reasonable future investment, not yet done.
+UI/visual. Expanding automated coverage to other resources (tickets,
+delivery-fee tiers as a standalone unit, notification de-duplication)
+is a reasonable future investment, not yet done.
 
 ## 2. Pre-Deploy Sanity Checks (every change)
 
@@ -53,7 +58,7 @@ tickets, coupons) is a reasonable future investment, not yet done.
 - [ ] Add to cart from: product card, quick view, product detail page. Quantity respects available stock.
 - [ ] Cart drawer and `/cart` page show matching totals and the correct tiered delivery fee for subtotals just below, just at, and above the free-shipping threshold.
 - [ ] Logged-out checkout redirects to `/login?redirect=/checkout` and returns to checkout after login.
-- [ ] Coupon: valid code, expired/invalid code, first-order-only code as a repeat customer (should be rejected).
+- [ ] Coupon: valid code applies and shows in the UI; expired/invalid code is rejected in the UI. (The backend logic — discount capping, first-order-only eligibility — is covered by `server/tests/coupon.test.js`; this is a UI-layer check that the right message/state shows.)
 - [ ] Loyalty point redemption: slider caps correctly at the configured max %, and at the customer's actual balance.
 - [ ] Place an order with insufficient stock on one line item — verify the whole order is rejected, the specific item is named, and no stock was deducted from the *other* items in the order (rollback check).
 - [ ] Successful order: cart clears, confirmation shown, order appears in "My Orders", stock is decremented.
@@ -82,7 +87,7 @@ tickets, coupons) is a reasonable future investment, not yet done.
 - [ ] Abandoned cart: add items while logged in, wait past the sync debounce, confirm a `CartSnapshot` exists; verify the reminder job only targets genuinely stale/non-empty carts (don't need to wait a full hour in dev — can trigger the endpoint directly with the cron secret).
 
 ### 3.7 Returns & Support Tickets
-- [ ] Return request: on a delivered order, the Return button appears only on items within their return window (and not at all on a product marked non-returnable); submitting creates a `Requested` return, visible on `/returns` and emails the admin.
+- [ ] Return request: on a delivered order, the Return button appears only on items within their return window (and not at all on a product marked non-returnable); submitting creates a `Requested` return, visible on `/returns` and emails the admin. (Eligibility logic itself — window calculation, duplicate blocking, non-returnable rejection — is covered by `server/tests/return-eligibility.test.js`; this is a UI-layer check.)
 - [ ] Return status change (as admin): customer receives an email + bell notification at each step (Approved/Rejected/Picked Up/Refunded). Reaching Picked Up (or jumping straight to Refunded) restores that product's stock exactly once, even if the status is flipped back and forth; reaching Refunded claws back only the returned item's proportional share of loyalty points (not the whole order's), and only if the order was actually delivered/credited — covered by `server/tests/returns.test.js`. Payment refund is still manual (no Razorpay integration exists yet).
 - [ ] Support ticket: raise one (optionally linked to an order via "Get Product Support"), reply as admin (customer gets email + notification), reply as customer on a Resolved/Closed ticket (status auto-reopens to Open).
 
