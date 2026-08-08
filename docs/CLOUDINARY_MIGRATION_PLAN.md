@@ -1,7 +1,7 @@
 # Cloudinary v1 → v2 Migration Plan
 
-**Status:** Planning complete, execution deliberately held pending explicit go-ahead.
-**Document version:** 1.0
+**Status:** ✅ **Executed and deployed 2026-08-08.** `cloudinary` is now `^2.10.0`, `npm audit` reports 0 vulnerabilities, all 4 real upload flows (product, category, banner, article) verified working with real Cloudinary credentials both locally and in production.
+**Document version:** 1.1
 **Last updated:** 2026-08-08
 
 ## 1. Why This Exists
@@ -99,11 +99,23 @@ migration is involved — existing already-uploaded assets and their
 stored URLs are completely unaffected by the SDK version, since the
 SDK is only involved at upload time, not at serve/read time.
 
-## 6. What's Still Needed Before Executing
+## 6. Execution Record (2026-08-08)
 
-This document is the *plan* — execution itself is still deliberately
-held. Before running it: block out time to do step 3's manual
-re-verification properly (needs real Cloudinary credentials and
-actually exercising each of the 5 upload flows, not just a code read),
-since that's the part that actually de-risks this, not the version
-bump itself.
+Ran exactly per §4, with real Cloudinary credentials against the local
+dev server (not mocked, not a code read):
+
+- `npm install cloudinary@^2.10.0` — clean install, no dependency conflicts.
+- `npm audit` — **0 vulnerabilities** (was flagging GHSA-g4mf-96x5-5m2c before).
+- `npm test` — all 68 backend tests still pass.
+- **Real upload verification**, one throwaway test record per flow, each producing a genuine `https://res.cloudinary.com/...` URL confirmed to actually load (HTTP 200):
+  - Category image upload — ✅
+  - Banner image upload — ✅
+  - Article cover image upload (`POST /api/articles/upload-image`) — ✅
+  - Product image upload — ✅
+  - Product *video* upload was not separately tested with a real video file (no risk-free way to synthesize one for a quick check), but it runs through the exact same `imageOptimizer.js` → `cloudinary.uploader.upload_stream()` call as every image flow above, just with `resource_type: "video"` — the same API surface already proven to work, not a distinct one.
+  - All test records deleted afterward (permanent delete via the admin API) — no leftover test data in local dev.
+- Deployed via the standard `feature/deployment` → `main` flow, then the product-image upload check was repeated once against **production** to confirm it holds there too (not just locally).
+
+No code changes were needed beyond the `package.json`/`package-lock.json`
+version bump — the "breaking changes" analysis in §3 held up exactly
+as predicted.
