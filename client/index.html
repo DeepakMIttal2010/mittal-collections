@@ -5,10 +5,11 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Mittal Collections - Premium Home Furnishing | Bedsheets, Towels, Curtains</title>
-    <meta
-      name="description"
-      content="Shop premium bedsheets, towels, curtains, pillows, cushions and blankets at Mittal Collections. Quality home furnishing for every corner of your home."
-    />
+    <!-- No static <meta name="description"> here on purpose — every
+         route sets its own via the shared <Seo> component
+         (react-helmet-async). A static one here would never get
+         removed by Helmet (it only manages tags it renders itself),
+         leaving two duplicate description tags on every page. -->
 
     <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-1HP8PP1ZDM"></script>

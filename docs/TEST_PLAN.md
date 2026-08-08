@@ -1,14 +1,15 @@
 # Test Plan
 
-**Document version:** 1.1
+**Document version:** 1.2
 **Last updated:** 2026-08-08
 
 ## 1. Testing Approach
 
-An automated suite now exists for the highest-value, most
-interlocking business logic — **order placement** and **loyalty
-points** — using **Vitest + Supertest + `mongodb-memory-server`**
-(`server/tests/`). Run it with:
+Two automated suites exist now, covering the majority of this
+document's checklist:
+
+**Backend (`server/tests/`)** — the highest-value, most interlocking
+business logic, using **Vitest + Supertest + `mongodb-memory-server`**:
 ```bash
 cd server
 npm test          # single run
@@ -23,6 +24,20 @@ sequentially, not in parallel (`fileParallelism: false` in
 `vitest.config.js`) — starting several `mongod` instances at once
 reliably times out on a modest dev machine, and this suite is small
 enough that running one file at a time costs seconds, not minutes.
+
+**Browser E2E (`e2e/`)** — the parts of this checklist that only a
+real browser can verify (popups, mobile layout, admin panel clicking,
+notification bell UI, SEO markup), using **Playwright**:
+```bash
+cd e2e
+npm test              # desktop viewport
+npm run test:mobile   # 375px viewport
+```
+Requires both local dev servers already running (`e2e/README.md` has
+full setup). Test users are created via the real API per file (shared
+across that file's tests via `beforeAll` to stay under the auth rate
+limiter, not one fresh user per test) — no mocking, this drives the
+actual running app exactly as a browser user would.
 
 Coverage today (`server/tests/`):
 - **Order placement** — stock reserve + atomic rollback on a short item, delivery-fee/total calculation, auth requirement.
@@ -42,17 +57,26 @@ Coverage today (`server/tests/`):
 - **Addresses** — first address auto-becomes default even if not requested; only one address is ever default at a time; deleting the default address promotes another one; a user cannot read/update/delete another user's address (404, not 403 — doesn't even confirm the address exists).
 - **Reviews & Questions** — a user can't submit two reviews for the same product; unapproved reviews are excluded from both the public list *and* the average-rating calculation; questions stay unpublished until an admin answers, and don't auto-publish on a blank answer even if `isPublished` is left unset.
 
-Everything else in this document is still manual — a local build/lint
-pass, direct API smoke tests via `curl` against both local and
-production, and manual verification in-browser for anything
-UI/visual. Expanding automated coverage to CSV export, mobile layout,
-and SEO structured data would need a frontend test framework (not
-currently set up) — a separate, larger investment, not undertaken
-here.
+E2E coverage today (`e2e/tests/`), 36 tests across 8 files:
+- **Browsing/search** (`browsing.spec.js`) — category page loads real products and shows a friendly empty state for a nonexistent one, search returns results for a real term and doesn't crash on a nonsense one, autocomplete suggestions appear and navigate, product page renders gallery/price/Add to Cart, auto-compare table appears.
+- **Cart/checkout** (`cart-checkout.spec.js`) — add to cart opens the drawer with matching name/price, logged-out checkout redirects to `/login?redirect=/checkout` and a logged-in customer with cart items actually reaches it.
+- **Marketing widgets** (`marketing-widgets.spec.js`) — welcome popup appears for a guest and auto-closes, does **not** appear for a logged-in visitor (confirms the fix earlier in this session actually works in a real browser); WhatsApp buttons (site-wide + pre-filled product-page link + disabled-when-out-of-stock).
+- **Compare + mobile viewport** (`compare-mobile.spec.js`) — add/clear via the real UI, and a 375px-viewport check that the compare bar stays within the viewport and doesn't overlap the WhatsApp button. **Found and fixed a real bug**: at 4 items the compare bar (centered, up to 94vw wide) visually overlapped the WhatsApp button — both sat at the same `bottom-6`. Moved the compare bar to `bottom-24` so it stacks above instead.
+- **Notification Center** (`notifications.spec.js`) — bell badge count, dropdown, click-to-read-and-navigate, `/notifications` page, mark-all-read, bell absent when logged out.
+- **Admin panel** (`admin.spec.js`) — non-admin and unauthenticated visitors redirected from `/admin`, admin login form rejects a non-admin account with a clear alert, admin notification bell shows a real new order and navigates to Orders on click.
+- **SEO** (`seo.spec.js`) — unique title + **exactly one** meta description per page, Product/BreadcrumbList JSON-LD present and matching the visible breadcrumb trail exactly, homepage LocalBusiness schema, sitemap.xml/robots.txt content. **Found and fixed a real bug**: `index.html` had a static `<meta name="description">` that `react-helmet-async` never removes (it only manages tags it renders itself), so every single page carried two duplicate description tags. Removed the static one — every route already sets its own via the shared `<Seo>` component.
+
+Everything else in this document is still manual — direct API smoke
+tests via `curl` against both local and production for anything not
+covered above, and manual verification for content that needs real
+external tools (Google's Rich Results Test, actual email content/
+delivery, live Cloudinary uploads) or is simply lower-value to
+automate (CSV export contents, admin CRUD form field-by-field saves).
 
 ## 2. Pre-Deploy Sanity Checks (every change)
 
 - [ ] `npm test` (server) passes — especially before touching `orderController.js`, `loyaltyPoints.js`, or anything under `server/tests/`.
+- [ ] `cd e2e && npm test` passes against local dev servers — especially before touching `Header.jsx`, `Seo.jsx`, `CompareBar.jsx`, `WelcomeBenefitsPopup.jsx`, or anything under `e2e/tests/`.
 - [ ] `npm run build` (client) completes with no errors.
 - [ ] `npx eslint src` (client) shows **0 errors** (clean baseline as of 2026-08-08 — was 54 errors/7 warnings from `eslint-plugin-react-hooks@7`'s new `set-state-in-effect`/`immutability` rules and `react-refresh/only-export-components`; fixed 3 genuine temporal-dead-zone bugs, removed dead code and stale disable-comments, and disabled two rules in `eslint.config.js` that flagged extremely common safe patterns — see the comment there for why). 3 low-priority `exhaustive-deps` warnings remain, deliberately.
 - [ ] Backend starts cleanly (`node server.js`) with no console errors, and connects to MongoDB.
@@ -61,19 +85,19 @@ here.
 ## 3. Customer Flows
 
 ### 3.1 Browsing & Search
-- [ ] Category page loads products, filters/sorts work, empty category shows a friendly "no products" state (not a crash).
-- [ ] Search returns relevant results for an exact term, a misspelled term, and a term with no matches (verify the "no results" category suggestions appear).
-- [ ] Autocomplete suggestions appear after 2+ characters and navigate correctly on click.
-- [ ] Product detail page: gallery/zoom, video playback (if present), stock status, specs section (present only when the product has at least one spec filled in, absent otherwise), reviews, Q&A, related products, and the auto-compare table all render without errors on a product **with** related products and one **without** (e.g. an uncategorized or singleton-category product).
+- [x] Category page loads products and shows a friendly empty state for one with none — automated in `e2e/tests/browsing.spec.js`. Filters/sorts on a populated category page still need a manual pass.
+- [x] Search returns results for an exact term and doesn't crash on a nonsense one — automated. A genuinely *misspelled* term (fuzzy-match quality) still needs a manual judgment call — automated coverage can confirm it doesn't error, not that the ranking "feels right".
+- [x] Autocomplete suggestions appear and navigate on click — automated.
+- [x] Product detail page renders (gallery, price, Add to Cart, auto-compare table) without errors — automated. Video playback, the specs section's show/hide logic, and the "no related products" case still need a manual pass.
 
 ### 3.2 Cart & Checkout
-- [ ] Add to cart from: product card, quick view, product detail page. Quantity respects available stock.
+- [x] Add to cart from the product page opens the drawer with matching name/price — automated in `e2e/tests/cart-checkout.spec.js`. Product-card and quick-view add-to-cart, and quantity-vs-stock limits, still need a manual pass.
 - [ ] Cart drawer and `/cart` page show matching totals and the correct tiered delivery fee for subtotals just below, just at, and above the free-shipping threshold. (The fee calculation itself is automated in `server/tests/delivery-fee.test.js`; this is a UI-layer check that the client mirrors it correctly.)
-- [ ] Logged-out checkout redirects to `/login?redirect=/checkout` and returns to checkout after login.
+- [x] Logged-out checkout redirects to `/login?redirect=/checkout`, and a logged-in customer with items in cart actually reaches the checkout page — automated.
 - [ ] Coupon: valid code applies and shows in the UI; expired/invalid code is rejected in the UI. (The backend logic — discount capping, first-order-only eligibility — is covered by `server/tests/coupon.test.js`; this is a UI-layer check that the right message/state shows.)
 - [ ] Loyalty point redemption: slider caps correctly at the configured max %, and at the customer's actual balance.
-- [ ] Place an order with insufficient stock on one line item — verify the whole order is rejected, the specific item is named, and no stock was deducted from the *other* items in the order (rollback check).
-- [ ] Successful order: cart clears, confirmation shown, order appears in "My Orders", stock is decremented.
+- [ ] Place an order with insufficient stock on one line item — verify the whole order is rejected, the specific item is named, and no stock was deducted from the *other* items in the order (rollback check). (Business logic covered by `server/tests/order.test.js`; not yet driven through the checkout UI end-to-end.)
+- [ ] Successful order: cart clears, confirmation shown, order appears in "My Orders", stock is decremented. (Not yet automated end-to-end through the UI — order placement itself is covered server-side.)
 
 ### 3.3 Account
 - [ ] Every account page (My Orders, Order Details, Loyalty History, Addresses, Add/Edit Address, Change Password, Account, Edit Profile) redirects a logged-out visitor to login and returns them afterward — none should silently show an empty/broken state.
@@ -88,13 +112,13 @@ here.
 - [ ] Points expiry: a user inactive past the configured period has their balance zeroed on the next scheduled/manual run and receives the expiry email.
 
 ### 3.5 Compare
-- [ ] Manual compare: add up to 4 products via the card/quick-view icon, verify the floating bar and `/compare` page, remove one, clear all.
-- [ ] Compare bar does not overflow or overlap the WhatsApp/Back-to-top buttons on a narrow (≤375px) viewport.
-- [ ] Auto-compare table on a product page appears when similar products exist (even with zero specs filled in — Price/Rating alone should still render the table) and is absent when the product's category has no other active products.
+- [x] Manual compare: add via the card icon, verify the floating bar shows the right count and the `/compare` page, clear all — automated in `e2e/tests/compare-mobile.spec.js`. Removing a single item and the "up to 4 max" limit still need a manual pass.
+- [x] Compare bar does not overflow or overlap the WhatsApp/Back-to-top buttons on a narrow (≤375px) viewport — automated, and this is a real regression guard: found and fixed a genuine overlap bug while writing this test (see §1).
+- [x] Auto-compare table appears when similar products exist — automated in `e2e/tests/browsing.spec.js`. The "no similar products" absent-case still needs a manual pass.
 
 ### 3.6 Marketing Widgets
-- [ ] Welcome popup: appears once per session on site open (after the delay) for a **guest** only; does **not** appear for a logged-in visitor, either on page load or immediately after login — auto-fades after ~5s or on manual close when it does show.
-- [ ] WhatsApp buttons: site-wide button opens a generic chat; product-page button is pre-filled with that product's name/price/link and is disabled (not clickable) when the product is out of stock.
+- [x] Welcome popup: appears for a guest after the delay and auto-closes; does **not** appear for a logged-in visitor — automated in `e2e/tests/marketing-widgets.spec.js`, confirms the earlier same-session fix actually holds in a real browser.
+- [x] WhatsApp buttons: site-wide button links to a generic chat; product-page button is pre-filled with the product's name/price and is a genuinely disabled `<button>` (not a clickable link) when out of stock — automated.
 - [x] Back-in-stock alert wiring (duplicate-subscription guard, notified flag, in-app notification independent of email success) — automated in `server/tests/back-in-stock.test.js`. Still do one manual pass to confirm the actual email content/delivery in production.
 - [x] Abandoned cart targeting logic (stale + not-yet-reminded only) — automated in `server/tests/abandoned-cart.test.js`. Still do one manual pass: add items while logged in, wait past the sync debounce, confirm a `CartSnapshot` exists via `syncCart` — that write path itself isn't covered by the automated test.
 
@@ -104,20 +128,20 @@ here.
 - [ ] Support ticket: raise one (optionally linked to an order via "Get Product Support"), reply as admin (customer gets email + notification), reply as customer on a Resolved/Closed ticket (status auto-reopens to Open).
 
 ### 3.8 Notification Center (Customer)
-- [ ] Bell only renders when logged in; shows the correct unread count and clears it on "Mark all as read".
-- [ ] Clicking an unread notification marks it read, closes the dropdown, and navigates to its `link` (order detail, ticket, returns page, product, or account).
-- [ ] `/notifications` full-history page loads independently of the dropdown and reflects the same read/unread state.
+- [x] Bell only renders when logged in; shows the correct unread count and clears it on "Mark all as read" — automated in `e2e/tests/notifications.spec.js`.
+- [x] Clicking an unread notification marks it read, closes the dropdown, and navigates to its `link` — automated.
+- [x] `/notifications` full-history page loads independently of the dropdown and reflects the same read/unread state — automated.
 - [x] One notification is created per underlying event, not duplicated and not missing, for order status changes and ticket replies — automated in `server/tests/notifications.test.js` (return status and back-in-stock covered separately in `returns.test.js`/`back-in-stock.test.js`). Points expiry is cron-only and still manual.
 
 ## 4. Admin Flows
 
-- [ ] Login rejects a non-admin account; admin routes 401/redirect for an unauthenticated request.
+- [x] Login rejects a non-admin account with a clear alert (not a silent failure); admin routes redirect to `/admin/login` for both an unauthenticated visitor and a logged-in non-admin — automated in `e2e/tests/admin.spec.js`.
 - [ ] Product add/edit: image main-selection, video upload, all six optional spec fields save and reload correctly (including saving as blank).
 - [ ] Order status transitions trigger the correct side effects (see §3.4) and the correct customer email per status.
 - [ ] Rewards Settings: change a value, confirm the audit-trail log records old/new value + who + when, and that the *public* `/api/rewards/public` response reflects the new value immediately (this is what every "you'll earn N points" preview reads).
 - [ ] Site Settings: edit shipping tiers (add/remove a row), confirm Checkout/Cart/Cart Drawer delivery fee calculations match the new tiers exactly (compare against the server-side `calculateDeliveryFee` for a few subtotal values).
 - [ ] Bulk product import: a CSV with one intentionally invalid row doesn't silently corrupt the whole batch.
-- [ ] Admin notification bell: unseen counts correctly cover Orders, Contact Messages, Reviews, Q&A, Tickets, and Returns; clicking each type marks the right item seen (verify `isSeenByAdmin`/`isRead` on the correct model) and navigates correctly; the low/out-of-stock alert item appears when a product is at/below the low-stock threshold or at zero, and disappears once restocked — without needing to be "marked read".
+- [x] Admin notification bell shows a real new order and clicking it navigates to Orders — automated in `e2e/tests/admin.spec.js`. Coverage of the other five sources (Contact Messages, Reviews, Q&A, Tickets, Returns) and the low/out-of-stock alert item's UI presentation is still manual (the underlying seen/unseen data logic for all of these is exercised server-side across the various `server/tests/*.test.js` files, just not the admin bell UI itself for every source).
 - [x] Reports date-range scoping (Total Revenue/Orders, Total Customers staying all-time) — automated in `server/tests/admin-reports.test.js`, direct regression guard for a real historical bug. Still spot-check the *rest* of the report (Top Products, funnel, search analytics, loyalty/referral) manually against a custom range, and that CSV export includes every visible section for the currently selected range — those aren't automated.
 
 ## 5. Security & Performance Regression Checks
@@ -130,8 +154,6 @@ here.
 
 ## 6. SEO Regression Checks
 
-- [ ] Every page has a unique `<title>` and meta description (spot-check Home, a category, a product, an article).
-- [ ] Structured data on a product page validates (Product + Breadcrumb + FAQ if the product has Q&A) — use Google's Rich Results Test.
-- [ ] Visible breadcrumb trail matches the breadcrumb JSON-LD exactly (same labels, same order).
-- [ ] `sitemap.xml` includes newly added products/articles/categories after a deploy.
-- [ ] `robots.txt` still disallows account/cart/checkout/admin/search/compare paths.
+- [x] Every page has a unique `<title>` and **exactly one** meta description (Home, a category, a product, an article) — automated in `e2e/tests/seo.spec.js`, and this exact check caught a real duplicate-meta-description bug (see §1).
+- [x] Product page structured data includes Product + BreadcrumbList JSON-LD, and the visible breadcrumb trail matches the JSON-LD exactly (same labels, same order) — automated. FAQ schema presence (only relevant when a product has published Q&A) and actually running Google's Rich Results Test still need a manual pass — that's an external tool, not something to fake locally.
+- [x] `sitemap.xml` exists and lists product URLs; `robots.txt` disallows account/cart/checkout/admin/search/compare — automated. Confirming *newly added* content appears after a real deploy is still a manual post-deploy spot-check.

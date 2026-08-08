@@ -1,0 +1,147 @@
+import { test, expect } from "@playwright/test";
+
+const PRODUCT_PATH = "/product/6a64556a561a6d5a63017fb2/luxury-cotton-bedsheet";
+
+const getJsonLdBlocks = async (page) => {
+  const scripts = await page
+    .locator('script[type="application/ld+json"]')
+    .allTextContents();
+  return scripts.map((s) => JSON.parse(s));
+};
+
+// Product/Category/etc. only render <Seo> once their async data has
+// loaded, so checking meta tags immediately after goto() races the
+// fetch — wait for the page's own h1 first, same as a real user would
+// need to before seeing the content at all.
+const gotoAndWaitForContent = async (page, path) => {
+  await page.goto(path);
+  await expect(page.getByRole("heading", { level: 1 }).first()).toBeVisible({
+    timeout: 10000,
+  });
+};
+
+test.describe("Unique titles and meta descriptions", () => {
+  const pages = [
+    { path: "/", label: "Home" },
+    { path: "/category/bedsheets", label: "Category" },
+    { path: PRODUCT_PATH, label: "Product" },
+    { path: "/articles", label: "Articles" },
+  ];
+
+  for (const { path, label } of pages) {
+    test(`${label} page has a title and exactly one meta description`, async ({
+      page,
+    }) => {
+      await gotoAndWaitForContent(page, path);
+
+      const title = await page.title();
+      expect(title.length).toBeGreaterThan(0);
+
+      // Regression guard: index.html previously had a static meta
+      // description that Helmet never removed, so every page carried
+      // two duplicate <meta name="description"> tags.
+      const descriptionTags = page.locator('meta[name="description"]');
+      await expect(descriptionTags).toHaveCount(1);
+      const description = await descriptionTags.getAttribute("content");
+      expect(description).toBeTruthy();
+    });
+  }
+
+  test("Home and Product page titles and descriptions are different from each other", async ({
+    page,
+  }) => {
+    await gotoAndWaitForContent(page, "/");
+    const homeTitle = await page.title();
+    const homeDescription = await page
+      .locator('meta[name="description"]')
+      .getAttribute("content");
+
+    await gotoAndWaitForContent(page, PRODUCT_PATH);
+    const productTitle = await page.title();
+    const productDescription = await page
+      .locator('meta[name="description"]')
+      .getAttribute("content");
+
+    expect(productTitle).not.toBe(homeTitle);
+    expect(productTitle).toContain("Luxury Cotton Bedsheet");
+    expect(productDescription).not.toBe(homeDescription);
+  });
+});
+
+test.describe("Structured data", () => {
+  test("product page includes Product and BreadcrumbList JSON-LD", async ({
+    page,
+  }) => {
+    await gotoAndWaitForContent(page, PRODUCT_PATH);
+
+    const blocks = await getJsonLdBlocks(page);
+    const types = blocks.map((b) => b["@type"]);
+
+    expect(types).toContain("Product");
+    expect(types).toContain("BreadcrumbList");
+
+    const product = blocks.find((b) => b["@type"] === "Product");
+    expect(product.name).toContain("Luxury Cotton Bedsheet");
+  });
+
+  test("visible breadcrumb trail matches the BreadcrumbList JSON-LD exactly", async ({
+    page,
+  }) => {
+    await gotoAndWaitForContent(page, PRODUCT_PATH);
+
+    const visibleCrumbs = await page
+      .getByLabel("Breadcrumb")
+      .locator("li")
+      .allTextContents();
+
+    const blocks = await getJsonLdBlocks(page);
+    const breadcrumbList = blocks.find((b) => b["@type"] === "BreadcrumbList");
+    const jsonLdNames = breadcrumbList.itemListElement
+      .sort((a, b) => a.position - b.position)
+      .map((item) => item.name);
+
+    expect(visibleCrumbs).toEqual(jsonLdNames);
+  });
+
+  test("homepage includes LocalBusiness/HomeGoodsStore structured data", async ({
+    page,
+  }) => {
+    await gotoAndWaitForContent(page, "/");
+    const blocks = await getJsonLdBlocks(page);
+    const types = blocks.map((b) => b["@type"]);
+    expect(
+      types.some((t) => t === "HomeGoodsStore" || t === "LocalBusiness"),
+    ).toBe(true);
+  });
+});
+
+test.describe("Crawling infrastructure", () => {
+  test("sitemap.xml exists and lists at least one product URL", async ({
+    request,
+  }) => {
+    const res = await request.get("http://localhost:5173/sitemap.xml");
+    expect(res.status()).toBe(200);
+    const body = await res.text();
+    expect(body).toContain("<urlset");
+    expect(body).toContain("/product/");
+  });
+
+  test("robots.txt disallows account/cart/checkout/admin/search/compare", async ({
+    request,
+  }) => {
+    const res = await request.get("http://localhost:5173/robots.txt");
+    expect(res.status()).toBe(200);
+    const body = await res.text();
+
+    for (const path of [
+      "/account",
+      "/cart",
+      "/checkout",
+      "/admin",
+      "/search",
+      "/compare",
+    ]) {
+      expect(body).toContain(`Disallow: ${path}`);
+    }
+  });
+});

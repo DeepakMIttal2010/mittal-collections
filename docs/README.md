@@ -9,8 +9,10 @@ returns), IP/address-based "Deliver to" header, the Advanced Analytics
 Dashboard (custom date range, growth %, CSV export, conversion funnel,
 search analytics, cart abandonment, loyalty/referral performance), the
 Notification Center (customer bell + admin bell extensions for
-Tickets/Returns/low-stock), a welcome-popup fix, a 57-test automated
-backend suite, and a Cloudinary v1→v2 migration plan.
+Tickets/Returns/low-stock), a welcome-popup fix, a 68-test automated
+backend suite (`server/tests/`), a 36-test Playwright browser suite
+(`e2e/`), a fully clean ESLint baseline, and a Cloudinary v1→v2
+migration plan.
 
 | Document | What's in it |
 |---|---|

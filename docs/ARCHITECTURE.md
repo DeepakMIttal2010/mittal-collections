@@ -67,6 +67,8 @@ mittal-collections/
 │   ├── app.js                 Express app — middleware + route mounting, no DB connect or listen (this is what tests import)
 │   └── server.js              Process entry point — connects to MongoDB, then starts `app` listening
 │
+├── e2e/                      Playwright browser tests (separate npm package) — see e2e/README.md
+│
 └── docs/                     This documentation set
 ```
 
