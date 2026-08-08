@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { toast } from "react-toastify";
 import { FaArrowLeft } from "react-icons/fa";
-import { registerUser } from "../services/authService";
+import { registerUser, verifyRegisterOtp } from "../services/authService";
 import { subscribeToNewsletter } from "../services/newsletterService";
 import { useAuth } from "../context/AuthContext";
 import GoogleSignInButton from "../components/GoogleSignInButton";
@@ -27,6 +27,11 @@ function Register() {
   const [loading, setLoading] = useState(false);
   const [showMobileModal, setShowMobileModal] = useState(false);
   const { login } = useAuth();
+
+  const [otpStep, setOtpStep] = useState(false);
+  const [otp, setOtp] = useState("");
+  const [verifying, setVerifying] = useState(false);
+  const [resending, setResending] = useState(false);
 
   const handleGoogleResult = (data) => {
     login(data.user, data.token);
@@ -63,6 +68,28 @@ function Register() {
       const data = await registerUser(userData);
 
       if (data.success) {
+        toast.success("Verification code sent to your email");
+        setOtpStep(true);
+      } else {
+        toast.error(data.message);
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error("Registration Failed");
+    }
+
+    setLoading(false);
+  };
+
+  const handleVerifyOtp = async (e) => {
+    e.preventDefault();
+
+    setVerifying(true);
+
+    try {
+      const data = await verifyRegisterOtp(formData.email, otp);
+
+      if (data.success) {
         toast.success("Registration Successful");
 
         if (subscribeNewsletter) {
@@ -75,10 +102,30 @@ function Register() {
       }
     } catch (error) {
       console.error(error);
-      toast.error("Registration Failed");
+      toast.error("Verification Failed");
     }
 
-    setLoading(false);
+    setVerifying(false);
+  };
+
+  const handleResendOtp = async () => {
+    setResending(true);
+
+    try {
+      const { confirmPassword, ...userData } = formData;
+      const data = await registerUser(userData);
+
+      if (data.success) {
+        toast.success("Verification code resent");
+      } else {
+        toast.error(data.message);
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error("Unable to resend code");
+    }
+
+    setResending(false);
   };
 
   const inputClass =
@@ -88,111 +135,162 @@ function Register() {
     <div className="min-h-[70vh] flex items-center justify-center py-16 px-4">
       <div className="w-full max-w-md">
         <h1 className="text-5xl font-bold text-center text-slate-900 mb-10">
-          Create Account
+          {otpStep ? "Verify Your Email" : "Create Account"}
         </h1>
 
-        <GoogleSignInButton onResult={handleGoogleResult} />
+        {otpStep ? (
+          <form onSubmit={handleVerifyOtp}>
+            <p className="text-sm text-slate-600 mb-6 text-center">
+              We sent a 6-digit code to <strong>{formData.email}</strong>.
+              Enter it below to finish creating your account.
+            </p>
 
-        <div className="flex items-center gap-4 my-6">
-          <div className="flex-1 h-px bg-slate-200" />
-          <span className="text-xs text-slate-400 uppercase">or</span>
-          <div className="flex-1 h-px bg-slate-200" />
-        </div>
-
-        <form onSubmit={handleSubmit}>
-          <input
-            type="text"
-            name="name"
-            placeholder="Full Name"
-            value={formData.name}
-            onChange={handleChange}
-            required
-            className={inputClass}
-          />
-
-          <input
-            type="email"
-            name="email"
-            placeholder="Email"
-            value={formData.email}
-            onChange={handleChange}
-            required
-            className={inputClass}
-          />
-
-          <input
-            type="tel"
-            name="mobile"
-            placeholder="Mobile Number"
-            value={formData.mobile}
-            onChange={handleChange}
-            maxLength={10}
-            pattern="[0-9]{10}"
-            required
-            className={inputClass}
-          />
-
-          <input
-            type="password"
-            name="password"
-            placeholder="Password"
-            value={formData.password}
-            onChange={handleChange}
-            required
-            className={inputClass}
-          />
-
-          <input
-            type="password"
-            name="confirmPassword"
-            placeholder="Confirm Password"
-            value={formData.confirmPassword}
-            onChange={handleChange}
-            required
-            className={inputClass}
-          />
-
-          <input
-            type="text"
-            name="referralCode"
-            placeholder="Referral Code (optional)"
-            value={formData.referralCode}
-            onChange={(e) =>
-              setFormData({
-                ...formData,
-                referralCode: e.target.value.toUpperCase(),
-              })
-            }
-            className={inputClass}
-          />
-
-          <label className="flex items-center gap-2 mb-8 text-sm text-slate-700 cursor-pointer">
             <input
-              type="checkbox"
-              checked={subscribeNewsletter}
-              onChange={(e) => setSubscribeNewsletter(e.target.checked)}
-              className="w-4 h-4 accent-blue-900"
+              type="text"
+              inputMode="numeric"
+              placeholder="Enter 6-digit code"
+              value={otp}
+              onChange={(e) =>
+                setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))
+              }
+              maxLength={6}
+              required
+              autoFocus
+              className={`${inputClass} text-center text-lg tracking-[0.5em]`}
             />
-            Register to our newsletter
-          </label>
 
-          <div className="flex gap-4">
             <button
               type="submit"
-              disabled={loading}
-              className="flex-1 bg-blue-900 hover:bg-blue-950 text-white font-semibold rounded-full py-3.5 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              disabled={verifying || otp.length !== 6}
+              className="w-full bg-blue-900 hover:bg-blue-950 text-white font-semibold rounded-full py-3.5 mt-2 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              {loading ? "Creating Account..." : "Register"}
+              {verifying ? "Verifying..." : "Verify & Create Account"}
             </button>
 
-            <Link
-              to={`/login?redirect=${encodeURIComponent(redirectTo)}`}
-              className="flex-1 border-2 border-blue-900 text-blue-900 hover:bg-blue-50 font-semibold rounded-full py-3.5 text-center transition-colors"
-            >
-              Login
-            </Link>
-          </div>
-        </form>
+            <div className="flex items-center justify-between mt-4 text-sm">
+              <button
+                type="button"
+                onClick={() => setOtpStep(false)}
+                className="text-slate-500 underline hover:text-slate-700"
+              >
+                Change details
+              </button>
+              <button
+                type="button"
+                onClick={handleResendOtp}
+                disabled={resending}
+                className="text-blue-700 underline hover:text-blue-900 disabled:opacity-60"
+              >
+                {resending ? "Resending..." : "Resend code"}
+              </button>
+            </div>
+          </form>
+        ) : (
+          <>
+            <GoogleSignInButton onResult={handleGoogleResult} />
+
+            <div className="flex items-center gap-4 my-6">
+              <div className="flex-1 h-px bg-slate-200" />
+              <span className="text-xs text-slate-400 uppercase">or</span>
+              <div className="flex-1 h-px bg-slate-200" />
+            </div>
+
+            <form onSubmit={handleSubmit}>
+              <input
+                type="text"
+                name="name"
+                placeholder="Full Name"
+                value={formData.name}
+                onChange={handleChange}
+                required
+                className={inputClass}
+              />
+
+              <input
+                type="email"
+                name="email"
+                placeholder="Email"
+                value={formData.email}
+                onChange={handleChange}
+                required
+                className={inputClass}
+              />
+
+              <input
+                type="tel"
+                name="mobile"
+                placeholder="Mobile Number"
+                value={formData.mobile}
+                onChange={handleChange}
+                maxLength={10}
+                pattern="[0-9]{10}"
+                required
+                className={inputClass}
+              />
+
+              <input
+                type="password"
+                name="password"
+                placeholder="Password"
+                value={formData.password}
+                onChange={handleChange}
+                required
+                className={inputClass}
+              />
+
+              <input
+                type="password"
+                name="confirmPassword"
+                placeholder="Confirm Password"
+                value={formData.confirmPassword}
+                onChange={handleChange}
+                required
+                className={inputClass}
+              />
+
+              <input
+                type="text"
+                name="referralCode"
+                placeholder="Referral Code (optional)"
+                value={formData.referralCode}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    referralCode: e.target.value.toUpperCase(),
+                  })
+                }
+                className={inputClass}
+              />
+
+              <label className="flex items-center gap-2 mb-8 text-sm text-slate-700 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={subscribeNewsletter}
+                  onChange={(e) => setSubscribeNewsletter(e.target.checked)}
+                  className="w-4 h-4 accent-blue-900"
+                />
+                Register to our newsletter
+              </label>
+
+              <div className="flex gap-4">
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="flex-1 bg-blue-900 hover:bg-blue-950 text-white font-semibold rounded-full py-3.5 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {loading ? "Creating Account..." : "Register"}
+                </button>
+
+                <Link
+                  to={`/login?redirect=${encodeURIComponent(redirectTo)}`}
+                  className="flex-1 border-2 border-blue-900 text-blue-900 hover:bg-blue-50 font-semibold rounded-full py-3.5 text-center transition-colors"
+                >
+                  Login
+                </Link>
+              </div>
+            </form>
+          </>
+        )}
 
         <Link
           to="/"

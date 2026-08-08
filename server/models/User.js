@@ -41,6 +41,15 @@ const userSchema = new mongoose.Schema(
       sparse: true,
     },
 
+    // True only once confirmed — via the registration OTP flow, or
+    // because Google already verified it for us. Accounts that existed
+    // before this field was added are grandfathered true by a one-off
+    // migration rather than defaulting new, unconfirmed signups to true.
+    emailVerified: {
+      type: Boolean,
+      default: false,
+    },
+
     role: {
       type: String,
       enum: ["user", "admin"],

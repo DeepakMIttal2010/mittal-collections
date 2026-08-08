@@ -46,6 +46,29 @@ export const registerUser = async (userData) => {
   }
 };
 
+// ================= VERIFY REGISTRATION OTP =================
+
+export const verifyRegisterOtp = async (email, otp) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/auth/register/verify-otp`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ email, otp }),
+    });
+
+    return await response.json();
+  } catch (error) {
+    console.error(error);
+
+    return {
+      success: false,
+      message: "Server Error",
+    };
+  }
+};
+
 // ================= GOOGLE SIGN-IN =================
 
 export const googleSignIn = async (credential) => {

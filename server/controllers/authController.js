@@ -6,9 +6,15 @@ import { OAuth2Client } from "google-auth-library";
 import User from "../models/User.js";
 import { sendEmail } from "../config/mailer.js";
 import { generateUniqueReferralCode } from "../utils/referral.js";
+import { createAndSendOtp, verifyOtp } from "../utils/otp.js";
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_OAUTH_CLIENT_ID);
 
+// Step 1 of registration: validates the submitted details, then emails
+// a code instead of creating the account directly. Nothing is written
+// to the User collection until the code is confirmed via
+// verifyRegisterOtp — this is what makes the email "verified" at
+// signup rather than just collected.
 export const register = async (req, res) => {
   try {
     const { name, email, mobile, password, referralCode } = req.body;
@@ -49,6 +55,79 @@ export const register = async (req, res) => {
       });
     }
 
+    await createAndSendOtp({
+      target: email,
+      purpose: "register",
+      payload: {
+        name,
+        email,
+        mobile,
+        hashedPassword,
+        referredById: referrer?._id || null,
+      },
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Verification code sent to your email",
+      email,
+    });
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};
+
+// Step 2: confirms the code and actually creates the account.
+export const verifyRegisterOtp = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    if (!email || !otp) {
+      return res.status(400).json({
+        success: false,
+        message: "Email and code are required",
+      });
+    }
+
+    const result = await verifyOtp({
+      target: email.toLowerCase().trim(),
+      purpose: "register",
+      code: otp,
+    });
+
+    if (!result.success) {
+      return res.status(400).json({
+        success: false,
+        message: result.message,
+      });
+    }
+
+    const { name, mobile, hashedPassword, referredById } = result.payload;
+
+    // Someone could have registered with this email/mobile via another
+    // path (e.g. Google sign-in) while this code was pending — re-check
+    // rather than let a stale payload create a duplicate.
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        message: "Email already exists",
+      });
+    }
+
+    const existingMobile = await User.findOne({ mobile, role: "user" });
+    if (existingMobile) {
+      return res.status(400).json({
+        success: false,
+        message: "Mobile number already exists",
+      });
+    }
+
     const newReferralCode = await generateUniqueReferralCode(name);
 
     const user = await User.create({
@@ -56,8 +135,9 @@ export const register = async (req, res) => {
       email,
       mobile,
       password: hashedPassword,
+      emailVerified: true,
       referralCode: newReferralCode,
-      referredBy: referrer?._id || null,
+      referredBy: referredById || null,
     });
 
     try {
@@ -205,6 +285,7 @@ export const googleAuth = async (req, res) => {
 
       if (user) {
         user.googleId = payload.sub;
+        user.emailVerified = true;
         await user.save();
       } else {
         const newReferralCode = await generateUniqueReferralCode(
@@ -215,6 +296,7 @@ export const googleAuth = async (req, res) => {
           name: payload.name || payload.email.split("@")[0],
           email: payload.email,
           googleId: payload.sub,
+          emailVerified: true,
           referralCode: newReferralCode,
         });
 

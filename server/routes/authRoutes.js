@@ -1,6 +1,7 @@
 import express from "express";
 import {
   register,
+  verifyRegisterOtp,
   login,
   googleAuth,
   getProfile,
@@ -14,6 +15,7 @@ import authMiddleware from "../middleware/authMiddleware.js";
 const router = express.Router();
 
 router.post("/register", register);
+router.post("/register/verify-otp", verifyRegisterOtp);
 router.post("/login", login);
 router.post("/google", googleAuth);
 router.post("/forgot-password", forgotPassword);
