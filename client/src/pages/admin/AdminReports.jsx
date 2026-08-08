@@ -19,7 +19,7 @@ import {
   FaGift,
 } from "react-icons/fa";
 
-import { getReportsData } from "../../services/adminService";
+import { getReportsData, getGoogleReportsData } from "../../services/adminService";
 
 const RANGE_OPTIONS = [7, 30, 90];
 
@@ -307,6 +307,11 @@ function AdminReports() {
     locationBreakdown: [],
   });
 
+  const [googleReport, setGoogleReport] = useState(null);
+  const [googleReportUnavailable, setGoogleReportUnavailable] =
+    useState(false);
+  const [googleLoading, setGoogleLoading] = useState(true);
+
   const loadReport = async () => {
     setLoading(true);
 
@@ -321,8 +326,31 @@ function AdminReports() {
     setLoading(false);
   };
 
+  const loadGoogleReport = async () => {
+    setGoogleLoading(true);
+
+    const response = await getGoogleReportsData(days);
+
+    if (response.success) {
+      setGoogleReport(response);
+      setGoogleReportUnavailable(false);
+    } else {
+      setGoogleReportUnavailable(true);
+    }
+
+    setGoogleLoading(false);
+  };
+
   useEffect(() => {
     loadReport();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [days, customRange]);
+
+  useEffect(() => {
+    // Google Analytics / Search Console only support the preset day
+    // ranges here, not the arbitrary custom date picker below.
+    if (customRange) return;
+    loadGoogleReport();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [days, customRange]);
 
@@ -738,6 +766,112 @@ function AdminReports() {
             </div>
           )}
         </div>
+      </div>
+
+      <div className="bg-white border border-slate-200 rounded-xl p-5 mb-6">
+        <h3 className="font-semibold text-slate-800 mb-1">
+          Google Analytics & Search Console — {rangeLabel}
+        </h3>
+        {customRange ? (
+          <p className="text-sm text-slate-400 py-8 text-center">
+            Select a preset range (7 / 30 / 90 days) above to see Google
+            data — the custom date picker isn't supported here yet.
+          </p>
+        ) : googleLoading ? (
+          <p className="text-sm text-slate-400 py-8 text-center">
+            Loading Google data…
+          </p>
+        ) : googleReportUnavailable ? (
+          <p className="text-sm text-slate-400 py-8 text-center">
+            Google Analytics / Search Console data isn't available right
+            now — check that the server's Google service account is
+            configured correctly.
+          </p>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-4">
+            <div>
+              <p className="text-xs font-semibold text-slate-500 uppercase mb-3">
+                Analytics
+              </p>
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                  <p className="text-xs text-slate-400">Active Users</p>
+                  <p className="text-xl font-bold text-slate-800">
+                    {formatNumber(googleReport.analytics.activeUsers)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-400">Sessions</p>
+                  <p className="text-xl font-bold text-slate-800">
+                    {formatNumber(googleReport.analytics.sessions)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-400">Page Views</p>
+                  <p className="text-xl font-bold text-slate-800">
+                    {formatNumber(googleReport.analytics.pageViews)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-400">Engagement Rate</p>
+                  <p className="text-xl font-bold text-slate-800">
+                    {googleReport.analytics.engagementRate.toFixed(1)}%
+                  </p>
+                </div>
+              </div>
+              <p className="text-xs text-slate-400 mb-2">Top Pages</p>
+              <RankedBarList
+                items={googleReport.analytics.topPages}
+                labelKey="path"
+                valueKey="views"
+                formatValue={(v) => `${formatNumber(v)} views`}
+                emptyText="No page view data yet."
+              />
+            </div>
+
+            <div>
+              <p className="text-xs font-semibold text-slate-500 uppercase mb-3">
+                Search Console
+              </p>
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                  <p className="text-xs text-slate-400">Clicks</p>
+                  <p className="text-xl font-bold text-slate-800">
+                    {formatNumber(googleReport.searchConsole.clicks)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-400">Impressions</p>
+                  <p className="text-xl font-bold text-slate-800">
+                    {formatNumber(googleReport.searchConsole.impressions)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-400">CTR</p>
+                  <p className="text-xl font-bold text-slate-800">
+                    {googleReport.searchConsole.ctr.toFixed(1)}%
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-400">Avg Position</p>
+                  <p className="text-xl font-bold text-slate-800">
+                    {googleReport.searchConsole.avgPosition.toFixed(1)}
+                  </p>
+                </div>
+              </div>
+              <p className="text-xs text-slate-400 mb-2">
+                Top Search Queries (Google)
+              </p>
+              <RankedBarList
+                items={googleReport.searchConsole.topQueries}
+                labelKey="query"
+                valueKey="clicks"
+                formatValue={(v) => `${formatNumber(v)} clicks`}
+                emptyText="No search query data yet."
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">

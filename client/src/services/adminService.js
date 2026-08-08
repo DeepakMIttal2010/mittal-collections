@@ -46,3 +46,26 @@ export const getReportsData = async ({ days, startDate, endDate } = {}) => {
     };
   }
 };
+
+export const getGoogleReportsData = async (days = 28) => {
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/admin/reports/google?days=${days}`,
+      {
+        headers: {
+          Authorization: `Bearer ${getToken()}`,
+        },
+      },
+    );
+
+    const data = await response.json();
+
+    return data;
+  } catch (error) {
+    console.error("Google Reports Error:", error);
+
+    return {
+      success: false,
+    };
+  }
+};
