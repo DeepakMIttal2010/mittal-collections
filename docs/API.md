@@ -131,7 +131,7 @@ Same CRUD shape as Products (list/admin-list/get/create/update/restore/soft-dele
 | POST | `/` | User | Submit a review or question (pending admin moderation). |
 | GET | `/admin` | Admin | All reviews/questions incl. unmoderated. |
 | PUT | `/:id/answer` *(questions only)* | Admin | Answer + publish a question. |
-| PUT | `/:id` *(reviews)* / `/:id/seen` | Admin | Approve a review / mark seen. |
+| PUT | `/:id/approve` *(reviews)* / `/:id/answer` *(questions)* / `/:id/seen` | Admin | Approve a review / answer+publish a question / mark seen. |
 | DELETE | `/:id` | Admin | Delete. |
 
 ## Coupons — `/api/coupons`

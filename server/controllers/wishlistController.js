@@ -30,9 +30,6 @@ export const addToWishlist = async (req, res) => {
   try {
     const { productId } = req.body;
 
-    console.log("req.user =", req.user);
-    console.log("productId =", productId);
-
     const exists = await Wishlist.findOne({
       user: req.user.id,
       product: productId,
@@ -59,8 +56,7 @@ export const addToWishlist = async (req, res) => {
 
     res.status(500).json({
       success: false,
-      message: error.message,
-      stack: error.stack,
+      message: "Server Error",
     });
   }
 };
