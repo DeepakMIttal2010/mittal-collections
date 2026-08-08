@@ -1,6 +1,6 @@
 # Cloudinary v1 → v2 Migration Plan
 
-**Status:** ✅ **Executed and deployed 2026-08-08.** `cloudinary` is now `^2.10.0`, `npm audit` reports 0 vulnerabilities, all 4 real upload flows (product, category, banner, article) verified working with real Cloudinary credentials both locally and in production.
+**Status:** ✅ **Executed and deployed 2026-08-08.** `cloudinary` is now `^2.10.0`, `npm audit` reports 0 vulnerabilities, all 4 real upload flows (product, category, banner, article) verified working with real Cloudinary credentials on local dev. Production is deployed and healthy but a real upload wasn't independently re-tested there (see §6) — low residual risk, not zero.
 **Document version:** 1.1
 **Last updated:** 2026-08-08
 
@@ -114,7 +114,7 @@ dev server (not mocked, not a code read):
   - Product image upload — ✅
   - Product *video* upload was not separately tested with a real video file (no risk-free way to synthesize one for a quick check), but it runs through the exact same `imageOptimizer.js` → `cloudinary.uploader.upload_stream()` call as every image flow above, just with `resource_type: "video"` — the same API surface already proven to work, not a distinct one.
   - All test records deleted afterward (permanent delete via the admin API) — no leftover test data in local dev.
-- Deployed via the standard `feature/deployment` → `main` flow, then the product-image upload check was repeated once against **production** to confirm it holds there too (not just locally).
+- Deployed via the standard `feature/deployment` → `main` flow. Production health checks (frontend + `/api/health`) pass post-deploy. **A real upload test against production itself was deliberately skipped** (I don't hold production admin credentials to test this myself, and the user chose to rely on the local verification + health checks rather than do it themselves) — confidence is high given the code path is identical to what was already proven locally, but this specific claim ("uploads work in production") hasn't been directly observed post-upgrade. Worth a quick real check (add/edit any image in the live admin panel) next time someone's in there anyway.
 
 No code changes were needed beyond the `package.json`/`package-lock.json`
 version bump — the "breaking changes" analysis in §3 held up exactly

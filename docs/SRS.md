@@ -67,7 +67,7 @@ feature-level functional requirements, see `FRS.md`.
 - NFR-S6: File uploads are restricted by MIME type (images: jpg/jpeg/png/webp; product media additionally allows mp4/webm/mov) and size (5MB images, 20MB product video).
 - NFR-S7: Scheduler-only endpoints (abandoned-cart reminders, points expiry) are protected by a shared secret query parameter, not JWT, since they're called by an external cron service rather than a logged-in user.
 - NFR-S8: No secrets committed to the repository; all credentials live in `.env` (gitignored) / hosting-provider environment variables.
-- **Resolved (2026-08-08):** `cloudinary` was pinned at v1.41.3, which had a disclosed high-severity vulnerability (GHSA-g4mf-96x5-5m2c). Upgraded to v2.10.0 — `npm audit` now reports 0 vulnerabilities. All real upload flows (product, category, banner, article) were manually re-verified against real Cloudinary credentials, both locally and in production, before/after deploy. Full record in `docs/CLOUDINARY_MIGRATION_PLAN.md` §6.
+- **Resolved (2026-08-08):** `cloudinary` was pinned at v1.41.3, which had a disclosed high-severity vulnerability (GHSA-g4mf-96x5-5m2c). Upgraded to v2.10.0 — `npm audit` now reports 0 vulnerabilities. All real upload flows (product, category, banner, article) were manually re-verified against real Cloudinary credentials on local dev before deploying; production is deployed and healthy but a real upload wasn't independently re-tested there. Full record in `docs/CLOUDINARY_MIGRATION_PLAN.md` §6.
 
 ### 2.3 Availability / Reliability
 - NFR-A1: Backend runs on Render's free tier, which sleeps after inactivity and cold-starts on the next request — acceptable for current traffic; noted as a constraint, not a defect.
