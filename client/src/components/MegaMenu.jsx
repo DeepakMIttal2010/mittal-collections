@@ -9,10 +9,6 @@ function MegaMenu({ linkClassName }) {
   const [subcategories, setSubcategories] = useState([]);
   const [openCategoryId, setOpenCategoryId] = useState(null);
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
   const loadData = async () => {
     const [catRes, subcatRes] = await Promise.all([
       getCategories(),
@@ -22,6 +18,10 @@ function MegaMenu({ linkClassName }) {
     if (catRes.success) setCategories(catRes.categories);
     if (subcatRes.success) setSubcategories(subcatRes.subcategories);
   };
+
+  useEffect(() => {
+    loadData();
+  }, []);
 
   const getGroupedSubcategories = (categoryId) => {
     const items = subcategories.filter(

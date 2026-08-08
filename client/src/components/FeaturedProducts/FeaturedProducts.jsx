@@ -7,10 +7,6 @@ function FeaturedProducts() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadFeaturedProducts();
-  }, []);
-
   const loadFeaturedProducts = async () => {
     try {
       const data = await getProducts();
@@ -26,6 +22,10 @@ function FeaturedProducts() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    loadFeaturedProducts();
+  }, []);
 
   if (loading) {
     return (

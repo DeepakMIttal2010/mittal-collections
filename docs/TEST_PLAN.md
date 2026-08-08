@@ -54,7 +54,7 @@ here.
 
 - [ ] `npm test` (server) passes — especially before touching `orderController.js`, `loyaltyPoints.js`, or anything under `server/tests/`.
 - [ ] `npm run build` (client) completes with no errors.
-- [ ] `npx eslint src` (client) shows no *new* errors versus the baseline.
+- [ ] `npx eslint src` (client) shows **0 errors** (clean baseline as of 2026-08-08 — was 54 errors/7 warnings from `eslint-plugin-react-hooks@7`'s new `set-state-in-effect`/`immutability` rules and `react-refresh/only-export-components`; fixed 3 genuine temporal-dead-zone bugs, removed dead code and stale disable-comments, and disabled two rules in `eslint.config.js` that flagged extremely common safe patterns — see the comment there for why). 3 low-priority `exhaustive-deps` warnings remain, deliberately.
 - [ ] Backend starts cleanly (`node server.js`) with no console errors, and connects to MongoDB.
 - [ ] `curl` the endpoints touched by the change (both local and, after deploy, production) and check status codes + response shape.
 

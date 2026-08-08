@@ -3,7 +3,6 @@ import { NavLink, useNavigate } from "react-router-dom";
 import {
   FaTachometerAlt,
   FaBoxOpen,
-  FaPlusCircle,
   FaTags,
   FaShoppingCart,
   FaUsers,

@@ -50,7 +50,6 @@ function Tickets() {
     getMyOrders().then((response) => {
       if (response?.success) setOrders(response.orders);
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoggedIn, navigate]);
 
   const handleSubmit = async (e) => {

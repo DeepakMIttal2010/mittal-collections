@@ -43,7 +43,6 @@ function Notifications() {
     }
 
     loadNotifications();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoggedIn, navigate]);
 
   const handleClick = async (item) => {

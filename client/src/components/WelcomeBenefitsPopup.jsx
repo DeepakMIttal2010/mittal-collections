@@ -71,7 +71,6 @@ function WelcomeBenefitsPopup() {
 
     const timer = setTimeout(handleClose, AUTO_CLOSE_MS);
     return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entered]);
 
   if (!visible || !rewards) return null;

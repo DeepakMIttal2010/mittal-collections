@@ -25,10 +25,6 @@ function CustomerDetails() {
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
 
-  useEffect(() => {
-    loadCustomer();
-  }, [id]);
-
   const loadCustomer = async () => {
     setLoading(true);
 
@@ -46,6 +42,10 @@ function CustomerDetails() {
 
     setLoading(false);
   };
+
+  useEffect(() => {
+    loadCustomer();
+  }, [id]);
 
   const handleToggleBlock = async () => {
     setUpdating(true);

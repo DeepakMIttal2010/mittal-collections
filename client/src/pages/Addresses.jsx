@@ -35,7 +35,6 @@ function Addresses() {
     }
 
     loadAddresses();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoggedIn, navigate]);
 
   const handleRemove = async (id) => {

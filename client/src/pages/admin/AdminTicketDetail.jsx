@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { FaPaperPlane } from "react-icons/fa";
 
 import {
@@ -20,7 +20,6 @@ const STATUS_COLORS = {
 
 function AdminTicketDetail() {
   const { id } = useParams();
-  const navigate = useNavigate();
 
   const [ticket, setTicket] = useState(null);
   const [loading, setLoading] = useState(true);
