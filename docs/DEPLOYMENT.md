@@ -161,6 +161,14 @@ older sibling route still 401s normally, means the *old* code is still
 running). If that happens: open the Render dashboard for the service
 → **Manual Deploy** → **Deploy latest commit**.
 
+## 6a. Backup & Recovery
+
+Database backups are **not currently confirmed to exist** — see
+`BACKUP_RECOVERY.md` for the full audit. MongoDB Atlas's free tier
+(M0) has no automated backup feature at all; if this cluster is on
+M0, there is no recovery path for the production database today. This
+is worth resolving before treating the site as fully production-ready.
+
 ## 7. Rollback
 
 There is no automated rollback pipeline. To revert a bad deploy:
