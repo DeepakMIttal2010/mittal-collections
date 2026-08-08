@@ -19,15 +19,13 @@ const userSchema = new mongoose.Schema(
     // Not schema-required: enforced at the controller level for normal
     // email/password registration, but Google sign-in creates a user
     // before a mobile number is collected (Google doesn't provide one).
-    // No `default: null` here — a sparse unique index only skips
-    // documents where the field is genuinely absent. Mongoose would
-    // otherwise write an explicit `null` into every document, which
-    // *is* present for indexing purposes and defeats the sparse index
-    // the moment a second such document is created.
+    // No `default: null` here — an absent field is required for the
+    // partial unique index below to skip these documents. Mongoose
+    // would otherwise write an explicit `null` into every document,
+    // which the index's own field-existence check would then reject
+    // anyway, but leaving it genuinely unset is simpler and correct.
     mobile: {
       type: String,
-      unique: true,
-      sparse: true,
       trim: true,
     },
 
@@ -88,6 +86,18 @@ const userSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
+  },
+);
+
+// Mobile numbers only need to be unique among customers — an admin's
+// own number (they may also shop as a customer) shouldn't block a
+// customer account from using the same number. Scoped as a partial
+// index rather than a plain sparse one for exactly that reason.
+userSchema.index(
+  { mobile: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { role: "user", mobile: { $type: "string" } },
   },
 );
 

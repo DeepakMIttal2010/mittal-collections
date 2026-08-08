@@ -29,7 +29,9 @@ export const register = async (req, res) => {
       });
     }
 
-    const existingMobile = await User.findOne({ mobile });
+    // Only checked against other customers — an admin using the same
+    // number for their own customer account is allowed.
+    const existingMobile = await User.findOne({ mobile, role: "user" });
 
     if (existingMobile) {
       return res.status(400).json({
@@ -326,7 +328,12 @@ export const updateProfile = async (req, res) => {
         });
       }
 
-      const existingMobile = await User.findOne({ mobile });
+      // Only checked against other users of the same role — a customer
+      // and an admin are allowed to share a mobile number.
+      const existingMobile = await User.findOne({
+        mobile,
+        role: user.role,
+      });
 
       if (existingMobile) {
         return res.status(400).json({
