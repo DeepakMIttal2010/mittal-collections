@@ -1,6 +1,6 @@
 # Backup & Recovery
 
-**Status:** Audited 2026-08-08. Confirmed in the Atlas dashboard: cluster `Cluster0` shows **"Backups: Inactive"** and a 512.00 MB data cap (the M0 free-tier fingerprint) — there was genuinely zero backup of the production database until this was fixed the same day with an automated weekly `mongodump` via GitHub Actions (§2).
+**Status:** Audited and fixed 2026-08-08. Cluster `Cluster0` was confirmed M0 (free tier, no backup feature). The `MONGODB_URI` repo secret is now set and the backup workflow has a **confirmed successful run** (Actions run #2, "Success", 20s, 1 artifact produced).
 **Document version:** 1.1
 **Last updated:** 2026-08-08
 
@@ -116,9 +116,8 @@ data, not just this app's own state.
 
 ## 6. Remaining Next Steps
 
-1. **Add the `MONGODB_URI` repository secret** (§2.2) — the backup
-   workflow is in place but does nothing useful until this exists.
-   Not done automatically; needs someone with repo admin access.
+1. ~~Add the `MONGODB_URI` repository secret~~ — done, verified
+   working (2026-08-08, Actions run #2, Success).
 2. Confirm env vars/secrets (§5) have a record somewhere outside
    Render's dashboard.
 3. Do one rehearsal restore (§2.3) into a throwaway local database, so
