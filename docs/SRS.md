@@ -1,7 +1,7 @@
 # Software Requirements Specification (SRS)
 
 **Project:** Mittal Collections
-**Document version:** 1.1
+**Document version:** 1.2
 **Last updated:** 2026-08-08
 
 This document covers technical and non-functional requirements. For
@@ -45,8 +45,8 @@ feature-level functional requirements, see `FRS.md`.
 | Brevo | Transactional email (order status, welcome, password reset, abandoned cart, back-in-stock, newsletter) |
 | cron-job.org | External scheduler — hits secret-protected endpoints since Render's free tier can't run reliable in-process cron (sleeps when idle) |
 | Razorpay | Online payment method (alongside COD) |
-| Google Analytics 4 | Traffic analytics (client-side tag) |
-| Google Search Console | Search performance + indexing |
+| Google Analytics 4 | Traffic analytics (client-side tag), plus server-side reporting into Admin Reports via a read-only Google service account (see §4) |
+| Google Search Console | Search performance + indexing, plus server-side reporting into Admin Reports via the same service account |
 
 ## 2. Non-Functional Requirements
 
@@ -54,7 +54,7 @@ feature-level functional requirements, see `FRS.md`.
 - NFR-P1: Route-based code-splitting keeps the storefront's initial JS bundle small; admin-only code (incl. the ~200KB rich-text editor) must never load for a non-admin visitor. *(Achieved: main bundle reduced from ~954KB to ~285KB.)*
 - NFR-P2: All API responses are gzip-compressed.
 - NFR-P3: MongoDB queries on hot paths (product listing/filtering, order history, best-seller aggregation) must be covered by compound indexes.
-- NFR-P4: Product images are optimized server-side (`sharp`) before storage.
+- NFR-P4: Product images are optimized server-side (`sharp`, max 1600px dimension, JPEG quality 85 via mozjpeg) before storage. **Applies to every real upload through the admin panel automatically** — any image placed into `server/uploads/` outside that flow (e.g. seed/demo data) bypasses it and must be compressed manually. This gap was found and fixed 2026-08-08: seed category/banner/product images were shipping as raw 2.5-3MB camera-resolution JPEGs (the homepage hero banner alone cost ~1.2s just to download); recompressed in place with the same settings, dropping total seed image weight from 72.8MB to 9.0MB (~87% smaller) with no visible quality loss.
 - NFR-P5: Product listing/search must return results without a dedicated search-service dependency (justified by current catalog size — a custom Levenshtein-based ranker is used instead of e.g. Elasticsearch/Algolia). Every real search (not autocomplete keystrokes) is logged to `SearchLog` fire-and-forget, feeding the admin search-analytics report without adding request latency.
 - NFR-P6: The customer and admin notification bells poll every 30 seconds rather than using a persistent connection (WebSocket/SSE) — acceptable at current traffic; would need revisiting if near-real-time delivery becomes a requirement.
 

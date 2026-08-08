@@ -1,7 +1,7 @@
 # Admin Manual
 
 **Admin login:** https://www.mittalcollections.com/admin/login
-**Document version:** 1.1
+**Document version:** 1.2
 **Last updated:** 2026-08-08
 
 This guide covers every section of the admin panel
@@ -183,6 +183,13 @@ range, except **Total Customers** which is always shown all-time.
   and total bonus points paid out.
 - **Export CSV** — downloads the entire report (every section above)
   as one multi-section CSV file for the selected range.
+- **Google Analytics & Search Console** — live data pulled directly
+  from Google (not this site's own tracking): Active Users, Sessions,
+  Page Views, Engagement Rate and Top Pages from GA4; Clicks,
+  Impressions, CTR, Average Position and Top Search Queries from
+  Search Console. Only works with the 7/30/90-day presets, not a
+  custom date range. If it shows "data isn't available," the server's
+  Google credentials need attention — see `DEPLOYMENT.md` §4.6.
 
 ## 11. Things That Run on Their Own (no admin action needed)
 

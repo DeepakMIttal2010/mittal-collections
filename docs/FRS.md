@@ -2,7 +2,7 @@
 
 **Project:** Mittal Collections — Home Furnishing E-commerce Platform
 **Live site:** https://www.mittalcollections.com
-**Document version:** 1.1
+**Document version:** 1.2
 **Last updated:** 2026-08-08
 
 ## 1. Purpose
@@ -148,6 +148,7 @@ tools) for SEO-driven organic traffic.
 - FR-A6.1: Customer list/detail, block/unblock.
 - FR-A6.2: Dashboard summary (recent orders, revenue, traffic).
 - FR-A6.3: Reports page (`/admin/reports`) — date range selectable via 7/30/90-day presets or a custom start/end date; every metric is scoped consistently to the selected range (with one deliberate exception: "Total Customers" is shown all-time). Includes: revenue/orders with period-over-period growth %, sales & visits trend charts, a conversion funnel (Visitors → Product Viewers → Cart Viewers → Checkout Viewers → Orders Placed, explicitly labeled as approximate since visits are tracked by an anonymous ID not linked to accounts), top/zero-result search queries, a live (not date-scoped) cart-abandonment snapshot, orders by status, top pages, device breakdown, top-selling products, revenue by category, visitor locations, and loyalty/referral performance (points earned/redeemed/expired with redemption rate, referral signups/conversions/bonus paid out). The whole report exports to a single multi-section CSV.
+- FR-A6.4: A "Google Analytics & Search Console" section on the same Reports page, showing live data pulled server-side via a Google service account: Active Users, Sessions, Page Views, Engagement Rate, and Top Pages from GA4; Clicks, Impressions, CTR, Average Position, and Top Search Queries from Search Console. Only supports the 7/30/90-day presets (not the custom date picker); shows a quiet "unavailable" message rather than an error if the service account isn't configured.
 
 ### 5.7 Notification Bell (Admin)
 - FR-A7.1: A bell icon in the admin header shows an unread-count badge and dropdown covering: new orders, contact messages, reviews, Q&A, support tickets, and return requests — each clickable, marking that item seen and navigating to it.

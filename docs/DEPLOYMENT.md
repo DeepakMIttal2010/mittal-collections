@@ -1,6 +1,6 @@
 # Deployment Guide
 
-**Document version:** 1.1
+**Document version:** 1.2
 **Last updated:** 2026-08-08
 
 ## 1. Hosting Summary
@@ -51,6 +51,7 @@ network blip, not a real failure; simply retry the same command.
 | `MAIL_FROM_EMAIL` / `MAIL_FROM_NAME` | Sender identity for outgoing email |
 | `CLIENT_URL` | Used to build links inside emails (e.g. "View your order") |
 | `CRON_SECRET` | Shared secret checked by the two scheduler-only endpoints |
+| `GOOGLE_SERVICE_ACCOUNT_KEY` | Single-line JSON service-account key, powers `/api/admin/reports/google` (GA4 + Search Console data in Admin Reports). Optional — the endpoint degrades to a quiet "unavailable" message if unset. See §4.6. |
 
 `.env` is gitignored — set the same keys/values in Render's dashboard
 environment variable settings for production. Never commit real
@@ -104,6 +105,30 @@ the next scheduled run.
 Domain registered externally (Namecheap); DNS records point the apex
 and `www` to Vercel, plus TXT/CNAME/MX records for Brevo email
 authentication.
+
+### 4.6 Google Analytics 4 + Search Console (Admin Reports integration)
+`server/controllers/googleReportsController.js` pulls live GA4 and
+Search Console data into Admin Reports via a Google Cloud service
+account (project `mittal-collections-reporting`):
+
+1. Google Cloud Console → enable **Google Analytics Data API** and
+   **Google Search Console API**.
+2. Create a service account (e.g. `reporting-bot`) → Keys → **Create
+   new key → JSON** → download it.
+3. In GA4 (Admin → Property access management), add the service
+   account's email as **Viewer/Analyst** on the correct property.
+   **Watch for this:** the GA4 property may live under a *different*
+   Google account than the one used for Search Console/domain
+   ownership — logging into the wrong account shows an empty "Start
+   measuring" onboarding screen instead of the real property, which
+   looks like GA4 was never set up when it actually was.
+4. In Search Console (Settings → Users and permissions), add the same
+   service account email as a **Restricted** user.
+5. Put the entire downloaded JSON as a single-line string in the
+   `GOOGLE_SERVICE_ACCOUNT_KEY` env var (local `.env` and Render). The
+   GA4 Property ID and Search Console site URL are hardcoded as
+   constants in `server/config/googleReporting.js` — update them there
+   if the property/site ever changes.
 
 ## 5. Local Development Setup
 
@@ -160,6 +185,17 @@ should 401, not 404 — a 404 on a route you just added, while an
 older sibling route still 401s normally, means the *old* code is still
 running). If that happens: open the Render dashboard for the service
 → **Manual Deploy** → **Deploy latest commit**.
+
+**Vercel can silently block a deploy too, for a different reason.**
+On the Hobby plan, if the git commit author doesn't have contributing
+access to the Vercel project on a *private* GitHub repo, Vercel shows
+the new deployment as **Blocked** in the Deployments tab — no email,
+no error surfaced anywhere else. Fixed here by making the repo public
+(removes the restriction); the Pro plan is the alternative if it needs
+to stay private. Redeploying the *same* blocked deployment via the
+dashboard's "Redeploy" button does **not** re-evaluate the block — a
+fresh commit (an empty one is fine) is needed to trigger a new
+deployment attempt after fixing the underlying cause.
 
 ## 6a. Backup & Recovery
 
