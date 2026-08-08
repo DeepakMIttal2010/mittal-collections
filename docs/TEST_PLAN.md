@@ -21,10 +21,12 @@ Supertest — these are integration tests against actual routes and
 controllers, not unit tests against mocked pieces.
 
 Coverage today: order placement (stock reserve + atomic rollback on a
-short item, delivery-fee/total calculation, auth requirement) and the
+short item, delivery-fee/total calculation, auth requirement); the
 full loyalty lifecycle (earn on delivery, no double-credit, clawback
 on cancelling a *delivered* order, refund-only on cancelling a
-*pending* order, redemption cap, one-time referral bonus payout).
+*pending* order, redemption cap, one-time referral bonus payout); and
+return approval side effects (stock restore on Picked Up/Refunded,
+proportional loyalty clawback on Refunded, idempotency of both).
 Everything else in this document is still manual — a local build/lint
 pass, direct API smoke tests via `curl` against both local and
 production, and manual verification in-browser for anything
@@ -81,7 +83,7 @@ tickets, coupons) is a reasonable future investment, not yet done.
 
 ### 3.7 Returns & Support Tickets
 - [ ] Return request: on a delivered order, the Return button appears only on items within their return window (and not at all on a product marked non-returnable); submitting creates a `Requested` return, visible on `/returns` and emails the admin.
-- [ ] Return status change (as admin): customer receives an email + bell notification at each step (Approved/Rejected/Picked Up/Refunded); stock, payment, and loyalty points are **not** automatically touched (known manual gap — verify nothing silently changes).
+- [ ] Return status change (as admin): customer receives an email + bell notification at each step (Approved/Rejected/Picked Up/Refunded). Reaching Picked Up (or jumping straight to Refunded) restores that product's stock exactly once, even if the status is flipped back and forth; reaching Refunded claws back only the returned item's proportional share of loyalty points (not the whole order's), and only if the order was actually delivered/credited — covered by `server/tests/returns.test.js`. Payment refund is still manual (no Razorpay integration exists yet).
 - [ ] Support ticket: raise one (optionally linked to an order via "Get Product Support"), reply as admin (customer gets email + notification), reply as customer on a Resolved/Closed ticket (status auto-reopens to Open).
 
 ### 3.8 Notification Center (Customer)

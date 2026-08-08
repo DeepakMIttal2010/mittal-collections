@@ -58,6 +58,17 @@ const returnRequestSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+
+    // Guards against re-applying these side effects if the status is
+    // moved back and forth (e.g. Refunded set twice by mistake).
+    stockRestored: {
+      type: Boolean,
+      default: false,
+    },
+    pointsClawedBack: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
     timestamps: true,

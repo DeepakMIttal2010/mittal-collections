@@ -127,7 +127,7 @@ tools) for SEO-driven organic traffic.
 
 ### 5.2 Orders, Returns & Support
 - FR-A2.1: View all orders, mark seen, update status (triggers customer email + loyalty point crediting/clawback/referral payout as applicable).
-- FR-A2.2: Manage return requests (`/admin/returns`) — view all, update status through `Requested → Approved/Rejected → Picked Up → Refunded`, with an optional note to the customer on each change.
+- FR-A2.2: Manage return requests (`/admin/returns`) — view all, update status through `Requested → Approved/Rejected → Picked Up → Refunded`, with an optional note to the customer on each change. Reaching **Picked Up** (or jumping straight to **Refunded**) automatically restores the returned quantity to that product's stock; reaching **Refunded** automatically claws back the loyalty points earned on that specific item's share of the order (proportional to its price within the order, not the whole order's points), but only if the order was ever delivered/credited in the first place. Both side effects are idempotent — flipping the status back and forth doesn't double-apply them. Actual payment refund is still manual — see §6.
 - FR-A2.3: Manage support tickets (`/admin/tickets`) — view all, reply in the message thread, change status (Open/In Progress/Resolved/Closed).
 
 ### 5.3 Marketing & Content
@@ -163,6 +163,6 @@ tools) for SEO-driven organic traffic.
 - "Frequently Bought Together" and "Delivery Date Estimator" widgets.
 - Product logo/brand redesign work.
 - Cloudinary SDK v1 → v2 upgrade (known vulnerability, deliberately held pending a full upload-flow retest).
-- Return & Refund automation: actual payment-gateway refund (Razorpay refund API), automatic stock restore, and loyalty-points clawback on an *approved return* (as opposed to order cancellation, which already does all three) — the return workflow exists end-to-end but these three side effects are currently manual. Explicitly put on hold, not to be resumed without being asked again.
+- Razorpay refund automation — and, more fundamentally, real Razorpay payment capture at all. "Razorpay" currently exists only as a `paymentMethod` enum value on `Order`; there is no Razorpay SDK, no checkout-side payment capture, and no `paymentId` stored anywhere, so there is no captured payment to programmatically refund yet. This is a payment-gateway integration project in its own right, not a small add-on to the return flow.
 - Push notifications (web push/FCM) and SMS/WhatsApp-API notifications — only email + the in-app Notification Center exist.
 - Per-variant stock (by size/color) — `Product.stock` is a single number for the whole product. No stock-change audit log, no supplier/reorder/purchase-order concept.

@@ -113,7 +113,7 @@ const reserveStock = async (orderItems) => {
   return { success: true };
 };
 
-const restoreStock = async (orderItems) => {
+export const restoreStock = async (orderItems) => {
   for (const item of orderItems) {
     const product = await Product.findByIdAndUpdate(
       item.product,

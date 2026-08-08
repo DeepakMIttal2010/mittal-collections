@@ -111,6 +111,8 @@ index** `{product, email}` prevents duplicate subscriptions.
 | status | String enum | `Requested`→`Approved`/`Rejected`→`Picked Up`→`Refunded` |
 | adminNote | String | shown to the customer on status-change emails |
 | isSeenByAdmin | Boolean | default `false` |
+| stockRestored | Boolean | default `false`; flips true the first time status reaches `Picked Up` or `Refunded`, guarding against restoring stock twice |
+| pointsClawedBack | Boolean | default `false`; flips true the first time status reaches `Refunded`, guarding against double clawback |
 
 **Indexes:** `{user, createdAt:-1}`, `{status, createdAt:-1}`, `{order, product}`.
 

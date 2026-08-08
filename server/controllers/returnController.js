@@ -4,6 +4,8 @@ import Product from "../models/Product.js";
 import SiteSettings from "../models/SiteSettings.js";
 import { sendEmail } from "../config/mailer.js";
 import { notifyUser } from "../utils/notify.js";
+import { restoreStock } from "./orderController.js";
+import { applyLoyaltyPointsChange } from "../utils/loyaltyPoints.js";
 
 const notifyAdmin = async (returnRequest) => {
   try {
@@ -243,6 +245,55 @@ export const updateReturnStatus = async (req, res) => {
 
     returnRequest.status = status;
     if (adminNote !== undefined) returnRequest.adminNote = adminNote;
+
+    // Stock comes back the moment the item is physically back in hand —
+    // "Picked Up" normally, but also covers an admin jumping straight to
+    // "Refunded" without a separate pickup step recorded.
+    if (
+      ["Picked Up", "Refunded"].includes(status) &&
+      !returnRequest.stockRestored
+    ) {
+      await restoreStock([
+        { product: returnRequest.product, quantity: returnRequest.quantity },
+      ]);
+      returnRequest.stockRestored = true;
+    }
+
+    // Claw back only the loyalty points actually earned on the returned
+    // item's share of the order — not the whole order's points — and
+    // only if points were ever credited (order was delivered) in the
+    // first place.
+    if (status === "Refunded" && !returnRequest.pointsClawedBack) {
+      const order = await Order.findById(returnRequest.order);
+
+      if (order?.pointsCredited && order.pointsEarned > 0 && order.totalPrice > 0) {
+        const orderItem = order.orderItems.find(
+          (item) => item.product.toString() === returnRequest.product.toString(),
+        );
+
+        if (orderItem) {
+          const returnedValue = orderItem.price * returnRequest.quantity;
+          const pointsToClawback = Math.min(
+            Math.round(
+              order.pointsEarned * (returnedValue / order.totalPrice),
+            ),
+            order.pointsEarned,
+          );
+
+          if (pointsToClawback > 0) {
+            await applyLoyaltyPointsChange({
+              userId: returnRequest.user._id,
+              type: "clawback",
+              points: -pointsToClawback,
+              order: order._id,
+              description: `Reversed earn for returned item: ${returnRequest.productName}`,
+            });
+          }
+        }
+      }
+
+      returnRequest.pointsClawedBack = true;
+    }
 
     await returnRequest.save();
 

@@ -81,10 +81,20 @@ Up → Refunded`, optionally adding a note the customer will see. Each
 status change emails the customer and posts a bell + in-app
 notification.
 
-> Approving a return does **not** currently restore stock, refund the
-> payment, or claw back loyalty points automatically — those three
-> steps are still manual for now (unlike order cancellation, which
-> does all three automatically).
+- Moving a return to **Picked Up** (or straight to **Refunded**)
+  automatically adds the returned quantity back to that product's
+  stock.
+- Moving a return to **Refunded** automatically claws back the
+  loyalty points that item earned — just that item's share of the
+  order, not the whole order's points — but only if the order was
+  actually delivered (and so had earned points to begin with).
+- Both of the above only ever happen once per return, even if you
+  change the status back and forth.
+
+> The actual **payment refund** (giving the customer their money back)
+> is still manual — there's no Razorpay integration yet to automate
+> against (COD is the only payment method that's actually wired up
+> end-to-end today).
 
 ## 4b. Support Tickets (`/admin/tickets`)
 
