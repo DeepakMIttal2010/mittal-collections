@@ -30,13 +30,17 @@ Coverage today (`server/tests/`):
 - **Return approval side effects** — stock restore on Picked Up/Refunded, proportional loyalty clawback on Refunded (only the returned item's share, only if the order was ever delivered/credited), idempotency of both.
 - **Return eligibility** — delivered-order-only, product-must-be-in-order, non-returnable products rejected, product-level `returnPeriodDays` override vs. `SiteSettings.defaultReturnPeriodDays` fallback, window-closed rejection, duplicate-request blocking.
 - **Coupon restrictions** — unknown/inactive code rejected, percentage discount capped at `maxDiscount`, flat discount capped at the subtotal, first-order-only eligibility (both on `/validate` and silently during actual order placement — an ineligible coupon never blocks the order, it just doesn't apply).
+- **Delivery fee tiers** — free at/above the threshold, correct graduated tier selected below it (tier order in the array doesn't matter), fallback to the flat fee when no tier matches or none are configured, defaults used when settings omits a field entirely. Pure unit test on `calculateDeliveryFee()` — no DB, no app, milliseconds to run.
+- **CORS** — the storefront's own origin gets `Access-Control-Allow-Origin` back; an arbitrary origin does not; requests with no `Origin` header (server-to-server) still succeed.
+- **Security headers** — `helmet`'s standard headers are present, and `Cross-Origin-Resource-Policy: cross-origin` specifically (this exact header broke legacy `/uploads` image loading once during initial helmet setup — regression-guarded here).
+- **Auth rate limiting** — the 21st request to `/api/auth/*` within the window gets `429`, not silently allowed through.
 
 Everything else in this document is still manual — a local build/lint
 pass, direct API smoke tests via `curl` against both local and
 production, and manual verification in-browser for anything
 UI/visual. Expanding automated coverage to other resources (tickets,
-delivery-fee tiers as a standalone unit, notification de-duplication)
-is a reasonable future investment, not yet done.
+notification de-duplication) is a reasonable future investment, not
+yet done.
 
 ## 2. Pre-Deploy Sanity Checks (every change)
 
@@ -56,7 +60,7 @@ is a reasonable future investment, not yet done.
 
 ### 3.2 Cart & Checkout
 - [ ] Add to cart from: product card, quick view, product detail page. Quantity respects available stock.
-- [ ] Cart drawer and `/cart` page show matching totals and the correct tiered delivery fee for subtotals just below, just at, and above the free-shipping threshold.
+- [ ] Cart drawer and `/cart` page show matching totals and the correct tiered delivery fee for subtotals just below, just at, and above the free-shipping threshold. (The fee calculation itself is automated in `server/tests/delivery-fee.test.js`; this is a UI-layer check that the client mirrors it correctly.)
 - [ ] Logged-out checkout redirects to `/login?redirect=/checkout` and returns to checkout after login.
 - [ ] Coupon: valid code applies and shows in the UI; expired/invalid code is rejected in the UI. (The backend logic — discount capping, first-order-only eligibility — is covered by `server/tests/coupon.test.js`; this is a UI-layer check that the right message/state shows.)
 - [ ] Loyalty point redemption: slider caps correctly at the configured max %, and at the customer's actual balance.
@@ -110,10 +114,9 @@ is a reasonable future investment, not yet done.
 
 ## 5. Security & Performance Regression Checks
 
-- [ ] CORS: a request with `Origin: https://www.mittalcollections.com` gets `Access-Control-Allow-Origin` back; a request with an arbitrary origin does not.
-- [ ] Security headers present (`X-Frame-Options`, `X-Content-Type-Options`, `Strict-Transport-Security`) on API responses.
-- [ ] Legacy `/uploads/*` images still load in the browser from the Vercel-hosted frontend (cross-origin) — this specifically broke once during helmet setup and was fixed via `crossOriginResourcePolicy: "cross-origin"`; don't regress it.
-- [ ] `/api/auth/login` rate limit trips after the configured attempt count and returns a clear error, not a silent hang.
+- [x] CORS (origin allow-list) and standard security headers — automated in `server/tests/security.test.js`.
+- [ ] Legacy `/uploads/*` images still actually load in the browser from the Vercel-hosted frontend — the header being present (automated) doesn't prove the browser accepts it; do one real visual check after any helmet/CORS config change.
+- [x] `/api/auth/*` rate limit trips at the configured attempt count — automated in `server/tests/security.test.js`.
 - [ ] Admin-only JS (Quill editor, admin pages) does not appear in the network tab when browsing the storefront as a logged-out visitor — verifies the code-splitting boundary hasn't regressed.
 - [ ] MongoDB indexes exist on `Product` and `Order` as documented in `DATABASE.md` (`db.collection.getIndexes()`), especially after any schema change.
 
