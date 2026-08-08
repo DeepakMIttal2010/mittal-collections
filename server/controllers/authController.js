@@ -1,10 +1,13 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
+import { OAuth2Client } from "google-auth-library";
 
 import User from "../models/User.js";
 import { sendEmail } from "../config/mailer.js";
 import { generateUniqueReferralCode } from "../utils/referral.js";
+
+const googleClient = new OAuth2Client(process.env.GOOGLE_OAUTH_CLIENT_ID);
 
 export const register = async (req, res) => {
   try {
@@ -158,6 +161,112 @@ export const login = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Server Error",
+    });
+  }
+};
+
+// Sign-in or sign-up via a Google ID token (frontend uses Google
+// Identity Services, sends us the resulting credential to verify
+// server-side — we never trust a client-asserted email/name directly).
+export const googleAuth = async (req, res) => {
+  try {
+    const { credential } = req.body;
+
+    if (!credential) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing Google credential",
+      });
+    }
+
+    const ticket = await googleClient.verifyIdToken({
+      idToken: credential,
+      audience: process.env.GOOGLE_OAUTH_CLIENT_ID,
+    });
+
+    const payload = ticket.getPayload();
+
+    if (!payload.email_verified) {
+      return res.status(400).json({
+        success: false,
+        message: "Google account email is not verified",
+      });
+    }
+
+    let user = await User.findOne({ googleId: payload.sub });
+
+    if (!user) {
+      // Not linked yet — but an account with this email may already
+      // exist from normal email/password signup. Link rather than
+      // creating a duplicate.
+      user = await User.findOne({ email: payload.email });
+
+      if (user) {
+        user.googleId = payload.sub;
+        await user.save();
+      } else {
+        const newReferralCode = await generateUniqueReferralCode(
+          payload.name || payload.email,
+        );
+
+        user = await User.create({
+          name: payload.name || payload.email.split("@")[0],
+          email: payload.email,
+          googleId: payload.sub,
+          referralCode: newReferralCode,
+        });
+
+        try {
+          await sendEmail({
+            to: user.email,
+            subject: "Welcome to Mittal Collections!",
+            html: `
+              <p>Hi ${user.name},</p>
+              <p>Welcome to Mittal Collections! Your account has been created successfully.</p>
+              <p>Explore premium bedsheets, towels, curtains, pillows and more at
+              <a href="${process.env.CLIENT_URL}">mittalcollections.com</a>.</p>
+            `,
+          });
+        } catch (error) {
+          console.error("Welcome Email Error:", error);
+        }
+      }
+    }
+
+    if (user.isBlocked) {
+      return res.status(403).json({
+        success: false,
+        message: "Your account has been blocked. Please contact support.",
+      });
+    }
+
+    const token = jwt.sign(
+      { id: user._id, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" },
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "Signed in with Google",
+      token,
+      needsMobile: !user.mobile,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        mobile: user.mobile,
+        role: user.role,
+        loyaltyPoints: user.loyaltyPoints,
+        referralCode: user.referralCode,
+      },
+    });
+  } catch (error) {
+    console.error("Google Auth Error:", error);
+
+    res.status(401).json({
+      success: false,
+      message: "Google sign-in failed",
     });
   }
 };

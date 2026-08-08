@@ -46,6 +46,29 @@ export const registerUser = async (userData) => {
   }
 };
 
+// ================= GOOGLE SIGN-IN =================
+
+export const googleSignIn = async (credential) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/auth/google`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ credential }),
+    });
+
+    return await response.json();
+  } catch (error) {
+    console.error(error);
+
+    return {
+      success: false,
+      message: "Server Error",
+    };
+  }
+};
+
 // ================= FORGOT PASSWORD =================
 
 export const forgotPassword = async (email) => {

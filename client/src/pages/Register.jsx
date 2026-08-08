@@ -4,6 +4,9 @@ import { toast } from "react-toastify";
 import { FaArrowLeft } from "react-icons/fa";
 import { registerUser } from "../services/authService";
 import { subscribeToNewsletter } from "../services/newsletterService";
+import { useAuth } from "../context/AuthContext";
+import GoogleSignInButton from "../components/GoogleSignInButton";
+import CompleteMobileModal from "../components/CompleteMobileModal";
 
 function Register() {
   const navigate = useNavigate();
@@ -22,6 +25,19 @@ function Register() {
 
   const [subscribeNewsletter, setSubscribeNewsletter] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showMobileModal, setShowMobileModal] = useState(false);
+  const { login } = useAuth();
+
+  const handleGoogleResult = (data) => {
+    login(data.user, data.token);
+
+    if (data.needsMobile) {
+      setShowMobileModal(true);
+    } else {
+      toast.success("Signed in with Google");
+      navigate(redirectTo);
+    }
+  };
 
   const handleChange = (e) => {
     setFormData({
@@ -170,6 +186,14 @@ function Register() {
           </div>
         </form>
 
+        <div className="flex items-center gap-4 my-6">
+          <div className="flex-1 h-px bg-slate-200" />
+          <span className="text-xs text-slate-400 uppercase">or</span>
+          <div className="flex-1 h-px bg-slate-200" />
+        </div>
+
+        <GoogleSignInButton onResult={handleGoogleResult} />
+
         <Link
           to="/"
           className="mt-10 flex items-center justify-center gap-2 text-sm text-slate-600 underline hover:text-amber-600"
@@ -178,6 +202,15 @@ function Register() {
           Return to Store
         </Link>
       </div>
+
+      {showMobileModal && (
+        <CompleteMobileModal
+          onDone={() => {
+            setShowMobileModal(false);
+            navigate(redirectTo);
+          }}
+        />
+      )}
     </div>
   );
 }
