@@ -1,5 +1,8 @@
 import User from "../models/User.js";
 import Order from "../models/Order.js";
+import LoyaltyTransaction from "../models/LoyaltyTransaction.js";
+import { applyLoyaltyPointsChange } from "../utils/loyaltyPoints.js";
+import { notifyUser } from "../utils/notify.js";
 
 // ============================
 // Get All Customers (Admin)
@@ -73,15 +76,96 @@ export const getCustomerById = async (req, res) => {
       0,
     );
 
+    const loyaltyTransactions = await LoyaltyTransaction.find({
+      user: customer._id,
+    }).sort({ createdAt: -1 });
+
     res.status(200).json({
       success: true,
       customer,
       orders,
       totalOrders: orders.length,
       totalSpent,
+      loyaltyTransactions,
     });
   } catch (error) {
     console.error("Get Customer Error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};
+
+// ============================
+// Adjust Loyalty Points (Admin) — manual plus/minus, always logged
+// ============================
+export const adjustLoyaltyPoints = async (req, res) => {
+  try {
+    const { points, reason } = req.body;
+    const pointsNum = Number(points);
+
+    if (!Number.isInteger(pointsNum) || pointsNum === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Points must be a non-zero whole number.",
+      });
+    }
+
+    if (!reason || !reason.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "A reason is required for every manual adjustment.",
+      });
+    }
+
+    const customer = await User.findById(req.params.id);
+
+    if (!customer || customer.role !== "user") {
+      return res.status(404).json({
+        success: false,
+        message: "Customer not found",
+      });
+    }
+
+    if (pointsNum < 0 && customer.loyaltyPoints + pointsNum < 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot deduct ${Math.abs(pointsNum)} points — customer only has ${customer.loyaltyPoints}.`,
+      });
+    }
+
+    const updatedCustomer = await applyLoyaltyPointsChange({
+      userId: customer._id,
+      type: "admin_adjustment",
+      points: pointsNum,
+      description: reason.trim(),
+    });
+
+    const transaction = await LoyaltyTransaction.findOne({
+      user: customer._id,
+    }).sort({ createdAt: -1 });
+
+    notifyUser({
+      userId: customer._id,
+      type: "loyalty_points",
+      title:
+        pointsNum > 0
+          ? "Loyalty points added to your account"
+          : "Loyalty points adjusted",
+      message: `${pointsNum > 0 ? "+" : ""}${pointsNum} points — ${reason.trim()}`,
+      link: "/account",
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Loyalty points updated.",
+      loyaltyPoints: updatedCustomer.loyaltyPoints,
+      transaction,
+    });
+  } catch (error) {
+    console.error("Adjust Loyalty Points Error:", error);
 
     res.status(500).json({
       success: false,

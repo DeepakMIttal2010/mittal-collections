@@ -89,6 +89,34 @@ export const toggleBlockCustomer = async (id) => {
 };
 
 // ==============================
+// ADJUST LOYALTY POINTS (manual plus/minus)
+// ==============================
+export const adjustLoyaltyPoints = async (id, { points, reason }) => {
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/admin/customers/${id}/loyalty-adjust`,
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${getToken()}`,
+        },
+        body: JSON.stringify({ points, reason }),
+      },
+    );
+
+    return await response.json();
+  } catch (error) {
+    console.error("Adjust Loyalty Points Error:", error);
+
+    return {
+      success: false,
+      message: "Unable to adjust loyalty points",
+    };
+  }
+};
+
+// ==============================
 // DELETE CUSTOMER
 // ==============================
 export const deleteCustomer = async (id) => {

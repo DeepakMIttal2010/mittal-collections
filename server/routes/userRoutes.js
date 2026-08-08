@@ -8,6 +8,7 @@ import {
   getCustomerById,
   toggleBlockCustomer,
   deleteCustomer,
+  adjustLoyaltyPoints,
 } from "../controllers/userController.js";
 
 const router = express.Router();
@@ -20,6 +21,12 @@ router.put(
   authMiddleware,
   adminMiddleware,
   toggleBlockCustomer,
+);
+router.put(
+  "/:id/loyalty-adjust",
+  authMiddleware,
+  adminMiddleware,
+  adjustLoyaltyPoints,
 );
 router.delete("/:id", authMiddleware, adminMiddleware, deleteCustomer);
 
