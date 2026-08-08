@@ -7,6 +7,7 @@ import {
   getReportsData,
   getVisitLog,
 } from "../controllers/adminController.js";
+import { getGoogleReportsData } from "../controllers/googleReportsController.js";
 import authMiddleware from "../middleware/authMiddleware.js";
 import adminMiddleware from "../middleware/adminMiddleware.js";
 
@@ -30,6 +31,13 @@ router.put(
 );
 
 router.get("/reports", authMiddleware, adminMiddleware, getReportsData);
+
+router.get(
+  "/reports/google",
+  authMiddleware,
+  adminMiddleware,
+  getGoogleReportsData,
+);
 
 router.get("/visits", authMiddleware, adminMiddleware, getVisitLog);
 
