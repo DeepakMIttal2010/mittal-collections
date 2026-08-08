@@ -34,13 +34,15 @@ Coverage today (`server/tests/`):
 - **CORS** — the storefront's own origin gets `Access-Control-Allow-Origin` back; an arbitrary origin does not; requests with no `Origin` header (server-to-server) still succeed.
 - **Security headers** — `helmet`'s standard headers are present, and `Cross-Origin-Resource-Policy: cross-origin` specifically (this exact header broke legacy `/uploads` image loading once during initial helmet setup — regression-guarded here).
 - **Auth rate limiting** — the 21st request to `/api/auth/*` within the window gets `429`, not silently allowed through.
+- **Admin Reports date-range scoping** — `totalOrders`/`totalRevenue` correctly include only orders inside the selected `days` preset or custom `startDate`/`endDate`, both narrow and widened ranges checked against the same fixture data; `totalCustomers` stays all-time regardless of range (the one deliberate exception). This is a direct regression guard for the real historical bug where several summary metrics silently ignored the selected range.
+- **Abandoned cart targeting** — the reminder endpoint's secret guard, and that only carts past the delay *and* not yet reminded are matched (a too-recent cart and an already-reminded cart are both correctly excluded); a second run doesn't re-target a cart once reminded. Doesn't depend on the outbound email actually succeeding — asserts on the query's `total` count, which is computed before any email is attempted.
 
 Everything else in this document is still manual — a local build/lint
 pass, direct API smoke tests via `curl` against both local and
 production, and manual verification in-browser for anything
 UI/visual. Expanding automated coverage to other resources (tickets,
-notification de-duplication) is a reasonable future investment, not
-yet done.
+notification de-duplication, back-in-stock alert targeting) is a
+reasonable future investment, not yet done.
 
 ## 2. Pre-Deploy Sanity Checks (every change)
 
@@ -88,7 +90,7 @@ yet done.
 - [ ] Welcome popup: appears once per session on site open (after the delay) for a **guest** only; does **not** appear for a logged-in visitor, either on page load or immediately after login — auto-fades after ~5s or on manual close when it does show.
 - [ ] WhatsApp buttons: site-wide button opens a generic chat; product-page button is pre-filled with that product's name/price/link and is disabled (not clickable) when the product is out of stock.
 - [ ] Back-in-stock: subscribe on an out-of-stock product, restock it (as admin), confirm the subscriber receives an email (and, if the subscribed email belongs to a registered account, an in-app notification too) and isn't double-subscribed on repeat sign-up.
-- [ ] Abandoned cart: add items while logged in, wait past the sync debounce, confirm a `CartSnapshot` exists; verify the reminder job only targets genuinely stale/non-empty carts (don't need to wait a full hour in dev — can trigger the endpoint directly with the cron secret).
+- [x] Abandoned cart targeting logic (stale + not-yet-reminded only) — automated in `server/tests/abandoned-cart.test.js`. Still do one manual pass: add items while logged in, wait past the sync debounce, confirm a `CartSnapshot` exists via `syncCart` — that write path itself isn't covered by the automated test.
 
 ### 3.7 Returns & Support Tickets
 - [ ] Return request: on a delivered order, the Return button appears only on items within their return window (and not at all on a product marked non-returnable); submitting creates a `Requested` return, visible on `/returns` and emails the admin. (Eligibility logic itself — window calculation, duplicate blocking, non-returnable rejection — is covered by `server/tests/return-eligibility.test.js`; this is a UI-layer check.)
@@ -110,7 +112,7 @@ yet done.
 - [ ] Site Settings: edit shipping tiers (add/remove a row), confirm Checkout/Cart/Cart Drawer delivery fee calculations match the new tiers exactly (compare against the server-side `calculateDeliveryFee` for a few subtotal values).
 - [ ] Bulk product import: a CSV with one intentionally invalid row doesn't silently corrupt the whole batch.
 - [ ] Admin notification bell: unseen counts correctly cover Orders, Contact Messages, Reviews, Q&A, Tickets, and Returns; clicking each type marks the right item seen (verify `isSeenByAdmin`/`isRead` on the correct model) and navigates correctly; the low/out-of-stock alert item appears when a product is at/below the low-stock threshold or at zero, and disappears once restocked — without needing to be "marked read".
-- [ ] Reports page: switching between 7/30/90-day presets and a custom date range changes every scoped number consistently (spot-check Total Revenue and Top Products against a manual query for the same range) — this was a real historical bug where several metrics silently stayed all-time regardless of the selected range. CSV export includes every visible section for the currently selected range.
+- [x] Reports date-range scoping (Total Revenue/Orders, Total Customers staying all-time) — automated in `server/tests/admin-reports.test.js`, direct regression guard for a real historical bug. Still spot-check the *rest* of the report (Top Products, funnel, search analytics, loyalty/referral) manually against a custom range, and that CSV export includes every visible section for the currently selected range — those aren't automated.
 
 ## 5. Security & Performance Regression Checks
 
