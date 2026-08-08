@@ -1,7 +1,7 @@
 # Deployment Guide
 
-**Document version:** 1.0
-**Last updated:** 2026-08-07
+**Document version:** 1.1
+**Last updated:** 2026-08-08
 
 ## 1. Hosting Summary
 
@@ -148,6 +148,17 @@ curl -s -o /dev/null -w "%{http_code}\n" https://www.mittalcollections.com/
 Both should return `200`. Render's free tier cold-starts after
 inactivity, so the *first* request after a period of no traffic can
 take up to ~30–60 seconds — this is expected, not a failure.
+
+**A "push succeeded" is not proof the deploy happened.** Render's
+auto-deploy-on-push has, at least once in practice, silently stopped
+picking up new commits to `main` for several hours — no error
+anywhere, the previous deploy just kept serving. The only reliable
+check is hitting an endpoint that only exists in the new code and
+confirming it responds as expected (e.g. a newly-added protected route
+should 401, not 404 — a 404 on a route you just added, while an
+older sibling route still 401s normally, means the *old* code is still
+running). If that happens: open the Render dashboard for the service
+→ **Manual Deploy** → **Deploy latest commit**.
 
 ## 7. Rollback
 

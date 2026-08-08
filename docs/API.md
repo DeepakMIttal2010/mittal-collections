@@ -2,8 +2,8 @@
 
 **Base URL (production):** `https://mittal-collections-api.onrender.com/api`
 **Base URL (local):** `http://localhost:5000/api`
-**Document version:** 1.0
-**Last updated:** 2026-08-07
+**Document version:** 1.1
+**Last updated:** 2026-08-08
 
 ## Conventions
 
@@ -35,7 +35,7 @@
 | GET | `/:id` | Public | Single product (populated category/subcategory). |
 | POST | `/:id/notify` | Public | Subscribe an email for back-in-stock alert on an out-of-stock product. |
 | GET | `/admin` | Admin | All products incl. inactive/soft-deleted. |
-| POST | `/` | Admin | Create product (`multipart/form-data`: images[], videos[], fields incl. optional specs). |
+| POST | `/` | Admin | Create product (`multipart/form-data`: images[], videos[], fields incl. optional specs, `isReturnable`, `returnPeriodDays`). |
 | PUT | `/:id` | Admin | Update product. |
 | PUT | `/:id/restore` | Admin | Restore a soft-deleted product. |
 | DELETE | `/:id` | Admin | Soft delete. |
@@ -62,6 +62,36 @@ Same CRUD shape as Products (list/admin-list/get/create/update/restore/soft-dele
 | GET | `/` | Admin | All orders. |
 | PUT | `/:id/status` | Admin | Update status; triggers customer email and loyalty-point crediting/clawback/referral payout side effects. |
 | PUT | `/:id/seen` | Admin | Mark as seen in the admin order list. |
+
+## Returns — `/api/returns`
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| POST | `/` | User | Create a return request for a delivered order item (`orderId`, `productId`, `quantity`, `reason`). Emails the admin. |
+| GET | `/my` | User | Current user's return requests. |
+| GET | `/admin` | Admin | All return requests (`?status=` filter). |
+| PUT | `/:id/status` | Admin | Update status (`Requested`/`Approved`/`Rejected`/`Picked Up`/`Refunded`) + optional `adminNote`. Emails the customer and posts an in-app notification. |
+| PUT | `/:id/seen` | Admin | Mark as seen in the admin notification feed. |
+
+## Support Tickets — `/api/tickets`
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| POST | `/` | User | Create a ticket (`subject`, `message`, optional `order`). |
+| GET | `/my` | User | Current user's tickets. |
+| GET | `/:id` | User | Single ticket with full message thread (owner or admin only). |
+| POST | `/:id/messages` | User | Reply in the thread. Admin reply → emails customer + notification, flips status Resolved/Closed → Open on a customer reply. |
+| GET | `/admin` | Admin | All tickets. |
+| PUT | `/:id/status` | Admin | Update status (Open/In Progress/Resolved/Closed). |
+| PUT | `/:id/seen` | Admin | Mark as seen in the admin notification feed. |
+
+## Notifications (Customer) — `/api/notifications` (all routes require User auth)
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/` | Most recent 30 notifications + `unreadCount` for the current user. |
+| PUT | `/:id/read` | Mark one notification read. |
+| PUT | `/mark-all-read` | Mark all of the current user's notifications read. |
 
 ## Rewards (Loyalty + Referral) — `/api/rewards`
 
@@ -159,7 +189,9 @@ All of the following follow the same pattern — `GET /` (public list where rele
 | Method | Path | Auth | Description |
 |---|---|---|---|
 | GET | `/dashboard` | Admin | Summary metrics for the admin home. |
-| GET | `/reports` | Admin | Orders/revenue reporting data. |
+| GET | `/notifications` | Admin | Recent unseen items across Orders, Contact Messages, Reviews, Q&A, Tickets, Return Requests, plus a live low/out-of-stock alert item (not a "seen" event — it just disappears once restocked). Returns per-source counts and `totalUnread`. |
+| PUT | `/notifications/mark-all-read` | Admin | Marks every unseen item (Orders/Messages/Reviews/Questions/Tickets/Returns) seen in one call; the stock alert is unaffected since it isn't a dismissible event. |
+| GET | `/reports` | Admin | Orders/revenue/traffic/loyalty reporting data. Query params: `days` (7/30/90, default 30) **or** `startDate`+`endDate` (custom range, takes priority over `days`). Response includes `summary`, `growth` (revenue/orders % vs. the equal-length prior period, `null` when there's nothing to compare against), `funnel`, `cartAbandonment` (live snapshot, not range-scoped), `search` (top/zero-result queries), `loyalty` (points earned/redeemed/expired, redemption rate, referral signups/conversions/points paid), plus the original sales/visits/products/category/location breakdowns. |
 | GET | `/visits` | Admin | Page-visit analytics log. |
 | GET | `/customers`, `/customers/:id` | Admin | Customer list / detail. |
 | PUT | `/customers/:id` | Admin | Block/unblock a customer. |
@@ -171,6 +203,7 @@ All of the following follow the same pattern — `GET /` (public list where rele
 |---|---|---|---|
 | POST | `/visit` | Public | Records a page visit (used by `VisitTracker`, feeds GA4-independent internal analytics). |
 | GET | `/product-views/:id` | Public | "N people viewed this today" counter shown on product pages. |
+| GET | `/my-location` | Public | IP-based city/region/country guess for the requesting visitor — the fallback source for the header's "Deliver to" block when a customer isn't logged in or has no saved address. |
 
 ## Static Files
 

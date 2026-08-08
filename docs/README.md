@@ -1,7 +1,14 @@
 # Mittal Collections — Documentation
 
 Full documentation set for the Mittal Collections e-commerce platform,
-generated 2026-08-07.
+generated 2026-08-07, last refreshed 2026-08-08 to cover: product
+returnability & trust badges, manual + auto Compare, WhatsApp/COD
+badges, the Customer Support ticket system, the Return Request system,
+IP/address-based "Deliver to" header, the Advanced Analytics Dashboard
+(custom date range, growth %, CSV export, conversion funnel, search
+analytics, cart abandonment, loyalty/referral performance), the
+Notification Center (customer bell + admin bell extensions for
+Tickets/Returns/low-stock), and a welcome-popup fix.
 
 | Document | What's in it |
 |---|---|

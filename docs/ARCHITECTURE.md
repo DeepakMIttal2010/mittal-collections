@@ -1,8 +1,8 @@
 # System Architecture
 
 **Project:** Mittal Collections
-**Document version:** 1.0
-**Last updated:** 2026-08-07
+**Document version:** 1.1
+**Last updated:** 2026-08-08
 
 ## 1. High-Level Overview
 
@@ -115,6 +115,16 @@ structured-data blocks (e.g. a product page needs Product + Breadcrumb
 breadcrumb schema construction so the visible `<Breadcrumbs>` component
 and the JSON-LD always agree.
 
+### 3.5 Notification Bells
+Two independent bell components exist — `Header.jsx` (customer, logged-in
+only) and `AdminHeader.jsx` (admin) — each with its own local
+`useState`/`setInterval` poll (every 30s) against its own endpoint
+(`GET /api/notifications` vs `GET /api/admin/notifications`). They are
+not unified into a shared context or component since the two feeds have
+different shapes, sources, and click-through targets; both follow the
+same interaction pattern (badge count → dropdown → click marks
+seen/read and navigates).
+
 ## 4. Backend Architecture
 
 ### 4.1 Request Flow
@@ -152,6 +162,7 @@ image loading from the Vercel-hosted frontend.
 - `loyaltyPoints.js` — every points balance change (earn, redeem, refund, clawback, referral bonus, expiry) goes through one `applyLoyaltyPointsChange()` helper that atomically updates the user's balance **and** writes a `LoyaltyTransaction` ledger row, so the ledger can never drift from the live balance.
 - `referral.js` — referral code generation/lookup.
 - `fuzzySearch.js` — Levenshtein-distance product ranking for search/autocomplete.
+- `notify.js` — `notifyUser({userId, type, title, message, link})` creates one customer-facing `Notification` row, fire-and-forget (`.catch()` only, matching the `SearchLog.create()` pattern) so a notification failure never blocks the request that triggered it. Called alongside every customer email (order status, ticket reply, return status, back-in-stock, points expiry) rather than replacing it.
 
 ### 4.5 Scheduled Jobs
 Render's free tier cannot run a reliable in-process scheduler (the

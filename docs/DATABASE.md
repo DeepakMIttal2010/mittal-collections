@@ -1,8 +1,8 @@
 # Database Schema
 
 **Database:** MongoDB (Mongoose ODM)
-**Document version:** 1.0
-**Last updated:** 2026-08-07
+**Document version:** 1.1
+**Last updated:** 2026-08-08
 
 All models live in `server/models/`, one file per collection. All use
 Mongoose's `{ timestamps: true }` (adds `createdAt`/`updatedAt`) unless
@@ -28,6 +28,8 @@ required fields marked **(required)**.
 | rating | Number | 0–5 |
 | featured, isTrending, isActive | Boolean | |
 | trendingRank | Number | manual sort order within "Trending" |
+| isReturnable | Boolean | default `true` |
+| returnPeriodDays | Number | default `0` = "use `SiteSettings.defaultReturnPeriodDays`"; a positive value overrides the site-wide window for this product only |
 
 **Indexes:** `{isActive, category}`, `{isActive, subcategory}`, `{isActive, createdAt:-1}`.
 
@@ -76,6 +78,9 @@ unit, city, state, pincode, country (default `"India"`), isDefault.
 | isPaid, isSeenByAdmin | Boolean | |
 | paidAt, deliveredAt | Date | |
 
+`Review` and `Question` also carry an `isSeenByAdmin: Boolean` (default
+`false`), feeding the same admin notification pattern as `Order`.
+
 **Indexes:** `{user, createdAt:-1}`, `{orderStatus}`, `{"orderItems.product"}` (the last one backs the best-sellers aggregation).
 
 ### `Coupon`
@@ -95,6 +100,56 @@ prevents duplicate entries.
 ### `StockAlert`
 `{product, email}` — a back-in-stock subscription. **Unique compound
 index** `{product, email}` prevents duplicate subscriptions.
+
+### `ReturnRequest`
+| Field | Type | Notes |
+|---|---|---|
+| order, user, product | ObjectId | all **(required)** |
+| productName, productImage | String | snapshot at request time, survives the product later changing/being deleted |
+| quantity | Number | **(required)**, min 1 |
+| reason | String | **(required)** |
+| status | String enum | `Requested`→`Approved`/`Rejected`→`Picked Up`→`Refunded` |
+| adminNote | String | shown to the customer on status-change emails |
+| isSeenByAdmin | Boolean | default `false` |
+
+**Indexes:** `{user, createdAt:-1}`, `{status, createdAt:-1}`, `{order, product}`.
+
+### `Ticket`
+Embedded message thread in one document (not a separate collection) —
+chosen for simplicity given expected support volume.
+| Field | Type | Notes |
+|---|---|---|
+| user | ObjectId → User | **(required)** |
+| subject | String | **(required)** |
+| order | ObjectId → Order | optional |
+| status | String enum | `Open`\|`In Progress`\|`Resolved`\|`Closed` |
+| messages | [{sender: `customer`\|`admin`, senderName, message, createdAt}] | full thread |
+| lastMessageAt | Date | bumped on every reply, drives admin list sort |
+| isSeenByAdmin | Boolean | default `false`; reset to `false` on a customer reply even if previously seen |
+
+**Indexes:** `{user, lastMessageAt:-1}`, `{status, lastMessageAt:-1}`.
+
+### `Notification`
+Customer-facing in-app notifications — a lighter companion to the email
+sent for the same event, not a replacement for it.
+| Field | Type | Notes |
+|---|---|---|
+| user | ObjectId → User | **(required)** |
+| type | String enum | `order_status`\|`ticket_reply`\|`return_status`\|`back_in_stock`\|`loyalty_points` |
+| title, message, link | String | `message`/`link` optional |
+| isRead | Boolean | default `false` |
+
+**Indexes:** `{user, createdAt:-1}`, `{user, isRead}`.
+
+### `SearchLog`
+One row per real search (not per autocomplete keystroke), written
+fire-and-forget from `productController.getProducts`.
+| Field | Type | Notes |
+|---|---|---|
+| query | String | **(required)**, lowercased/trimmed |
+| resultCount | Number | **(required)**, min 0 |
+
+**Indexes:** `{createdAt:-1}`, `{query}`. No `updatedAt` (`timestamps: {createdAt: true, updatedAt: false}`).
 
 ## Loyalty & Referral
 
@@ -153,6 +208,8 @@ supportHours, freeShippingThreshold (default 499), deliveryFee
 (fallback fee below any tier, default 49), shippingTiers:
 `[{maxOrderValue, fee}]` — the graduated fee schedule below the free
 threshold, fully admin-editable (add/remove rows in the admin UI).
+defaultReturnPeriodDays (default 7) — the site-wide return window used
+whenever a product doesn't set its own `returnPeriodDays` override.
 
 ## Reviews, Questions, Support
 

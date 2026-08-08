@@ -1,8 +1,8 @@
 # Software Requirements Specification (SRS)
 
 **Project:** Mittal Collections
-**Document version:** 1.0
-**Last updated:** 2026-08-07
+**Document version:** 1.1
+**Last updated:** 2026-08-08
 
 This document covers technical and non-functional requirements. For
 feature-level functional requirements, see `FRS.md`.
@@ -55,7 +55,8 @@ feature-level functional requirements, see `FRS.md`.
 - NFR-P2: All API responses are gzip-compressed.
 - NFR-P3: MongoDB queries on hot paths (product listing/filtering, order history, best-seller aggregation) must be covered by compound indexes.
 - NFR-P4: Product images are optimized server-side (`sharp`) before storage.
-- NFR-P5: Product listing/search must return results without a dedicated search-service dependency (justified by current catalog size — a custom Levenshtein-based ranker is used instead of e.g. Elasticsearch/Algolia).
+- NFR-P5: Product listing/search must return results without a dedicated search-service dependency (justified by current catalog size — a custom Levenshtein-based ranker is used instead of e.g. Elasticsearch/Algolia). Every real search (not autocomplete keystrokes) is logged to `SearchLog` fire-and-forget, feeding the admin search-analytics report without adding request latency.
+- NFR-P6: The customer and admin notification bells poll every 30 seconds rather than using a persistent connection (WebSocket/SSE) — acceptable at current traffic; would need revisiting if near-real-time delivery becomes a requirement.
 
 ### 2.2 Security
 - NFR-S1: Passwords stored only as bcrypt hashes (cost factor 10), never plaintext.
@@ -72,6 +73,7 @@ feature-level functional requirements, see `FRS.md`.
 - NFR-A1: Backend runs on Render's free tier, which sleeps after inactivity and cold-starts on the next request — acceptable for current traffic; noted as a constraint, not a defect.
 - NFR-A2: Scheduled jobs (abandoned cart, points expiry) run via an external scheduler (cron-job.org) rather than in-process, since an in-process scheduler would not survive Render's sleep/wake cycle.
 - NFR-A3: Order placement is transactionally safe at the stock level — stock is reserved per item with automatic rollback of already-reserved items if any single item fails, so an order is never partially created against insufficient stock.
+- NFR-A4: Render's auto-deploy-on-push has, at least once in practice, silently stopped picking up new commits to `main` for several hours with no error surfaced anywhere — the fix was a manual "Deploy latest commit" from the Render dashboard. Deploy verification must therefore always include an actual post-deploy endpoint check (see `DEPLOYMENT.md` §6), never just "the push succeeded."
 
 ### 2.4 Usability / Accessibility
 - NFR-U1: Fully responsive (mobile-first Tailwind breakpoints); verified against narrow (≤375px) viewports for floating UI elements (WhatsApp button, Compare bar, Back-to-top).

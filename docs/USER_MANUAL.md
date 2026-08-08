@@ -1,8 +1,8 @@
 # User Manual (Customer Guide)
 
 **Site:** https://www.mittalcollections.com
-**Document version:** 1.0
-**Last updated:** 2026-08-07
+**Document version:** 1.1
+**Last updated:** 2026-08-08
 
 This guide walks through the site as a shopper. For store-management
 instructions, see `ADMIN_MANUAL.md`.
@@ -21,13 +21,20 @@ instructions, see `ADMIN_MANUAL.md`.
 - "Trending" and "New Arrivals" strips on the homepage, and "You may
   also like" / "Compare with similar products" on a product page, are
   quick ways to discover more.
+- The header shows "Deliver to [Name] / [City] [Pincode]" — your saved
+  default address if you're logged in, or a location guess based on
+  your connection if not.
 
 ## 2. Product Pages
 
 Each product page shows: photo gallery (pinch/click to zoom), video (if
 available), price, stock status, description, and — where the seller
 has filled them in — Fabric, Size, GSM, Wash Care, Brand, and Country
-of Origin. Below that:
+of Origin. A row of trust badges below the price shows whether Cash on
+Delivery, Secure Payment, and a genuine-product guarantee apply
+(always), plus this specific product's real return window — some
+products are marked non-returnable, so check this badge rather than
+assuming every product returns the same way. Below that:
 - **Loyalty points preview** — how many points you'll earn if you buy this now.
 - **Reviews** — real customer ratings and comments.
 - **Questions & Answers** — ask the seller a question, or read answers to others'.
@@ -62,9 +69,18 @@ stock, you can leave your email to be notified the moment it's back.
 ## 4. Your Account
 
 Sign in, then visit **Account** for:
-- **Your Orders** — order history, status (Pending → Processing →
-  Shipped → Delivered), and full item/price detail per order. You'll
-  also get an email whenever an order's status changes.
+- **Your Orders** — order history with a status headline per order
+  (Pending → Processing → Shipped → Delivered), full item/price
+  detail, a **Return** button on each eligible delivered item (only
+  shown within that item's return window), and a **Get Product
+  Support** link that opens a support ticket pre-linked to that order.
+  You'll also get an email and a bell notification whenever an order's
+  status changes.
+- **Returns** (`/returns`) — track every return you've requested,
+  through Requested → Approved/Rejected → Picked Up → Refunded.
+- **Support Tickets** (`/tickets`) — raise a support request and reply
+  in a message thread with the store; you'll be notified (email + bell)
+  whenever they reply.
 - **Wishlist** — save products for later.
 - **Your Addresses** — manage saved delivery addresses.
 - **Edit Profile** / **Change Password**.
@@ -78,7 +94,16 @@ Sign in, then visit **Account** for:
 > sent to the login page and brought right back afterward — nothing is
 > silently hidden or blank.
 
-## 5. Comparing Products
+## 5. Notifications
+
+The bell icon in the header (once you're logged in) shows a count of
+unread updates — order status changes, replies on your support
+tickets, return status updates, back-in-stock alerts you subscribed
+to, and loyalty points expiry. Click one to jump straight to the
+relevant page, or open **View all notifications** for the full
+history at `/notifications`.
+
+## 6. Comparing Products
 
 Click the ⇄ icon on any product card or quick-view popup to add it to
 your comparison list (up to 4 at once). A floating bar appears at the
@@ -86,17 +111,20 @@ bottom of the screen — tap **Compare** to see them side by side
 (price, rating, specs, availability), with an Add to Cart button for
 each.
 
-## 6. Guides & Tools
+## 7. Guides & Tools
 
 - **Guides & Ideas** (`/articles`) — buying guides and styling tips.
 - **Curtain Size Calculator** — enter your window measurements and
   preferences to get the exact rod length, fabric width, and curtain
   length to buy, plus the closest standard size available.
 
-## 7. Getting Help
+## 8. Getting Help
 
 - **WhatsApp** — the green floating button (bottom-left, every page)
   opens a chat with the store.
+- **Support Tickets** (`/tickets`) — raise a ticket for anything that
+  needs back-and-forth (order issue, product question, complaint) and
+  get replies in-thread, with an email + bell notification each time.
 - **Contact page** — a message form.
 - **FAQ** — common questions (shipping, COD, returns, delivery time,
   loyalty points) are answered right on the homepage.

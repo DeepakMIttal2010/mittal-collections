@@ -1,8 +1,8 @@
 # Admin Manual
 
 **Admin login:** https://www.mittalcollections.com/admin/login
-**Document version:** 1.0
-**Last updated:** 2026-08-07
+**Document version:** 1.1
+**Last updated:** 2026-08-08
 
 This guide covers every section of the admin panel
 (`/admin/*`). All admin routes require an admin-role login and are
@@ -16,6 +16,13 @@ login you land on the **Dashboard**, which summarizes recent orders,
 revenue, and traffic. Your own account settings are under **Profile**
 (top-right) — update your name/photo there, and change your admin
 password under **Change Password**.
+
+The bell icon in the top bar shows unseen activity across the whole
+store — new orders, contact messages, reviews, Q&A, support tickets,
+and return requests — plus a live low/out-of-stock alert whenever any
+product needs restocking. Click any item to open it (marking it seen)
+or **Mark all as read** to clear the rest; the stock alert isn't a
+"seen" event, it stays until the product is actually restocked.
 
 ## 2. Products (`/admin/products`)
 
@@ -31,6 +38,11 @@ password under **Change Password**.
   rank — lower shows first). Trending is a hand-picked list, separate
   from "Best Sellers" (which is calculated automatically from real
   order data and isn't manually editable).
+- **Returnable** toggle + **Return period (days)**: leave the period
+  at 0 to use the site-wide default (set under Site Settings); set a
+  specific number of days to override it for just this product, or
+  switch Returnable off to show "Non-returnable" on the product page
+  instead of a return badge.
 - **Edit / Delete** from the product list. Delete is a soft delete
   (recoverable) unless you use permanent delete.
 - **Bulk Import** (`/admin/products/bulk-import`): upload a CSV to
@@ -60,6 +72,27 @@ View every order, mark it seen, and update its status:
   it, and — if it had already been marked Delivered — claws back the
   points they'd earned from it.
 - Every status change emails the customer automatically.
+
+## 4a. Returns (`/admin/returns`)
+
+Every return request a customer has raised, with its product, reason,
+and quantity. Move it through `Requested → Approved/Rejected → Picked
+Up → Refunded`, optionally adding a note the customer will see. Each
+status change emails the customer and posts a bell + in-app
+notification.
+
+> Approving a return does **not** currently restore stock, refund the
+> payment, or claw back loyalty points automatically — those three
+> steps are still manual for now (unlike order cancellation, which
+> does all three automatically).
+
+## 4b. Support Tickets (`/admin/tickets`)
+
+Every ticket a customer has raised, optionally linked to one of their
+orders. Open one to read the full thread and reply — your reply emails
+the customer and posts a notification. Change status between Open, In
+Progress, Resolved, and Closed; if a customer replies on a
+Resolved/Closed ticket, it reopens to Open automatically.
 
 ## 5. Reviews & Questions (`/admin/reviews`, `/admin/questions`)
 
@@ -114,8 +147,32 @@ account.
 
 ## 10. Reports (`/admin/reports`)
 
-Orders/revenue over time and site traffic, for a higher-level view than
-the dashboard summary.
+A higher-level view than the dashboard summary, for a chosen date
+range — pick one of the 7/30/90-day presets or **Custom** for a
+specific start/end date. Every number on the page is scoped to that
+range, except **Total Customers** which is always shown all-time.
+
+- **Revenue & Orders** — with growth % against the equal-length prior
+  period (shows "—" instead of a misleading 0%/∞ when there's nothing
+  to compare against).
+- **Cart Abandonment** — a live snapshot (carts inactive 3+ hours),
+  intentionally **not** tied to the date range — an abandoned cart
+  disappears from tracking the moment it turns into an order, so
+  there's no history to filter by date.
+- **Sales & Website Visits** — trend charts over the range.
+- **Conversion Funnel** — Visitors → Product Viewers → Cart Viewers →
+  Checkout Viewers → Orders Placed. Labeled approximate: visits are
+  tracked by an anonymous ID, not linked to accounts, so this can't be
+  joined to orders precisely.
+- **Search Analytics** — top search queries and zero-result searches
+  (a good source of "products customers want but can't find").
+- **Orders by Status**, **Top Pages**, **Device Breakdown**, **Top
+  Selling Products**, **Revenue by Category**, **Visitor Locations**.
+- **Loyalty & Referral Performance** — points earned/redeemed/expired
+  with a rough redemption rate, plus referral signups, conversions,
+  and total bonus points paid out.
+- **Export CSV** — downloads the entire report (every section above)
+  as one multi-section CSV file for the selected range.
 
 ## 11. Things That Run on Their Own (no admin action needed)
 
@@ -124,6 +181,10 @@ the dashboard summary.
   manually if needed — ask a developer, it's not exposed in the UI).
 - **Order status emails**, **welcome emails**, **back-in-stock
   alerts** — automatic on the relevant trigger.
+- **In-app notifications** — fire alongside the emails above (order
+  status, ticket replies, return status, back-in-stock, points
+  expiry) so a customer sees them in the site bell too, no separate
+  action needed.
 - **Sitemap** — regenerated automatically every time the site is
   deployed, so new products/articles/categories are always included
   for Google.

@@ -1,7 +1,7 @@
 # Test Plan
 
-**Document version:** 1.0
-**Last updated:** 2026-08-07
+**Document version:** 1.1
+**Last updated:** 2026-08-08
 
 ## 1. Testing Approach
 
@@ -58,10 +58,21 @@ investment, not yet done.
 - [ ] Auto-compare table on a product page appears when similar products exist (even with zero specs filled in — Price/Rating alone should still render the table) and is absent when the product's category has no other active products.
 
 ### 3.6 Marketing Widgets
-- [ ] Welcome popup: appears once per session on site open (after the delay), and again immediately on login even within the same session; auto-fades after ~5s or on manual close.
+- [ ] Welcome popup: appears once per session on site open (after the delay) for a **guest** only; does **not** appear for a logged-in visitor, either on page load or immediately after login — auto-fades after ~5s or on manual close when it does show.
 - [ ] WhatsApp buttons: site-wide button opens a generic chat; product-page button is pre-filled with that product's name/price/link and is disabled (not clickable) when the product is out of stock.
-- [ ] Back-in-stock: subscribe on an out-of-stock product, restock it (as admin), confirm the subscriber receives an email and isn't double-subscribed on repeat sign-up.
+- [ ] Back-in-stock: subscribe on an out-of-stock product, restock it (as admin), confirm the subscriber receives an email (and, if the subscribed email belongs to a registered account, an in-app notification too) and isn't double-subscribed on repeat sign-up.
 - [ ] Abandoned cart: add items while logged in, wait past the sync debounce, confirm a `CartSnapshot` exists; verify the reminder job only targets genuinely stale/non-empty carts (don't need to wait a full hour in dev — can trigger the endpoint directly with the cron secret).
+
+### 3.7 Returns & Support Tickets
+- [ ] Return request: on a delivered order, the Return button appears only on items within their return window (and not at all on a product marked non-returnable); submitting creates a `Requested` return, visible on `/returns` and emails the admin.
+- [ ] Return status change (as admin): customer receives an email + bell notification at each step (Approved/Rejected/Picked Up/Refunded); stock, payment, and loyalty points are **not** automatically touched (known manual gap — verify nothing silently changes).
+- [ ] Support ticket: raise one (optionally linked to an order via "Get Product Support"), reply as admin (customer gets email + notification), reply as customer on a Resolved/Closed ticket (status auto-reopens to Open).
+
+### 3.8 Notification Center (Customer)
+- [ ] Bell only renders when logged in; shows the correct unread count and clears it on "Mark all as read".
+- [ ] Clicking an unread notification marks it read, closes the dropdown, and navigates to its `link` (order detail, ticket, returns page, product, or account).
+- [ ] `/notifications` full-history page loads independently of the dropdown and reflects the same read/unread state.
+- [ ] One notification is created per underlying event (order status change, ticket reply, return status change, back-in-stock, points expiry) — not duplicated, not missing.
 
 ## 4. Admin Flows
 
@@ -71,6 +82,8 @@ investment, not yet done.
 - [ ] Rewards Settings: change a value, confirm the audit-trail log records old/new value + who + when, and that the *public* `/api/rewards/public` response reflects the new value immediately (this is what every "you'll earn N points" preview reads).
 - [ ] Site Settings: edit shipping tiers (add/remove a row), confirm Checkout/Cart/Cart Drawer delivery fee calculations match the new tiers exactly (compare against the server-side `calculateDeliveryFee` for a few subtotal values).
 - [ ] Bulk product import: a CSV with one intentionally invalid row doesn't silently corrupt the whole batch.
+- [ ] Admin notification bell: unseen counts correctly cover Orders, Contact Messages, Reviews, Q&A, Tickets, and Returns; clicking each type marks the right item seen (verify `isSeenByAdmin`/`isRead` on the correct model) and navigates correctly; the low/out-of-stock alert item appears when a product is at/below the low-stock threshold or at zero, and disappears once restocked — without needing to be "marked read".
+- [ ] Reports page: switching between 7/30/90-day presets and a custom date range changes every scoped number consistently (spot-check Total Revenue and Top Products against a manual query for the same range) — this was a real historical bug where several metrics silently stayed all-time regardless of the selected range. CSV export includes every visible section for the currently selected range.
 
 ## 5. Security & Performance Regression Checks
 
