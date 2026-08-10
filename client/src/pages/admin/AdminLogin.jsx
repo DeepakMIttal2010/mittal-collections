@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { loginUser } from "../../services/authService";
+import { loginUser, saveAdminLogin } from "../../services/authService";
 import "./AdminLogin.css";
 
 function AdminLogin() {
@@ -42,8 +42,7 @@ function AdminLogin() {
       return;
     }
 
-    localStorage.setItem("token", response.token);
-    localStorage.setItem("user", JSON.stringify(response.user));
+    saveAdminLogin(response);
 
     navigate("/admin");
 

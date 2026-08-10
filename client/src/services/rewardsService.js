@@ -1,6 +1,7 @@
 import API_BASE_URL from "./api";
 
 const getToken = () => localStorage.getItem("token");
+const getAdminToken = () => localStorage.getItem("adminToken");
 
 export const getPublicRewardsInfo = async () => {
   try {
@@ -42,7 +43,7 @@ export const getMyLoyaltyTransactions = async (page = 1) => {
 export const getRewardsSettingsAdmin = async () => {
   try {
     const response = await fetch(`${API_BASE_URL}/rewards/admin`, {
-      headers: { Authorization: `Bearer ${getToken()}` },
+      headers: { Authorization: `Bearer ${getAdminToken()}` },
     });
     return await response.json();
   } catch (error) {
@@ -57,7 +58,7 @@ export const updateLoyaltySettings = async (payload) => {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${getToken()}`,
+        Authorization: `Bearer ${getAdminToken()}`,
       },
       body: JSON.stringify(payload),
     });
@@ -74,7 +75,7 @@ export const updateReferralSettings = async (payload) => {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${getToken()}`,
+        Authorization: `Bearer ${getAdminToken()}`,
       },
       body: JSON.stringify(payload),
     });

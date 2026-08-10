@@ -1,10 +1,16 @@
 import API_BASE_URL from "./api";
 
 const getToken = () => localStorage.getItem("token");
+const getAdminToken = () => localStorage.getItem("adminToken");
 
 const authHeaders = () => ({
   "Content-Type": "application/json",
   Authorization: `Bearer ${getToken()}`,
+});
+
+const adminAuthHeaders = () => ({
+  "Content-Type": "application/json",
+  Authorization: `Bearer ${getAdminToken()}`,
 });
 
 export const createTicket = async ({ subject, message, order }) => {
@@ -67,7 +73,7 @@ export const getAllTicketsAdmin = async (status) => {
   try {
     const query = status ? `?status=${encodeURIComponent(status)}` : "";
     const response = await fetch(`${API_BASE_URL}/tickets/admin${query}`, {
-      headers: authHeaders(),
+      headers: adminAuthHeaders(),
     });
 
     return await response.json();
@@ -81,7 +87,7 @@ export const updateTicketStatus = async (id, status) => {
   try {
     const response = await fetch(`${API_BASE_URL}/tickets/${id}/status`, {
       method: "PUT",
-      headers: authHeaders(),
+      headers: adminAuthHeaders(),
       body: JSON.stringify({ status }),
     });
 
@@ -96,7 +102,7 @@ export const markTicketSeen = async (id) => {
   try {
     const response = await fetch(`${API_BASE_URL}/tickets/${id}/seen`, {
       method: "PUT",
-      headers: authHeaders(),
+      headers: adminAuthHeaders(),
     });
 
     return await response.json();

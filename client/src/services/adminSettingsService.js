@@ -1,6 +1,6 @@
 import API_BASE_URL from "./api";
 
-const getToken = () => localStorage.getItem("token");
+const getToken = () => localStorage.getItem("adminToken");
 
 export const getSiteSettingsAdmin = async () => {
   try {

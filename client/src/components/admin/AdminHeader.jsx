@@ -18,7 +18,7 @@ import {
   FaExclamationTriangle,
 } from "react-icons/fa";
 
-import { logoutUser } from "../../services/authService";
+import { logoutAdmin, getCurrentAdminUser } from "../../services/authService";
 import {
   getNotifications,
   markAllNotificationsRead,
@@ -55,7 +55,7 @@ function AdminHeader() {
   const [notifications, setNotifications] = useState([]);
   const [totalUnread, setTotalUnread] = useState(0);
 
-  const user = JSON.parse(localStorage.getItem("user"));
+  const user = getCurrentAdminUser();
 
   const loadNotifications = async () => {
     const response = await getNotifications();
@@ -170,7 +170,7 @@ function AdminHeader() {
   const handleLogout = () => {
     if (!window.confirm("Are you sure you want to logout?")) return;
 
-    logoutUser();
+    logoutAdmin();
 
     navigate("/admin/login");
   };

@@ -1,10 +1,16 @@
 import API_BASE_URL from "./api";
 
 const getToken = () => localStorage.getItem("token");
+const getAdminToken = () => localStorage.getItem("adminToken");
 
 const authHeaders = () => ({
   "Content-Type": "application/json",
   Authorization: `Bearer ${getToken()}`,
+});
+
+const adminAuthHeaders = () => ({
+  "Content-Type": "application/json",
+  Authorization: `Bearer ${getAdminToken()}`,
 });
 
 export const createReturnRequest = async ({
@@ -44,7 +50,7 @@ export const getAllReturnRequestsAdmin = async (status) => {
   try {
     const query = status ? `?status=${encodeURIComponent(status)}` : "";
     const response = await fetch(`${API_BASE_URL}/returns/admin${query}`, {
-      headers: authHeaders(),
+      headers: adminAuthHeaders(),
     });
 
     return await response.json();
@@ -58,7 +64,7 @@ export const updateReturnStatus = async (id, status, adminNote) => {
   try {
     const response = await fetch(`${API_BASE_URL}/returns/${id}/status`, {
       method: "PUT",
-      headers: authHeaders(),
+      headers: adminAuthHeaders(),
       body: JSON.stringify({ status, adminNote }),
     });
 
@@ -73,7 +79,7 @@ export const markReturnSeen = async (id) => {
   try {
     const response = await fetch(`${API_BASE_URL}/returns/${id}/seen`, {
       method: "PUT",
-      headers: authHeaders(),
+      headers: adminAuthHeaders(),
     });
 
     return await response.json();

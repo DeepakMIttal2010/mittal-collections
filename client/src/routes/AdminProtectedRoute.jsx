@@ -1,8 +1,8 @@
 import { Navigate } from "react-router-dom";
 
 function AdminProtectedRoute({ children }) {
-  const token = localStorage.getItem("token");
-  const userStr = localStorage.getItem("user");
+  const token = localStorage.getItem("adminToken");
+  const userStr = localStorage.getItem("adminUser");
   const user = userStr ? JSON.parse(userStr) : null;
 
   // Login nahi hai -> admin login pe bhejo

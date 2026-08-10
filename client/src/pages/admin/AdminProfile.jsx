@@ -80,13 +80,13 @@ function AdminProfile() {
     if (response.success) {
       alert("Profile updated successfully");
 
-      const storedUser = localStorage.getItem("user");
+      const storedUser = localStorage.getItem("adminUser");
 
       if (storedUser) {
         const parsedUser = JSON.parse(storedUser);
 
         localStorage.setItem(
-          "user",
+          "adminUser",
           JSON.stringify({ ...parsedUser, ...response.user }),
         );
       }

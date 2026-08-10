@@ -1,6 +1,6 @@
 import API_BASE_URL from "./api";
 
-const getToken = () => localStorage.getItem("token");
+const getAdminToken = () => localStorage.getItem("adminToken");
 
 export const subscribeToNewsletter = async (email) => {
   try {
@@ -29,7 +29,7 @@ export const subscribeToNewsletter = async (email) => {
 export const getSubscribers = async () => {
   try {
     const response = await fetch(`${API_BASE_URL}/newsletter/admin`, {
-      headers: { Authorization: `Bearer ${getToken()}` },
+      headers: { Authorization: `Bearer ${getAdminToken()}` },
     });
 
     return await response.json();
@@ -47,7 +47,7 @@ export const uploadCampaignImage = async (file) => {
 
     const response = await fetch(`${API_BASE_URL}/newsletter/upload-image`, {
       method: "POST",
-      headers: { Authorization: `Bearer ${getToken()}` },
+      headers: { Authorization: `Bearer ${getAdminToken()}` },
       body: formData,
     });
 
@@ -65,7 +65,7 @@ export const sendNewsletterCampaign = async (subject, html) => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${getToken()}`,
+        Authorization: `Bearer ${getAdminToken()}`,
       },
       body: JSON.stringify({ subject, html }),
     });

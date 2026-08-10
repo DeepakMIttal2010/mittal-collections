@@ -26,21 +26,21 @@ import {
   FaUndoAlt,
 } from "react-icons/fa";
 
-import { logoutUser } from "../../services/authService";
+import { logoutAdmin, getCurrentAdminUser } from "../../services/authService";
 
 import "./AdminSidebar.css";
 
 function AdminSidebar() {
   const navigate = useNavigate();
 
-  const user = JSON.parse(localStorage.getItem("user"));
+  const user = getCurrentAdminUser();
 
   const handleLogout = () => {
     const confirmLogout = window.confirm("Are you sure you want to logout?");
 
     if (!confirmLogout) return;
 
-    logoutUser();
+    logoutAdmin();
 
     navigate("/admin/login");
   };

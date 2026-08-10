@@ -249,3 +249,34 @@ export const isAdmin = () => {
 export const isLoggedIn = () => {
   return !!localStorage.getItem("token");
 };
+
+// ================= ADMIN SESSION (separate storage) =================
+// Admin and customer sessions used to share the same "token"/"user"
+// keys, so logging into one silently logged out (or hijacked) the
+// other on the same browser — the admin panel and storefront are the
+// same app/origin, so they shared localStorage. Kept entirely
+// separate here so both sessions can be active at once.
+
+export const saveAdminLogin = (data) => {
+  localStorage.setItem("adminToken", data.token);
+  localStorage.setItem("adminUser", JSON.stringify(data.user));
+};
+
+export const logoutAdmin = () => {
+  localStorage.removeItem("adminToken");
+  localStorage.removeItem("adminUser");
+};
+
+export const getAdminToken = () => {
+  return localStorage.getItem("adminToken");
+};
+
+export const getCurrentAdminUser = () => {
+  const user = localStorage.getItem("adminUser");
+
+  return user ? JSON.parse(user) : null;
+};
+
+export const isAdminLoggedIn = () => {
+  return !!localStorage.getItem("adminToken");
+};
