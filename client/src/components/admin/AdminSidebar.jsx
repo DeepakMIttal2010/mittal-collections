@@ -85,6 +85,11 @@ function AdminSidebar() {
           <span>Print QR Labels</span>
         </NavLink>
 
+        <NavLink to="/admin/pos">
+          <FaShoppingCart />
+          <span>POS Cart</span>
+        </NavLink>
+
         <NavLink to="/admin/banners">
           <FaImages />
           <span>Home Banners</span>

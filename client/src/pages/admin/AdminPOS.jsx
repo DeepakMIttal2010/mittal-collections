@@ -1,24 +1,31 @@
-import { useEffect, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { useParams, Link, useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
 
 import {
   getProductForPOS,
   lookupCustomerByMobile,
   recordOfflineSale,
 } from "../../services/posService";
+import {
+  getPosCart,
+  addToPosCart,
+  updatePosCartQuantity,
+  updatePosCartPrice,
+  removeFromPosCart,
+  clearPosCart,
+} from "../../utils/posCart";
 import { imgUrl } from "../../services/api";
 
 const PAYMENT_METHODS = ["Cash", "UPI", "Card"];
 
 function AdminPOS() {
   const { id } = useParams();
+  const navigate = useNavigate();
 
-  const [product, setProduct] = useState(null);
+  const [cart, setCart] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [notFound, setNotFound] = useState(false);
 
-  const [quantity, setQuantity] = useState(1);
-  const [unitPrice, setUnitPrice] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("Cash");
   const [customerMobile, setCustomerMobile] = useState("");
   const [customerName, setCustomerName] = useState("");
@@ -29,22 +36,57 @@ function AdminPOS() {
   const [error, setError] = useState("");
   const [sale, setSale] = useState(null);
 
-  useEffect(() => {
-    const loadProduct = async () => {
-      const response = await getProductForPOS(id);
+  // Guards against React StrictMode's deliberate double-invoke of
+  // effects in development (and any other accidental double-mount) —
+  // without this, scanning one QR code could add the same product
+  // twice. Keyed by id so scanning a *different* product right after
+  // still runs normally.
+  const scannedIdRef = useRef(null);
 
-      if (response.success) {
-        setProduct(response.product);
-        setUnitPrice(response.product.price);
-      } else {
-        setNotFound(true);
+  // Scanning a QR code (i.e. landing here with an :id) adds that
+  // product to the cart, then falls through to showing the cart —
+  // scanning a second code just adds a second line, same as before.
+  useEffect(() => {
+    const scanIntoCart = async () => {
+      if (id && scannedIdRef.current !== id) {
+        scannedIdRef.current = id;
+        const response = await getProductForPOS(id);
+
+        if (response.success) {
+          if (response.product.stock <= 0) {
+            toast.error(`${response.product.name} is out of stock`);
+          } else {
+            addToPosCart(response.product);
+            toast.success(`${response.product.name} added to cart`);
+          }
+        } else {
+          toast.error("Product not found");
+        }
+
+        // Drop the :id from the URL so refreshing/back-navigating
+        // doesn't re-add the same scan again.
+        navigate("/admin/pos", { replace: true });
       }
 
+      setCart(getPosCart());
       setLoading(false);
     };
 
-    loadProduct();
+    scanIntoCart();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  const handleQuantityChange = (productId, quantity) => {
+    setCart(updatePosCartQuantity(productId, quantity));
+  };
+
+  const handlePriceChange = (productId, unitPrice) => {
+    setCart(updatePosCartPrice(productId, unitPrice));
+  };
+
+  const handleRemove = (productId) => {
+    setCart(removeFromPosCart(productId));
+  };
 
   const handleMobileBlur = async () => {
     if (!/^[6-9]\d{9}$/.test(customerMobile)) {
@@ -64,21 +106,28 @@ function AdminPOS() {
     }
   };
 
-  const handleSubmit = async (e) => {
+  const cartTotal = cart.reduce(
+    (sum, item) => sum + item.quantity * item.unitPrice,
+    0,
+  );
+
+  const handleCheckout = async (e) => {
     e.preventDefault();
     setError("");
 
-    if (quantity > product.stock) {
-      setError(`Only ${product.stock} in stock`);
+    if (cart.length === 0) {
+      setError("Cart is empty");
       return;
     }
 
     setSubmitting(true);
 
     const response = await recordOfflineSale({
-      productId: id,
-      quantity,
-      unitPrice,
+      items: cart.map((item) => ({
+        productId: item.productId,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+      })),
       paymentMethod,
       customerMobile,
       customerName,
@@ -87,6 +136,7 @@ function AdminPOS() {
     setSubmitting(false);
 
     if (response.success) {
+      clearPosCart();
       setSale(response.sale);
     } else {
       setError(response.message || "Unable to record sale");
@@ -94,34 +144,23 @@ function AdminPOS() {
   };
 
   const whatsappLink = () => {
-    const total = sale.quantity * sale.unitPrice;
-    const text = [
+    const lines = [
       "Mittal Collections - Bill Receipt",
-      `Product: ${sale.productName}`,
-      `Quantity: ${sale.quantity}`,
-      `Price: ₹${sale.unitPrice} x ${sale.quantity} = ₹${total}`,
+      ...sale.items.map(
+        (i) => `${i.productName}: ${i.quantity} x ₹${i.unitPrice} = ₹${i.subtotal}`,
+      ),
+      `Total: ₹${sale.totalAmount}`,
       `Payment: ${sale.paymentMethod}`,
       `Date: ${new Date(sale.createdAt).toLocaleString("en-IN")}`,
       "",
       "Thank you for shopping with us!",
-    ].join("\n");
+    ];
 
-    return `https://wa.me/91${sale.customerMobile}?text=${encodeURIComponent(text)}`;
+    return `https://wa.me/91${sale.customerMobile}?text=${encodeURIComponent(lines.join("\n"))}`;
   };
 
   if (loading) {
     return <div className="p-8 text-center text-slate-500">Loading...</div>;
-  }
-
-  if (notFound) {
-    return (
-      <div className="p-8 text-center">
-        <p className="text-slate-500 mb-4">Product not found.</p>
-        <Link to="/admin/products" className="text-blue-700 hover:underline">
-          ← Back to Products
-        </Link>
-      </div>
-    );
   }
 
   // ===== Receipt view (after a successful sale) =====
@@ -136,13 +175,16 @@ function AdminPOS() {
             {new Date(sale.createdAt).toLocaleString("en-IN")}
           </p>
 
-          <div className="border-t border-b border-slate-100 py-4 mb-4 text-sm">
-            <div className="flex justify-between mb-1">
-              <span>{sale.productName}</span>
-              <span>
-                {sale.quantity} × ₹{sale.unitPrice}
-              </span>
-            </div>
+          <div className="border-t border-b border-slate-100 py-4 mb-4 text-sm space-y-1">
+            {sale.items.map((item) => (
+              <div key={item.product} className="flex justify-between">
+                <span>{item.productName}</span>
+                <span>
+                  {item.quantity} × ₹{item.unitPrice} = ₹{item.subtotal}
+                </span>
+              </div>
+            ))}
+
             {sale.customerName && (
               <p className="text-slate-500 mt-2">
                 Customer: {sale.customerName}
@@ -159,7 +201,7 @@ function AdminPOS() {
 
           <div className="flex justify-between text-lg font-bold text-slate-900 mb-6">
             <span>Total</span>
-            <span>₹{sale.quantity * sale.unitPrice}</span>
+            <span>₹{sale.totalAmount}</span>
           </div>
 
           <div className="flex flex-col gap-3 print:hidden">
@@ -181,13 +223,18 @@ function AdminPOS() {
               </a>
             )}
 
-            <Link
-              to={`/admin/pos/${id}`}
-              onClick={() => window.location.reload()}
-              className="border-2 border-blue-900 text-blue-900 font-semibold rounded-full py-3 text-center transition-colors"
+            <button
+              onClick={() => {
+                setSale(null);
+                setCustomerMobile("");
+                setCustomerName("");
+                setCustomerFound(false);
+                setCart([]);
+              }}
+              className="border-2 border-blue-900 text-blue-900 font-semibold rounded-full py-3 transition-colors"
             >
-              New Sale — Same Product
-            </Link>
+              New Sale
+            </button>
 
             <Link
               to="/admin/products"
@@ -201,54 +248,96 @@ function AdminPOS() {
     );
   }
 
-  // ===== Sale form =====
+  // ===== Cart + checkout view =====
   return (
-    <div className="p-6 max-w-md mx-auto">
-      <div className="bg-white border border-slate-200 rounded-xl p-6">
-        <div className="flex gap-4 mb-6">
-          <img
-            src={imgUrl(product.image)}
-            alt={product.name}
-            className="w-20 h-20 object-cover rounded-lg"
-          />
-          <div>
-            <h2 className="font-bold text-slate-800">{product.name}</h2>
-            <p className="text-sm text-slate-500">
-              In stock: {product.stock}
-            </p>
+    <div className="p-6 max-w-lg mx-auto">
+      <h2 className="text-xl font-bold text-slate-800 mb-4">POS Cart</h2>
+
+      {cart.length === 0 ? (
+        <div className="bg-white border border-slate-200 rounded-xl p-8 text-center text-slate-500">
+          Cart is empty. Scan a product's QR code to add it here.
+        </div>
+      ) : (
+        <div className="bg-white border border-slate-200 rounded-xl p-5 mb-5 space-y-4">
+          {cart.map((item) => (
+            <div
+              key={item.productId}
+              className="flex items-center gap-3 border-b border-slate-100 pb-4 last:border-0 last:pb-0"
+            >
+              <img
+                src={imgUrl(item.image)}
+                alt={item.name}
+                className="w-14 h-14 object-cover rounded-lg shrink-0"
+              />
+
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-slate-800 truncate">
+                  {item.name}
+                </p>
+
+                <div className="flex items-center gap-2 mt-1">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      handleQuantityChange(item.productId, item.quantity - 1)
+                    }
+                    className="w-6 h-6 rounded bg-slate-100 hover:bg-slate-200 text-slate-700"
+                  >
+                    −
+                  </button>
+                  <span className="w-6 text-center text-sm">
+                    {item.quantity}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      handleQuantityChange(item.productId, item.quantity + 1)
+                    }
+                    className="w-6 h-6 rounded bg-slate-100 hover:bg-slate-200 text-slate-700"
+                  >
+                    +
+                  </button>
+
+                  <span className="text-slate-400 mx-1">×</span>
+                  <input
+                    type="number"
+                    min="0"
+                    value={item.unitPrice}
+                    onChange={(e) =>
+                      handlePriceChange(item.productId, Number(e.target.value))
+                    }
+                    className="w-20 border border-slate-300 rounded px-1.5 py-0.5 text-sm"
+                  />
+                </div>
+              </div>
+
+              <div className="text-right shrink-0">
+                <p className="font-semibold text-slate-800">
+                  ₹{item.quantity * item.unitPrice}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => handleRemove(item.productId)}
+                  className="text-xs text-red-600 hover:underline"
+                >
+                  Remove
+                </button>
+              </div>
+            </div>
+          ))}
+
+          <div className="flex justify-between font-bold text-slate-900 pt-2 border-t border-slate-200">
+            <span>Total</span>
+            <span>₹{cartTotal}</span>
           </div>
         </div>
+      )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Quantity
-            </label>
-            <input
-              type="number"
-              min="1"
-              max={product.stock}
-              value={quantity}
-              onChange={(e) => setQuantity(Number(e.target.value))}
-              required
-              className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Price per unit
-            </label>
-            <input
-              type="number"
-              min="0"
-              value={unitPrice}
-              onChange={(e) => setUnitPrice(Number(e.target.value))}
-              required
-              className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-
+      {cart.length > 0 && (
+        <form
+          onSubmit={handleCheckout}
+          className="bg-white border border-slate-200 rounded-xl p-5 space-y-4"
+        >
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">
               Payment Method
@@ -309,17 +398,17 @@ function AdminPOS() {
 
           <button
             type="submit"
-            disabled={submitting || product.stock === 0}
+            disabled={submitting}
             className="w-full bg-blue-900 hover:bg-blue-950 text-white font-semibold rounded-full py-3 transition-colors disabled:opacity-60"
           >
-            {product.stock === 0
-              ? "Out of Stock"
-              : submitting
-                ? "Recording Sale..."
-                : `Record Sale — ₹${quantity * (unitPrice || 0)}`}
+            {submitting ? "Recording Sale..." : `Complete Sale — ₹${cartTotal}`}
           </button>
         </form>
-      </div>
+      )}
+
+      <p className="text-center text-sm text-slate-400 mt-4">
+        Scan another product's QR code to add it to this same cart.
+      </p>
     </div>
   );
 }

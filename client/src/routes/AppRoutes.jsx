@@ -223,6 +223,7 @@ function AppRoutes() {
           <Route path="tickets" element={<AdminTickets />} />
           <Route path="tickets/:id" element={<AdminTicketDetail />} />
           <Route path="returns" element={<AdminReturns />} />
+          <Route path="pos" element={<AdminPOS />} />
           <Route path="pos/:id" element={<AdminPOS />} />
           <Route path="print-labels" element={<PrintLabels />} />
           <Route path="products/:id/qr" element={<ProductQRLabel />} />

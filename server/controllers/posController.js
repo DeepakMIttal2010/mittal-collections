@@ -53,26 +53,59 @@ export const lookupCustomerByMobile = async (req, res) => {
   }
 };
 
+// Atomic-ish stock reservation across every item in the cart — mirrors
+// orderController's reserveStock: decrement each item, and if any one
+// fails (not enough stock), roll back the ones already decremented
+// rather than leaving a partial sale's worth of stock gone.
+const reserveStockForItems = async (items) => {
+  const reserved = [];
+
+  for (const item of items) {
+    const updated = await Product.findOneAndUpdate(
+      { _id: item.productId, stock: { $gte: item.quantity } },
+      { $inc: { stock: -item.quantity } },
+      { new: true },
+    );
+
+    if (!updated) {
+      for (const r of reserved) {
+        await Product.findByIdAndUpdate(r.product._id, {
+          $inc: { stock: r.quantity },
+        });
+      }
+
+      return { success: false, failedProductId: item.productId, product: null };
+    }
+
+    reserved.push({ product: updated, quantity: item.quantity });
+  }
+
+  return { success: true, products: reserved.map((r) => r.product) };
+};
+
 // POST /api/admin/pos/sale
+// body: { items: [{ productId, quantity, unitPrice }], paymentMethod, customerMobile, customerName }
 export const recordOfflineSale = async (req, res) => {
   try {
-    const {
-      productId,
-      quantity,
-      unitPrice,
-      paymentMethod,
-      customerMobile,
-      customerName,
-    } = req.body;
+    const { items, paymentMethod, customerMobile, customerName } = req.body;
 
-    const qty = Number(quantity);
-    const price = Number(unitPrice);
-
-    if (!productId || !qty || qty < 1 || !price || price < 0) {
+    if (!Array.isArray(items) || items.length === 0) {
       return res.status(400).json({
         success: false,
-        message: "Product, a valid quantity and price are required",
+        message: "Cart is empty",
       });
+    }
+
+    for (const item of items) {
+      const qty = Number(item.quantity);
+      const price = Number(item.unitPrice);
+
+      if (!item.productId || !qty || qty < 1 || !price || price < 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Each item needs a product, a valid quantity and price",
+        });
+      }
     }
 
     if (!["Cash", "UPI", "Card"].includes(paymentMethod)) {
@@ -82,26 +115,36 @@ export const recordOfflineSale = async (req, res) => {
       });
     }
 
-    const product = await Product.findById(productId);
+    const stockResult = await reserveStockForItems(items);
 
-    if (!product) {
-      return res.status(404).json({
-        success: false,
-        message: "Product not found",
-      });
-    }
+    if (!stockResult.success) {
+      const failedProduct = await Product.findById(
+        stockResult.failedProductId,
+      ).select("name stock");
 
-    if (product.stock < qty) {
       return res.status(400).json({
         success: false,
-        message: `Only ${product.stock} in stock`,
+        message: failedProduct
+          ? `Only ${failedProduct.stock} of "${failedProduct.name}" in stock`
+          : "One of the items is out of stock",
       });
     }
 
-    product.stock -= qty;
-    await product.save();
+    const saleItems = items.map((item, i) => {
+      const qty = Number(item.quantity);
+      const price = Number(item.unitPrice);
+      const product = stockResult.products[i];
 
-    const totalAmount = qty * price;
+      return {
+        product: product._id,
+        productName: product.name,
+        quantity: qty,
+        unitPrice: price,
+        subtotal: qty * price,
+      };
+    });
+
+    const totalAmount = saleItems.reduce((sum, i) => sum + i.subtotal, 0);
 
     let customerUser = null;
     if (customerMobile) {
@@ -121,16 +164,13 @@ export const recordOfflineSale = async (req, res) => {
           userId: customerUser._id,
           type: "earned",
           points: loyaltyPointsAwarded,
-          description: `Earned on in-store purchase of ${product.name}`,
+          description: "Earned on in-store purchase",
         });
       }
     }
 
     const sale = await OfflineSale.create({
-      product: product._id,
-      productName: product.name,
-      quantity: qty,
-      unitPrice: price,
+      items: saleItems,
       totalAmount,
       paymentMethod,
       customerMobile: customerMobile || "",
@@ -138,13 +178,13 @@ export const recordOfflineSale = async (req, res) => {
       customerUser: customerUser?._id || null,
       loyaltyPointsAwarded,
       soldBy: req.user._id,
+      soldByMobile: req.user.mobile || "",
     });
 
     res.status(201).json({
       success: true,
       message: "Sale recorded",
       sale,
-      remainingStock: product.stock,
     });
   } catch (error) {
     console.error("Record Offline Sale Error:", error);
