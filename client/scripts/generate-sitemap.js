@@ -41,19 +41,20 @@ const buildSitemap = async () => {
   const urls = [...STATIC_ROUTES];
 
   try {
-    const [categoriesRes, productsRes, priceRangesRes, articlesRes] =
-      await Promise.all([
-        fetchJson(`${API_URL}/api/categories`),
-        fetchJson(`${API_URL}/api/products?limit=1000`),
-        fetchJson(`${API_URL}/api/price-ranges`),
-        fetchJson(`${API_URL}/api/articles`),
-      ]);
+    const [categoriesRes, productsRes, articlesRes] = await Promise.all([
+      fetchJson(`${API_URL}/api/categories`),
+      fetchJson(`${API_URL}/api/products?limit=1000`),
+      fetchJson(`${API_URL}/api/articles`),
+    ]);
 
+    // /price/:maxPrice filter pages are deliberately excluded — they're
+    // near-duplicate faceted views of the same small catalog, not
+    // unique content worth Google's crawl budget (found while auditing
+    // GSC's "Discovered – currently not indexed" report, 2026-08-10).
+    // The pages themselves still work; they're just not advertised in
+    // the sitemap.
     categoriesRes.categories.forEach((c) => urls.push(`/category/${c.slug}`));
     productsRes.products.forEach((p) => urls.push(productUrl(p)));
-    priceRangesRes.priceRanges.forEach((p) =>
-      urls.push(`/price/${p.maxPrice}`),
-    );
     articlesRes.articles.forEach((a) => urls.push(`/articles/${a.slug}`));
   } catch (error) {
     console.warn(
