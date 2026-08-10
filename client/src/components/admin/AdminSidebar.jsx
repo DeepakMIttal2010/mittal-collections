@@ -24,6 +24,7 @@ import {
   FaFileImport,
   FaTicketAlt,
   FaUndoAlt,
+  FaQrcode,
 } from "react-icons/fa";
 
 import { logoutAdmin, getCurrentAdminUser } from "../../services/authService";
@@ -77,6 +78,11 @@ function AdminSidebar() {
         <NavLink to="/admin/products/bulk-import">
           <FaFileImport />
           <span>Bulk Import</span>
+        </NavLink>
+
+        <NavLink to="/admin/print-labels">
+          <FaQrcode />
+          <span>Print QR Labels</span>
         </NavLink>
 
         <NavLink to="/admin/banners">
