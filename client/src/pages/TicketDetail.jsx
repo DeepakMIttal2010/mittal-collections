@@ -83,12 +83,17 @@ function TicketDetail() {
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-8">
-      <Link
-        to="/tickets"
-        className="text-sm text-blue-700 hover:underline mb-4 inline-block"
-      >
-        ← Support Tickets
-      </Link>
+      <div className="text-sm mb-2">
+        <Link to="/account" className="text-blue-700 hover:underline">
+          Your Account
+        </Link>
+        <span className="text-slate-400 mx-2">›</span>
+        <Link to="/tickets" className="text-blue-700 hover:underline">
+          Support Tickets
+        </Link>
+        <span className="text-slate-400 mx-2">›</span>
+        <span className="text-amber-600 font-medium">{ticket.subject}</span>
+      </div>
 
       <div className="flex items-center justify-between flex-wrap gap-3 mb-6">
         <h1 className="text-2xl font-bold text-slate-900">

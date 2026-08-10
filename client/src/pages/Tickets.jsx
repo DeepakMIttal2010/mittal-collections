@@ -84,6 +84,14 @@ function Tickets() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
+      <div className="text-sm mb-2">
+        <Link to="/account" className="text-blue-700 hover:underline">
+          Your Account
+        </Link>
+        <span className="text-slate-400 mx-2">›</span>
+        <span className="text-amber-600 font-medium">Support Tickets</span>
+      </div>
+
       <div className="flex items-center justify-between flex-wrap gap-3 mb-6">
         <h1 className="text-2xl font-bold text-slate-900">Support Tickets</h1>
 
