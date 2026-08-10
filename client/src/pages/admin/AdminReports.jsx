@@ -712,10 +712,11 @@ function AdminReports() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <div className="bg-white border border-slate-200 rounded-xl p-5">
           <h3 className="font-semibold text-slate-800 mb-1">
-            Top Search Queries — {rangeLabel}
+            Top Search Queries — Your Site's Search Box — {rangeLabel}
           </h3>
           <p className="text-xs text-slate-400 mb-4">
-            {formatNumber(report.search.totalSearches)} total searches
+            {formatNumber(report.search.totalSearches)} total searches typed
+            into your site's own search box (not Google)
           </p>
           {report.search.topSearches.length === 0 ? (
             <p className="text-sm text-slate-400 py-8 text-center">
@@ -772,6 +773,10 @@ function AdminReports() {
         <h3 className="font-semibold text-slate-800 mb-1">
           Google Analytics & Search Console — {rangeLabel}
         </h3>
+        <p className="text-xs text-slate-400 mb-1">
+          Live data pulled directly from Google — separate from this
+          site's own tracking above.
+        </p>
         {customRange ? (
           <p className="text-sm text-slate-400 py-8 text-center">
             Select a preset range (7 / 30 / 90 days) above to see Google
@@ -819,7 +824,9 @@ function AdminReports() {
                   </p>
                 </div>
               </div>
-              <p className="text-xs text-slate-400 mb-2">Top Pages</p>
+              <p className="text-xs text-slate-400 mb-2">
+                Top Pages (Google Analytics)
+              </p>
               <RankedBarList
                 items={googleReport.analytics.topPages}
                 labelKey="path"
@@ -883,9 +890,12 @@ function AdminReports() {
         </div>
 
         <div className="bg-white border border-slate-200 rounded-xl p-5">
-          <h3 className="font-semibold text-slate-800 mb-4">
-            Most Visited Pages — {rangeLabel}
+          <h3 className="font-semibold text-slate-800 mb-1">
+            Most Visited Pages — Your Site's Tracking — {rangeLabel}
           </h3>
+          <p className="text-xs text-slate-400 mb-3">
+            From this site's own visit tracking (not Google Analytics)
+          </p>
           <RankedBarList
             items={report.topPages}
             labelKey="_id"
