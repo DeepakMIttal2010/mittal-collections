@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
 
 import {
-  getProductById,
+  getProductByIdAdmin,
   updateProduct,
 } from "../../services/adminProductService";
 import { getCategories } from "../../services/categoryService";
@@ -53,11 +53,15 @@ function EditProduct() {
     returnPeriodDays: "",
     restockAlertEnabled: false,
     restockAlertQuantity: "",
+    purchasePrice: "",
+    purchaseDate: "",
   });
+
+  const [productNumber, setProductNumber] = useState("");
 
   const loadProduct = async () => {
     const [productRes, categoriesRes, subcategoriesRes] = await Promise.all([
-      getProductById(id),
+      getProductByIdAdmin(id),
       getCategories(),
       getSubcategories(),
     ]);
@@ -93,7 +97,13 @@ function EditProduct() {
         returnPeriodDays: product.returnPeriodDays || "",
         restockAlertEnabled: product.restockAlertEnabled || false,
         restockAlertQuantity: product.restockAlertQuantity || "",
+        purchasePrice: product.purchasePrice || "",
+        purchaseDate: product.purchaseDate
+          ? product.purchaseDate.slice(0, 10)
+          : "",
       });
+
+      setProductNumber(product.productNumber || "");
 
       const images = product.images?.length
         ? product.images
@@ -636,6 +646,39 @@ function EditProduct() {
               />
             </div>
           </div>
+        )}
+
+        <div className="form-row">
+          <div className="form-group">
+            <label>Purchase Price / Cost (internal, not shown to customers)</label>
+
+            <input
+              type="number"
+              name="purchasePrice"
+              placeholder="What you paid for it"
+              value={formData.purchasePrice}
+              onChange={handleChange}
+              min="0"
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Purchase Date</label>
+
+            <input
+              type="date"
+              name="purchaseDate"
+              value={formData.purchaseDate}
+              onChange={handleChange}
+            />
+          </div>
+        </div>
+
+        {productNumber && (
+          <p className="secret-code-hint">
+            Label number: <strong>{productNumber}</strong> — encodes the
+            purchase month/year and cost above.
+          </p>
         )}
 
         <button className="save-btn" disabled={saving}>

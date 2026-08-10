@@ -45,6 +45,8 @@ function AddProduct() {
     returnPeriodDays: "",
     restockAlertEnabled: false,
     restockAlertQuantity: "",
+    purchasePrice: "",
+    purchaseDate: new Date().toISOString().slice(0, 10),
   });
 
   const loadCategories = async () => {
@@ -134,6 +136,8 @@ function AddProduct() {
     data.append("returnPeriodDays", formData.returnPeriodDays);
     data.append("restockAlertEnabled", formData.restockAlertEnabled);
     data.append("restockAlertQuantity", formData.restockAlertQuantity);
+    data.append("purchasePrice", formData.purchasePrice);
+    data.append("purchaseDate", formData.purchaseDate);
 
     images.forEach((file) => data.append("images", file));
     videos.forEach((file) => data.append("videos", file));
@@ -509,6 +513,32 @@ function AddProduct() {
             </div>
           </div>
         )}
+
+        <div className="form-row">
+          <div className="form-group">
+            <label>Purchase Price / Cost (internal, not shown to customers)</label>
+
+            <input
+              type="number"
+              name="purchasePrice"
+              placeholder="What you paid for it"
+              value={formData.purchasePrice}
+              onChange={handleChange}
+              min="0"
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Purchase Date</label>
+
+            <input
+              type="date"
+              name="purchaseDate"
+              value={formData.purchaseDate}
+              onChange={handleChange}
+            />
+          </div>
+        </div>
 
         <button className="save-btn" type="submit" disabled={loading}>
           {loading ? "Saving..." : "Save Product"}

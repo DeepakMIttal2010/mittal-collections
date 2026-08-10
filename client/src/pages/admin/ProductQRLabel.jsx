@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import QRCode from "qrcode";
 
-import { getProductById } from "../../services/adminProductService";
+import { getProductByIdAdmin } from "../../services/adminProductService";
 
 function ProductQRLabel() {
   const { id } = useParams();
@@ -13,7 +13,7 @@ function ProductQRLabel() {
 
   useEffect(() => {
     const load = async () => {
-      const response = await getProductById(id);
+      const response = await getProductByIdAdmin(id);
 
       if (response.success) {
         setProduct(response.product);
@@ -83,6 +83,11 @@ function ProductQRLabel() {
         <p className="text-[11px] text-slate-400 font-mono mt-1">
           ID: {product._id}
         </p>
+        {product.productNumber && (
+          <p className="text-[11px] text-slate-400 font-mono mt-0.5">
+            No: {product.productNumber}
+          </p>
+        )}
       </div>
     </div>
   );

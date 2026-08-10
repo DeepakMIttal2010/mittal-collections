@@ -154,6 +154,21 @@
   margin: 20px 0;
 }
 
+.secret-code-hint {
+  font-size: 13px;
+  color: #64748b;
+  background: #f1f5f9;
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin: -6px 0 20px;
+}
+
+.secret-code-hint strong {
+  font-family: monospace;
+  letter-spacing: 1px;
+  color: #334155;
+}
+
 .save-btn {
   background: #2563eb;
   color: #fff;

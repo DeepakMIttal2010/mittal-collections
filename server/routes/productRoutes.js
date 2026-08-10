@@ -7,6 +7,7 @@ import adminMiddleware from "../middleware/adminMiddleware.js";
 import {
   getProducts,
   getAllProductsAdmin,
+  getProductByIdAdmin,
   getTrendingProducts,
   getBestSellers,
   getSearchSuggestions,
@@ -31,6 +32,7 @@ router.get("/suggestions", getSearchSuggestions);
 router.get("/admin", authMiddleware, adminMiddleware, getAllProductsAdmin);
 
 router.get("/:id", getProductById);
+router.get("/:id/admin", authMiddleware, adminMiddleware, getProductByIdAdmin);
 router.post("/:id/notify", subscribeStockAlert);
 
 const productMediaFields = uploadProductMedia.fields([

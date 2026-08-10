@@ -130,6 +130,21 @@ const productSchema = new mongoose.Schema(
       default: 0,
       min: 0,
     },
+
+    // Internal cost accounting — never returned by any public product
+    // endpoint (see productController's public routes, which strip
+    // these). Used only in the admin panel and to derive the printed
+    // label's secret code (see utils/costCipher.js).
+    purchasePrice: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
+    purchaseDate: {
+      type: Date,
+      default: Date.now,
+    },
   },
   {
     timestamps: true,

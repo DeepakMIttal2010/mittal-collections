@@ -11,12 +11,22 @@ export const getAllProducts = async ({
   search = "",
   sortBy = "",
   sortOrder = "",
+  category = "",
+  subcategory = "",
+  stockStatus = "",
+  dateFrom = "",
+  dateTo = "",
 } = {}) => {
   try {
     const params = new URLSearchParams({ page, limit });
     if (search.trim()) params.set("search", search.trim());
     if (sortBy) params.set("sortBy", sortBy);
     if (sortOrder) params.set("sortOrder", sortOrder);
+    if (category) params.set("category", category);
+    if (subcategory) params.set("subcategory", subcategory);
+    if (stockStatus) params.set("stockStatus", stockStatus);
+    if (dateFrom) params.set("dateFrom", dateFrom);
+    if (dateTo) params.set("dateTo", dateTo);
 
     const response = await fetch(
       `${API_BASE_URL}/products/admin?${params.toString()}`,
@@ -64,6 +74,28 @@ export const getProductById = async (id) => {
     return await response.json();
   } catch (error) {
     console.error("Get Product Error:", error);
+
+    return {
+      success: false,
+      message: "Unable to fetch product",
+    };
+  }
+};
+
+// ==============================
+// GET SINGLE PRODUCT (Admin — includes cost fields + secret code)
+// ==============================
+export const getProductByIdAdmin = async (id) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/products/${id}/admin`, {
+      headers: {
+        Authorization: `Bearer ${getToken()}`,
+      },
+    });
+
+    return await response.json();
+  } catch (error) {
+    console.error("Get Admin Product Error:", error);
 
     return {
       success: false,

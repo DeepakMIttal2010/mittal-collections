@@ -6,6 +6,10 @@ import User from "../models/User.js";
 import { rankProducts } from "../utils/fuzzySearch.js";
 import { sendEmail } from "../config/mailer.js";
 import { notifyUser } from "../utils/notify.js";
+import { generateProductNumber } from "../utils/costCipher.js";
+
+// Never sent by a public route — cost data is admin-only.
+const COST_FIELDS = "-purchasePrice -purchaseDate";
 
 const generateSlug = (name) =>
   name
@@ -134,6 +138,7 @@ export const getProducts = async (req, res) => {
     }
 
     let products = await Product.find(filter)
+      .select(COST_FIELDS)
       .populate("category", "name slug image")
       .populate("subcategory", "name slug")
       .sort({ createdAt: -1 });
@@ -212,10 +217,35 @@ export const getAllProductsAdmin = async (req, res) => {
   try {
     const filter = {};
 
-    const { search } = req.query;
+    const { search, category, subcategory, stockStatus, dateFrom, dateTo } =
+      req.query;
+
     if (search && search.trim()) {
       const regex = new RegExp(search.trim(), "i");
       filter.$or = [{ name: regex }, { description: regex }];
+    }
+
+    if (category && category.trim()) {
+      filter.category = category.trim();
+    }
+    if (subcategory && subcategory.trim()) {
+      filter.subcategory = subcategory.trim();
+    }
+
+    if (stockStatus === "inStock") {
+      filter.stock = { $gt: 0 };
+    } else if (stockStatus === "outOfStock") {
+      filter.stock = { $lte: 0 };
+    }
+
+    if (dateFrom || dateTo) {
+      filter.purchaseDate = {};
+      if (dateFrom) filter.purchaseDate.$gte = new Date(dateFrom);
+      if (dateTo) {
+        const end = new Date(dateTo);
+        end.setHours(23, 59, 59, 999);
+        filter.purchaseDate.$lte = end;
+      }
     }
 
     const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
@@ -236,13 +266,59 @@ export const getAllProductsAdmin = async (req, res) => {
       .skip((page - 1) * limit)
       .limit(limit);
 
+    const productsWithNumber = products.map((product) => ({
+      ...product.toObject(),
+      productNumber: generateProductNumber({
+        purchaseDate: product.purchaseDate,
+        purchasePrice: product.purchasePrice,
+        productId: product._id,
+      }),
+    }));
+
     res.status(200).json({
       success: true,
-      products,
+      products: productsWithNumber,
       total,
       page,
       limit,
       pages: Math.max(Math.ceil(total / limit), 1),
+    });
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};
+
+// ============================
+// GET SINGLE PRODUCT (Admin — full doc incl. cost fields, for Edit page)
+// ============================
+export const getProductByIdAdmin = async (req, res) => {
+  try {
+    const product = await Product.findById(req.params.id)
+      .populate("category", "name slug image")
+      .populate("subcategory", "name slug");
+
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: "Product not found",
+      });
+    }
+
+    res.json({
+      success: true,
+      product: {
+        ...product.toObject(),
+        productNumber: generateProductNumber({
+          purchaseDate: product.purchaseDate,
+          purchasePrice: product.purchasePrice,
+          productId: product._id,
+        }),
+      },
     });
   } catch (error) {
     console.error(error);
@@ -262,6 +338,7 @@ export const getTrendingProducts = async (req, res) => {
     const limit = Math.max(parseInt(req.query.limit, 10) || 10, 1);
 
     const products = await Product.find({ isActive: true, isTrending: true })
+      .select(COST_FIELDS)
       .populate("category", "name slug image")
       .populate("subcategory", "name slug")
       .sort({ trendingRank: 1, updatedAt: -1 })
@@ -317,6 +394,7 @@ export const getBestSellers = async (req, res) => {
       _id: { $in: productIds },
       isActive: true,
     })
+      .select(COST_FIELDS)
       .populate("category", "name slug image")
       .populate("subcategory", "name slug");
 
@@ -352,6 +430,7 @@ export const getBestSellers = async (req, res) => {
 export const getProductById = async (req, res) => {
   try {
     const product = await Product.findById(req.params.id)
+      .select(COST_FIELDS)
       .populate("category", "name slug image")
       .populate("subcategory", "name slug");
 
@@ -404,6 +483,8 @@ export const addProduct = async (req, res) => {
       returnPeriodDays,
       restockAlertEnabled,
       restockAlertQuantity,
+      purchasePrice,
+      purchaseDate,
     } = req.body;
 
     const images = (req.files?.images || []).map((file) => file.path);
@@ -447,6 +528,9 @@ export const addProduct = async (req, res) => {
 
       restockAlertEnabled: restockAlertEnabled === "true",
       restockAlertQuantity: restockAlertQuantity || 0,
+
+      purchasePrice: purchasePrice || 0,
+      purchaseDate: purchaseDate || Date.now(),
 
       image: images[mainIndex],
       images,
@@ -513,6 +597,9 @@ export const updateProduct = async (req, res) => {
 
     product.restockAlertEnabled = req.body.restockAlertEnabled === "true";
     product.restockAlertQuantity = req.body.restockAlertQuantity || 0;
+
+    product.purchasePrice = req.body.purchasePrice || 0;
+    if (req.body.purchaseDate) product.purchaseDate = req.body.purchaseDate;
 
     let existingImages = product.images.length
       ? product.images
