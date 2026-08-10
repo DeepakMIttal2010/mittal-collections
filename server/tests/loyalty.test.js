@@ -6,6 +6,7 @@ import app from "../app.js";
 import User from "../models/User.js";
 import Order from "../models/Order.js";
 import LoyaltyTransaction from "../models/LoyaltyTransaction.js";
+import { expireInactivePoints } from "../utils/loyaltyPoints.js";
 import {
   createUser,
   signToken,
@@ -210,5 +211,91 @@ describe("Loyalty points on order delivery/cancellation", () => {
 
     const referrerAfterSecond = await User.findById(referrer._id);
     expect(referrerAfterSecond.loyaltyPoints).toBe(100); // unchanged
+  });
+});
+
+describe("expireInactivePoints", () => {
+  // Regression test: a customer with only an admin-credited balance
+  // (no order-based "earned" transaction ever) had their points
+  // auto-expired the very next day, because the expiry job only
+  // recognized "earned"/"referral_bonus" as recent activity —
+  // "admin_adjustment" didn't count, so a user with no other history
+  // looked stale immediately. Fixed by keying off `points > 0`
+  // (any type) instead of a fixed type list.
+  it("does not expire a balance that was credited via a recent admin adjustment, even with no prior earning history", async () => {
+    await seedLoyaltySettings({ expiryMonths: 12 });
+
+    const user = await createUser({ loyaltyPoints: 100 });
+    await LoyaltyTransaction.create({
+      user: user._id,
+      type: "admin_adjustment",
+      points: 100,
+      balanceAfter: 100,
+      description: "Welcome point",
+    });
+
+    const expiredCount = await expireInactivePoints();
+
+    expect(expiredCount).toBe(0);
+    const updatedUser = await User.findById(user._id);
+    expect(updatedUser.loyaltyPoints).toBe(100);
+  });
+
+  it("expires a balance whose only activity is a stale (>expiryMonths old) transaction", async () => {
+    await seedLoyaltySettings({ expiryMonths: 12 });
+
+    const user = await createUser({ loyaltyPoints: 50 });
+    const thirteenMonthsAgo = new Date();
+    thirteenMonthsAgo.setMonth(thirteenMonthsAgo.getMonth() - 13);
+
+    await LoyaltyTransaction.create({
+      user: user._id,
+      type: "earned",
+      points: 50,
+      balanceAfter: 50,
+      createdAt: thirteenMonthsAgo,
+    });
+
+    const expiredCount = await expireInactivePoints();
+
+    expect(expiredCount).toBe(1);
+    const updatedUser = await User.findById(user._id);
+    expect(updatedUser.loyaltyPoints).toBe(0);
+
+    const expiredTxn = await LoyaltyTransaction.findOne({
+      user: user._id,
+      type: "expired",
+    });
+    expect(expiredTxn.points).toBe(-50);
+  });
+
+  it("does not let a negative admin adjustment (deduction) reset the staleness clock", async () => {
+    await seedLoyaltySettings({ expiryMonths: 12 });
+
+    const user = await createUser({ loyaltyPoints: 30 });
+    const thirteenMonthsAgo = new Date();
+    thirteenMonthsAgo.setMonth(thirteenMonthsAgo.getMonth() - 13);
+
+    await LoyaltyTransaction.create({
+      user: user._id,
+      type: "earned",
+      points: 50,
+      balanceAfter: 50,
+      createdAt: thirteenMonthsAgo,
+    });
+    // A recent deduction shouldn't count as "recent activity" that
+    // earns the balance a reprieve.
+    await LoyaltyTransaction.create({
+      user: user._id,
+      type: "admin_adjustment",
+      points: -20,
+      balanceAfter: 30,
+    });
+
+    const expiredCount = await expireInactivePoints();
+
+    expect(expiredCount).toBe(1);
+    const updatedUser = await User.findById(user._id);
+    expect(updatedUser.loyaltyPoints).toBe(0);
   });
 });

@@ -9,8 +9,6 @@ import LoyaltyTransaction from "../models/LoyaltyTransaction.js";
 import { sendEmail } from "../config/mailer.js";
 import { notifyUser } from "./notify.js";
 
-const EARNING_TYPES = ["earned", "referral_bonus"];
-
 const DEFAULTS = {
   earnRate: 20,
   redeemValue: 1,
@@ -69,7 +67,9 @@ export const applyLoyaltyPointsChange = async ({
 };
 
 // Expires the full remaining balance for any user whose most recent
-// earning activity (not redemptions) is older than the configured
+// positive-points activity (earned, referral bonus, refund, or a
+// credit-type manual adjustment — anything that added points, not
+// just the two "earned via order" types) is older than the configured
 // expiryMonths — the common "use it or lose it" loyalty program rule.
 // Returns how many users were affected.
 export const expireInactivePoints = async () => {
@@ -86,7 +86,7 @@ export const expireInactivePoints = async () => {
   for (const user of usersWithPoints) {
     const lastEarn = await LoyaltyTransaction.findOne({
       user: user._id,
-      type: { $in: EARNING_TYPES },
+      points: { $gt: 0 },
     }).sort({ createdAt: -1 });
 
     const lastEarnDate = lastEarn?.createdAt;
