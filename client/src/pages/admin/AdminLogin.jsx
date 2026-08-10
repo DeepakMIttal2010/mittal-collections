@@ -1,10 +1,12 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { loginUser, saveAdminLogin } from "../../services/authService";
 import "./AdminLogin.css";
 
 function AdminLogin() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const redirectTo = searchParams.get("redirect") || "/admin";
 
   const [formData, setFormData] = useState({
     email: "",
@@ -44,7 +46,7 @@ function AdminLogin() {
 
     saveAdminLogin(response);
 
-    navigate("/admin");
+    navigate(redirectTo);
 
     setLoading(false);
   };
