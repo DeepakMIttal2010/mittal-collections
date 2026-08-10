@@ -8,6 +8,29 @@
   margin-bottom: 25px;
 }
 
+.page-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.qr-link-btn {
+  background: #475569;
+  color: #fff;
+  padding: 8px 18px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 0.2s;
+}
+
+.qr-link-btn:hover {
+  background: #334155;
+}
+
 .page-header h2 {
   font-size: 30px;
   font-weight: 700;

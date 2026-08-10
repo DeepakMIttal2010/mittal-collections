@@ -101,6 +101,7 @@ const AdminTicketDetail = lazy(
 const AdminReturns = lazy(() => import("../pages/admin/AdminReturns"));
 const AdminPOS = lazy(() => import("../pages/admin/AdminPOS"));
 const PrintLabels = lazy(() => import("../pages/admin/PrintLabels"));
+const ProductQRLabel = lazy(() => import("../pages/admin/ProductQRLabel"));
 
 function AppRoutes() {
   return (
@@ -224,6 +225,7 @@ function AppRoutes() {
           <Route path="returns" element={<AdminReturns />} />
           <Route path="pos/:id" element={<AdminPOS />} />
           <Route path="print-labels" element={<PrintLabels />} />
+          <Route path="products/:id/qr" element={<ProductQRLabel />} />
         </Route>
       </Routes>
     </Suspense>

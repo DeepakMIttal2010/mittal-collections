@@ -25,6 +25,7 @@ function PrintLabels() {
             id: product._id,
             name: product.name,
             price: product.price,
+            oldPrice: product.oldPrice,
             qrDataUrl,
           };
         }),
@@ -77,7 +78,19 @@ function PrintLabels() {
               <p className="text-sm font-semibold text-slate-800 mt-2 truncate">
                 {label.name}
               </p>
-              <p className="text-xs text-slate-500">₹{label.price}</p>
+              <p className="text-xs">
+                {label.oldPrice > label.price && (
+                  <span className="text-slate-400 line-through mr-1">
+                    ₹{label.oldPrice}
+                  </span>
+                )}
+                <span className="font-semibold text-slate-700">
+                  ₹{label.price}
+                </span>
+              </p>
+              <p className="text-[10px] text-slate-400 font-mono truncate">
+                ID: {label.id}
+              </p>
             </div>
           ))}
         </div>

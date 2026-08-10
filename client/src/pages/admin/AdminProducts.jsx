@@ -332,6 +332,12 @@ function AdminProducts() {
                           >
                             Edit
                           </Link>
+                          <Link
+                            to={`/admin/products/${product._id}/qr`}
+                            className="text-xs font-medium px-3 py-1.5 rounded-lg bg-slate-600 hover:bg-slate-700 text-white"
+                          >
+                            QR
+                          </Link>
                           <button
                             onClick={() => handleDelete(product._id)}
                             className="text-xs font-medium px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white"
@@ -422,6 +428,13 @@ function AdminProducts() {
                         className="flex-1 text-center bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium py-2 rounded-lg transition-colors"
                       >
                         Edit
+                      </Link>
+
+                      <Link
+                        to={`/admin/products/${product._id}/qr`}
+                        className="flex-1 text-center bg-slate-600 hover:bg-slate-700 text-white text-sm font-medium py-2 rounded-lg transition-colors"
+                      >
+                        QR
                       </Link>
 
                       <button

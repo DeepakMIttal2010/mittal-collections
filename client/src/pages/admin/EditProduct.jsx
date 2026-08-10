@@ -1,6 +1,6 @@
 import { imgUrl } from "../../services/api";
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, Link } from "react-router-dom";
 
 import {
   getProductById,
@@ -228,8 +228,11 @@ function EditProduct() {
 
   return (
     <div className="edit-product-page">
-      <div className="page-header">
+      <div className="page-header page-header-row">
         <h2>Edit Product</h2>
+        <Link to={`/admin/products/${id}/qr`} className="qr-link-btn">
+          View QR Code
+        </Link>
       </div>
 
       <form className="product-form" onSubmit={handleSubmit}>
