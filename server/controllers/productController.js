@@ -6,7 +6,10 @@ import User from "../models/User.js";
 import { rankProducts } from "../utils/fuzzySearch.js";
 import { sendEmail } from "../config/mailer.js";
 import { notifyUser } from "../utils/notify.js";
-import { generateProductNumber } from "../utils/costCipher.js";
+import {
+  generateProductNumber,
+  decodeProductNumber,
+} from "../utils/costCipher.js";
 
 // Never sent by a public route — cost data is admin-only.
 const COST_FIELDS = "-purchasePrice -purchaseDate";
@@ -320,6 +323,32 @@ export const getProductByIdAdmin = async (req, res) => {
         }),
       },
     });
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};
+
+// ============================
+// DECODE A LABEL'S PRODUCT NUMBER (Admin) — reverse lookup for a staff
+// member reading a printed label back into month/year + cost.
+// ============================
+export const decodeProductNumberController = async (req, res) => {
+  try {
+    const decoded = decodeProductNumber(req.query.number);
+
+    if (!decoded) {
+      return res.status(400).json({
+        success: false,
+        message: "Not a recognisable product number",
+      });
+    }
+
+    res.json({ success: true, decoded });
   } catch (error) {
     console.error(error);
 

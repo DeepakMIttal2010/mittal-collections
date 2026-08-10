@@ -105,6 +105,31 @@ export const getProductByIdAdmin = async (id) => {
 };
 
 // ==============================
+// DECODE A LABEL'S PRODUCT NUMBER
+// ==============================
+export const decodeProductNumber = async (number) => {
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/products/decode-number?number=${encodeURIComponent(number)}`,
+      {
+        headers: {
+          Authorization: `Bearer ${getToken()}`,
+        },
+      },
+    );
+
+    return await response.json();
+  } catch (error) {
+    console.error("Decode Product Number Error:", error);
+
+    return {
+      success: false,
+      message: "Unable to decode number",
+    };
+  }
+};
+
+// ==============================
 // ADD PRODUCT
 // ==============================
 export const addProduct = async (formData) => {

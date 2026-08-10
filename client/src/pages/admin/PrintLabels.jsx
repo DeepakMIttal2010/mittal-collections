@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
 import QRCode from "qrcode";
 
-import { getAllProducts } from "../../services/adminProductService";
+import {
+  getAllProducts,
+  decodeProductNumber,
+} from "../../services/adminProductService";
 import { getCategories } from "../../services/categoryService";
 import { getSubcategories } from "../../services/subcategoryService";
 
@@ -26,6 +29,18 @@ function PrintLabels() {
   const [categories, setCategories] = useState([]);
   const [subcategories, setSubcategories] = useState([]);
   const [filters, setFilters] = useState(emptyFilters);
+
+  const [decodeInput, setDecodeInput] = useState("");
+  const [decodeResult, setDecodeResult] = useState(null);
+
+  const handleDecode = async (e) => {
+    e.preventDefault();
+
+    if (!decodeInput.trim()) return;
+
+    const response = await decodeProductNumber(decodeInput.trim());
+    setDecodeResult(response.success ? response.decoded : "invalid");
+  };
 
   useEffect(() => {
     const loadFilterOptions = async () => {
@@ -214,6 +229,50 @@ function PrintLabels() {
         >
           Clear Filters
         </button>
+      </div>
+
+      <div className="mb-6 print:hidden bg-slate-50 border border-slate-200 rounded-lg p-4">
+        <form onSubmit={handleDecode} className="flex flex-wrap items-end gap-3">
+          <div className="flex flex-col">
+            <label className="text-xs font-semibold text-slate-500 mb-1">
+              Decode a label number
+            </label>
+            <input
+              type="text"
+              placeholder="e.g. 2203026180"
+              value={decodeInput}
+              onChange={(e) => setDecodeInput(e.target.value)}
+              className="border border-slate-300 rounded-md px-2 py-1.5 text-sm font-mono w-48"
+            />
+          </div>
+
+          <button
+            type="submit"
+            className="bg-slate-700 hover:bg-slate-800 text-white text-sm font-semibold rounded-md px-4 py-1.5"
+          >
+            Decode
+          </button>
+        </form>
+
+        {decodeResult === "invalid" && (
+          <p className="text-sm text-red-600 mt-3">
+            Not a recognisable product number.
+          </p>
+        )}
+
+        {decodeResult && decodeResult !== "invalid" && (
+          <div className="mt-3 text-sm text-slate-700">
+            <p className="font-semibold">
+              Purchased {decodeResult.monthName} {decodeResult.year} for ₹
+              {decodeResult.purchasePrice}
+            </p>
+            <ul className="mt-1.5 space-y-0.5 text-xs text-slate-500 list-disc list-inside">
+              {decodeResult.breakdown.map((line, i) => (
+                <li key={i}>{line}</li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
 
       {loading ? (

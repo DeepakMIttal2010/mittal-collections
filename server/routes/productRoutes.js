@@ -8,6 +8,7 @@ import {
   getProducts,
   getAllProductsAdmin,
   getProductByIdAdmin,
+  decodeProductNumberController,
   getTrendingProducts,
   getBestSellers,
   getSearchSuggestions,
@@ -30,6 +31,12 @@ router.get("/suggestions", getSearchSuggestions);
 
 // Admin-only routes — login + admin role dono zaroori (must come before /:id)
 router.get("/admin", authMiddleware, adminMiddleware, getAllProductsAdmin);
+router.get(
+  "/decode-number",
+  authMiddleware,
+  adminMiddleware,
+  decodeProductNumberController,
+);
 
 router.get("/:id", getProductById);
 router.get("/:id/admin", authMiddleware, adminMiddleware, getProductByIdAdmin);

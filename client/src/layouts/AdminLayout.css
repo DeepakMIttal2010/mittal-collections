@@ -15,3 +15,19 @@
   padding: 25px;
   overflow: auto;
 }
+
+@media print {
+  .admin-sidebar,
+  .admin-header {
+    display: none !important;
+  }
+
+  .admin-layout,
+  .admin-main,
+  .admin-content {
+    display: block !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+  }
+}
