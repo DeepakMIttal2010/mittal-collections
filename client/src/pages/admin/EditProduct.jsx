@@ -51,6 +51,8 @@ function EditProduct() {
     countryOfOrigin: "",
     isReturnable: true,
     returnPeriodDays: "",
+    restockAlertEnabled: false,
+    restockAlertQuantity: "",
   });
 
   const loadProduct = async () => {
@@ -89,6 +91,8 @@ function EditProduct() {
         isReturnable:
           product.isReturnable === undefined ? true : product.isReturnable,
         returnPeriodDays: product.returnPeriodDays || "",
+        restockAlertEnabled: product.restockAlertEnabled || false,
+        restockAlertQuantity: product.restockAlertQuantity || "",
       });
 
       const images = product.images?.length
@@ -568,6 +572,16 @@ function EditProduct() {
             />
             Returnable
           </label>
+
+          <label>
+            <input
+              type="checkbox"
+              name="restockAlertEnabled"
+              checked={formData.restockAlertEnabled}
+              onChange={handleChange}
+            />
+            Custom Restock Alert
+          </label>
         </div>
 
         {formData.isReturnable && (
@@ -598,6 +612,24 @@ function EditProduct() {
                 value={formData.trendingRank}
                 onChange={handleChange}
                 min="0"
+              />
+            </div>
+          </div>
+        )}
+
+        {formData.restockAlertEnabled && (
+          <div className="form-row">
+            <div className="form-group">
+              <label>Alert when stock falls to or below</label>
+
+              <input
+                type="number"
+                name="restockAlertQuantity"
+                placeholder="e.g. 10"
+                value={formData.restockAlertQuantity}
+                onChange={handleChange}
+                min="0"
+                required
               />
             </div>
           </div>

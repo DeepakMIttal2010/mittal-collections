@@ -402,6 +402,8 @@ export const addProduct = async (req, res) => {
       countryOfOrigin,
       isReturnable,
       returnPeriodDays,
+      restockAlertEnabled,
+      restockAlertQuantity,
     } = req.body;
 
     const images = (req.files?.images || []).map((file) => file.path);
@@ -442,6 +444,9 @@ export const addProduct = async (req, res) => {
 
       isReturnable: isReturnable === undefined ? true : isReturnable === "true",
       returnPeriodDays: returnPeriodDays || 0,
+
+      restockAlertEnabled: restockAlertEnabled === "true",
+      restockAlertQuantity: restockAlertQuantity || 0,
 
       image: images[mainIndex],
       images,
@@ -505,6 +510,9 @@ export const updateProduct = async (req, res) => {
         ? true
         : req.body.isReturnable === "true";
     product.returnPeriodDays = req.body.returnPeriodDays || 0;
+
+    product.restockAlertEnabled = req.body.restockAlertEnabled === "true";
+    product.restockAlertQuantity = req.body.restockAlertQuantity || 0;
 
     let existingImages = product.images.length
       ? product.images

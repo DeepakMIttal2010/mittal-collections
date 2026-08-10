@@ -43,6 +43,8 @@ function AddProduct() {
     countryOfOrigin: "",
     isReturnable: true,
     returnPeriodDays: "",
+    restockAlertEnabled: false,
+    restockAlertQuantity: "",
   });
 
   const loadCategories = async () => {
@@ -130,6 +132,8 @@ function AddProduct() {
     data.append("countryOfOrigin", formData.countryOfOrigin);
     data.append("isReturnable", formData.isReturnable);
     data.append("returnPeriodDays", formData.returnPeriodDays);
+    data.append("restockAlertEnabled", formData.restockAlertEnabled);
+    data.append("restockAlertQuantity", formData.restockAlertQuantity);
 
     images.forEach((file) => data.append("images", file));
     videos.forEach((file) => data.append("videos", file));
@@ -443,6 +447,16 @@ function AddProduct() {
             />
             Returnable
           </label>
+
+          <label>
+            <input
+              type="checkbox"
+              name="restockAlertEnabled"
+              checked={formData.restockAlertEnabled}
+              onChange={handleChange}
+            />
+            Custom Restock Alert
+          </label>
         </div>
 
         {formData.isReturnable && (
@@ -473,6 +487,24 @@ function AddProduct() {
                 value={formData.trendingRank}
                 onChange={handleChange}
                 min="0"
+              />
+            </div>
+          </div>
+        )}
+
+        {formData.restockAlertEnabled && (
+          <div className="form-row">
+            <div className="form-group">
+              <label>Alert when stock falls to or below</label>
+
+              <input
+                type="number"
+                name="restockAlertQuantity"
+                placeholder="e.g. 10"
+                value={formData.restockAlertQuantity}
+                onChange={handleChange}
+                min="0"
+                required
               />
             </div>
           </div>

@@ -113,6 +113,23 @@ const productSchema = new mongoose.Schema(
       default: 0,
       min: 0,
     },
+
+    // Off by default — every product already gets a generic low-stock
+    // alert at the site-wide threshold (see LOW_STOCK_THRESHOLD in
+    // adminController.js). This lets an admin opt a specific product
+    // into its own restock quantity instead (e.g. a fast seller that
+    // needs reordering well before it actually runs low).
+    restockAlertEnabled: {
+      type: Boolean,
+      default: false,
+    },
+
+    // Only meaningful when restockAlertEnabled is true.
+    restockAlertQuantity: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
   },
   {
     timestamps: true,

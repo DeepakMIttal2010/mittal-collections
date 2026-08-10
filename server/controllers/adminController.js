@@ -146,8 +146,20 @@ export const getNotifications = async (req, res) => {
 
     // Low stock is a live gauge, not a discrete "new" event — there's no
     // isSeenByAdmin to clear, it just stops appearing once restocked.
+    // Products with their own restockAlertEnabled/Quantity use that
+    // instead of the site-wide default threshold.
     const lowStockCount = await Product.countDocuments({
-      stock: { $gt: 0, $lte: LOW_STOCK_THRESHOLD },
+      stock: { $gt: 0 },
+      $or: [
+        {
+          restockAlertEnabled: true,
+          $expr: { $lte: ["$stock", "$restockAlertQuantity"] },
+        },
+        {
+          restockAlertEnabled: { $ne: true },
+          stock: { $lte: LOW_STOCK_THRESHOLD },
+        },
+      ],
     });
     const outOfStockCount = await Product.countDocuments({ stock: 0 });
 
