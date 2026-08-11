@@ -72,6 +72,7 @@ function ProductDetails() {
     totalReviews: 0,
   });
 
+  const [descExpanded, setDescExpanded] = useState(false);
   const [notifyEmail, setNotifyEmail] = useState("");
   const [notifySubmitted, setNotifySubmitted] = useState(false);
   const [notifySending, setNotifySending] = useState(false);
@@ -492,7 +493,7 @@ function ProductDetails() {
           </div>
 
           {hasThumbnails && (
-            <div className="grid grid-cols-3 sm:grid-cols-1 gap-3">
+            <div className="grid grid-cols-3 sm:grid-cols-1 gap-3 content-start">
               {visibleThumbs.map((item, index) => {
                 const isOverflowTile =
                   index === visibleThumbCount - 1 && overflowCount > 0;
@@ -627,9 +628,27 @@ function ProductDetails() {
               </form>
             ))}
 
-          <p className="text-slate-600 leading-relaxed mb-6">
-            {product.description}
-          </p>
+          <div className="mb-6">
+            <p
+              className={`text-slate-600 leading-relaxed whitespace-pre-line ${
+                descExpanded || product.description.length <= 280
+                  ? ""
+                  : "line-clamp-4"
+              }`}
+            >
+              {product.description}
+            </p>
+
+            {product.description.length > 280 && (
+              <button
+                type="button"
+                onClick={() => setDescExpanded((prev) => !prev)}
+                className="text-sm font-medium text-blue-600 hover:underline mt-1.5"
+              >
+                {descExpanded ? "Show less" : "See more product details"}
+              </button>
+            )}
+          </div>
 
           {specRows.length > 0 && (
             <div className="border border-slate-200 rounded-xl divide-y divide-slate-100 mb-6">
