@@ -191,6 +191,14 @@ function ProductDetails() {
   const visibleThumbs = mediaItems.slice(0, visibleThumbCount);
   const overflowCount = mediaItems.length - visibleThumbCount;
 
+  // Touchscreens fire a synthetic mousemove on tap but never a matching
+  // mouseleave, so the hover-zoom would set scale(2) once and never reset —
+  // leaving the image permanently zoomed on whatever point was tapped.
+  // Only wire the effect up for real pointer devices that support hover.
+  const supportsHoverZoom =
+    typeof window !== "undefined" &&
+    window.matchMedia?.("(hover: hover) and (pointer: fine)").matches;
+
   const handleMouseMove = (e) => {
     const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
     const x = ((e.clientX - left) / width) * 100;
@@ -445,10 +453,14 @@ function ProductDetails() {
                 activeMedia?.type === "video" ? "" : "cursor-zoom-in"
               }`}
               onMouseMove={
-                activeMedia?.type === "image" ? handleMouseMove : undefined
+                activeMedia?.type === "image" && supportsHoverZoom
+                  ? handleMouseMove
+                  : undefined
               }
               onMouseLeave={
-                activeMedia?.type === "image" ? handleMouseLeave : undefined
+                activeMedia?.type === "image" && supportsHoverZoom
+                  ? handleMouseLeave
+                  : undefined
               }
               onClick={
                 activeMedia?.type === "image" ? openLightbox : undefined
