@@ -14,6 +14,13 @@ import ProductQuickView from "../../components/admin/ProductQuickView";
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
+const OPTIONAL_COLUMNS = [
+  { key: "featured", label: "Featured" },
+  { key: "isReturnable", label: "Returnable" },
+  { key: "isTrending", label: "Trending" },
+  { key: "restockAlertEnabled", label: "Restock Alert" },
+];
+
 function AdminProducts() {
   const navigate = useNavigate();
 
@@ -28,6 +35,16 @@ function AdminProducts() {
   const [quickViewProduct, setQuickViewProduct] = useState(null);
   const [sortBy, setSortBy] = useState("createdAt");
   const [sortOrder, setSortOrder] = useState("desc");
+  const [visibleColumns, setVisibleColumns] = useState({
+    featured: false,
+    isReturnable: false,
+    isTrending: false,
+    restockAlertEnabled: false,
+  });
+
+  const toggleColumn = (key) => {
+    setVisibleColumns((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
 
   const loadProducts = async () => {
     setLoading(true);
@@ -240,6 +257,28 @@ function AdminProducts() {
         </div>
       )}
 
+      {viewMode === "list" && products.length > 0 && (
+        <div className="mb-4 flex flex-wrap items-center gap-4 bg-white border border-slate-200 rounded-lg px-4 py-2.5">
+          <span className="text-xs font-semibold text-slate-500">
+            Show columns:
+          </span>
+          {OPTIONAL_COLUMNS.map((col) => (
+            <label
+              key={col.key}
+              className="flex items-center gap-1.5 text-sm text-slate-700 cursor-pointer select-none"
+            >
+              <input
+                type="checkbox"
+                checked={visibleColumns[col.key]}
+                onChange={() => toggleColumn(col.key)}
+                className="rounded border-slate-300"
+              />
+              {col.label}
+            </label>
+          ))}
+        </div>
+      )}
+
       {products.length === 0 ? (
         <div className="text-center text-slate-500 py-12 bg-white rounded-lg border border-slate-200">
           No Products Found
@@ -281,6 +320,19 @@ function AdminProducts() {
                   Created
                   {renderSortIcon("createdAt")}
                 </th>
+                {OPTIONAL_COLUMNS.map(
+                  (col) =>
+                    visibleColumns[col.key] && (
+                      <th
+                        key={col.key}
+                        className="text-center px-4 py-3 font-semibold cursor-pointer select-none hover:text-slate-900"
+                        onClick={() => toggleSort(col.key)}
+                      >
+                        {col.label}
+                        {renderSortIcon(col.key)}
+                      </th>
+                    ),
+                )}
                 <th className="text-center px-4 py-3 font-semibold">
                   Status
                 </th>
@@ -333,6 +385,22 @@ function AdminProducts() {
                       year: "numeric",
                     })}
                   </td>
+                  {OPTIONAL_COLUMNS.map(
+                    (col) =>
+                      visibleColumns[col.key] && (
+                        <td key={col.key} className="px-4 py-3 text-center">
+                          <span
+                            className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
+                              product[col.key]
+                                ? "bg-blue-100 text-blue-700"
+                                : "bg-slate-100 text-slate-500"
+                            }`}
+                          >
+                            {product[col.key] ? "Yes" : "No"}
+                          </span>
+                        </td>
+                      ),
+                  )}
                   <td className="px-4 py-3 text-center">
                     <span
                       className={`text-xs font-semibold px-2.5 py-1 rounded-full ${

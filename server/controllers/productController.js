@@ -254,7 +254,16 @@ export const getAllProductsAdmin = async (req, res) => {
     const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
     const limit = Math.max(parseInt(req.query.limit, 10) || 25, 1);
 
-    const allowedSortFields = ["name", "price", "stock", "createdAt"];
+    const allowedSortFields = [
+      "name",
+      "price",
+      "stock",
+      "createdAt",
+      "featured",
+      "isReturnable",
+      "isTrending",
+      "restockAlertEnabled",
+    ];
     const sortBy = allowedSortFields.includes(req.query.sortBy)
       ? req.query.sortBy
       : "createdAt";
