@@ -263,6 +263,7 @@ export const getAllProductsAdmin = async (req, res) => {
       "isReturnable",
       "isTrending",
       "restockAlertEnabled",
+      "categoryName",
     ];
     const sortBy = allowedSortFields.includes(req.query.sortBy)
       ? req.query.sortBy
@@ -271,21 +272,53 @@ export const getAllProductsAdmin = async (req, res) => {
 
     const total = await Product.countDocuments(filter);
 
-    const products = await Product.find(filter)
-      .populate("category", "name slug image")
-      .populate("subcategory", "name slug")
-      .sort({ [sortBy]: sortOrder })
-      .skip((page - 1) * limit)
-      .limit(limit);
+    let products;
 
-    const productsWithNumber = products.map((product) => ({
-      ...product.toObject(),
-      productNumber: generateProductNumber({
-        purchaseDate: product.purchaseDate,
-        purchasePrice: product.purchasePrice,
-        productId: product._id,
-      }),
-    }));
+    if (sortBy === "categoryName") {
+      // category is a reference, so sorting by its name needs an actual
+      // join — a plain .sort() would just order by the raw ObjectId.
+      const raw = await Product.aggregate([
+        { $match: filter },
+        {
+          $lookup: {
+            from: "categories",
+            localField: "category",
+            foreignField: "_id",
+            as: "categoryDoc",
+          },
+        },
+        { $unwind: { path: "$categoryDoc", preserveNullAndEmptyArrays: true } },
+        { $sort: { "categoryDoc.name": sortOrder } },
+        { $skip: (page - 1) * limit },
+        { $limit: limit },
+      ]);
+
+      products = await Product.populate(raw, [
+        { path: "category", select: "name slug image" },
+        { path: "subcategory", select: "name slug" },
+      ]);
+    } else {
+      products = await Product.find(filter)
+        .populate("category", "name slug image")
+        .populate("subcategory", "name slug")
+        .sort({ [sortBy]: sortOrder })
+        .skip((page - 1) * limit)
+        .limit(limit);
+    }
+
+    const productsWithNumber = products.map((product) => {
+      const obj =
+        typeof product.toObject === "function" ? product.toObject() : product;
+
+      return {
+        ...obj,
+        productNumber: generateProductNumber({
+          purchaseDate: obj.purchaseDate,
+          purchasePrice: obj.purchasePrice,
+          productId: obj._id,
+        }),
+      };
+    });
 
     res.status(200).json({
       success: true,

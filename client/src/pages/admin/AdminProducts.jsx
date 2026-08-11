@@ -296,8 +296,12 @@ function AdminProducts() {
                   Name
                   {renderSortIcon("name")}
                 </th>
-                <th className="text-left px-4 py-3 font-semibold">
+                <th
+                  className="text-left px-4 py-3 font-semibold cursor-pointer select-none hover:text-slate-900"
+                  onClick={() => toggleSort("categoryName")}
+                >
                   Category
+                  {renderSortIcon("categoryName")}
                 </th>
                 <th
                   className="text-left px-4 py-3 font-semibold cursor-pointer select-none hover:text-slate-900"
