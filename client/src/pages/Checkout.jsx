@@ -49,6 +49,7 @@ function Checkout() {
     deliveryFee: 49,
     shippingTiers: [],
   });
+  const [showDeliveryInfo, setShowDeliveryInfo] = useState(false);
 
   useEffect(() => {
     if (!isLoggedIn) {
@@ -129,6 +130,10 @@ function Checkout() {
   const deliveryFee =
     totalPrice === 0 ? 0 : calculateDeliveryFee(totalPrice, shipping);
   const discountAmount = appliedCoupon?.discountAmount || 0;
+
+  const sortedShippingTiers = [...shipping.shippingTiers].sort(
+    (a, b) => a.maxOrderValue - b.maxOrderValue,
+  );
 
   const maxRedeemablePoints = Math.max(
     0,
@@ -501,9 +506,46 @@ function Checkout() {
                 <span>₹{totalPrice}</span>
               </div>
               <div className="flex justify-between text-slate-600">
-                <span>Delivery:</span>
+                <button
+                  type="button"
+                  onClick={() => setShowDeliveryInfo((prev) => !prev)}
+                  className="text-blue-600 hover:underline"
+                >
+                  Delivery:
+                </button>
                 <span>{deliveryFee === 0 ? "FREE" : `₹${deliveryFee}`}</span>
               </div>
+
+              {showDeliveryInfo && (
+                <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs text-slate-600 space-y-1.5">
+                  <p className="font-semibold text-slate-700">
+                    Delivery charges
+                  </p>
+
+                  {sortedShippingTiers.length > 0 ? (
+                    sortedShippingTiers.map((tier) => (
+                      <div
+                        key={tier._id || tier.maxOrderValue}
+                        className="flex justify-between"
+                      >
+                        <span>Orders under ₹{tier.maxOrderValue}</span>
+                        <span>₹{tier.fee}</span>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="flex justify-between">
+                      <span>Orders under ₹{shipping.freeShippingThreshold}</span>
+                      <span>₹{shipping.deliveryFee}</span>
+                    </div>
+                  )}
+
+                  <div className="flex justify-between text-green-700 font-medium">
+                    <span>Orders ₹{shipping.freeShippingThreshold} and above</span>
+                    <span>FREE</span>
+                  </div>
+                </div>
+              )}
+
               {discountAmount > 0 && (
                 <div className="flex justify-between text-green-600">
                   <span>Discount ({appliedCoupon.code}):</span>
