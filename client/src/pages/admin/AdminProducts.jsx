@@ -1,7 +1,14 @@
 import { imgUrl } from "../../services/api";
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { FaTh, FaList, FaSort, FaSortUp, FaSortDown } from "react-icons/fa";
+import {
+  FaTh,
+  FaList,
+  FaSort,
+  FaSortUp,
+  FaSortDown,
+  FaFileExcel,
+} from "react-icons/fa";
 
 import {
   getAllProducts,
@@ -10,6 +17,8 @@ import {
   permanentlyDeleteProduct,
   duplicateProduct,
 } from "../../services/adminProductService";
+import { getCategories } from "../../services/categoryService";
+import { getSubcategories } from "../../services/subcategoryService";
 import ProductQuickView from "../../components/admin/ProductQuickView";
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
@@ -42,9 +51,34 @@ function AdminProducts() {
     restockAlertEnabled: false,
   });
 
+  const [categories, setCategories] = useState([]);
+  const [subcategories, setSubcategories] = useState([]);
+  const [categoryFilter, setCategoryFilter] = useState("");
+  const [subcategoryFilter, setSubcategoryFilter] = useState("");
+  const [exporting, setExporting] = useState(false);
+
   const toggleColumn = (key) => {
     setVisibleColumns((prev) => ({ ...prev, [key]: !prev[key] }));
   };
+
+  useEffect(() => {
+    const loadFilterOptions = async () => {
+      const [categoriesRes, subcategoriesRes] = await Promise.all([
+        getCategories(),
+        getSubcategories(),
+      ]);
+
+      if (categoriesRes.success) setCategories(categoriesRes.categories);
+      if (subcategoriesRes.success)
+        setSubcategories(subcategoriesRes.subcategories);
+    };
+
+    loadFilterOptions();
+  }, []);
+
+  const subcategoryOptions = subcategories.filter(
+    (sub) => sub.category?._id === categoryFilter,
+  );
 
   const loadProducts = async () => {
     setLoading(true);
@@ -55,6 +89,8 @@ function AdminProducts() {
       search,
       sortBy,
       sortOrder,
+      category: categoryFilter,
+      subcategory: subcategoryFilter,
     });
 
     if (response.success) {
@@ -69,11 +105,128 @@ function AdminProducts() {
   useEffect(() => {
     loadProducts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, limit, search, sortBy, sortOrder]);
+  }, [page, limit, search, sortBy, sortOrder, categoryFilter, subcategoryFilter]);
 
   const handleSearchChange = (e) => {
     setSearch(e.target.value);
     setPage(1);
+  };
+
+  const handleCategoryFilterChange = (e) => {
+    setCategoryFilter(e.target.value);
+    setSubcategoryFilter("");
+    setPage(1);
+  };
+
+  const handleSubcategoryFilterChange = (e) => {
+    setSubcategoryFilter(e.target.value);
+    setPage(1);
+  };
+
+  const handleResetFilters = () => {
+    setCategoryFilter("");
+    setSubcategoryFilter("");
+    setSearch("");
+    setPage(1);
+  };
+
+  const escapeCsv = (val) => {
+    const s = val === undefined || val === null ? "" : String(val);
+    return s.includes(",") || s.includes('"') || s.includes("\n")
+      ? `"${s.replace(/"/g, '""')}"`
+      : s;
+  };
+
+  const handleExportExcel = async () => {
+    setExporting(true);
+
+    const response = await getAllProducts({
+      page: 1,
+      limit: 5000,
+      search,
+      sortBy,
+      sortOrder,
+      category: categoryFilter,
+      subcategory: subcategoryFilter,
+    });
+
+    setExporting(false);
+
+    if (!response.success || response.products.length === 0) {
+      alert("No products to export for the current filters");
+      return;
+    }
+
+    const columns = [
+      "Name",
+      "Category",
+      "Subcategory",
+      "Price",
+      "MRP",
+      "Stock",
+      "Fabric",
+      "Size",
+      "GSM",
+      "Wash Care",
+      "Brand",
+      "Country of Origin",
+      "Featured",
+      "Returnable",
+      "Trending",
+      "Restock Alert",
+      "Status",
+      "Product ID",
+      "Product Number",
+      "Created Date",
+      "Product URL",
+    ];
+
+    const rows = response.products.map((p) => [
+      p.name,
+      p.category?.name || "",
+      p.subcategory?.name || "",
+      p.price,
+      p.oldPrice || "",
+      p.stock,
+      p.fabric || "",
+      p.size || "",
+      p.gsm || "",
+      p.washCare || "",
+      p.brand || "",
+      p.countryOfOrigin || "",
+      p.featured ? "Yes" : "No",
+      p.isReturnable ? "Yes" : "No",
+      p.isTrending ? "Yes" : "No",
+      p.restockAlertEnabled ? "Yes" : "No",
+      p.isActive ? "Active" : "Inactive",
+      p._id,
+      p.productNumber || "",
+      new Date(p.createdAt).toLocaleDateString("en-IN", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      }),
+      `${window.location.origin}/product/${p._id}/${p.slug}`,
+    ]);
+
+    const csv =
+      "﻿" +
+      [columns, ...rows].map((row) => row.map(escapeCsv).join(",")).join("\r\n");
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const filterLabel = [
+      categories.find((c) => c._id === categoryFilter)?.name,
+      subcategories.find((s) => s._id === subcategoryFilter)?.name,
+    ]
+      .filter(Boolean)
+      .join("-");
+
+    link.href = url;
+    link.download = `Mittal_Collections_Products${filterLabel ? `-${filterLabel}` : ""}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
   };
 
   const handleLimitChange = (e) => {
@@ -175,7 +328,7 @@ function AdminProducts() {
       </div>
 
       {/* Search + View Toggle */}
-      <div className="mb-4 flex items-center justify-between gap-4">
+      <div className="mb-3 flex items-center justify-between gap-4">
         <input
           type="text"
           placeholder="Search Product..."
@@ -210,6 +363,64 @@ function AdminProducts() {
             <FaList />
           </button>
         </div>
+      </div>
+
+      {/* Category / Subcategory filters */}
+      <div className="mb-4 flex flex-wrap items-end gap-3">
+        <div className="flex flex-col">
+          <label className="text-xs font-semibold text-slate-500 mb-1">
+            Category
+          </label>
+          <select
+            value={categoryFilter}
+            onChange={handleCategoryFilterChange}
+            className="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">All Categories</option>
+            {categories.map((category) => (
+              <option key={category._id} value={category._id}>
+                {category.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="flex flex-col">
+          <label className="text-xs font-semibold text-slate-500 mb-1">
+            Subcategory
+          </label>
+          <select
+            value={subcategoryFilter}
+            onChange={handleSubcategoryFilterChange}
+            disabled={!categoryFilter}
+            className="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-100 disabled:text-slate-400"
+          >
+            <option value="">All Subcategories</option>
+            {subcategoryOptions.map((sub) => (
+              <option key={sub._id} value={sub._id}>
+                {sub.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <button
+          type="button"
+          onClick={handleResetFilters}
+          className="text-sm font-medium text-blue-600 hover:underline px-1 py-2"
+        >
+          Reset Filters
+        </button>
+
+        <button
+          type="button"
+          onClick={handleExportExcel}
+          disabled={exporting}
+          className="ml-auto flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors disabled:opacity-60"
+        >
+          <FaFileExcel />
+          {exporting ? "Generating..." : "Export to Excel"}
+        </button>
       </div>
 
       {/* Pagination (top) */}
