@@ -12,7 +12,7 @@ function ProductQuickView({ product, onClose }) {
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden relative grid grid-cols-1 sm:grid-cols-2"
+        className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden relative grid grid-cols-1 sm:grid-cols-2 grid-rows-[minmax(0,1fr)]"
       >
         <button
           onClick={onClose}
