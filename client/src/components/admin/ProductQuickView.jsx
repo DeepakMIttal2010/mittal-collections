@@ -22,7 +22,7 @@ function ProductQuickView({ product, onClose }) {
           <FaTimes />
         </button>
 
-        <div className="bg-slate-50 p-4 flex flex-col gap-3 overflow-y-auto">
+        <div className="bg-slate-50 p-4 flex flex-col gap-3 overflow-y-auto min-h-0">
           {images[0] ? (
             <img
               src={`${imgUrl(images[0])}`}
@@ -49,64 +49,68 @@ function ProductQuickView({ product, onClose }) {
           )}
         </div>
 
-        <div className="p-6 overflow-y-auto">
-          <span
-            className={`inline-block text-xs font-semibold px-2.5 py-1 rounded-full mb-3 ${
-              product.isActive
-                ? "bg-green-100 text-green-700"
-                : "bg-red-100 text-red-700"
-            }`}
-          >
-            {product.isActive ? "Active" : "Inactive"}
-          </span>
-
-          {product.featured && (
-            <span className="inline-block text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-100 text-amber-700 mb-3 ml-2">
-              Featured
+        <div className="flex flex-col min-h-0">
+          <div className="p-6 pb-4 overflow-y-auto min-h-0 flex-1">
+            <span
+              className={`inline-block text-xs font-semibold px-2.5 py-1 rounded-full mb-3 ${
+                product.isActive
+                  ? "bg-green-100 text-green-700"
+                  : "bg-red-100 text-red-700"
+              }`}
+            >
+              {product.isActive ? "Active" : "Inactive"}
             </span>
-          )}
 
-          <h2 className="text-xl font-bold text-slate-900 mb-1">
-            {product.name}
-          </h2>
-
-          <p className="text-sm text-slate-500 mb-4">
-            {product.category?.name || "Uncategorized"}
-            {product.subcategory?.name
-              ? ` / ${product.subcategory.name}`
-              : ""}
-          </p>
-
-          <div className="flex items-center gap-3 mb-3">
-            <span className="text-2xl font-bold text-slate-900">
-              ₹{product.price}
-            </span>
-            {product.oldPrice > product.price && (
-              <span className="text-slate-400 line-through">
-                ₹{product.oldPrice}
+            {product.featured && (
+              <span className="inline-block text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-100 text-amber-700 mb-3 ml-2">
+                Featured
               </span>
             )}
+
+            <h2 className="text-xl font-bold text-slate-900 mb-1">
+              {product.name}
+            </h2>
+
+            <p className="text-sm text-slate-500 mb-4">
+              {product.category?.name || "Uncategorized"}
+              {product.subcategory?.name
+                ? ` / ${product.subcategory.name}`
+                : ""}
+            </p>
+
+            <div className="flex items-center gap-3 mb-3">
+              <span className="text-2xl font-bold text-slate-900">
+                ₹{product.price}
+              </span>
+              {product.oldPrice > product.price && (
+                <span className="text-slate-400 line-through">
+                  ₹{product.oldPrice}
+                </span>
+              )}
+            </div>
+
+            <p
+              className={`text-sm font-medium mb-4 ${
+                product.stock > 0 ? "text-green-600" : "text-red-600"
+              }`}
+            >
+              Stock: {product.stock}
+            </p>
+
+            <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-line">
+              {product.description}
+            </p>
           </div>
 
-          <p
-            className={`text-sm font-medium mb-4 ${
-              product.stock > 0 ? "text-green-600" : "text-red-600"
-            }`}
-          >
-            Stock: {product.stock}
-          </p>
-
-          <p className="text-sm text-slate-600 leading-relaxed mb-6 whitespace-pre-line">
-            {product.description}
-          </p>
-
-          <Link
-            to={`/admin/products/edit/${product._id}`}
-            onClick={onClose}
-            className="inline-block bg-blue-600 hover:bg-blue-700 text-white font-medium px-5 py-2.5 rounded-lg transition-colors"
-          >
-            Edit Product
-          </Link>
+          <div className="px-6 py-4 border-t border-slate-100 shrink-0">
+            <Link
+              to={`/admin/products/edit/${product._id}`}
+              onClick={onClose}
+              className="inline-block bg-blue-600 hover:bg-blue-700 text-white font-medium px-5 py-2.5 rounded-lg transition-colors"
+            >
+              Edit Product
+            </Link>
+          </div>
         </div>
       </div>
     </div>
