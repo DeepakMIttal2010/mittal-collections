@@ -23,11 +23,17 @@ function ProductQuickView({ product, onClose }) {
         </button>
 
         <div className="bg-slate-50 p-4 flex flex-col gap-3 overflow-y-auto">
-          <img
-            src={`${imgUrl(images[0])}`}
-            alt={product.name}
-            className="w-full aspect-square object-cover rounded-lg border border-slate-200"
-          />
+          {images[0] ? (
+            <img
+              src={`${imgUrl(images[0])}`}
+              alt={product.name}
+              className="w-full aspect-square object-cover rounded-lg border border-slate-200"
+            />
+          ) : (
+            <div className="w-full aspect-square flex items-center justify-center rounded-lg border border-slate-200 bg-slate-100 text-slate-400 text-sm font-medium">
+              No Image
+            </div>
+          )}
 
           {images.length > 1 && (
             <div className="flex gap-2 flex-wrap">

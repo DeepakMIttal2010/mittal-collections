@@ -8,6 +8,7 @@ import {
   getProducts,
   getAllProductsAdmin,
   getProductByIdAdmin,
+  duplicateProduct,
   decodeProductNumberController,
   getTrendingProducts,
   getBestSellers,
@@ -54,6 +55,13 @@ router.post(
   productMediaFields,
   imageOptimizer,
   addProduct,
+);
+
+router.post(
+  "/:id/duplicate",
+  authMiddleware,
+  adminMiddleware,
+  duplicateProduct,
 );
 
 router.put(

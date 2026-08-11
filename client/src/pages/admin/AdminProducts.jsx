@@ -1,6 +1,6 @@
 import { imgUrl } from "../../services/api";
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { FaTh, FaList, FaSort, FaSortUp, FaSortDown } from "react-icons/fa";
 
 import {
@@ -8,12 +8,15 @@ import {
   restoreProduct,
   deleteProduct,
   permanentlyDeleteProduct,
+  duplicateProduct,
 } from "../../services/adminProductService";
 import ProductQuickView from "../../components/admin/ProductQuickView";
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
 function AdminProducts() {
+  const navigate = useNavigate();
+
   const [products, setProducts] = useState([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
@@ -92,6 +95,16 @@ function AdminProducts() {
 
     if (response.success) {
       loadProducts();
+    } else {
+      alert(response.message);
+    }
+  };
+
+  const handleDuplicate = async (id) => {
+    const response = await duplicateProduct(id);
+
+    if (response.success) {
+      navigate(`/admin/products/edit/${response.product._id}`);
     } else {
       alert(response.message);
     }
@@ -281,12 +294,21 @@ function AdminProducts() {
               {products.map((product) => (
                 <tr key={product._id} className="hover:bg-slate-50">
                   <td className="px-4 py-3">
-                    <img
-                      src={`${imgUrl(product.image)}`}
-                      alt={product.name}
-                      onClick={() => setQuickViewProduct(product)}
-                      className="w-12 h-12 object-cover rounded-lg cursor-pointer hover:opacity-80 transition-opacity"
-                    />
+                    {product.image ? (
+                      <img
+                        src={`${imgUrl(product.image)}`}
+                        alt={product.name}
+                        onClick={() => setQuickViewProduct(product)}
+                        className="w-12 h-12 object-cover rounded-lg cursor-pointer hover:opacity-80 transition-opacity"
+                      />
+                    ) : (
+                      <div
+                        onClick={() => setQuickViewProduct(product)}
+                        className="w-12 h-12 flex items-center justify-center rounded-lg bg-slate-100 text-slate-400 text-[9px] font-medium text-center leading-tight cursor-pointer"
+                      >
+                        No Image
+                      </div>
+                    )}
                   </td>
                   <td className="px-4 py-3 font-medium text-slate-800">
                     {product.name}
@@ -339,6 +361,12 @@ function AdminProducts() {
                             QR
                           </Link>
                           <button
+                            onClick={() => handleDuplicate(product._id)}
+                            className="text-xs font-medium px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white"
+                          >
+                            Duplicate
+                          </button>
+                          <button
                             onClick={() => handleDelete(product._id)}
                             className="text-xs font-medium px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white"
                           >
@@ -377,12 +405,21 @@ function AdminProducts() {
             >
               {/* Image + Status badge */}
               <div className="relative">
-                <img
-                  src={`${imgUrl(product.image)}`}
-                  alt={product.name}
-                  onClick={() => setQuickViewProduct(product)}
-                  className="w-full h-44 object-cover cursor-pointer hover:opacity-90 transition-opacity"
-                />
+                {product.image ? (
+                  <img
+                    src={`${imgUrl(product.image)}`}
+                    alt={product.name}
+                    onClick={() => setQuickViewProduct(product)}
+                    className="w-full h-44 object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                  />
+                ) : (
+                  <div
+                    onClick={() => setQuickViewProduct(product)}
+                    className="w-full h-44 flex items-center justify-center bg-slate-100 text-slate-400 text-sm font-medium cursor-pointer"
+                  >
+                    No Image
+                  </div>
+                )}
 
                 <span
                   className={`absolute top-2 right-2 text-xs font-semibold px-2 py-1 rounded-full ${
@@ -420,26 +457,33 @@ function AdminProducts() {
                 </div>
 
                 {/* Actions */}
-                <div className="mt-auto flex gap-2">
+                <div className="mt-auto grid grid-cols-2 gap-2">
                   {product.isActive ? (
                     <>
                       <Link
                         to={`/admin/products/edit/${product._id}`}
-                        className="flex-1 text-center bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium py-2 rounded-lg transition-colors"
+                        className="text-center bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium py-2 rounded-lg transition-colors"
                       >
                         Edit
                       </Link>
 
                       <Link
                         to={`/admin/products/${product._id}/qr`}
-                        className="flex-1 text-center bg-slate-600 hover:bg-slate-700 text-white text-sm font-medium py-2 rounded-lg transition-colors"
+                        className="text-center bg-slate-600 hover:bg-slate-700 text-white text-sm font-medium py-2 rounded-lg transition-colors"
                       >
                         QR
                       </Link>
 
                       <button
+                        onClick={() => handleDuplicate(product._id)}
+                        className="text-center bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium py-2 rounded-lg transition-colors"
+                      >
+                        Duplicate
+                      </button>
+
+                      <button
                         onClick={() => handleDelete(product._id)}
-                        className="flex-1 text-center bg-red-600 hover:bg-red-700 text-white text-sm font-medium py-2 rounded-lg transition-colors"
+                        className="text-center bg-red-600 hover:bg-red-700 text-white text-sm font-medium py-2 rounded-lg transition-colors"
                       >
                         Delete
                       </button>
@@ -448,13 +492,13 @@ function AdminProducts() {
                     <>
                       <button
                         onClick={() => handleRestore(product._id)}
-                        className="flex-1 text-center bg-green-600 hover:bg-green-700 text-white text-sm font-medium py-2 rounded-lg transition-colors"
+                        className="text-center bg-green-600 hover:bg-green-700 text-white text-sm font-medium py-2 rounded-lg transition-colors"
                       >
                         Restore
                       </button>
                       <button
                         onClick={() => handlePermanentDelete(product._id)}
-                        className="flex-1 text-center border border-red-600 text-red-600 hover:bg-red-50 text-sm font-medium py-2 rounded-lg transition-colors"
+                        className="text-center border border-red-600 text-red-600 hover:bg-red-50 text-sm font-medium py-2 rounded-lg transition-colors"
                       >
                         Delete Permanently
                       </button>

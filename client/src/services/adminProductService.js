@@ -201,6 +201,29 @@ export const restoreProduct = async (id) => {
 };
 
 // ==============================
+// DUPLICATE PRODUCT (copies everything except images)
+// ==============================
+export const duplicateProduct = async (id) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/products/${id}/duplicate`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${getToken()}`,
+      },
+    });
+
+    return await response.json();
+  } catch (error) {
+    console.error("Duplicate Product Error:", error);
+
+    return {
+      success: false,
+      message: "Unable to duplicate product",
+    };
+  }
+};
+
+// ==============================
 // DELETE PRODUCT
 // ==============================
 export const deleteProduct = async (id) => {

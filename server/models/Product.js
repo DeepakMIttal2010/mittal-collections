@@ -44,9 +44,13 @@ const productSchema = new mongoose.Schema(
       default: null,
     },
 
+    // Required for a normal add/edit (enforced in the controller, since
+    // multipart form validation doesn't belong in the schema) — but left
+    // optional here so a duplicated product (see duplicateProduct) can
+    // exist briefly without one, until the admin uploads real images.
     image: {
       type: String,
-      required: [true, "Image is required"],
+      default: "",
     },
 
     images: {

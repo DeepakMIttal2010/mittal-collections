@@ -334,6 +334,75 @@ export const getProductByIdAdmin = async (req, res) => {
 };
 
 // ============================
+// DUPLICATE PRODUCT (Admin) — copies everything except images, so the
+// admin can reuse a product as a starting point and just upload fresh
+// photos on the Edit page afterwards. Inactive until they do.
+// ============================
+export const duplicateProduct = async (req, res) => {
+  try {
+    const source = await Product.findById(req.params.id);
+
+    if (!source) {
+      return res.status(404).json({
+        success: false,
+        message: "Product not found",
+      });
+    }
+
+    const name = `${source.name} (Copy)`;
+
+    const duplicate = await Product.create({
+      name,
+      slug: generateSlug(`${name}-${Date.now()}`),
+      description: source.description,
+      price: source.price,
+      oldPrice: source.oldPrice,
+      category: source.category,
+      subcategory: source.subcategory,
+      stock: source.stock,
+
+      fabric: source.fabric,
+      size: source.size,
+      gsm: source.gsm,
+      washCare: source.washCare,
+      brand: source.brand,
+      countryOfOrigin: source.countryOfOrigin,
+
+      featured: false,
+      isTrending: false,
+      trendingRank: 0,
+      isActive: false,
+
+      isReturnable: source.isReturnable,
+      returnPeriodDays: source.returnPeriodDays,
+
+      restockAlertEnabled: source.restockAlertEnabled,
+      restockAlertQuantity: source.restockAlertQuantity,
+
+      purchasePrice: source.purchasePrice,
+      purchaseDate: source.purchaseDate,
+
+      image: "",
+      images: [],
+      videos: [],
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Product duplicated — add images and activate it on the Edit page",
+      product: duplicate,
+    });
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      success: false,
+      message: "Unable to duplicate product",
+    });
+  }
+};
+
+// ============================
 // DECODE A LABEL'S PRODUCT NUMBER (Admin) — reverse lookup for a staff
 // member reading a printed label back into month/year + cost.
 // ============================
