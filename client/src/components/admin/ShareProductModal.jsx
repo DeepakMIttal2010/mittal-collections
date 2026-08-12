@@ -1,6 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import QRCode from "qrcode";
-import { FaTimes, FaWhatsapp, FaDownload } from "react-icons/fa";
+import { toast } from "react-toastify";
+import {
+  FaTimes,
+  FaShareAlt,
+  FaDownload,
+  FaWhatsapp,
+  FaInstagram,
+  FaFacebookF,
+} from "react-icons/fa";
 
 import { imgUrl } from "../../services/api";
 import { productUrl } from "../../utils/productUrl";
@@ -206,6 +214,8 @@ function ShareProductModal({ product, onClose }) {
   const getBlob = () =>
     new Promise((resolve) => canvasRef.current.toBlob(resolve, "image/png"));
 
+  const caption = `${product.name} — ₹${product.price}\n${productLink}`;
+
   const handleShare = async () => {
     const blob = await getBlob();
     if (!blob) return;
@@ -214,11 +224,23 @@ function ShareProductModal({ product, onClose }) {
       type: "image/png",
     });
 
+    // WhatsApp attaches this text as a caption automatically, but
+    // Instagram and Facebook's share targets both ignore pre-filled
+    // text for anti-spam reasons — copy it to the clipboard so it's a
+    // one-tap paste into their caption field instead of retyping.
+    try {
+      await navigator.clipboard.writeText(caption);
+      toast.info("Caption copied — paste it if Instagram/Facebook don't fill it in");
+    } catch {
+      // Clipboard access can fail (permissions, insecure context) —
+      // not worth blocking the share over.
+    }
+
     try {
       await navigator.share({
         files: [file],
         title: product.name,
-        text: `${product.name} — ₹${product.price}\n${productLink}`,
+        text: caption,
       });
     } catch (err) {
       if (err.name !== "AbortError") {
@@ -281,11 +303,19 @@ function ShareProductModal({ product, onClose }) {
                 <button
                   onClick={handleShare}
                   disabled={rendering}
-                  className="w-full flex items-center justify-center gap-2 bg-[#25D366] hover:bg-[#1ebe5a] text-white font-semibold py-3 rounded-full transition-colors disabled:opacity-50"
+                  className="w-full flex items-center justify-center gap-2 bg-blue-700 hover:bg-blue-800 text-white font-semibold py-3 rounded-full transition-colors disabled:opacity-50"
                 >
-                  <FaWhatsapp className="text-lg" />
-                  Share to WhatsApp
+                  <FaShareAlt />
+                  Share
                 </button>
+              )}
+
+              {canShareFiles && (
+                <p className="flex items-center justify-center gap-3 text-slate-400 text-lg -mt-1">
+                  <FaWhatsapp className="hover:text-[#25D366] transition-colors" />
+                  <FaInstagram className="hover:text-[#E1306C] transition-colors" />
+                  <FaFacebookF className="hover:text-[#1877F2] transition-colors" />
+                </p>
               )}
 
               <button
@@ -298,10 +328,18 @@ function ShareProductModal({ product, onClose }) {
               </button>
             </div>
 
-            {!canShareFiles && (
+            {canShareFiles ? (
+              <p className="text-xs text-slate-500 mt-3">
+                Opens your phone's share menu — pick WhatsApp Status,
+                Instagram Story, Facebook or any app. On Instagram/Facebook
+                the caption often won't fill in automatically (their apps
+                block that); it's copied to your clipboard, so just paste it
+                into the caption field.
+              </p>
+            ) : (
               <p className="text-xs text-slate-500 mt-3">
                 Direct share works on mobile. On desktop, download the image
-                and post it to WhatsApp Status from your phone.
+                and post it from your phone instead.
               </p>
             )}
           </div>
