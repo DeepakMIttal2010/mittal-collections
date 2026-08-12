@@ -69,13 +69,11 @@ export const getDashboardData = async (req, res) => {
 
     const totalUsers = await User.countDocuments();
 
-    const orders = await Order.find();
+    const salesAgg = await Order.aggregate([
+      { $group: { _id: null, totalSales: { $sum: "$totalPrice" } } },
+    ]);
 
-    let totalSales = 0;
-
-    orders.forEach((order) => {
-      totalSales += order.totalPrice || 0;
-    });
+    const totalSales = salesAgg[0]?.totalSales || 0;
 
     const recentOrders = await Order.find()
       .populate("user", "name")

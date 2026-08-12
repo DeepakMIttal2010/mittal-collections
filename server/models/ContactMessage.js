@@ -43,6 +43,9 @@ const contactMessageSchema = new mongoose.Schema(
   },
 );
 
+// Admin notification poll's unread-messages query.
+contactMessageSchema.index({ isRead: 1, createdAt: -1 });
+
 const ContactMessage = mongoose.model("ContactMessage", contactMessageSchema);
 
 export default ContactMessage;

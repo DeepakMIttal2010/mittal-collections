@@ -66,6 +66,8 @@ const ticketSchema = new mongoose.Schema(
 
 ticketSchema.index({ user: 1, lastMessageAt: -1 });
 ticketSchema.index({ status: 1, lastMessageAt: -1 });
+// Admin notification poll's unseen-tickets query.
+ticketSchema.index({ isSeenByAdmin: 1, lastMessageAt: -1 });
 
 const Ticket = mongoose.model("Ticket", ticketSchema);
 

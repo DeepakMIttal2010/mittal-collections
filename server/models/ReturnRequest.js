@@ -79,6 +79,8 @@ returnRequestSchema.index({ user: 1, createdAt: -1 });
 returnRequestSchema.index({ status: 1, createdAt: -1 });
 // One active return request per product-in-order at a time.
 returnRequestSchema.index({ order: 1, product: 1 });
+// Admin notification poll's unseen-returns query.
+returnRequestSchema.index({ isSeenByAdmin: 1, createdAt: -1 });
 
 const ReturnRequest = mongoose.model("ReturnRequest", returnRequestSchema);
 
