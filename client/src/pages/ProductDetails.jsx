@@ -63,6 +63,7 @@ function ProductDetails() {
   const [quantity, setQuantity] = useState(1);
   const [zoomStyle, setZoomStyle] = useState({});
   const [activeMediaIndex, setActiveMediaIndex] = useState(0);
+  const [mainImageLoaded, setMainImageLoaded] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(null);
   const [isLightboxZoomed, setIsLightboxZoomed] = useState(false);
   const [relatedProducts, setRelatedProducts] = useState([]);
@@ -92,6 +93,14 @@ function ProductDetails() {
       if (response.success) setEarnRate(response.loyalty.earnRate);
     });
   }, []);
+
+  // Product photos are progressive JPEGs — on a slow connection the
+  // browser paints a blurry, low-detail first pass before the full
+  // image resolves, which briefly looks broken. Hide the image behind
+  // a plain placeholder until it's actually decoded, then reveal it.
+  useEffect(() => {
+    setMainImageLoaded(false);
+  }, [activeMediaIndex, product?._id]);
 
   useEffect(() => {
     if (user?.email) setNotifyEmail(user.email);
@@ -423,7 +432,7 @@ function ProductDetails() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-12">
+    <div className="w-full min-w-0 max-w-6xl mx-auto px-4 py-12">
       <Seo
         title={product.name}
         description={
@@ -443,11 +452,11 @@ function ProductDetails() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
         {/* Image gallery with zoom */}
         <div
-          className={`grid grid-cols-1 gap-3 ${
+          className={`min-w-0 grid grid-cols-1 gap-3 ${
             hasThumbnails ? "sm:grid-cols-[2fr_1fr]" : ""
           }`}
         >
-          <div>
+          <div className="min-w-0">
             <div
               className={`relative overflow-hidden rounded-xl border border-slate-200 bg-white aspect-square ${
                 activeMedia?.type === "video" ? "" : "cursor-zoom-in"
@@ -475,11 +484,19 @@ function ProductDetails() {
                 />
               ) : (
                 <>
+                  {!mainImageLoaded && (
+                    <div className="absolute inset-0 bg-slate-100 animate-pulse" />
+                  )}
+
                   <img
+                    key={activeMedia?.url}
                     src={`${imgUrl(activeMedia?.url)}`}
                     alt={product.name}
                     style={zoomStyle}
-                    className="w-full h-full object-cover transition-transform duration-200 pointer-events-none"
+                    onLoad={() => setMainImageLoaded(true)}
+                    className={`w-full h-full object-cover transition-all duration-300 pointer-events-none ${
+                      mainImageLoaded ? "opacity-100" : "opacity-0"
+                    }`}
                   />
 
                   <span className="absolute top-3 right-3 bg-white/90 text-slate-600 rounded-full p-2 shadow">
@@ -505,7 +522,7 @@ function ProductDetails() {
           </div>
 
           {hasThumbnails && (
-            <div className="grid grid-cols-3 sm:grid-cols-1 gap-3 content-start">
+            <div className="min-w-0 grid grid-cols-3 sm:grid-cols-1 gap-3 content-start">
               {visibleThumbs.map((item, index) => {
                 const isOverflowTile =
                   index === visibleThumbCount - 1 && overflowCount > 0;
@@ -559,7 +576,7 @@ function ProductDetails() {
         </div>
 
         {/* Details */}
-        <div>
+        <div className="min-w-0">
           <p className="text-sm text-slate-500 mb-1">
             {product.category?.name}
             {product.subcategory?.name ? ` / ${product.subcategory.name}` : ""}

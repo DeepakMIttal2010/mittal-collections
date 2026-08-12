@@ -72,6 +72,24 @@ body {
   box-sizing: border-box;
 }
 
+/*
+  Flex items default to min-width:auto, meaning they refuse to shrink
+  below their content's intrinsic min-content width. Every top-level
+  section (header, page content, footer, ...) is a direct flex item of
+  #root above, so a page whose content has a wide min-content size
+  (e.g. the product gallery's 2fr/1fr grid) was pushing the whole
+  layout wider than the viewport on narrow screens instead of wrapping
+  — causing horizontal overflow site-wide, not just on that one page.
+  min-width:0 alone wasn't enough to make Chrome re-run the stretch
+  sizing against the (now unblocked) available width, so width:100%
+  is set explicitly too rather than relying on the default cross-axis
+  stretch to resolve it.
+*/
+#root > * {
+  width: 100%;
+  min-width: 0;
+}
+
 code,
 .counter {
   font-family: var(--mono);
