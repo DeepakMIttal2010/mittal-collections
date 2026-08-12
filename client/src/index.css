@@ -84,8 +84,14 @@ body {
   sizing against the (now unblocked) available width, so width:100%
   is set explicitly too rather than relying on the default cross-axis
   stretch to resolve it.
+
+  Excludes position:fixed children (App.jsx renders BackToTopButton,
+  WhatsAppButton, ZoomControl and CompareBar as siblings via a
+  Fragment, making them direct #root children too) — forcing
+  width:100% on a fixed-position element stretches it to the full
+  viewport width instead of leaving it at its own content size.
 */
-#root > * {
+#root > *:not(.fixed) {
   width: 100%;
   min-width: 0;
 }
