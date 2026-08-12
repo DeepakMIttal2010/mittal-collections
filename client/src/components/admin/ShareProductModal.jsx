@@ -240,20 +240,24 @@ function ShareProductModal({ product, onClose }) {
   };
 
   return (
-    <div className="fixed inset-0 z-[200] bg-black/60 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 z-10 bg-white flex items-center justify-between px-5 py-4 border-b border-slate-200">
-          <h3 className="font-semibold text-slate-800">Share Product</h3>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 rounded-full flex items-center justify-center text-slate-500 hover:bg-slate-100"
-          >
-            <FaTimes />
-          </button>
-        </div>
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-[1000] bg-black/50 flex items-center justify-center p-4"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="relative bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] grid-rows-[minmax(0,1fr)]"
+      >
+        <button
+          onClick={onClose}
+          aria-label="Close"
+          className="absolute top-3 right-3 z-10 w-8 h-8 rounded-full bg-white/90 hover:bg-white text-slate-600 flex items-center justify-center shadow"
+        >
+          <FaTimes />
+        </button>
 
-        <div className="p-5">
-          <div className="relative rounded-xl overflow-hidden bg-slate-100 aspect-[9/16]">
+        <div className="bg-slate-50 p-4 overflow-y-auto min-h-0 flex items-center justify-center">
+          <div className="relative rounded-lg overflow-hidden bg-slate-100 w-full max-w-[280px] aspect-[9/16] mx-auto">
             {rendering && (
               <div className="absolute inset-0 flex items-center justify-center text-sm text-slate-400">
                 Generating...
@@ -261,37 +265,46 @@ function ShareProductModal({ product, onClose }) {
             )}
             <canvas ref={canvasRef} className="w-full h-full object-contain" />
           </div>
+        </div>
 
-          {error && <p className="text-sm text-red-600 mt-3">{error}</p>}
+        <div className="flex flex-col min-h-0">
+          <div className="p-6 pb-4 overflow-y-auto min-h-0 flex-1">
+            <h3 className="font-bold text-slate-900 text-lg mb-1">
+              Share Product
+            </h3>
+            <p className="text-sm text-slate-500 mb-4">{product.name}</p>
 
-          <div className="mt-4 space-y-2">
-            {canShareFiles && (
+            {error && <p className="text-sm text-red-600 mb-3">{error}</p>}
+
+            <div className="space-y-2">
+              {canShareFiles && (
+                <button
+                  onClick={handleShare}
+                  disabled={rendering}
+                  className="w-full flex items-center justify-center gap-2 bg-[#25D366] hover:bg-[#1ebe5a] text-white font-semibold py-3 rounded-full transition-colors disabled:opacity-50"
+                >
+                  <FaWhatsapp className="text-lg" />
+                  Share to WhatsApp
+                </button>
+              )}
+
               <button
-                onClick={handleShare}
+                onClick={handleDownload}
                 disabled={rendering}
-                className="w-full flex items-center justify-center gap-2 bg-[#25D366] hover:bg-[#1ebe5a] text-white font-semibold py-3 rounded-full transition-colors disabled:opacity-50"
+                className="w-full flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-900 text-white font-semibold py-3 rounded-full transition-colors disabled:opacity-50"
               >
-                <FaWhatsapp className="text-lg" />
-                Share to WhatsApp
+                <FaDownload />
+                Download Image
               </button>
+            </div>
+
+            {!canShareFiles && (
+              <p className="text-xs text-slate-500 mt-3">
+                Direct share works on mobile. On desktop, download the image
+                and post it to WhatsApp Status from your phone.
+              </p>
             )}
-
-            <button
-              onClick={handleDownload}
-              disabled={rendering}
-              className="w-full flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-900 text-white font-semibold py-3 rounded-full transition-colors disabled:opacity-50"
-            >
-              <FaDownload />
-              Download Image
-            </button>
           </div>
-
-          {!canShareFiles && (
-            <p className="text-xs text-slate-500 mt-3 text-center">
-              Direct share works on mobile. On desktop, download the image
-              and post it to WhatsApp Status from your phone.
-            </p>
-          )}
         </div>
       </div>
     </div>
