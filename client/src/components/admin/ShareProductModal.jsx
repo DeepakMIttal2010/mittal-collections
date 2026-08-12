@@ -300,6 +300,16 @@ function ShareProductModal({ product, onClose }) {
 
             <div className="space-y-2">
               {canShareFiles && (
+                <div className="flex items-center justify-center gap-2 text-xs text-slate-500 mb-1">
+                  <span>Share via</span>
+                  <FaWhatsapp className="text-base text-[#25D366]" />
+                  <FaInstagram className="text-base text-[#E1306C]" />
+                  <FaFacebookF className="text-base text-[#1877F2]" />
+                  <span>& more</span>
+                </div>
+              )}
+
+              {canShareFiles && (
                 <button
                   onClick={handleShare}
                   disabled={rendering}
@@ -308,14 +318,6 @@ function ShareProductModal({ product, onClose }) {
                   <FaShareAlt />
                   Share
                 </button>
-              )}
-
-              {canShareFiles && (
-                <p className="flex items-center justify-center gap-3 text-slate-400 text-lg -mt-1">
-                  <FaWhatsapp className="hover:text-[#25D366] transition-colors" />
-                  <FaInstagram className="hover:text-[#E1306C] transition-colors" />
-                  <FaFacebookF className="hover:text-[#1877F2] transition-colors" />
-                </p>
               )}
 
               <button
