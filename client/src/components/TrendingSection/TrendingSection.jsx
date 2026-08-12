@@ -6,18 +6,19 @@ import { FaChevronLeft, FaChevronRight, FaFire } from "react-icons/fa";
 import { getTrendingProducts } from "../../services/productService";
 import Skeleton from "../Skeleton";
 import { productUrl } from "../../utils/productUrl";
+import { useLanguage } from "../../context/LanguageContext";
 
-const timeAgo = (dateString) => {
+const timeAgo = (dateString, t) => {
   const seconds = Math.floor((Date.now() - new Date(dateString)) / 1000);
 
-  if (seconds < 60) return "just now";
+  if (seconds < 60) return t("just now", "अभी अभी");
   const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
+  if (minutes < 60) return t(`${minutes}m ago`, `${minutes} मिनट पहले`);
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
+  if (hours < 24) return t(`${hours}h ago`, `${hours} घंटे पहले`);
   const days = Math.floor(hours / 24);
-  if (days === 1) return "today";
-  if (days < 7) return `${days}d ago`;
+  if (days === 1) return t("today", "आज");
+  if (days < 7) return t(`${days}d ago`, `${days} दिन पहले`);
   return new Date(dateString).toLocaleDateString();
 };
 
@@ -26,6 +27,7 @@ function TrendingSection() {
   const [lastUpdated, setLastUpdated] = useState(null);
   const [loading, setLoading] = useState(true);
   const scrollRef = useRef(null);
+  const { t } = useLanguage();
 
   useEffect(() => {
     const loadTrending = async () => {
@@ -59,14 +61,14 @@ function TrendingSection() {
         <div className="flex items-end justify-between flex-wrap gap-4 mb-2">
           <div>
             <h2 className="text-4xl md:text-5xl font-black text-slate-900">
-              Top Trending
+              {t("Top Trending", "सबसे ज़्यादा ट्रेंडिंग")}
             </h2>
             <p className="text-sm text-slate-500 mt-2 flex items-center gap-2">
-              on Mittal Collections
+              {t("on Mittal Collections", "मित्तल कलेक्शंस पर")}
               {lastUpdated && (
                 <>
                   <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                  Updated {timeAgo(lastUpdated)}
+                  {t("Updated", "अपडेट किया गया")} {timeAgo(lastUpdated, t)}
                 </>
               )}
             </p>
@@ -77,7 +79,7 @@ function TrendingSection() {
               to="/trending"
               className="inline-flex items-center border border-slate-300 rounded-full px-5 py-2.5 text-sm font-semibold text-slate-800 hover:bg-slate-50 transition-colors"
             >
-              Browse all trending
+              {t("Browse all trending", "सभी ट्रेंडिंग देखें")}
             </Link>
 
             <div className="hidden sm:flex items-center gap-2">
@@ -129,7 +131,7 @@ function TrendingSection() {
                 <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/0 to-transparent" />
 
                 <span className="absolute top-3 right-3 bg-red-600 text-white text-[11px] font-bold px-2.5 py-1 rounded">
-                  TRENDING
+                  {t("TRENDING", "ट्रेंडिंग")}
                 </span>
 
                 <p className="absolute bottom-3 left-3 right-3 text-white text-sm font-semibold leading-snug line-clamp-2">
@@ -149,7 +151,7 @@ function TrendingSection() {
 
         <p className="text-xs text-slate-400 mt-2 flex items-center gap-1.5">
           <FaFire className="text-amber-500" />
-          Handpicked by our team
+          {t("Handpicked by our team", "हमारी टीम द्वारा चुने गए")}
         </p>
       </div>
     </section>

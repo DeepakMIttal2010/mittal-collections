@@ -4,11 +4,13 @@ import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import { getProductById } from "../../services/productService";
 import { getRecentlyViewed } from "../../utils/recentlyViewed";
 import ProductCard from "../ProductCard/ProductCard";
+import { useLanguage } from "../../context/LanguageContext";
 
 function RecentlyViewed({ excludeId }) {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const scrollRef = useRef(null);
+  const { t } = useLanguage();
 
   useEffect(() => {
     const load = async () => {
@@ -48,7 +50,7 @@ function RecentlyViewed({ excludeId }) {
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl md:text-3xl font-bold text-slate-900">
-            Recently Viewed
+            {t("Recently Viewed", "हाल ही में देखे गए")}
           </h2>
 
           <div className="hidden sm:flex items-center gap-2">

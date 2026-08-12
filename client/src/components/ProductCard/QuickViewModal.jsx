@@ -16,11 +16,13 @@ import { useCompare } from "../../context/CompareContext";
 import { getStockStatus } from "../../utils/stock";
 import { productUrl } from "../../utils/productUrl";
 import { getEarnRate } from "../../services/rewardsService";
+import { useLanguage } from "../../context/LanguageContext";
 
 function QuickViewModal({ product, onClose }) {
   const { addToCart } = useCart();
   const { wishlistItems, addToWishlist, removeFromWishlist } = useWishlist();
   const { toggleCompare, isInCompare } = useCompare();
+  const { t } = useLanguage();
   const [earnRate, setEarnRate] = useState(null);
   const inCompare = isInCompare(product._id);
 
@@ -67,7 +69,7 @@ function QuickViewModal({ product, onClose }) {
         <div className="relative">
           <img
             src={`${imgUrl(product.image)}`}
-            alt={product.name}
+            alt={t(product.name, product.nameHi)}
             className="w-full h-full object-cover"
           />
 
@@ -84,7 +86,7 @@ function QuickViewModal({ product, onClose }) {
           </p>
 
           <h2 className="text-xl font-bold text-slate-900 mb-2">
-            {product.name}
+            {t(product.name, product.nameHi)}
           </h2>
 
           <div className="flex items-center gap-1 text-amber-500 mb-3">
@@ -119,7 +121,7 @@ function QuickViewModal({ product, onClose }) {
           </p>
 
           <p className="text-sm text-slate-600 leading-relaxed mb-6 line-clamp-4">
-            {product.description}
+            {t(product.description, product.descriptionHi)}
           </p>
 
           <div className="mt-auto flex gap-2">

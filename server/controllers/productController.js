@@ -603,6 +603,8 @@ export const addProduct = async (req, res) => {
     const {
       name,
       description,
+      nameHi,
+      descriptionHi,
       price,
       oldPrice,
       category,
@@ -646,6 +648,8 @@ export const addProduct = async (req, res) => {
       name,
       slug: generateSlug(name),
       description,
+      nameHi: nameHi || "",
+      descriptionHi: descriptionHi || "",
       price,
       oldPrice,
       category,
@@ -711,6 +715,8 @@ export const updateProduct = async (req, res) => {
     product.name = req.body.name;
     product.slug = generateSlug(req.body.name);
     product.description = req.body.description;
+    product.nameHi = req.body.nameHi || "";
+    product.descriptionHi = req.body.descriptionHi || "";
     product.price = req.body.price;
     product.oldPrice = req.body.oldPrice;
     product.category = req.body.category;

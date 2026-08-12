@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { FaStar, FaQuoteLeft, FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import { getTestimonials } from "../../services/testimonialService";
+import { useLanguage } from "../../context/LanguageContext";
 
 const ITEMS_PER_PAGE = 3;
 
@@ -8,6 +9,7 @@ function Testimonials() {
   const [testimonials, setTestimonials] = useState([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
+  const { t } = useLanguage();
 
   useEffect(() => {
     const loadTestimonials = async () => {
@@ -34,10 +36,13 @@ function Testimonials() {
       <div className="max-w-6xl mx-auto">
         <div className="text-center mb-12">
           <h2 className="text-3xl md:text-4xl font-bold text-slate-800 mb-3">
-            What Our Customers Say
+            {t("What Our Customers Say", "हमारे ग्राहक क्या कहते हैं")}
           </h2>
           <p className="text-slate-500">
-            Trusted by hundreds of happy customers across India.
+            {t(
+              "Trusted by hundreds of happy customers across India.",
+              "पूरे भारत में सैकड़ों खुश ग्राहकों का भरोसा।",
+            )}
           </p>
         </div>
 

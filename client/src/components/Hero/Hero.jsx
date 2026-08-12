@@ -6,6 +6,7 @@ import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import "./Hero.css";
 import heroBanner from "../../assets/images/hero-banner.jpg";
 import { getBanners } from "../../services/bannerService";
+import { useLanguage } from "../../context/LanguageContext";
 
 const AUTO_ROTATE_MS = 6000;
 
@@ -13,12 +14,18 @@ const FALLBACK_SLIDE = {
   _id: "fallback",
   image: null,
   subtitle: "PREMIUM HOME FURNISHING",
+  subtitleHi: "प्रीमियम होम फर्निशिंग",
   title: "Transform Every Corner\nof Your Home",
+  titleHi: "अपने घर के हर कोने को\nसंवारें",
   description:
     "Discover premium bedsheets, towels, curtains, pillows and blankets crafted for comfort, elegance and everyday luxury.",
+  descriptionHi:
+    "आराम, सुंदरता और रोज़मर्रा की लक्ज़री के लिए बनाए गए प्रीमियम बेडशीट, तौलिए, पर्दे, तकिए और कंबल देखें।",
   button1Label: "Shop Now",
+  button1LabelHi: "अभी खरीदें",
   button1Link: "/category/bedsheets",
   button2Label: "Explore Collection",
+  button2LabelHi: "कलेक्शन देखें",
   button2Link: "#shop-categories",
 };
 
@@ -53,6 +60,7 @@ function HeroButton({ label, link, variant }) {
 function Hero() {
   const [slides, setSlides] = useState([FALLBACK_SLIDE]);
   const [activeIndex, setActiveIndex] = useState(0);
+  const { t } = useLanguage();
 
   useEffect(() => {
     const loadBanners = async () => {
@@ -80,8 +88,9 @@ function Hero() {
   const backgroundImage = slide.image
     ? `${imgUrl(slide.image)}`
     : heroBanner;
+  const slideTitle = t(slide.title, slide.titleHi);
   const imageAlt = slide.title
-    ? slide.title.replace(/\n/g, " ")
+    ? slideTitle.replace(/\n/g, " ")
     : "Mittal Collections home furnishing";
 
   const goPrev = () =>
@@ -96,28 +105,32 @@ function Hero() {
         <div className="container">
           <div className="hero-content">
             {slide.subtitle && (
-              <span className="hero-subtitle">{slide.subtitle}</span>
+              <span className="hero-subtitle">
+                {t(slide.subtitle, slide.subtitleHi)}
+              </span>
             )}
 
             <h1>
-              {slide.title.split("\n").map((line, i) => (
+              {slideTitle.split("\n").map((line, i) => (
                 <span key={i}>
                   {line}
-                  {i < slide.title.split("\n").length - 1 && <br />}
+                  {i < slideTitle.split("\n").length - 1 && <br />}
                 </span>
               ))}
             </h1>
 
-            {slide.description && <p>{slide.description}</p>}
+            {slide.description && (
+              <p>{t(slide.description, slide.descriptionHi)}</p>
+            )}
 
             <div className="hero-buttons">
               <HeroButton
-                label={slide.button1Label}
+                label={t(slide.button1Label, slide.button1LabelHi)}
                 link={slide.button1Link}
                 variant="primary"
               />
               <HeroButton
-                label={slide.button2Label}
+                label={t(slide.button2Label, slide.button2LabelHi)}
                 link={slide.button2Link}
                 variant="secondary"
               />

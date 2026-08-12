@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { FaChevronLeft, FaChevronRight, FaTag } from "react-icons/fa";
 
 import { getPriceRanges } from "../../services/priceRangeService";
+import { useLanguage } from "../../context/LanguageContext";
 
 const CARD_THEMES = [
   "from-amber-500 to-orange-600",
@@ -16,6 +17,7 @@ function PriceShowcase() {
   const [priceRanges, setPriceRanges] = useState([]);
   const scrollRef = useRef(null);
   const navigate = useNavigate();
+  const { t } = useLanguage();
 
   useEffect(() => {
     const load = async () => {
@@ -42,7 +44,9 @@ function PriceShowcase() {
     <section className="py-16 bg-white">
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex items-center justify-between mb-8">
-          <h2 className="text-3xl font-bold text-slate-900">Shop by Price</h2>
+          <h2 className="text-3xl font-bold text-slate-900">
+            {t("Shop by Price", "कीमत अनुसार खरीदें")}
+          </h2>
 
           <div className="flex items-center gap-2">
             <button
@@ -79,7 +83,7 @@ function PriceShowcase() {
             >
               <FaTag className="text-2xl mb-3 opacity-80" />
               <span className="text-xs font-semibold tracking-widest opacity-90">
-                UNDER
+                {t("UNDER", "तक")}
               </span>
               <span className="text-3xl font-extrabold mt-1">
                 ₹{range.maxPrice}

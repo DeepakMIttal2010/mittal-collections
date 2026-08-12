@@ -25,6 +25,8 @@ function AddProduct() {
   const [formData, setFormData] = useState({
     name: "",
     description: "",
+    nameHi: "",
+    descriptionHi: "",
     category: "",
     subcategory: "",
     price: "",
@@ -115,6 +117,8 @@ function AddProduct() {
 
     data.append("name", formData.name);
     data.append("description", formData.description);
+    data.append("nameHi", formData.nameHi);
+    data.append("descriptionHi", formData.descriptionHi);
     data.append("category", formData.category);
     data.append("subcategory", formData.subcategory);
     data.append("price", formData.price);
@@ -185,6 +189,30 @@ function AddProduct() {
             value={formData.description}
             onChange={handleChange}
             required
+          />
+        </div>
+
+        <div className="form-group">
+          <label>Product Name (Hindi, optional)</label>
+
+          <input
+            type="text"
+            name="nameHi"
+            placeholder="हिंदी में प्रोडक्ट का नाम"
+            value={formData.nameHi}
+            onChange={handleChange}
+          />
+        </div>
+
+        <div className="form-group">
+          <label>Description (Hindi, optional)</label>
+
+          <textarea
+            rows="5"
+            name="descriptionHi"
+            placeholder="हिंदी में विवरण"
+            value={formData.descriptionHi}
+            onChange={handleChange}
           />
         </div>
 

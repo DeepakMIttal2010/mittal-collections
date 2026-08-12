@@ -33,6 +33,8 @@ function EditProduct() {
   const [formData, setFormData] = useState({
     name: "",
     description: "",
+    nameHi: "",
+    descriptionHi: "",
     price: "",
     oldPrice: "",
     stock: "",
@@ -76,6 +78,8 @@ function EditProduct() {
       setFormData({
         name: product.name || "",
         description: product.description || "",
+        nameHi: product.nameHi || "",
+        descriptionHi: product.descriptionHi || "",
         price: product.price || "",
         oldPrice: product.oldPrice || "",
         stock: product.stock || "",
@@ -267,6 +271,30 @@ function EditProduct() {
             value={formData.description}
             onChange={handleChange}
             required
+          />
+        </div>
+
+        <div className="form-group">
+          <label>Product Name (Hindi, optional)</label>
+
+          <input
+            type="text"
+            name="nameHi"
+            placeholder="हिंदी में प्रोडक्ट का नाम"
+            value={formData.nameHi}
+            onChange={handleChange}
+          />
+        </div>
+
+        <div className="form-group">
+          <label>Description (Hindi, optional)</label>
+
+          <textarea
+            rows="5"
+            name="descriptionHi"
+            placeholder="हिंदी में विवरण"
+            value={formData.descriptionHi}
+            onChange={handleChange}
           />
         </div>
 

@@ -3,10 +3,12 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { getCategories } from "../../services/categoryService";
 import Skeleton from "../Skeleton";
+import { useLanguage } from "../../context/LanguageContext";
 
 function Categories() {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { t } = useLanguage();
 
   const loadCategories = async () => {
     try {
@@ -34,10 +36,13 @@ function Categories() {
       <div className="max-w-7xl mx-auto px-4">
         <div className="text-center mb-12">
           <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-2">
-            Shop by Category
+            {t("Shop by Category", "श्रेणी अनुसार खरीदें")}
           </h2>
           <p className="text-slate-500">
-            Explore our curated collection for every corner of your home.
+            {t(
+              "Explore our curated collection for every corner of your home.",
+              "अपने घर के हर कोने के लिए हमारा चुना हुआ कलेक्शन देखें।",
+            )}
           </p>
         </div>
 

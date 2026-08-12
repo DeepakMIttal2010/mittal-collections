@@ -12,6 +12,7 @@ import {
 import { useCart } from "../../context/CartContext";
 import { useWishlist } from "../../context/WishlistContext";
 import { useAuth } from "../../context/AuthContext";
+import { useLanguage } from "../../context/LanguageContext";
 import { getSearchSuggestions } from "../../services/productService";
 import { getMyLocation } from "../../services/analyticsService";
 import { getAddresses } from "../../services/addressService";
@@ -41,6 +42,7 @@ function Header() {
   const { totalItems, openCart } = useCart();
   const { totalWishlistItems } = useWishlist();
   const { user, logout, isLoggedIn } = useAuth();
+  const { language, setLanguage } = useLanguage();
   const navigate = useNavigate();
 
   const [query, setQuery] = useState("");
@@ -278,11 +280,11 @@ function Header() {
                 >
                   <img
                     src={imgUrl(product.image)}
-                    alt={product.name}
+                    alt={t(product.name, product.nameHi)}
                     className="w-10 h-10 rounded-lg object-cover shrink-0"
                   />
                   <span className="flex-1 text-sm text-slate-700 truncate">
-                    {product.name}
+                    {t(product.name, product.nameHi)}
                   </span>
                   <span className="text-sm font-medium text-slate-500">
                     ₹{product.price}
@@ -295,6 +297,32 @@ function Header() {
 
         {/* Right Icons */}
         <div className="flex items-center gap-6 ml-auto">
+          {/* Language toggle */}
+          <div className="flex items-center rounded-full border border-slate-200 text-xs font-medium overflow-hidden shrink-0">
+            <button
+              type="button"
+              onClick={() => setLanguage("en")}
+              className={`px-2.5 py-1 transition-colors ${
+                language === "en"
+                  ? "bg-amber-600 text-white"
+                  : "text-slate-500 hover:bg-slate-50"
+              }`}
+            >
+              EN
+            </button>
+            <button
+              type="button"
+              onClick={() => setLanguage("hi")}
+              className={`px-2.5 py-1 transition-colors ${
+                language === "hi"
+                  ? "bg-amber-600 text-white"
+                  : "text-slate-500 hover:bg-slate-50"
+              }`}
+            >
+              हिं
+            </button>
+          </div>
+
           {isLoggedIn ? (
             <div
               className="relative"
@@ -521,11 +549,11 @@ function Header() {
               >
                 <img
                   src={imgUrl(product.image)}
-                  alt={product.name}
+                  alt={t(product.name, product.nameHi)}
                   className="w-10 h-10 rounded-lg object-cover shrink-0"
                 />
                 <span className="flex-1 text-sm text-slate-700 truncate">
-                  {product.name}
+                  {t(product.name, product.nameHi)}
                 </span>
                 <span className="text-sm font-medium text-slate-500">
                   ₹{product.price}

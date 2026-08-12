@@ -17,11 +17,13 @@ import QuickViewModal from "./QuickViewModal";
 import { LOW_STOCK_THRESHOLD } from "../../utils/stock";
 import { productUrl } from "../../utils/productUrl";
 import { getEarnRate } from "../../services/rewardsService";
+import { useLanguage } from "../../context/LanguageContext";
 
 function ProductCard({ product }) {
   const { addToCart } = useCart();
   const { addToWishlist } = useWishlist();
   const { toggleCompare, isInCompare } = useCompare();
+  const { t } = useLanguage();
   const [showQuickView, setShowQuickView] = useState(false);
   const inCompare = isInCompare(product._id);
   const [earnRate, setEarnRate] = useState(null);
@@ -41,7 +43,7 @@ function ProductCard({ product }) {
         <div className="product-image">
           <img
             src={`${imgUrl(product.image)}`}
-            alt={product.name}
+            alt={t(product.name, product.nameHi)}
             loading="lazy"
           />
 
@@ -89,7 +91,7 @@ function ProductCard({ product }) {
         <div className="product-info">
           <p className="category">{product.category?.name}</p>
 
-          <h3>{product.name}</h3>
+          <h3>{t(product.name, product.nameHi)}</h3>
 
           <div className="rating">
             <FaStar className="star" />

@@ -13,14 +13,15 @@ import {
 import { submitContactMessage } from "../services/contactService";
 import { getSiteSettings } from "../services/settingsService";
 import Seo from "../components/Seo";
+import { useLanguage } from "../context/LanguageContext";
 
 const SUBJECT_OPTIONS = [
-  "General Inquiry",
-  "Order Support",
-  "Returns & Refunds",
-  "Wholesale / Bulk Orders",
-  "Feedback",
-  "Other",
+  { value: "General Inquiry", labelHi: "सामान्य पूछताछ" },
+  { value: "Order Support", labelHi: "ऑर्डर सहायता" },
+  { value: "Returns & Refunds", labelHi: "रिटर्न और रिफंड" },
+  { value: "Wholesale / Bulk Orders", labelHi: "थोक ऑर्डर" },
+  { value: "Feedback", labelHi: "फीडबैक" },
+  { value: "Other", labelHi: "अन्य" },
 ];
 
 const SOCIAL_ICONS = [
@@ -38,9 +39,11 @@ function Contact() {
     name: "",
     email: "",
     mobile: "",
-    subject: SUBJECT_OPTIONS[0],
+    subject: SUBJECT_OPTIONS[0].value,
     message: "",
   });
+
+  const { t } = useLanguage();
 
   useEffect(() => {
     const loadSettings = async () => {
@@ -63,16 +66,16 @@ function Contact() {
     setLoading(false);
 
     if (data.success) {
-      toast.success(data.message || "Message sent successfully");
+      toast.success(data.message || t("Message sent successfully", "संदेश सफलतापूर्वक भेजा गया"));
       setFormData({
         name: "",
         email: "",
         mobile: "",
-        subject: SUBJECT_OPTIONS[0],
+        subject: SUBJECT_OPTIONS[0].value,
         message: "",
       });
     } else {
-      toast.error(data.message || "Unable to send message");
+      toast.error(data.message || t("Unable to send message", "संदेश नहीं भेजा जा सका"));
     }
   };
 
@@ -89,13 +92,19 @@ function Contact() {
       />
 
       <h1 className="text-4xl md:text-5xl font-bold text-slate-900 mb-4">
-        Contact Us
+        {t("Contact Us", "संपर्क करें")}
       </h1>
       <p className="text-slate-600">
-        We&apos;d love to hear from you. Our team is here to help.
+        {t(
+          "We'd love to hear from you. Our team is here to help.",
+          "हमें आपसे सुनना अच्छा लगेगा। हमारी टीम मदद के लिए यहां है।",
+        )}
       </p>
       <p className="text-slate-600 mb-12">
-        Let us know how we can help by filling out the form below.
+        {t(
+          "Let us know how we can help by filling out the form below.",
+          "नीचे दिया गया फॉर्म भरकर हमें बताएं कि हम कैसे मदद कर सकते हैं।",
+        )}
       </p>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
@@ -105,7 +114,7 @@ function Contact() {
             <input
               type="text"
               name="name"
-              placeholder="Name"
+              placeholder={t("Name", "नाम")}
               value={formData.name}
               onChange={handleChange}
               required
@@ -115,7 +124,7 @@ function Contact() {
             <input
               type="email"
               name="email"
-              placeholder="Email"
+              placeholder={t("Email", "ईमेल")}
               value={formData.email}
               onChange={handleChange}
               required
@@ -127,7 +136,7 @@ function Contact() {
             <input
               type="tel"
               name="mobile"
-              placeholder="Phone number"
+              placeholder={t("Phone number", "फोन नंबर")}
               value={formData.mobile}
               onChange={handleChange}
               className={inputClass}
@@ -140,8 +149,8 @@ function Contact() {
               className={inputClass}
             >
               {SUBJECT_OPTIONS.map((option) => (
-                <option key={option} value={option}>
-                  {option}
+                <option key={option.value} value={option.value}>
+                  {t(option.value, option.labelHi)}
                 </option>
               ))}
             </select>
@@ -149,7 +158,7 @@ function Contact() {
 
           <textarea
             name="message"
-            placeholder="Message"
+            placeholder={t("Message", "संदेश")}
             rows={7}
             value={formData.message}
             onChange={handleChange}
@@ -162,7 +171,7 @@ function Contact() {
             disabled={loading}
             className="bg-blue-900 hover:bg-blue-950 text-white font-semibold rounded-full px-8 py-3.5 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            {loading ? "Sending..." : "Send message"}
+            {loading ? t("Sending...", "भेजा जा रहा है...") : t("Send message", "संदेश भेजें")}
           </button>
         </form>
 
@@ -171,7 +180,7 @@ function Contact() {
           {settings.address && (
             <div>
               <h3 className="text-xs font-semibold tracking-wide text-slate-400 uppercase mb-2 flex items-center gap-2">
-                <FaMapMarkerAlt /> Address
+                <FaMapMarkerAlt /> {t("Address", "पता")}
               </h3>
               <p className="text-slate-700 whitespace-pre-line">
                 {settings.address}
@@ -182,7 +191,7 @@ function Contact() {
           {settings.email && (
             <div>
               <h3 className="text-xs font-semibold tracking-wide text-slate-400 uppercase mb-2 flex items-center gap-2">
-                <FaEnvelope /> Email
+                <FaEnvelope /> {t("Email", "ईमेल")}
               </h3>
               <a
                 href={`mailto:${settings.email}`}
@@ -196,7 +205,7 @@ function Contact() {
           {settings.phone && (
             <div>
               <h3 className="text-xs font-semibold tracking-wide text-slate-400 uppercase mb-2 flex items-center gap-2">
-                <FaPhoneAlt /> Phone
+                <FaPhoneAlt /> {t("Phone", "फोन")}
               </h3>
               <a
                 href={`tel:${settings.phone}`}
@@ -215,7 +224,7 @@ function Contact() {
           {activeSocialLinks.length > 0 && (
             <div>
               <h3 className="text-xs font-semibold tracking-wide text-slate-400 uppercase mb-3">
-                Follow Us
+                {t("Follow Us", "हमें फॉलो करें")}
               </h3>
               <div className="flex gap-3">
                 {activeSocialLinks.map(({ key, icon: Icon, label }) => (

@@ -53,10 +53,12 @@ import { getProductViewCount } from "../services/analyticsService";
 import { getProductReviews } from "../services/reviewService";
 import { getPublicRewardsInfo } from "../services/rewardsService";
 import AutoCompareTable from "../components/AutoCompareTable";
+import { useLanguage } from "../context/LanguageContext";
 
 function ProductDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { t } = useLanguage();
 
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -303,6 +305,7 @@ function ProductDetails() {
 
   const shareUrl = `${window.location.origin}${productUrl(product)}`;
   const shareText = product.name;
+  const displayDescription = t(product.description, product.descriptionHi);
   const pointsPreview = earnRate
     ? Math.floor((product.price * quantity) / earnRate)
     : 0;
@@ -491,7 +494,7 @@ function ProductDetails() {
                   <img
                     key={activeMedia?.url}
                     src={`${imgUrl(activeMedia?.url)}`}
-                    alt={product.name}
+                    alt={t(product.name, product.nameHi)}
                     style={zoomStyle}
                     onLoad={() => setMainImageLoaded(true)}
                     className={`w-full h-full object-cover transition-all duration-300 pointer-events-none ${
@@ -517,7 +520,7 @@ function ProductDetails() {
               onClick={openLightbox}
               className="w-full text-center text-sm text-blue-600 hover:underline mt-2"
             >
-              Click to see full view
+              {t("Click to see full view", "पूरा दृश्य देखने के लिए क्लिक करें")}
             </button>
           </div>
 
@@ -551,7 +554,7 @@ function ProductDetails() {
                     ) : (
                       <img
                         src={`${imgUrl(item.url)}`}
-                        alt={product.name}
+                        alt={t(product.name, product.nameHi)}
                         loading="lazy"
                         className="w-full h-full object-cover"
                       />
@@ -583,7 +586,7 @@ function ProductDetails() {
           </p>
 
           <h1 className="text-3xl font-bold text-slate-900 mb-1">
-            {product.name}
+            {t(product.name, product.nameHi)}
           </h1>
 
           <p className="text-xs text-slate-400 mb-3 font-mono">
@@ -652,7 +655,7 @@ function ProductDetails() {
                   disabled={notifySending}
                   className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-900 text-white text-sm font-medium disabled:opacity-60"
                 >
-                  {notifySending ? "..." : "Notify Me"}
+                  {notifySending ? "..." : t("Notify Me", "मुझे सूचित करें")}
                 </button>
               </form>
             ))}
@@ -660,21 +663,23 @@ function ProductDetails() {
           <div className="mb-6">
             <p
               className={`text-slate-600 leading-relaxed whitespace-pre-line ${
-                descExpanded || product.description.length <= 280
+                descExpanded || displayDescription.length <= 280
                   ? ""
                   : "line-clamp-4"
               }`}
             >
-              {product.description}
+              {displayDescription}
             </p>
 
-            {product.description.length > 280 && (
+            {displayDescription.length > 280 && (
               <button
                 type="button"
                 onClick={() => setDescExpanded((prev) => !prev)}
                 className="text-sm font-medium text-blue-600 hover:underline mt-1.5"
               >
-                {descExpanded ? "Show less" : "See more product details"}
+                {descExpanded
+                  ? t("Show less", "कम दिखाएं")
+                  : t("See more product details", "और प्रोडक्ट विवरण देखें")}
               </button>
             )}
           </div>
@@ -953,7 +958,7 @@ function ProductDetails() {
             >
               <img
                 src={`${imgUrl(mediaItems[lightboxIndex]?.url)}`}
-                alt={product.name}
+                alt={t(product.name, product.nameHi)}
                 onClick={toggleLightboxZoom}
                 className={
                   isLightboxZoomed

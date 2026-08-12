@@ -18,3 +18,29 @@
 .topbar span:hover {
   color: #d4af37;
 }
+
+.topbar .lang-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: default;
+}
+
+.topbar .lang-toggle button {
+  background: none;
+  border: none;
+  padding: 0;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 14px;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.topbar .lang-toggle button:hover {
+  color: #d4af37;
+}
+
+.topbar .lang-toggle button.lang-active {
+  color: #d4af37;
+  font-weight: 600;
+}

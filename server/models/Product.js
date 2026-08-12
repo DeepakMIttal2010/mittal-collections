@@ -21,6 +21,20 @@ const productSchema = new mongoose.Schema(
       trim: true,
     },
 
+    // Optional Hindi translations — public product display falls back
+    // to the English name/description whenever these are empty.
+    nameHi: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    descriptionHi: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
     price: {
       type: Number,
       required: [true, "Price is required"],
