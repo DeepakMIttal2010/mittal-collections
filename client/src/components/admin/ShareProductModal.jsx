@@ -241,8 +241,8 @@ function ShareProductModal({ product, onClose }) {
 
   return (
     <div className="fixed inset-0 z-[200] bg-black/60 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm max-h-[90vh] overflow-y-auto">
+        <div className="sticky top-0 z-10 bg-white flex items-center justify-between px-5 py-4 border-b border-slate-200">
           <h3 className="font-semibold text-slate-800">Share Product</h3>
           <button
             onClick={onClose}
