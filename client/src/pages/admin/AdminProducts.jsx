@@ -8,6 +8,7 @@ import {
   FaSortUp,
   FaSortDown,
   FaFileExcel,
+  FaWhatsapp,
 } from "react-icons/fa";
 
 import {
@@ -20,6 +21,7 @@ import {
 import { getCategories } from "../../services/categoryService";
 import { getSubcategories } from "../../services/subcategoryService";
 import ProductQuickView from "../../components/admin/ProductQuickView";
+import ShareProductModal from "../../components/admin/ShareProductModal";
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
@@ -42,6 +44,7 @@ function AdminProducts() {
   const [total, setTotal] = useState(0);
   const [pages, setPages] = useState(1);
   const [quickViewProduct, setQuickViewProduct] = useState(null);
+  const [shareProduct, setShareProduct] = useState(null);
   const [sortBy, setSortBy] = useState("createdAt");
   const [sortOrder, setSortOrder] = useState("desc");
   const [visibleColumns, setVisibleColumns] = useState({
@@ -644,6 +647,12 @@ function AdminProducts() {
                             QR
                           </Link>
                           <button
+                            onClick={() => setShareProduct(product)}
+                            className="text-xs font-medium px-3 py-1.5 rounded-lg bg-[#25D366] hover:bg-[#1ebe5a] text-white"
+                          >
+                            Share
+                          </button>
+                          <button
                             onClick={() => handleDuplicate(product._id)}
                             className="text-xs font-medium px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white"
                           >
@@ -758,6 +767,14 @@ function AdminProducts() {
                       </Link>
 
                       <button
+                        onClick={() => setShareProduct(product)}
+                        className="text-center flex items-center justify-center gap-1.5 bg-[#25D366] hover:bg-[#1ebe5a] text-white text-sm font-medium py-2 rounded-lg transition-colors"
+                      >
+                        <FaWhatsapp />
+                        Share
+                      </button>
+
+                      <button
                         onClick={() => handleDuplicate(product._id)}
                         className="text-center bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium py-2 rounded-lg transition-colors"
                       >
@@ -842,6 +859,13 @@ function AdminProducts() {
         <ProductQuickView
           product={quickViewProduct}
           onClose={() => setQuickViewProduct(null)}
+        />
+      )}
+
+      {shareProduct && (
+        <ShareProductModal
+          product={shareProduct}
+          onClose={() => setShareProduct(null)}
         />
       )}
     </div>
