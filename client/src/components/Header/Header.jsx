@@ -42,7 +42,7 @@ function Header() {
   const { totalItems, openCart } = useCart();
   const { totalWishlistItems } = useWishlist();
   const { user, logout, isLoggedIn } = useAuth();
-  const { language, setLanguage } = useLanguage();
+  const { language, setLanguage, t } = useLanguage();
   const navigate = useNavigate();
 
   const [query, setQuery] = useState("");
