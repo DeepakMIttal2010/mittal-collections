@@ -43,6 +43,7 @@ import {
   getProductById,
   getProductsByCategory,
 } from "../services/productService";
+import { getCategories } from "../services/categoryService";
 import { useCart } from "../context/CartContext";
 import { useWishlist } from "../context/WishlistContext";
 import { useAuth } from "../context/AuthContext";
@@ -54,6 +55,15 @@ import { getProductReviews } from "../services/reviewService";
 import { getPublicRewardsInfo } from "../services/rewardsService";
 import AutoCompareTable from "../components/AutoCompareTable";
 import { useLanguage } from "../context/LanguageContext";
+
+// "Complete the Look" bundle: buying from both of these categories in the
+// same order unlocks an automatic discount (see CartContext.jsx / the
+// server's bundleDiscount.js, which is the actual source of truth).
+const BUNDLE_PAIR = {
+  bedsheets: { slug: "cushion-covers", label: "Cushion Covers" },
+  "cushion-covers": { slug: "bedsheets", label: "Bedsheets" },
+};
+const BUNDLE_DISCOUNT_PERCENT = 10;
 
 function ProductDetails() {
   const { id } = useParams();
@@ -69,6 +79,8 @@ function ProductDetails() {
   const [lightboxIndex, setLightboxIndex] = useState(null);
   const [isLightboxZoomed, setIsLightboxZoomed] = useState(false);
   const [relatedProducts, setRelatedProducts] = useState([]);
+  const [bundleProducts, setBundleProducts] = useState([]);
+  const [bundleCategoryLabel, setBundleCategoryLabel] = useState("");
   const [viewCount, setViewCount] = useState(0);
   const [reviewStats, setReviewStats] = useState({
     averageRating: 0,
@@ -85,6 +97,7 @@ function ProductDetails() {
   const [defaultReturnPeriodDays, setDefaultReturnPeriodDays] = useState(7);
 
   const relatedScrollRef = useRef(null);
+  const bundleScrollRef = useRef(null);
 
   const { addToCart } = useCart();
   const { wishlistItems, addToWishlist, removeFromWishlist } = useWishlist();
@@ -129,6 +142,8 @@ function ProductDetails() {
     const loadProduct = async () => {
       setLoading(true);
       setRelatedProducts([]);
+      setBundleProducts([]);
+      setBundleCategoryLabel("");
 
       const response = await getProductById(id);
 
@@ -165,6 +180,30 @@ function ProductDetails() {
             );
           }
         }
+
+        const currentSlug = response.product.category?.slug;
+        const bundlePartner = BUNDLE_PAIR[currentSlug];
+
+        if (bundlePartner) {
+          const categoriesRes = await getCategories();
+
+          if (categoriesRes.success) {
+            const partnerCategory = categoriesRes.categories.find(
+              (c) => c.slug === bundlePartner.slug,
+            );
+
+            if (partnerCategory) {
+              const bundleRes = await getProductsByCategory(
+                partnerCategory._id,
+              );
+
+              if (bundleRes.success) {
+                setBundleProducts(bundleRes.products.slice(0, 8));
+                setBundleCategoryLabel(bundlePartner.label);
+              }
+            }
+          }
+        }
       }
 
       setLoading(false);
@@ -177,6 +216,15 @@ function ProductDetails() {
     if (!relatedScrollRef.current) return;
 
     relatedScrollRef.current.scrollBy({
+      left: direction === "next" ? 320 : -320,
+      behavior: "smooth",
+    });
+  };
+
+  const scrollBundle = (direction) => {
+    if (!bundleScrollRef.current) return;
+
+    bundleScrollRef.current.scrollBy({
       left: direction === "next" ? 320 : -320,
       behavior: "smooth",
     });
@@ -844,6 +892,51 @@ function ProductDetails() {
           </Link>
         </div>
       </div>
+
+      {bundleProducts.length > 0 && (
+        <div className="mt-16">
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-3xl font-bold text-slate-900">
+              Complete the Look
+            </h2>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => scrollBundle("prev")}
+                aria-label="Previous products"
+                className="w-9 h-9 rounded-full border border-slate-300 text-slate-500 hover:bg-slate-50 flex items-center justify-center"
+              >
+                <FaChevronLeft className="text-xs" />
+              </button>
+              <button
+                type="button"
+                onClick={() => scrollBundle("next")}
+                aria-label="Next products"
+                className="w-9 h-9 rounded-full border border-blue-900 text-blue-900 hover:bg-blue-50 flex items-center justify-center"
+              >
+                <FaChevronRight className="text-xs" />
+              </button>
+            </div>
+          </div>
+
+          <p className="text-sm text-green-700 font-medium mb-6">
+            Add a {bundleCategoryLabel} to this order and get{" "}
+            {BUNDLE_DISCOUNT_PERCENT}% off automatically at checkout.
+          </p>
+
+          <div
+            ref={bundleScrollRef}
+            className="flex gap-5 overflow-x-auto scroll-smooth pb-2"
+          >
+            {bundleProducts.map((bundleProduct) => (
+              <div key={bundleProduct._id} className="w-64 shrink-0">
+                <ProductCard product={bundleProduct} />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {relatedProducts.length > 0 && (
         <div className="mt-16">

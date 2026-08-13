@@ -17,6 +17,7 @@ import {
 } from "../utils/loyaltyPoints.js";
 import { getReferralSettings } from "../utils/referral.js";
 import { calculateDeliveryFee } from "../utils/shipping.js";
+import { calculateBundleDiscount } from "../utils/bundleDiscount.js";
 import { sendEmail } from "../config/mailer.js";
 import { notifyUser } from "../utils/notify.js";
 
@@ -181,6 +182,9 @@ export const createOrder = async (req, res) => {
       }
     }
 
+    const bundleResult = await calculateBundleDiscount(orderItems, subtotal);
+    const bundleDiscountAmount = bundleResult.discountAmount;
+
     // Loyalty points redemption — capped to what the user actually holds
     // and to half the subtotal, so points can never fully zero an order.
     let pointsRedeemed = 0;
@@ -203,7 +207,11 @@ export const createOrder = async (req, res) => {
     }
 
     const totalPrice = Math.max(
-      subtotal + deliveryFee - discountAmount - pointsDiscount,
+      subtotal +
+        deliveryFee -
+        discountAmount -
+        bundleDiscountAmount -
+        pointsDiscount,
       0,
     );
 
@@ -227,6 +235,7 @@ export const createOrder = async (req, res) => {
         totalPrice,
         couponCode: appliedCouponCode,
         discountAmount,
+        bundleDiscountAmount,
         pointsRedeemed,
         pointsDiscount,
         statusHistory: [{ status: "Pending", changedAt: new Date() }],

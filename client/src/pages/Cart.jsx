@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { imgUrl } from "../services/api";
 import { Link } from "react-router-dom";
-import { FaTrash, FaPlus, FaMinus, FaGift } from "react-icons/fa";
+import { FaTrash, FaPlus, FaMinus, FaGift, FaTags } from "react-icons/fa";
 
 import { useCart } from "../context/CartContext";
 import { getPublicRewardsInfo } from "../services/rewardsService";
@@ -18,6 +18,7 @@ function Cart() {
     clearCart,
     totalItems,
     totalPrice,
+    bundleInfo,
   } = useCart();
 
   const [earnRate, setEarnRate] = useState(null);
@@ -46,7 +47,10 @@ function Cart() {
 
   const pointsPreview = earnRate ? Math.floor(totalPrice / earnRate) : 0;
   const deliveryFee = calculateDeliveryFee(totalPrice, shipping);
-  const orderTotal = totalPrice + deliveryFee;
+  const orderTotal = Math.max(
+    totalPrice + deliveryFee - bundleInfo.discountAmount,
+    0,
+  );
 
   if (cartItems.length === 0) {
     return (
@@ -119,6 +123,40 @@ function Cart() {
           <div className="cart-summary">
             <h3>Order Summary</h3>
 
+            {bundleInfo.eligible ? (
+              <p
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  fontSize: "0.85rem",
+                  color: "#15803d",
+                  margin: "0 0 10px",
+                }}
+              >
+                <FaTags />
+                {bundleInfo.discountPercent}% Complete the Look discount
+                applied!
+              </p>
+            ) : (
+              bundleInfo.missingCategoryLabel && (
+                <p
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    fontSize: "0.85rem",
+                    color: "#b45309",
+                    margin: "0 0 10px",
+                  }}
+                >
+                  <FaTags />
+                  Add a {bundleInfo.missingCategoryLabel} to unlock{" "}
+                  {bundleInfo.discountPercent}% off this order
+                </p>
+              )
+            )}
+
             <div className="summary-row">
               <span>Total Items</span>
               <span>{totalItems}</span>
@@ -133,6 +171,13 @@ function Cart() {
               <span>Shipping</span>
               <span>{deliveryFee === 0 ? "FREE" : `₹${deliveryFee}`}</span>
             </div>
+
+            {bundleInfo.discountAmount > 0 && (
+              <div className="summary-row" style={{ color: "#15803d" }}>
+                <span>Bundle discount</span>
+                <span>-₹{bundleInfo.discountAmount}</span>
+              </div>
+            )}
 
             <hr />
 

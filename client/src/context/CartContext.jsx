@@ -7,6 +7,17 @@ import { useAuth } from "./AuthContext";
 
 const CartContext = createContext();
 
+// "Complete the Look" bundle: buying from both of these categories in the
+// same cart unlocks an automatic discount, no coupon needed. This is only
+// a live preview for display — the server (bundleDiscount.js) independently
+// recomputes the real discount at checkout, so these values must stay in
+// sync with it but are never trusted as-is for payment.
+const BUNDLE_CATEGORIES = [
+  { slug: "bedsheets", label: "Bedsheet" },
+  { slug: "cushion-covers", label: "Cushion Cover" },
+];
+const BUNDLE_DISCOUNT_PERCENT = 10;
+
 export function CartProvider({ children }) {
   const [cartItems, setCartItems] = useState(() => {
     const savedCart = localStorage.getItem("cartItems");
@@ -131,6 +142,24 @@ export function CartProvider({ children }) {
     0,
   );
 
+  const presentSlugs = new Set(
+    cartItems.map((item) => item.category?.slug).filter(Boolean),
+  );
+  const missingCategory = BUNDLE_CATEGORIES.find(
+    (c) => !presentSlugs.has(c.slug),
+  );
+  const bundleEligible = !missingCategory;
+  const bundleDiscountAmount = bundleEligible
+    ? Math.round((totalPrice * BUNDLE_DISCOUNT_PERCENT) / 100)
+    : 0;
+
+  const bundleInfo = {
+    eligible: bundleEligible,
+    discountPercent: BUNDLE_DISCOUNT_PERCENT,
+    discountAmount: bundleDiscountAmount,
+    missingCategoryLabel: missingCategory?.label || null,
+  };
+
   return (
     <CartContext.Provider
       value={{
@@ -142,6 +171,7 @@ export function CartProvider({ children }) {
         clearCart,
         totalItems,
         totalPrice,
+        bundleInfo,
         isCartOpen,
         openCart,
         closeCart,

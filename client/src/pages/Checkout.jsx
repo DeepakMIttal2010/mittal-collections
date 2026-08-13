@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
-import { FaTag, FaTimes, FaGift } from "react-icons/fa";
+import { FaTag, FaTimes, FaGift, FaTags } from "react-icons/fa";
 
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
@@ -20,7 +20,7 @@ function Checkout() {
   const navigate = useNavigate();
   const { isLoggedIn } = useAuth();
 
-  const { cartItems, totalPrice, clearCart } = useCart();
+  const { cartItems, totalPrice, bundleInfo, clearCart } = useCart();
 
   const [addresses, setAddresses] = useState([]);
   const [addressesLoading, setAddressesLoading] = useState(true);
@@ -150,7 +150,11 @@ function Checkout() {
     : 0;
 
   const orderTotal = Math.max(
-    totalPrice + deliveryFee - discountAmount - pointsDiscount,
+    totalPrice +
+      deliveryFee -
+      discountAmount -
+      bundleInfo.discountAmount -
+      pointsDiscount,
     0,
   );
 
@@ -399,6 +403,22 @@ function Checkout() {
               {placing ? "Placing Order..." : "Place Order"}
             </button>
 
+            {bundleInfo.eligible ? (
+              <p className="flex items-center gap-1.5 text-xs text-green-700 mt-4">
+                <FaTags className="text-xs" />
+                {bundleInfo.discountPercent}% Complete the Look discount
+                applied!
+              </p>
+            ) : (
+              bundleInfo.missingCategoryLabel && (
+                <p className="flex items-center gap-1.5 text-xs text-amber-700 mt-4">
+                  <FaTags className="text-xs" />
+                  Add a {bundleInfo.missingCategoryLabel} to unlock{" "}
+                  {bundleInfo.discountPercent}% off this order
+                </p>
+              )
+            )}
+
             <div className="border-t border-slate-100 mt-4 pt-4">
               {appliedCoupon ? (
                 <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-lg px-3 py-2 text-sm">
@@ -550,6 +570,14 @@ function Checkout() {
                 <div className="flex justify-between text-green-600">
                   <span>Discount ({appliedCoupon.code}):</span>
                   <span>-₹{discountAmount}</span>
+                </div>
+              )}
+              {bundleInfo.discountAmount > 0 && (
+                <div className="flex justify-between text-green-600">
+                  <span>
+                    Bundle discount ({bundleInfo.discountPercent}%):
+                  </span>
+                  <span>-₹{bundleInfo.discountAmount}</span>
                 </div>
               )}
               {pointsDiscount > 0 && (
