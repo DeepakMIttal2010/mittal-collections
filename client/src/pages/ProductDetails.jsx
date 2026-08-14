@@ -43,7 +43,6 @@ import {
   getProductById,
   getProductsByCategory,
 } from "../services/productService";
-import { getCategories } from "../services/categoryService";
 import { useCart } from "../context/CartContext";
 import { useWishlist } from "../context/WishlistContext";
 import { useAuth } from "../context/AuthContext";
@@ -55,15 +54,6 @@ import { getProductReviews } from "../services/reviewService";
 import { getPublicRewardsInfo } from "../services/rewardsService";
 import AutoCompareTable from "../components/AutoCompareTable";
 import { useLanguage } from "../context/LanguageContext";
-
-// "Complete the Look" bundle: buying from both of these categories in the
-// same order unlocks an automatic discount (see CartContext.jsx / the
-// server's bundleDiscount.js, which is the actual source of truth).
-const BUNDLE_PAIR = {
-  bedsheets: { slug: "cushion-covers", label: "Cushion Covers" },
-  "cushion-covers": { slug: "bedsheets", label: "Bedsheets" },
-};
-const BUNDLE_DISCOUNT_PERCENT = 10;
 
 function ProductDetails() {
   const { id } = useParams();
@@ -81,6 +71,7 @@ function ProductDetails() {
   const [relatedProducts, setRelatedProducts] = useState([]);
   const [bundleProducts, setBundleProducts] = useState([]);
   const [bundleCategoryLabel, setBundleCategoryLabel] = useState("");
+  const [bundleDiscountPercent, setBundleDiscountPercent] = useState(0);
   const [viewCount, setViewCount] = useState(0);
   const [reviewStats, setReviewStats] = useState({
     averageRating: 0,
@@ -144,6 +135,7 @@ function ProductDetails() {
       setRelatedProducts([]);
       setBundleProducts([]);
       setBundleCategoryLabel("");
+      setBundleDiscountPercent(0);
 
       const response = await getProductById(id);
 
@@ -181,26 +173,31 @@ function ProductDetails() {
           }
         }
 
-        const currentSlug = response.product.category?.slug;
-        const bundlePartner = BUNDLE_PAIR[currentSlug];
+        if (categoryId) {
+          const settingsRes = await getSiteSettings();
 
-        if (bundlePartner) {
-          const categoriesRes = await getCategories();
-
-          if (categoriesRes.success) {
-            const partnerCategory = categoriesRes.categories.find(
-              (c) => c.slug === bundlePartner.slug,
+          const matchedRule = (settingsRes.settings?.bundleRules || [])
+            .filter((rule) => rule.isActive)
+            .find(
+              (rule) =>
+                rule.categoryA?._id === categoryId ||
+                rule.categoryB?._id === categoryId,
             );
 
-            if (partnerCategory) {
-              const bundleRes = await getProductsByCategory(
-                partnerCategory._id,
-              );
+          if (matchedRule) {
+            const partnerCategory =
+              matchedRule.categoryA?._id === categoryId
+                ? matchedRule.categoryB
+                : matchedRule.categoryA;
 
-              if (bundleRes.success) {
-                setBundleProducts(bundleRes.products.slice(0, 8));
-                setBundleCategoryLabel(bundlePartner.label);
-              }
+            const bundleRes = await getProductsByCategory(
+              partnerCategory._id,
+            );
+
+            if (bundleRes.success) {
+              setBundleProducts(bundleRes.products.slice(0, 8));
+              setBundleCategoryLabel(partnerCategory.name);
+              setBundleDiscountPercent(matchedRule.discountPercent);
             }
           }
         }
@@ -922,7 +919,7 @@ function ProductDetails() {
 
           <p className="text-sm text-green-700 font-medium mb-6">
             Add a {bundleCategoryLabel} to this order and get{" "}
-            {BUNDLE_DISCOUNT_PERCENT}% off automatically at checkout.
+            {bundleDiscountPercent}% off automatically at checkout.
           </p>
 
           <div

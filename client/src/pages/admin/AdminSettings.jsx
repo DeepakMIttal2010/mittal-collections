@@ -4,6 +4,7 @@ import {
   getSiteSettingsAdmin,
   updateSiteSettings,
 } from "../../services/adminSettingsService";
+import { getCategories } from "../../services/categoryService";
 
 function AdminSettings() {
   const [loading, setLoading] = useState(true);
@@ -24,6 +25,8 @@ function AdminSettings() {
   });
 
   const [shippingTiers, setShippingTiers] = useState([]);
+  const [bundleRules, setBundleRules] = useState([]);
+  const [categories, setCategories] = useState([]);
 
   const loadSettings = async () => {
     setLoading(true);
@@ -46,7 +49,18 @@ function AdminSettings() {
           response.settings.defaultReturnPeriodDays ?? 7,
       });
       setShippingTiers(response.settings.shippingTiers || []);
+      setBundleRules(
+        (response.settings.bundleRules || []).map((rule) => ({
+          categoryA: rule.categoryA?._id || rule.categoryA || "",
+          categoryB: rule.categoryB?._id || rule.categoryB || "",
+          discountPercent: rule.discountPercent,
+          isActive: rule.isActive,
+        })),
+      );
     }
+
+    const categoriesRes = await getCategories();
+    if (categoriesRes.success) setCategories(categoriesRes.categories);
 
     setLoading(false);
   };
@@ -67,6 +81,30 @@ function AdminSettings() {
     setShippingTiers((prev) => prev.filter((_, i) => i !== index));
   };
 
+  const handleBundleRuleChange = (index, field, value) => {
+    setBundleRules((prev) =>
+      prev.map((rule, i) =>
+        i === index
+          ? {
+              ...rule,
+              [field]: field === "discountPercent" ? Number(value) : value,
+            }
+          : rule,
+      ),
+    );
+  };
+
+  const handleAddBundleRule = () => {
+    setBundleRules((prev) => [
+      ...prev,
+      { categoryA: "", categoryB: "", discountPercent: 10, isActive: true },
+    ]);
+  };
+
+  const handleRemoveBundleRule = (index) => {
+    setBundleRules((prev) => prev.filter((_, i) => i !== index));
+  };
+
   useEffect(() => {
     loadSettings();
   }, []);
@@ -82,9 +120,22 @@ function AdminSettings() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    const incompleteBundleRule = bundleRules.some(
+      (rule) => !rule.categoryA || !rule.categoryB,
+    );
+
+    if (incompleteBundleRule) {
+      alert("Pick both categories for every bundle discount row (or remove it).");
+      return;
+    }
+
     setSaving(true);
 
-    const response = await updateSiteSettings({ ...formData, shippingTiers });
+    const response = await updateSiteSettings({
+      ...formData,
+      shippingTiers,
+      bundleRules,
+    });
 
     setSaving(false);
 
@@ -268,6 +319,104 @@ function AdminSettings() {
             + Add Tier
           </button>
         </div>
+
+        <hr className="border-slate-200" />
+
+        <h3 className="font-semibold text-slate-800">Bundle Discounts</h3>
+        <p className="text-sm text-slate-500 -mt-2">
+          "Complete the Look" — buying from both categories in a rule
+          unlocks that discount automatically at checkout, no coupon
+          needed.
+        </p>
+
+        {bundleRules.length > 0 && (
+          <div className="space-y-2 mb-2">
+            {bundleRules.map((rule, index) => (
+              <div key={index} className="flex items-center gap-2 flex-wrap">
+                <select
+                  value={rule.categoryA}
+                  onChange={(e) =>
+                    handleBundleRuleChange(index, "categoryA", e.target.value)
+                  }
+                  className="border border-slate-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Category A</option>
+                  {categories.map((c) => (
+                    <option key={c._id} value={c._id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+
+                <span className="text-xs text-slate-500 shrink-0">+</span>
+
+                <select
+                  value={rule.categoryB}
+                  onChange={(e) =>
+                    handleBundleRuleChange(index, "categoryB", e.target.value)
+                  }
+                  className="border border-slate-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Category B</option>
+                  {categories.map((c) => (
+                    <option key={c._id} value={c._id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+
+                <span className="text-xs text-slate-500 shrink-0">→</span>
+
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={rule.discountPercent}
+                  onChange={(e) =>
+                    handleBundleRuleChange(
+                      index,
+                      "discountPercent",
+                      e.target.value,
+                    )
+                  }
+                  className="w-16 border border-slate-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <span className="text-xs text-slate-500 shrink-0">%</span>
+
+                <label className="flex items-center gap-1.5 text-xs text-slate-600 shrink-0">
+                  <input
+                    type="checkbox"
+                    checked={rule.isActive}
+                    onChange={(e) =>
+                      handleBundleRuleChange(
+                        index,
+                        "isActive",
+                        e.target.checked,
+                      )
+                    }
+                  />
+                  Active
+                </label>
+
+                <button
+                  type="button"
+                  onClick={() => handleRemoveBundleRule(index)}
+                  className="text-red-500 hover:text-red-700 text-sm px-2"
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <button
+          type="button"
+          onClick={handleAddBundleRule}
+          className="text-sm text-blue-700 hover:text-blue-900 font-medium"
+        >
+          + Add Bundle Rule
+        </button>
 
         <hr className="border-slate-200" />
 

@@ -3,20 +3,10 @@ import { createContext, useContext, useEffect, useState } from "react";
 import { toast } from "react-toastify";
 
 import { syncCart } from "../services/cartService";
+import { getSiteSettings } from "../services/settingsService";
 import { useAuth } from "./AuthContext";
 
 const CartContext = createContext();
-
-// "Complete the Look" bundle: buying from both of these categories in the
-// same cart unlocks an automatic discount, no coupon needed. This is only
-// a live preview for display — the server (bundleDiscount.js) independently
-// recomputes the real discount at checkout, so these values must stay in
-// sync with it but are never trusted as-is for payment.
-const BUNDLE_CATEGORIES = [
-  { slug: "bedsheets", label: "Bedsheet" },
-  { slug: "cushion-covers", label: "Cushion Cover" },
-];
-const BUNDLE_DISCOUNT_PERCENT = 10;
 
 export function CartProvider({ children }) {
   const [cartItems, setCartItems] = useState(() => {
@@ -26,6 +16,25 @@ export function CartProvider({ children }) {
 
   const [isCartOpen, setIsCartOpen] = useState(false);
   const { isLoggedIn } = useAuth();
+
+  // "Complete the Look" bundle rules — admin-managed. Buying from both
+  // categories in an active rule unlocks that rule's discount automatically
+  // at checkout, no coupon needed. This is only a live preview for display —
+  // the server (bundleDiscount.js) independently re-derives category
+  // membership from the DB at order time, so it can't be spoofed here.
+  const [bundleRules, setBundleRules] = useState([]);
+
+  useEffect(() => {
+    getSiteSettings().then((response) => {
+      if (response.success) {
+        setBundleRules(
+          (response.settings.bundleRules || []).filter(
+            (rule) => rule.isActive,
+          ),
+        );
+      }
+    });
+  }, []);
 
   useEffect(() => {
     localStorage.setItem("cartItems", JSON.stringify(cartItems));
@@ -142,22 +151,43 @@ export function CartProvider({ children }) {
     0,
   );
 
-  const presentSlugs = new Set(
-    cartItems.map((item) => item.category?.slug).filter(Boolean),
+  const presentCategoryIds = new Set(
+    cartItems.map((item) => item.category?._id).filter(Boolean),
   );
-  const missingCategory = BUNDLE_CATEGORIES.find(
-    (c) => !presentSlugs.has(c.slug),
-  );
-  const bundleEligible = !missingCategory;
-  const bundleDiscountAmount = bundleEligible
-    ? Math.round((totalPrice * BUNDLE_DISCOUNT_PERCENT) / 100)
-    : 0;
+
+  const matchedRule = bundleRules
+    .filter(
+      (rule) =>
+        presentCategoryIds.has(rule.categoryA?._id) &&
+        presentCategoryIds.has(rule.categoryB?._id),
+    )
+    .sort((a, b) => b.discountPercent - a.discountPercent)[0];
+
+  // No full match yet — find a rule that's one category away, to nudge
+  // the customer toward completing it (prefer the highest-value nudge).
+  const nudgeRule = matchedRule
+    ? null
+    : bundleRules
+        .filter((rule) => {
+          const hasA = presentCategoryIds.has(rule.categoryA?._id);
+          const hasB = presentCategoryIds.has(rule.categoryB?._id);
+          return hasA !== hasB;
+        })
+        .sort((a, b) => b.discountPercent - a.discountPercent)[0];
+
+  const nudgeMissingCategory = nudgeRule
+    ? presentCategoryIds.has(nudgeRule.categoryA?._id)
+      ? nudgeRule.categoryB
+      : nudgeRule.categoryA
+    : null;
 
   const bundleInfo = {
-    eligible: bundleEligible,
-    discountPercent: BUNDLE_DISCOUNT_PERCENT,
-    discountAmount: bundleDiscountAmount,
-    missingCategoryLabel: missingCategory?.label || null,
+    eligible: Boolean(matchedRule),
+    discountPercent: matchedRule?.discountPercent || nudgeRule?.discountPercent || 0,
+    discountAmount: matchedRule
+      ? Math.round((totalPrice * matchedRule.discountPercent) / 100)
+      : 0,
+    missingCategoryLabel: nudgeMissingCategory?.name || null,
   };
 
   return (

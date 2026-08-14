@@ -1,11 +1,15 @@
 import SiteSettings from "../models/SiteSettings.js";
+import { invalidateBundleRulesCache } from "../utils/bundleDiscount.js";
 
 // ============================
 // GET SITE SETTINGS (Public)
 // ============================
 export const getSiteSettings = async (req, res) => {
   try {
-    let settings = await SiteSettings.findOne();
+    let settings = await SiteSettings.findOne().populate(
+      "bundleRules.categoryA bundleRules.categoryB",
+      "name slug",
+    );
 
     if (!settings) {
       settings = await SiteSettings.create({});
@@ -43,6 +47,7 @@ export const updateSiteSettings = async (req, res) => {
       deliveryFee,
       shippingTiers,
       defaultReturnPeriodDays,
+      bundleRules,
     } = req.body;
 
     let settings = await SiteSettings.findOne();
@@ -65,8 +70,16 @@ export const updateSiteSettings = async (req, res) => {
     if (shippingTiers !== undefined) settings.shippingTiers = shippingTiers;
     if (defaultReturnPeriodDays !== undefined)
       settings.defaultReturnPeriodDays = defaultReturnPeriodDays;
+    if (bundleRules !== undefined) {
+      settings.bundleRules = bundleRules;
+      invalidateBundleRulesCache();
+    }
 
     await settings.save();
+    await settings.populate(
+      "bundleRules.categoryA bundleRules.categoryB",
+      "name slug",
+    );
 
     res.status(200).json({
       success: true,

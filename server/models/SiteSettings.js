@@ -27,6 +27,26 @@ const siteSettingsSchema = new mongoose.Schema(
     // Default return window (days from delivery) for any product that
     // doesn't set its own returnPeriodDays override.
     defaultReturnPeriodDays: { type: Number, default: 7 },
+
+    // "Complete the Look" bundle discounts — buying from both categories in
+    // a rule unlocks that rule's discount automatically at checkout, no
+    // coupon needed. Admin-managed (see AdminSettings.jsx).
+    bundleRules: [
+      {
+        categoryA: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Category",
+          required: true,
+        },
+        categoryB: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Category",
+          required: true,
+        },
+        discountPercent: { type: Number, required: true },
+        isActive: { type: Boolean, default: true },
+      },
+    ],
   },
   {
     timestamps: true,
