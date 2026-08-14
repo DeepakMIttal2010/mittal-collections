@@ -7,5 +7,29 @@
     { "source": "/blankets", "destination": "/category/blankets", "permanent": true },
     { "source": "/offers", "destination": "/trending", "permanent": true }
   ],
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+  "rewrites": [
+    {
+      "source": "/product/:id/:slug*",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*([bB]ot|facebookexternalhit|WhatsApp|Pinterest|embedly|Quora Link Preview|Slurp|ia_archiver|Discordbot|TelegramBot|redirectionio).*"
+        }
+      ],
+      "destination": "/api/render?path=/product/:id/:slug*"
+    },
+    {
+      "source": "/category/:slug/:subslug*",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*([bB]ot|facebookexternalhit|WhatsApp|Pinterest|embedly|Quora Link Preview|Slurp|ia_archiver|Discordbot|TelegramBot|redirectionio).*"
+        }
+      ],
+      "destination": "/api/render?path=/category/:slug/:subslug*"
+    },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
 }
