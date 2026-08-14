@@ -50,6 +50,7 @@ function Header() {
   const [accountOpen, setAccountOpen] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [deliverName, setDeliverName] = useState("");
   const [deliverPlace, setDeliverPlace] = useState("");
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -90,10 +91,12 @@ function Header() {
     loadNotifications();
   };
 
-  // Prefer the customer's own saved (default) address city + pincode.
-  // Only fall back to an IP-based city guess when logged out or when
-  // they haven't saved an address yet, and fall back further to our own
-  // home city (rather than a generic "India") when even that fails.
+  // Logged-in customers with a saved address get the real "Deliver to
+  // [Name] / [City] [Pincode]" pair. Logged-out visitors get a plain
+  // "Deliver to: [City]" with no name attached — showing "Guest" or a
+  // stranger's own name next to a location reads as broken, not helpful.
+  // Either way, the place always resolves to something concrete (our own
+  // home city + pincode as the last resort) rather than a bare "India".
   useEffect(() => {
     const loadDeliverTo = async () => {
       if (isLoggedIn) {
@@ -104,6 +107,7 @@ function Header() {
             response.addresses.find((a) => a.isDefault) ||
             response.addresses[0];
 
+          setDeliverName(user?.name || "");
           setDeliverPlace(
             [address.city, address.pincode].filter(Boolean).join(" "),
           );
@@ -118,9 +122,10 @@ function Header() {
       // showing nothing.
       const { city, region } = response.location || {};
 
+      setDeliverName(isLoggedIn ? user?.name || "" : "");
       if (city) setDeliverPlace(city);
       else if (region) setDeliverPlace(region);
-      else setDeliverPlace("Ghaziabad");
+      else setDeliverPlace("Ghaziabad 201012");
     };
 
     loadDeliverTo();
@@ -216,12 +221,23 @@ function Header() {
         {deliverPlace && (
           <Link
             to={isLoggedIn ? "/addresses" : "/login"}
-            className="hidden lg:flex items-center gap-1.5 shrink-0"
+            className="hidden lg:flex items-start gap-1.5 shrink-0 leading-tight"
           >
-            <FaMapMarkerAlt className="text-amber-600 text-base shrink-0" />
-            <span className="text-sm font-bold text-slate-900">
-              Deliver to: {deliverPlace}
-            </span>
+            <FaMapMarkerAlt className="text-amber-600 mt-1 text-base shrink-0" />
+            {deliverName ? (
+              <span>
+                <span className="block text-xs text-slate-500">
+                  Deliver to {deliverName}
+                </span>
+                <span className="block text-sm font-bold text-slate-900">
+                  {deliverPlace}
+                </span>
+              </span>
+            ) : (
+              <span className="text-sm font-bold text-slate-900">
+                Deliver to: {deliverPlace}
+              </span>
+            )}
           </Link>
         )}
 
