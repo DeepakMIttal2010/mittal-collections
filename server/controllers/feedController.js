@@ -81,6 +81,7 @@ ${extraImages}
       <g:brand>${brand}</g:brand>
       <g:identifier_exists>no</g:identifier_exists>
       <g:product_type>${escapeXml(product.category?.name || "")}</g:product_type>
+      <g:ships_from_country>IN</g:ships_from_country>
     </item>`;
       })
       .join("\n");
