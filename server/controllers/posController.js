@@ -87,7 +87,17 @@ const reserveStockForItems = async (items) => {
 // body: { items: [{ productId, quantity, unitPrice }], paymentMethod, customerMobile, customerName }
 export const recordOfflineSale = async (req, res) => {
   try {
-    const { items, paymentMethod, customerMobile, customerName } = req.body;
+    const { paymentMethod, customerMobile, customerName } = req.body;
+
+    let items;
+    try {
+      items =
+        typeof req.body.items === "string"
+          ? JSON.parse(req.body.items)
+          : req.body.items;
+    } catch {
+      items = null;
+    }
 
     if (!Array.isArray(items) || items.length === 0) {
       return res.status(400).json({
@@ -144,7 +154,15 @@ export const recordOfflineSale = async (req, res) => {
       };
     });
 
-    const totalAmount = saleItems.reduce((sum, i) => sum + i.subtotal, 0);
+    const subtotal = saleItems.reduce((sum, i) => sum + i.subtotal, 0);
+
+    // Clamp so a mistyped discount can never push the total below 0 or
+    // exceed the cart's own subtotal.
+    const discountAmount = Math.min(
+      Math.max(Number(req.body.discountAmount) || 0, 0),
+      subtotal,
+    );
+    const totalAmount = subtotal - discountAmount;
 
     let customerUser = null;
     if (customerMobile) {
@@ -171,6 +189,7 @@ export const recordOfflineSale = async (req, res) => {
 
     const sale = await OfflineSale.create({
       items: saleItems,
+      discountAmount,
       totalAmount,
       paymentMethod,
       customerMobile: customerMobile || "",
@@ -179,6 +198,7 @@ export const recordOfflineSale = async (req, res) => {
       loyaltyPointsAwarded,
       soldBy: req.user._id,
       soldByMobile: req.user.mobile || "",
+      paymentProofImage: req.file ? req.file.path : "",
     });
 
     res.status(201).json({

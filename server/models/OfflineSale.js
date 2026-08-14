@@ -52,10 +52,25 @@ const offlineSaleSchema = new mongoose.Schema(
       },
     },
 
+    // Subtotal before any discount — kept alongside totalAmount so the
+    // discount actually applied is always recoverable from the record.
+    discountAmount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
     totalAmount: {
       type: Number,
       required: true,
       min: 0,
+    },
+
+    // Optional photo of the payment (UPI screenshot, card slip, etc.) as
+    // proof of the transaction — Cloudinary URL, same as product images.
+    paymentProofImage: {
+      type: String,
+      default: "",
     },
 
     paymentMethod: {

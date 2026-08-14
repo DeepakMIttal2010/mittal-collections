@@ -31,15 +31,27 @@ export const lookupCustomerByMobile = async (mobile) => {
   }
 };
 
-export const recordOfflineSale = async (payload) => {
+export const recordOfflineSale = async ({
+  items,
+  paymentMethod,
+  customerMobile,
+  customerName,
+  discountAmount,
+  paymentProofFile,
+}) => {
   try {
+    const form = new FormData();
+    form.append("items", JSON.stringify(items));
+    form.append("paymentMethod", paymentMethod);
+    form.append("customerMobile", customerMobile || "");
+    form.append("customerName", customerName || "");
+    form.append("discountAmount", discountAmount || 0);
+    if (paymentProofFile) form.append("paymentProof", paymentProofFile);
+
     const response = await fetch(`${API_BASE_URL}/admin/pos/sale`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${getToken()}`,
-      },
-      body: JSON.stringify(payload),
+      headers: { Authorization: `Bearer ${getToken()}` },
+      body: form,
     });
 
     return await response.json();

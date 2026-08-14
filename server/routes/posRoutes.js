@@ -8,6 +8,8 @@ import {
 } from "../controllers/posController.js";
 import authMiddleware from "../middleware/authMiddleware.js";
 import adminMiddleware from "../middleware/adminMiddleware.js";
+import upload from "../middleware/uploadMiddleware.js";
+import imageOptimizer from "../middleware/imageOptimizer.js";
 
 const router = express.Router();
 
@@ -18,7 +20,14 @@ router.get(
   getProductForPOS,
 );
 router.get("/customer", authMiddleware, adminMiddleware, lookupCustomerByMobile);
-router.post("/sale", authMiddleware, adminMiddleware, recordOfflineSale);
+router.post(
+  "/sale",
+  authMiddleware,
+  adminMiddleware,
+  upload.single("paymentProof"),
+  imageOptimizer,
+  recordOfflineSale,
+);
 router.get("/sales", authMiddleware, adminMiddleware, getOfflineSales);
 
 export default router;

@@ -31,6 +31,9 @@ function AdminPOS() {
   const [customerName, setCustomerName] = useState("");
   const [customerFound, setCustomerFound] = useState(false);
   const [lookingUp, setLookingUp] = useState(false);
+  const [discountInput, setDiscountInput] = useState("");
+  const [paymentProofFile, setPaymentProofFile] = useState(null);
+  const [paymentProofPreview, setPaymentProofPreview] = useState("");
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -111,6 +114,21 @@ function AdminPOS() {
     0,
   );
 
+  // Clamped the same way the server clamps it, so what the admin sees
+  // here matches what actually gets saved — never negative, never more
+  // than the cart itself.
+  const discountAmount = Math.min(
+    Math.max(Number(discountInput) || 0, 0),
+    cartTotal,
+  );
+  const finalAmount = cartTotal - discountAmount;
+
+  const handlePaymentProofChange = (e) => {
+    const file = e.target.files?.[0] || null;
+    setPaymentProofFile(file);
+    setPaymentProofPreview(file ? URL.createObjectURL(file) : "");
+  };
+
   const handleCheckout = async (e) => {
     e.preventDefault();
     setError("");
@@ -131,6 +149,8 @@ function AdminPOS() {
       paymentMethod,
       customerMobile,
       customerName,
+      discountAmount,
+      paymentProofFile,
     });
 
     setSubmitting(false);
@@ -149,6 +169,7 @@ function AdminPOS() {
       ...sale.items.map(
         (i) => `${i.productName}: ${i.quantity} x ₹${i.unitPrice} = ₹${i.subtotal}`,
       ),
+      ...(sale.discountAmount > 0 ? [`Discount: -₹${sale.discountAmount}`] : []),
       `Total: ₹${sale.totalAmount}`,
       `Payment: ${sale.paymentMethod}`,
       `Date: ${new Date(sale.createdAt).toLocaleString("en-IN")}`,
@@ -199,10 +220,28 @@ function AdminPOS() {
             )}
           </div>
 
-          <div className="flex justify-between text-lg font-bold text-slate-900 mb-6">
+          {sale.discountAmount > 0 && (
+            <div className="flex justify-between text-sm text-green-600 mb-1">
+              <span>Discount</span>
+              <span>−₹{sale.discountAmount}</span>
+            </div>
+          )}
+
+          <div className="flex justify-between text-lg font-bold text-slate-900 mb-4">
             <span>Total</span>
             <span>₹{sale.totalAmount}</span>
           </div>
+
+          {sale.paymentProofImage && (
+            <div className="mb-6">
+              <p className="text-xs text-slate-400 mb-1">Payment Proof</p>
+              <img
+                src={sale.paymentProofImage}
+                alt="Payment proof"
+                className="w-full max-h-64 object-contain rounded-lg border border-slate-200"
+              />
+            </div>
+          )}
 
           <div className="flex flex-col gap-3 print:hidden">
             <button
@@ -230,6 +269,9 @@ function AdminPOS() {
                 setCustomerName("");
                 setCustomerFound(false);
                 setCart([]);
+                setDiscountInput("");
+                setPaymentProofFile(null);
+                setPaymentProofPreview("");
               }}
               className="border-2 border-blue-900 text-blue-900 font-semibold rounded-full py-3 transition-colors"
             >
@@ -326,9 +368,23 @@ function AdminPOS() {
             </div>
           ))}
 
-          <div className="flex justify-between font-bold text-slate-900 pt-2 border-t border-slate-200">
-            <span>Total</span>
-            <span>₹{cartTotal}</span>
+          <div className="pt-2 border-t border-slate-200 space-y-1">
+            <div className="flex justify-between text-slate-600 text-sm">
+              <span>Subtotal</span>
+              <span>₹{cartTotal}</span>
+            </div>
+
+            {discountAmount > 0 && (
+              <div className="flex justify-between text-green-600 text-sm">
+                <span>Discount</span>
+                <span>−₹{discountAmount}</span>
+              </div>
+            )}
+
+            <div className="flex justify-between font-bold text-slate-900">
+              <span>Total</span>
+              <span>₹{finalAmount}</span>
+            </div>
           </div>
         </div>
       )}
@@ -354,6 +410,42 @@ function AdminPOS() {
               ))}
             </select>
           </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Discount Amount (optional)
+            </label>
+            <input
+              type="number"
+              min="0"
+              max={cartTotal}
+              value={discountInput}
+              onChange={(e) => setDiscountInput(e.target.value)}
+              placeholder="0"
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          {paymentMethod !== "Cash" && (
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                Payment Proof (optional)
+              </label>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handlePaymentProofChange}
+                className="w-full text-sm text-slate-600 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-blue-50 file:text-blue-700 file:text-sm file:font-medium hover:file:bg-blue-100"
+              />
+              {paymentProofPreview && (
+                <img
+                  src={paymentProofPreview}
+                  alt="Payment proof preview"
+                  className="mt-2 h-24 rounded-lg border border-slate-200 object-cover"
+                />
+              )}
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">
@@ -401,7 +493,7 @@ function AdminPOS() {
             disabled={submitting}
             className="w-full bg-blue-900 hover:bg-blue-950 text-white font-semibold rounded-full py-3 transition-colors disabled:opacity-60"
           >
-            {submitting ? "Recording Sale..." : `Complete Sale — ₹${cartTotal}`}
+            {submitting ? "Recording Sale..." : `Complete Sale — ₹${finalAmount}`}
           </button>
         </form>
       )}
