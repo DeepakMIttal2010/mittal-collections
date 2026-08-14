@@ -47,6 +47,10 @@ const siteSettingsSchema = new mongoose.Schema(
         isActive: { type: Boolean, default: true },
       },
     ],
+
+    // Toggles the first-visit "Welcome to Mittal Collections" benefits
+    // popup shown to guests (see WelcomeBenefitsPopup.jsx).
+    welcomePopupEnabled: { type: Boolean, default: true },
   },
   {
     timestamps: true,

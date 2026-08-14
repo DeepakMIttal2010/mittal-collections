@@ -5,9 +5,11 @@ import {
   updateSiteSettings,
 } from "../../services/adminSettingsService";
 import { getCategories } from "../../services/categoryService";
+import WelcomeBenefitsPopup from "../../components/WelcomeBenefitsPopup";
 
 function AdminSettings() {
   const [loading, setLoading] = useState(true);
+  const [showPopupPreview, setShowPopupPreview] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const [formData, setFormData] = useState({
@@ -22,6 +24,7 @@ function AdminSettings() {
     freeShippingThreshold: 499,
     deliveryFee: 49,
     defaultReturnPeriodDays: 7,
+    welcomePopupEnabled: true,
   });
 
   const [shippingTiers, setShippingTiers] = useState([]);
@@ -47,6 +50,7 @@ function AdminSettings() {
         deliveryFee: response.settings.deliveryFee ?? 49,
         defaultReturnPeriodDays:
           response.settings.defaultReturnPeriodDays ?? 7,
+        welcomePopupEnabled: response.settings.welcomePopupEnabled ?? true,
       });
       setShippingTiers(response.settings.shippingTiers || []);
       setBundleRules(
@@ -110,10 +114,11 @@ function AdminSettings() {
   }, []);
 
   const handleChange = (e) => {
-    const { name, value, type } = e.target;
+    const { name, value, type, checked } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: type === "number" ? Number(value) : value,
+      [name]:
+        type === "checkbox" ? checked : type === "number" ? Number(value) : value,
     }));
   };
 
@@ -420,6 +425,35 @@ function AdminSettings() {
 
         <hr className="border-slate-200" />
 
+        <h3 className="font-semibold text-slate-800">Welcome Popup</h3>
+        <p className="text-sm text-slate-500 -mt-2">
+          The "Welcome to Mittal Collections" benefits popup shown to
+          first-time guests (hidden for logged-in customers, and won't
+          reappear for 24 hours after being shown).
+        </p>
+
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <label className="flex items-center gap-2 text-sm text-slate-700">
+            <input
+              type="checkbox"
+              name="welcomePopupEnabled"
+              checked={formData.welcomePopupEnabled}
+              onChange={handleChange}
+            />
+            Show the welcome popup to new visitors
+          </label>
+
+          <button
+            type="button"
+            onClick={() => setShowPopupPreview(true)}
+            className="text-sm text-blue-700 hover:text-blue-900 font-medium"
+          >
+            Preview Popup
+          </button>
+        </div>
+
+        <hr className="border-slate-200" />
+
         <h3 className="font-semibold text-slate-800">Returns</h3>
         <p className="text-sm text-slate-500 -mt-2">
           Default return window for products that don't set their own
@@ -511,6 +545,13 @@ function AdminSettings() {
           {saving ? "Saving..." : "Save Settings"}
         </button>
       </form>
+
+      {showPopupPreview && (
+        <WelcomeBenefitsPopup
+          previewMode
+          onClose={() => setShowPopupPreview(false)}
+        />
+      )}
     </div>
   );
 }

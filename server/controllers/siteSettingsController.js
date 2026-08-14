@@ -48,6 +48,7 @@ export const updateSiteSettings = async (req, res) => {
       shippingTiers,
       defaultReturnPeriodDays,
       bundleRules,
+      welcomePopupEnabled,
     } = req.body;
 
     let settings = await SiteSettings.findOne();
@@ -74,6 +75,8 @@ export const updateSiteSettings = async (req, res) => {
       settings.bundleRules = bundleRules;
       invalidateBundleRulesCache();
     }
+    if (welcomePopupEnabled !== undefined)
+      settings.welcomePopupEnabled = welcomePopupEnabled;
 
     await settings.save();
     await settings.populate(
