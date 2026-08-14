@@ -50,7 +50,6 @@ function Header() {
   const [accountOpen, setAccountOpen] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const [deliverName, setDeliverName] = useState("");
   const [deliverPlace, setDeliverPlace] = useState("");
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -91,9 +90,10 @@ function Header() {
     loadNotifications();
   };
 
-  // Prefer the customer's own saved (default) address — real name, city
-  // and pincode. Only fall back to an IP-based city guess when logged
-  // out or when they haven't saved an address yet.
+  // Prefer the customer's own saved (default) address city + pincode.
+  // Only fall back to an IP-based city guess when logged out or when
+  // they haven't saved an address yet, and fall back further to our own
+  // home city (rather than a generic "India") when even that fails.
   useEffect(() => {
     const loadDeliverTo = async () => {
       if (isLoggedIn) {
@@ -104,7 +104,6 @@ function Header() {
             response.addresses.find((a) => a.isDefault) ||
             response.addresses[0];
 
-          setDeliverName(user?.name || "");
           setDeliverPlace(
             [address.city, address.pincode].filter(Boolean).join(" "),
           );
@@ -114,17 +113,14 @@ function Header() {
 
       const response = await getMyLocation();
 
-      if (!response.success || !response.location) return;
-
       // City-level geo data isn't available for every IP on the free
-      // database — fall back to state, then just "India", rather than
+      // database — fall back to state, then our home city, rather than
       // showing nothing.
-      const { city, region, country } = response.location;
+      const { city, region } = response.location || {};
 
-      setDeliverName(isLoggedIn ? user?.name || "" : "Guest");
       if (city) setDeliverPlace(city);
       else if (region) setDeliverPlace(region);
-      else if (country === "IN") setDeliverPlace("India");
+      else setDeliverPlace("Ghaziabad");
     };
 
     loadDeliverTo();
@@ -220,16 +216,11 @@ function Header() {
         {deliverPlace && (
           <Link
             to={isLoggedIn ? "/addresses" : "/login"}
-            className="hidden lg:flex items-start gap-1.5 shrink-0 leading-tight"
+            className="hidden lg:flex items-center gap-1.5 shrink-0"
           >
-            <FaMapMarkerAlt className="text-amber-600 mt-1 text-base shrink-0" />
-            <span>
-              <span className="block text-xs text-slate-500">
-                Deliver to {deliverName}
-              </span>
-              <span className="block text-sm font-bold text-slate-900">
-                {deliverPlace}
-              </span>
+            <FaMapMarkerAlt className="text-amber-600 text-base shrink-0" />
+            <span className="text-sm font-bold text-slate-900">
+              Deliver to: {deliverPlace}
             </span>
           </Link>
         )}
