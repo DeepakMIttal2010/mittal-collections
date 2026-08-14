@@ -917,10 +917,16 @@ function ProductDetails() {
             </div>
           </div>
 
-          <p className="text-sm text-green-700 font-medium mb-6">
-            Add a {bundleCategoryLabel} to this order and get{" "}
-            {bundleDiscountPercent}% off automatically at checkout.
-          </p>
+          <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-lg px-4 py-3 mb-6">
+            <FaGift className="text-green-700 shrink-0" />
+            <span className="text-sm text-green-700">
+              Add a {bundleCategoryLabel} to this order and get{" "}
+              <span className="font-bold">
+                {bundleDiscountPercent}% off
+              </span>{" "}
+              automatically at checkout — no code needed.
+            </span>
+          </div>
 
           <div
             ref={bundleScrollRef}

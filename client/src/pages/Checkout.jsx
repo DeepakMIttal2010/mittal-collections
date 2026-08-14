@@ -404,18 +404,30 @@ function Checkout() {
             </button>
 
             {bundleInfo.eligible ? (
-              <p className="flex items-center gap-1.5 text-xs text-green-700 mt-4">
-                <FaTags className="text-xs" />
-                {bundleInfo.discountPercent}% Complete the Look discount
-                applied!
-              </p>
+              <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-lg px-3 py-2.5 mt-4">
+                <FaTags className="text-green-700" />
+                <span className="text-sm font-bold text-green-700">
+                  {bundleInfo.discountPercent}% Complete the Look discount
+                  applied!
+                </span>
+              </div>
             ) : (
               bundleInfo.missingCategoryLabel && (
-                <p className="flex items-center gap-1.5 text-xs text-amber-700 mt-4">
-                  <FaTags className="text-xs" />
-                  Add a {bundleInfo.missingCategoryLabel} to unlock{" "}
-                  {bundleInfo.discountPercent}% off this order
-                </p>
+                <Link
+                  to={`/category/${bundleInfo.missingCategorySlug}`}
+                  className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5 mt-4 hover:bg-amber-100 transition-colors"
+                >
+                  <FaTags className="text-amber-700 shrink-0" />
+                  <span className="text-sm text-amber-800">
+                    <span className="font-bold">
+                      {bundleInfo.discountPercent}% off
+                    </span>{" "}
+                    — add a {bundleInfo.missingCategoryLabel} to unlock it.{" "}
+                    <span className="font-bold underline">
+                      Shop {bundleInfo.missingCategoryLabel} →
+                    </span>
+                  </span>
+                </Link>
               )
             )}
 

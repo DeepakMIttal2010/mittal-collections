@@ -188,6 +188,7 @@ export function CartProvider({ children }) {
       ? Math.round((totalPrice * matchedRule.discountPercent) / 100)
       : 0,
     missingCategoryLabel: nudgeMissingCategory?.name || null,
+    missingCategorySlug: nudgeMissingCategory?.slug || null,
   };
 
   return (
