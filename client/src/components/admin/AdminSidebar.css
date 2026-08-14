@@ -60,19 +60,58 @@
 .admin-sidebar nav {
   display: flex;
   flex-direction: column;
-  margin-top: 20px;
+  margin-top: 12px;
   flex: 1;
+  overflow-y: auto;
+}
+
+.sidebar-group {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.sidebar-group-label {
+  width: 100%;
+  border: none;
+  background: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #9ca3af;
+  transition: color 0.2s;
+}
+
+.sidebar-group-label:hover {
+  color: #fff;
+}
+
+.sidebar-group-chevron {
+  font-size: 10px;
+  transition: transform 0.2s;
+}
+
+.sidebar-group-chevron.open {
+  transform: rotate(180deg);
+}
+
+.sidebar-group-items {
+  padding-bottom: 6px;
 }
 
 .admin-sidebar nav a {
   color: #d1d5db;
   text-decoration: none;
-  padding: 14px 20px;
+  padding: 10px 20px;
   display: flex;
   align-items: center;
   gap: 12px;
   transition: 0.3s;
-  font-size: 15px;
+  font-size: 14px;
 }
 
 .admin-sidebar nav a:hover {
