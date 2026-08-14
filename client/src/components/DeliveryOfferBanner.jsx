@@ -18,11 +18,10 @@ function DeliveryOfferBanner() {
   return (
     <div className="relative bg-gradient-to-r from-orange-600 to-amber-500 text-white text-sm font-semibold">
       <div className="max-w-7xl mx-auto px-10 py-2 flex items-center justify-center gap-2 text-center">
-        <span className="shrink-0">🔔</span>
+        <span className="shrink-0">🚚</span>
         <span>
-          <strong>धमाकेदार ऑफर:</strong> वसुंधरा और उसके 10 किमी के दायरे में
-          (वैशाली, इंदिरापुरम, साहिबाबाद){" "}
-          <strong>FREE & FAST HOME DELIVERY within 24 Hours!</strong> 📦🚀
+          <strong>FREE & FAST DELIVERY within 24 Hours</strong> — Vasundhara
+          & 10 km आसपास (Vaishali, Indirapuram, Sahibabad)
         </span>
       </div>
       <button

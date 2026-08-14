@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { FaTag, FaTimes } from "react-icons/fa";
+import { FaTimes } from "react-icons/fa";
 
 import { getBannerCoupon } from "../services/couponService";
 
@@ -38,14 +38,15 @@ function CouponBanner() {
       : `${coupon.discountValue}% OFF`;
 
   return (
-    <div className="relative bg-amber-500 text-white text-sm">
+    <div className="relative bg-teal-700 text-white text-sm">
       <div className="max-w-7xl mx-auto px-4 py-2 flex items-center justify-center gap-2 text-center">
-        <FaTag className="shrink-0" />
+        <span className="shrink-0">🎁</span>
         <span>
-          Get <strong>{discountLabel}</strong>
-          {coupon.firstOrderOnly ? " on your first order" : ""} — use code{" "}
-          <strong className="tracking-wide">{coupon.code}</strong>
-          {coupon.maxDiscount ? ` (up to ₹${coupon.maxDiscount})` : ""}
+          <strong>
+            {discountLabel} on {coupon.firstOrderOnly ? "First Order" : "Your Order"}
+          </strong>{" "}
+          — Use <strong className="tracking-wide">{coupon.code}</strong>
+          {coupon.maxDiscount ? ` | Up to ₹${coupon.maxDiscount}` : ""}
         </span>
       </div>
       <button
