@@ -404,28 +404,31 @@ function Checkout() {
             </button>
 
             {bundleInfo.eligible ? (
-              <div className="flex items-center gap-2 bg-indigo-50 border border-indigo-200 rounded-lg px-3 py-2.5 mt-4">
-                <FaTags className="text-indigo-700" />
-                <span className="text-sm font-bold text-indigo-700">
-                  {bundleInfo.discountPercent}% Complete the Look discount
-                  applied!
+              <div className="bg-indigo-50 border border-indigo-200 rounded-lg px-3 py-2.5 mt-4">
+                <span className="text-sm font-medium text-indigo-800 flex items-center gap-1.5">
+                  <FaTags className="text-xs" />
+                  Extra {bundleInfo.discountPercent}% OFF Applied!
+                </span>
+                <span className="text-xs text-indigo-700">
+                  Complete the Look bundle discount applied to your order.
                 </span>
               </div>
             ) : (
               bundleInfo.missingCategoryLabel && (
                 <Link
                   to={`/category/${bundleInfo.missingCategorySlug}`}
-                  className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2.5 mt-4 hover:bg-blue-100 transition-colors"
+                  className="block bg-blue-50 border border-blue-200 rounded-lg px-3 py-2.5 mt-4 hover:bg-blue-100 transition-colors"
                 >
-                  <FaTags className="text-blue-700 shrink-0" />
-                  <span className="text-sm text-blue-800">
-                    <span className="font-bold">
-                      {bundleInfo.discountPercent}% off
-                    </span>{" "}
-                    — add a {bundleInfo.missingCategoryLabel} to unlock it.{" "}
-                    <span className="font-bold underline">
-                      Shop {bundleInfo.missingCategoryLabel} →
-                    </span>
+                  <span className="text-sm font-medium text-blue-800 flex items-center gap-1.5">
+                    <FaTags className="text-xs" />
+                    Get Extra {bundleInfo.discountPercent}% OFF!
+                  </span>
+                  <span className="text-xs text-blue-700 block">
+                    Add {bundleInfo.missingCategoryLabel} to your cart and
+                    unlock an additional {bundleInfo.discountPercent}% OFF.
+                  </span>
+                  <span className="text-xs font-semibold text-blue-800">
+                    Shop {bundleInfo.missingCategoryLabel} →
                   </span>
                 </Link>
               )

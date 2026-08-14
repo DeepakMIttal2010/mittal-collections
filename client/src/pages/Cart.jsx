@@ -126,9 +126,6 @@ function Cart() {
             {bundleInfo.eligible ? (
               <div
                 style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "10px",
                   background: "#eef2ff",
                   border: "1px solid #c7d2fe",
                   borderRadius: "10px",
@@ -136,19 +133,20 @@ function Cart() {
                   margin: "0 0 14px",
                 }}
               >
-                <FaTags style={{ color: "#4338ca", fontSize: "1.1rem" }} />
-                <span style={{ color: "#4338ca", fontWeight: 700, fontSize: "0.95rem" }}>
-                  {bundleInfo.discountPercent}% Complete the Look discount applied!
-                </span>
+                <div style={{ display: "flex", alignItems: "center", gap: "6px", color: "#3730a3", fontWeight: 700, fontSize: "0.9rem" }}>
+                  <FaTags style={{ fontSize: "0.85rem" }} />
+                  Extra {bundleInfo.discountPercent}% OFF Applied!
+                </div>
+                <div style={{ color: "#4338ca", fontSize: "0.8rem" }}>
+                  Complete the Look bundle discount applied to your order.
+                </div>
               </div>
             ) : (
               bundleInfo.missingCategoryLabel && (
                 <Link
                   to={`/category/${bundleInfo.missingCategorySlug}`}
                   style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "10px",
+                    display: "block",
                     background: "#eff6ff",
                     border: "1px solid #bfdbfe",
                     borderRadius: "10px",
@@ -157,16 +155,17 @@ function Cart() {
                     textDecoration: "none",
                   }}
                 >
-                  <FaTags style={{ color: "#1d4ed8", fontSize: "1.1rem" }} />
-                  <span style={{ color: "#1d4ed8", fontSize: "0.95rem" }}>
-                    <strong>
-                      {bundleInfo.discountPercent}% off
-                    </strong>{" "}
-                    — add a {bundleInfo.missingCategoryLabel} to unlock it.{" "}
-                    <span style={{ textDecoration: "underline", fontWeight: 700 }}>
-                      Shop {bundleInfo.missingCategoryLabel} →
-                    </span>
-                  </span>
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px", color: "#1e40af", fontWeight: 700, fontSize: "0.9rem" }}>
+                    <FaTags style={{ fontSize: "0.85rem" }} />
+                    Get Extra {bundleInfo.discountPercent}% OFF!
+                  </div>
+                  <div style={{ color: "#1d4ed8", fontSize: "0.8rem" }}>
+                    Add {bundleInfo.missingCategoryLabel} to your cart and
+                    unlock an additional {bundleInfo.discountPercent}% OFF.
+                  </div>
+                  <div style={{ color: "#1e40af", fontSize: "0.8rem", fontWeight: 700 }}>
+                    Shop {bundleInfo.missingCategoryLabel} →
+                  </div>
                 </Link>
               )
             )}
