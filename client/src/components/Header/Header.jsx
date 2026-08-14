@@ -91,12 +91,10 @@ function Header() {
     loadNotifications();
   };
 
-  // Logged-in customers with a saved address get the real "Deliver to
-  // [Name] / [City] [Pincode]" pair. Logged-out visitors get a plain
-  // "Deliver to: [City]" with no name attached — showing "Guest" or a
-  // stranger's own name next to a location reads as broken, not helpful.
-  // Either way, the place always resolves to something concrete (our own
-  // home city + pincode as the last resort) rather than a bare "India".
+  // Always a "Deliver to [Name] / [Place]" pair — the real name + saved
+  // address for logged-in customers, "Guest" + a geo-IP guess otherwise.
+  // The place always resolves to something concrete (our own home city +
+  // pincode as the last resort) rather than a bare "India".
   useEffect(() => {
     const loadDeliverTo = async () => {
       if (isLoggedIn) {
@@ -122,7 +120,7 @@ function Header() {
       // showing nothing.
       const { city, region } = response.location || {};
 
-      setDeliverName(isLoggedIn ? user?.name || "" : "");
+      setDeliverName(isLoggedIn ? user?.name || "" : "Guest");
       if (city) setDeliverPlace(city);
       else if (region) setDeliverPlace(region);
       else setDeliverPlace("Ghaziabad 201012");
