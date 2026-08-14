@@ -404,9 +404,9 @@ function Checkout() {
             </button>
 
             {bundleInfo.eligible ? (
-              <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-lg px-3 py-2.5 mt-4">
-                <FaTags className="text-green-700" />
-                <span className="text-sm font-bold text-green-700">
+              <div className="flex items-center gap-2 bg-indigo-50 border border-indigo-200 rounded-lg px-3 py-2.5 mt-4">
+                <FaTags className="text-indigo-700" />
+                <span className="text-sm font-bold text-indigo-700">
                   {bundleInfo.discountPercent}% Complete the Look discount
                   applied!
                 </span>
@@ -415,10 +415,10 @@ function Checkout() {
               bundleInfo.missingCategoryLabel && (
                 <Link
                   to={`/category/${bundleInfo.missingCategorySlug}`}
-                  className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5 mt-4 hover:bg-amber-100 transition-colors"
+                  className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2.5 mt-4 hover:bg-blue-100 transition-colors"
                 >
-                  <FaTags className="text-amber-700 shrink-0" />
-                  <span className="text-sm text-amber-800">
+                  <FaTags className="text-blue-700 shrink-0" />
+                  <span className="text-sm text-blue-800">
                     <span className="font-bold">
                       {bundleInfo.discountPercent}% off
                     </span>{" "}

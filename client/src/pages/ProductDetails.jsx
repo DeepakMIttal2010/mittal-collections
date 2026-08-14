@@ -917,9 +917,9 @@ function ProductDetails() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-lg px-4 py-3 mb-6">
-            <FaGift className="text-green-700 shrink-0" />
-            <span className="text-sm text-green-700">
+          <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 mb-6">
+            <FaGift className="text-blue-700 shrink-0" />
+            <span className="text-sm text-blue-800">
               Add a {bundleCategoryLabel} to this order and get{" "}
               <span className="font-bold">
                 {bundleDiscountPercent}% off

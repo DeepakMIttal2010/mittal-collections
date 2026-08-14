@@ -129,15 +129,15 @@ function Cart() {
                   display: "flex",
                   alignItems: "center",
                   gap: "10px",
-                  background: "#f0fdf4",
-                  border: "1px solid #bbf7d0",
+                  background: "#eef2ff",
+                  border: "1px solid #c7d2fe",
                   borderRadius: "10px",
                   padding: "10px 12px",
                   margin: "0 0 14px",
                 }}
               >
-                <FaTags style={{ color: "#15803d", fontSize: "1.1rem" }} />
-                <span style={{ color: "#15803d", fontWeight: 700, fontSize: "0.95rem" }}>
+                <FaTags style={{ color: "#4338ca", fontSize: "1.1rem" }} />
+                <span style={{ color: "#4338ca", fontWeight: 700, fontSize: "0.95rem" }}>
                   {bundleInfo.discountPercent}% Complete the Look discount applied!
                 </span>
               </div>
@@ -149,16 +149,16 @@ function Cart() {
                     display: "flex",
                     alignItems: "center",
                     gap: "10px",
-                    background: "#fffbeb",
-                    border: "1px solid #fde68a",
+                    background: "#eff6ff",
+                    border: "1px solid #bfdbfe",
                     borderRadius: "10px",
                     padding: "10px 12px",
                     margin: "0 0 14px",
                     textDecoration: "none",
                   }}
                 >
-                  <FaTags style={{ color: "#b45309", fontSize: "1.1rem" }} />
-                  <span style={{ color: "#b45309", fontSize: "0.95rem" }}>
+                  <FaTags style={{ color: "#1d4ed8", fontSize: "1.1rem" }} />
+                  <span style={{ color: "#1d4ed8", fontSize: "0.95rem" }}>
                     <strong>
                       {bundleInfo.discountPercent}% off
                     </strong>{" "}
