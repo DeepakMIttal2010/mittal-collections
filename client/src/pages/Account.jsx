@@ -12,6 +12,7 @@ import {
   FaCopy,
   FaTicketAlt,
   FaUndoAlt,
+  FaSignOutAlt,
 } from "react-icons/fa";
 import { FaWhatsapp } from "react-icons/fa6";
 import { useAuth } from "../context/AuthContext";
@@ -64,7 +65,7 @@ const ACCOUNT_LINKS = [
 ];
 
 function Account() {
-  const { user, isLoggedIn } = useAuth();
+  const { user, isLoggedIn, logout } = useAuth();
   const navigate = useNavigate();
   const [loyaltyPoints, setLoyaltyPoints] = useState(user?.loyaltyPoints || 0);
   const [referralCode, setReferralCode] = useState(user?.referralCode || "");
@@ -223,6 +224,25 @@ function Account() {
             </span>
           </Link>
         ))}
+
+        <button
+          type="button"
+          onClick={logout}
+          className="flex gap-4 items-start bg-white border border-slate-200 rounded-xl p-5 hover:border-red-400 hover:shadow-md transition-all text-left"
+        >
+          <span className="w-12 h-12 shrink-0 rounded-full bg-red-100 text-red-600 flex items-center justify-center text-lg">
+            <FaSignOutAlt />
+          </span>
+
+          <span>
+            <span className="block font-semibold text-slate-800">
+              Logout
+            </span>
+            <span className="block text-sm text-slate-500 mt-1">
+              Sign out of your account on this device
+            </span>
+          </span>
+        </button>
       </div>
     </div>
   );
