@@ -1,0 +1,43 @@
+name: Cloudinary Backup
+
+# Cloudinary's Free plan has no automated backup feature — same
+# situation as MongoDB Atlas's M0 tier (see mongodb-backup.yml and
+# docs/BACKUP_RECOVERY.md). This downloads every image/video asset
+# and stores it as a GitHub Actions artifact. Requires three repo
+# secrets: CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY,
+# CLOUDINARY_API_SECRET (Settings -> Secrets and variables -> Actions
+# -> New repository secret) — same values as server/.env.
+
+on:
+  schedule:
+    - cron: "0 4 * * 0" # Every Sunday, 04:00 UTC (~9:30 AM IST) — an hour after the MongoDB backup
+  workflow_dispatch: {} # lets you trigger an on-demand backup from the Actions tab
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Download all Cloudinary assets
+        env:
+          CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
+          CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
+          CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
+        run: |
+          if [ -z "$CLOUDINARY_CLOUD_NAME" ] || [ -z "$CLOUDINARY_API_KEY" ] || [ -z "$CLOUDINARY_API_SECRET" ]; then
+            echo "::error::One or more Cloudinary secrets are not set — see the comment at the top of this workflow file."
+            exit 1
+          fi
+          node server/scripts/backup-cloudinary.js
+
+      - name: Upload backup artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cloudinary-backup-${{ github.run_id }}
+          path: cloudinary-backup/
+          retention-days: 90
