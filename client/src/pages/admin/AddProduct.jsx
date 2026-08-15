@@ -36,6 +36,7 @@ function AddProduct() {
     isActive: true,
     isTrending: false,
     trendingRank: 0,
+    visibility: "both",
     optimizeImages: true,
     fabric: "",
     size: "",
@@ -128,6 +129,7 @@ function AddProduct() {
     data.append("isActive", formData.isActive);
     data.append("isTrending", formData.isTrending);
     data.append("trendingRank", formData.trendingRank);
+    data.append("visibility", formData.visibility);
     data.append("mainImageIndex", mainImageIndex);
     data.append("optimizeImages", formData.optimizeImages);
     data.append("fabric", formData.fabric);
@@ -438,6 +440,20 @@ function AddProduct() {
             ))}
           </div>
         )}
+
+        <div className="form-group">
+          <label>Show Product</label>
+
+          <select
+            name="visibility"
+            value={formData.visibility}
+            onChange={handleChange}
+          >
+            <option value="both">Both Online &amp; Offline</option>
+            <option value="online">Online Only</option>
+            <option value="offline">Offline Only (POS/in-store)</option>
+          </select>
+        </div>
 
         <div className="checkbox-row">
           <label>

@@ -122,7 +122,7 @@ export const subscribeStockAlert = async (req, res) => {
 // ============================
 export const getProducts = async (req, res) => {
   try {
-    const filter = { isActive: true };
+    const filter = { isActive: true, visibility: { $ne: "offline" } };
 
     const { search, category, subcategory, maxPrice, minPrice, sortBy } =
       req.query;
@@ -193,9 +193,10 @@ export const getSearchSuggestions = async (req, res) => {
       return res.status(200).json({ success: true, products: [] });
     }
 
-    const products = await Product.find({ isActive: true }).select(
-      "name slug price image",
-    );
+    const products = await Product.find({
+      isActive: true,
+      visibility: { $ne: "offline" },
+    }).select("name slug price image");
 
     const ranked = rankProducts(q.trim(), products).slice(0, 6);
 
@@ -477,7 +478,11 @@ export const getTrendingProducts = async (req, res) => {
   try {
     const limit = Math.max(parseInt(req.query.limit, 10) || 10, 1);
 
-    const products = await Product.find({ isActive: true, isTrending: true })
+    const products = await Product.find({
+      isActive: true,
+      isTrending: true,
+      visibility: { $ne: "offline" },
+    })
       .select(COST_FIELDS)
       .populate("category", "name slug image")
       .populate("subcategory", "name slug")
@@ -533,6 +538,7 @@ export const getBestSellers = async (req, res) => {
     const products = await Product.find({
       _id: { $in: productIds },
       isActive: true,
+      visibility: { $ne: "offline" },
     })
       .select(COST_FIELDS)
       .populate("category", "name slug image")
@@ -574,7 +580,7 @@ export const getProductById = async (req, res) => {
       .populate("category", "name slug image")
       .populate("subcategory", "name slug");
 
-    if (!product) {
+    if (!product || product.visibility === "offline") {
       return res.status(404).json({
         success: false,
         message: "Product not found",
@@ -627,6 +633,7 @@ export const addProduct = async (req, res) => {
       restockAlertQuantity,
       purchasePrice,
       purchaseDate,
+      visibility,
     } = req.body;
 
     const images = (req.files?.images || []).map((file) => file.path);
@@ -659,6 +666,9 @@ export const addProduct = async (req, res) => {
       isActive: isActive === "true",
       isTrending: isTrending === "true",
       trendingRank: trendingRank || 0,
+      visibility: ["both", "online", "offline"].includes(visibility)
+        ? visibility
+        : "both",
 
       fabric: fabric || "",
       size: size || "",
@@ -727,6 +737,11 @@ export const updateProduct = async (req, res) => {
     product.isActive = req.body.isActive === "true";
     product.isTrending = req.body.isTrending === "true";
     product.trendingRank = req.body.trendingRank || 0;
+    product.visibility = ["both", "online", "offline"].includes(
+      req.body.visibility,
+    )
+      ? req.body.visibility
+      : "both";
 
     product.fabric = req.body.fabric || "";
     product.size = req.body.size || "";

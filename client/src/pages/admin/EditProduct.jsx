@@ -44,6 +44,7 @@ function EditProduct() {
     isActive: true,
     isTrending: false,
     trendingRank: 0,
+    visibility: "both",
     optimizeImages: true,
     fabric: "",
     size: "",
@@ -89,6 +90,7 @@ function EditProduct() {
         isActive: product.isActive,
         isTrending: product.isTrending || false,
         trendingRank: product.trendingRank || 0,
+        visibility: product.visibility || "both",
         optimizeImages: true,
         fabric: product.fabric || "",
         size: product.size || "",
@@ -572,6 +574,20 @@ function EditProduct() {
             ))}
           </div>
         )}
+
+        <div className="form-group">
+          <label>Show Product</label>
+
+          <select
+            name="visibility"
+            value={formData.visibility}
+            onChange={handleChange}
+          >
+            <option value="both">Both Online &amp; Offline</option>
+            <option value="online">Online Only</option>
+            <option value="offline">Offline Only (POS/in-store)</option>
+          </select>
+        </div>
 
         <div className="checkbox-row">
           <label>

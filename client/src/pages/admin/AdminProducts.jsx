@@ -30,7 +30,14 @@ const OPTIONAL_COLUMNS = [
   { key: "isReturnable", label: "Returnable" },
   { key: "isTrending", label: "Trending" },
   { key: "restockAlertEnabled", label: "Restock Alert" },
+  { key: "visibility", label: "Show Product" },
 ];
+
+const VISIBILITY_LABELS = {
+  both: "Online & Offline",
+  online: "Online Only",
+  offline: "Offline Only",
+};
 
 function AdminProducts() {
   const navigate = useNavigate();
@@ -52,6 +59,7 @@ function AdminProducts() {
     isReturnable: false,
     isTrending: false,
     restockAlertEnabled: false,
+    visibility: true,
   });
 
   const [categories, setCategories] = useState([]);
@@ -177,6 +185,7 @@ function AdminProducts() {
       "Returnable",
       "Trending",
       "Restock Alert",
+      "Show Product",
       "Status",
       "Product ID",
       "Product Number",
@@ -201,6 +210,7 @@ function AdminProducts() {
       p.isReturnable ? "Yes" : "No",
       p.isTrending ? "Yes" : "No",
       p.restockAlertEnabled ? "Yes" : "No",
+      VISIBILITY_LABELS[p.visibility || "both"],
       p.isActive ? "Active" : "Inactive",
       p._id,
       p.productNumber || "",
@@ -603,22 +613,42 @@ function AdminProducts() {
                       year: "numeric",
                     })}
                   </td>
-                  {OPTIONAL_COLUMNS.map(
-                    (col) =>
-                      visibleColumns[col.key] && (
+                  {OPTIONAL_COLUMNS.map((col) => {
+                    if (!visibleColumns[col.key]) return null;
+
+                    if (col.key === "visibility") {
+                      const value = product.visibility || "both";
+                      return (
                         <td key={col.key} className="px-4 py-3 text-center">
                           <span
                             className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
-                              product[col.key]
-                                ? "bg-blue-100 text-blue-700"
-                                : "bg-slate-100 text-slate-500"
+                              value === "offline"
+                                ? "bg-amber-100 text-amber-700"
+                                : value === "online"
+                                  ? "bg-purple-100 text-purple-700"
+                                  : "bg-blue-100 text-blue-700"
                             }`}
                           >
-                            {product[col.key] ? "Yes" : "No"}
+                            {VISIBILITY_LABELS[value]}
                           </span>
                         </td>
-                      ),
-                  )}
+                      );
+                    }
+
+                    return (
+                      <td key={col.key} className="px-4 py-3 text-center">
+                        <span
+                          className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
+                            product[col.key]
+                              ? "bg-blue-100 text-blue-700"
+                              : "bg-slate-100 text-slate-500"
+                          }`}
+                        >
+                          {product[col.key] ? "Yes" : "No"}
+                        </span>
+                      </td>
+                    );
+                  })}
                   <td className="px-4 py-3 text-center">
                     <span
                       className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
@@ -733,6 +763,18 @@ function AdminProducts() {
                 <p className="text-sm text-slate-500 mb-2">
                   {product.category?.name || "Uncategorized"}
                 </p>
+
+                {product.visibility && product.visibility !== "both" && (
+                  <span
+                    className={`inline-block w-fit text-xs font-semibold px-2 py-0.5 rounded-full mb-2 ${
+                      product.visibility === "offline"
+                        ? "bg-amber-100 text-amber-700"
+                        : "bg-purple-100 text-purple-700"
+                    }`}
+                  >
+                    {VISIBILITY_LABELS[product.visibility]}
+                  </span>
+                )}
 
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-lg font-bold text-slate-900">

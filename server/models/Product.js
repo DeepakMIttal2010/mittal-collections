@@ -119,6 +119,16 @@ const productSchema = new mongoose.Schema(
       default: true,
     },
 
+    // Where this product is allowed to be sold — "both" (default) shows it
+    // on the storefront and lets POS sell it in-store; "online" hides it
+    // from POS; "offline" hides it from the public storefront entirely
+    // (still sellable in-store via POS/QR scan).
+    visibility: {
+      type: String,
+      enum: ["both", "online", "offline"],
+      default: "both",
+    },
+
     isReturnable: {
       type: Boolean,
       default: true,

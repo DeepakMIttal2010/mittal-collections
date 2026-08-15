@@ -51,7 +51,10 @@ const feedDescription = (description) => {
 // catalog is small and both platforms only poll it periodically.
 export const getGoogleProductFeed = async (req, res) => {
   try {
-    const products = await Product.find({ isActive: true })
+    const products = await Product.find({
+      isActive: true,
+      visibility: { $ne: "offline" },
+    })
       .select(
         "name description price oldPrice image images stock slug brand category productNumber",
       )
