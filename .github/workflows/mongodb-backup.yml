@@ -31,7 +31,15 @@ jobs:
             echo "::error::MONGODB_URI secret is not set — see the comment at the top of this workflow file."
             exit 1
           fi
-          mongodump --uri="$MONGODB_URI" --archive=mittal-collections-backup.gz --gzip
+          # --db is required, not optional: found 2026-08-15 that every
+          # prior run of this workflow was reporting "success" while
+          # silently dumping zero collections. Without --db, mongodump
+          # needs listDatabases to enumerate every database on the
+          # cluster — the Atlas user this secret authenticates as
+          # apparently can't do that (or the secret's URI has no db
+          # name in its path), so it found nothing and exited clean.
+          # Naming the database explicitly sidesteps that entirely.
+          mongodump --uri="$MONGODB_URI" --db="mittal-collections" --archive=mittal-collections-backup.gz --gzip
 
       - name: Upload backup artifact
         uses: actions/upload-artifact@v4
