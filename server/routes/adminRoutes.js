@@ -14,12 +14,24 @@ import adminMiddleware from "../middleware/adminMiddleware.js";
 
 const router = express.Router();
 
-// TEMPORARY diagnostic route — remove after use. Confirms whether the
-// TTL index on pagevisits/searchlogs actually landed on this deployed
-// DB after the retention-fix deploy (autoIndex behavior needed a
-// direct check, not an assumption).
+// TEMPORARY diagnostic + cleanup route — remove after use. autoIndex
+// created the new TTL createdAt_1 index but left the old createdAt_-1
+// index in place (different key direction, so Mongo treated it as a
+// separate index rather than replacing it) — this drops the redundant
+// old one.
 router.get("/_debug_indexes", authMiddleware, adminMiddleware, async (req, res) => {
   const db = mongoose.connection.db;
+
+  if (req.query.dropOld === "true") {
+    for (const name of ["pagevisits", "searchlogs"]) {
+      const indexes = await db.collection(name).indexes();
+      const oldIndex = indexes.find((i) => i.name === "createdAt_-1");
+      if (oldIndex) {
+        await db.collection(name).dropIndex(oldIndex.name);
+      }
+    }
+  }
+
   const result = {};
   for (const name of ["pagevisits", "searchlogs"]) {
     result[name] = await db.collection(name).indexes();
