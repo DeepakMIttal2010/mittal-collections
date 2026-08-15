@@ -1,6 +1,7 @@
 import Category from "../models/Category.js";
 import Product from "../models/Product.js";
 import Subcategory from "../models/Subcategory.js";
+import { deleteCloudinaryAssetsByUrl } from "../utils/cloudinaryCleanup.js";
 
 // Simple slug generator from category name
 const generateSlug = (name) =>
@@ -312,6 +313,8 @@ export const permanentlyDeleteCategory = async (req, res) => {
     }
 
     await category.deleteOne();
+
+    await deleteCloudinaryAssetsByUrl([category.image, category.banner]);
 
     res.status(200).json({
       success: true,

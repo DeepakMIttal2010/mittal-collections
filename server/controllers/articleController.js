@@ -1,4 +1,5 @@
 import Article from "../models/Article.js";
+import { deleteCloudinaryAssetsByUrl } from "../utils/cloudinaryCleanup.js";
 
 const generateSlug = (title) =>
   title
@@ -272,6 +273,8 @@ export const deleteArticle = async (req, res) => {
     }
 
     await article.deleteOne();
+
+    await deleteCloudinaryAssetsByUrl([article.coverImage]);
 
     res.status(200).json({
       success: true,

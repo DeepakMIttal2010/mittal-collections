@@ -1,4 +1,5 @@
 import Banner from "../models/Banner.js";
+import { deleteCloudinaryAssetsByUrl } from "../utils/cloudinaryCleanup.js";
 
 // ============================
 // GET ACTIVE BANNERS (Public)
@@ -259,6 +260,8 @@ export const permanentlyDeleteBanner = async (req, res) => {
     }
 
     await banner.deleteOne();
+
+    await deleteCloudinaryAssetsByUrl([banner.image]);
 
     res.status(200).json({
       success: true,

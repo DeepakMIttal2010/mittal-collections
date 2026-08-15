@@ -10,6 +10,7 @@ import {
   generateProductNumber,
   decodeProductNumber,
 } from "../utils/costCipher.js";
+import { deleteCloudinaryAssetsByUrl } from "../utils/cloudinaryCleanup.js";
 
 // Never sent by a public route — cost data is admin-only.
 const COST_FIELDS = "-purchasePrice -purchaseDate";
@@ -927,6 +928,12 @@ export const permanentlyDeleteProduct = async (req, res) => {
     }
 
     await product.deleteOne();
+
+    await deleteCloudinaryAssetsByUrl([
+      product.image,
+      ...product.images,
+      ...product.videos,
+    ]);
 
     res.json({
       success: true,
