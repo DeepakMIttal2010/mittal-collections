@@ -44,6 +44,12 @@ function Home() {
           addressRegion: "Uttar Pradesh",
           addressCountry: "IN",
         },
+        areaServed: [
+          { "@type": "Place", name: "Vasundhara, Ghaziabad" },
+          { "@type": "Place", name: "Indirapuram, Ghaziabad" },
+          { "@type": "Place", name: "Vaishali, Ghaziabad" },
+          { "@type": "City", name: "Ghaziabad" },
+        ],
         sameAs: [
           settings.facebook,
           settings.instagram,
@@ -55,8 +61,8 @@ function Home() {
   return (
     <>
       <Seo
-        title="Premium Home Furnishing"
-        description="Shop premium bedsheets, towels, curtains, pillows, cushions and blankets at Mittal Collections. Quality home furnishing for every corner of your home."
+        title="Home Furnishing Store in Vasundhara, Ghaziabad"
+        description="Shop premium bedsheets, curtains, towels, pillows, cushions and blankets at Mittal Collections — Sector 3, Vasundhara, Ghaziabad. Serving Indirapuram, Vaishali and nearby areas."
         url="https://www.mittalcollections.com/"
         jsonLd={localBusinessJsonLd}
       />

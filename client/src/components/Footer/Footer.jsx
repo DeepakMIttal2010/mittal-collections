@@ -5,6 +5,8 @@ import {
   FaInstagram,
   FaTwitter,
   FaLinkedinIn,
+  FaMapMarkerAlt,
+  FaPhoneAlt,
 } from "react-icons/fa";
 
 import { getCategories } from "../../services/categoryService";
@@ -98,10 +100,27 @@ function Footer() {
               <h3 className="text-amber-500 font-semibold mb-4">
                 Mittal Collections
               </h3>
-              <p className="text-sm leading-relaxed">
-                Premium home furnishing products designed to bring elegance
-                and comfort to your home.
+              <p className="text-sm leading-relaxed mb-4">
+                Premium bedsheets, curtains, towels and home furnishing —
+                serving Vasundhara, Indirapuram, Vaishali and Ghaziabad.
               </p>
+
+              {settings.address && (
+                <p className="text-sm leading-relaxed flex items-start gap-2 mb-2">
+                  <FaMapMarkerAlt className="mt-0.5 shrink-0 text-amber-500" />
+                  <span>{settings.address}</span>
+                </p>
+              )}
+
+              {settings.phone && (
+                <a
+                  href={`tel:${settings.phone}`}
+                  className="text-sm flex items-center gap-2 hover:text-white transition-colors"
+                >
+                  <FaPhoneAlt className="shrink-0 text-amber-500" />
+                  {settings.phone}
+                </a>
+              )}
             </div>
 
             <div>
