@@ -1,14 +1,14 @@
 # Backup & Recovery
 
-**Status:** Audited and fixed 2026-08-08. Cluster `Cluster0` was confirmed M0 (free tier, no backup feature). The `MONGODB_URI` repo secret is now set and the backup workflow has a **confirmed successful run** (Actions run #2, "Success", 20s, 1 artifact produced).
-**Document version:** 1.1
-**Last updated:** 2026-08-08
+**Status:** Audited 2026-08-08, then actually rehearsed end-to-end 2026-08-15 — which caught a real bug the 2026-08-08 audit missed (see §2.1.1). Cluster `Cluster0` is confirmed M0 (free tier, no backup feature). The `MONGODB_URI` repo secret is set, the backup workflow now produces a genuinely restorable archive, and this has been **verified by actually downloading and restoring one** (2,123 real documents, 0 failures), not just by the Actions tab showing green.
+**Document version:** 1.2
+**Last updated:** 2026-08-15
 
 ## 1. Summary
 
 | Data | Backed up? | Confidence |
 |---|---|---|
-| **MongoDB Atlas (orders, users, products, everything)** | **Yes, as of 2026-08-08** — weekly automated `mongodump` via GitHub Actions | High |
+| **MongoDB Atlas (orders, users, products, everything)** | **Yes, verified by real restore as of 2026-08-15** — weekly automated `mongodump` via GitHub Actions | High |
 | Application code | Yes — GitHub, full history | High |
 | Legacy `/uploads/*` images (pre-Cloudinary) | Yes — committed to git, not runtime-written | High |
 | New product/category/banner/article media (Cloudinary) | No local copy; relies entirely on Cloudinary's own durability | Medium |
@@ -34,6 +34,38 @@ alone). [Source](https://www.srvrlss.io/provider/mongodb/)
 
 The user opted to stay on the free tier and cover this gap with a
 scheduled `mongodump` instead of upgrading — see below.
+
+### 2.1.1 A green checkmark was not enough — found 2026-08-15
+
+The 2026-08-08 confirmation above was based on the Actions step
+showing "Success". That was misleading: **every backup run from
+2026-08-08 through 2026-08-15 produced an archive of ~112-288 bytes —
+essentially empty.** `mongodump` was completing in ~4 seconds with no
+output and exiting 0, so the workflow had nothing to fail on.
+
+Root cause: the `MONGODB_URI` repo secret has a trailing newline
+baked into it, so `mongodump` (without an explicit `--db`) was
+targeting a database literally named `mittal-collections\n` — which,
+being a nonsense name nothing had ever written to, was empty. The
+step never errored because there was nothing to error on.
+
+**Fix** (`.github/workflows/mongodb-backup.yml`): the workflow now
+strips trailing whitespace/CR/LF from `$MONGODB_URI` before use, and
+passes `--db="mittal-collections"` explicitly so a future URI problem
+fails loudly instead of silently dumping nothing. Verified by
+triggering a fresh on-demand run, downloading the resulting artifact,
+and doing a real (non-dry-run) restore into a disposable local
+database: **2,123 documents restored across 33 collections, 0
+failures** — real products, page visits, users, categories, etc.
+
+**The actual lesson, worth repeating:** *"the Actions tab shows a
+green checkmark" is not verification that a backup is real.*
+`mongodump`/`mongorestore` can both complete successfully while moving
+zero data if the target database name is wrong. The only real
+verification is periodically doing what finally caught this: download
+the artifact and actually restore it somewhere, then check document
+counts are non-zero and match expectations. See §2.3 for the restore
+procedure — that's now been rehearsed for real, not just documented.
 
 ### 2.2 What's now in place
 
@@ -75,10 +107,10 @@ rather than silently doing nothing.
    before being restored from the archive. **Never run `--drop`
    against production without being certain that's what's intended.**
 
-This restore procedure has not been rehearsed end-to-end — the first
-real test of it should ideally be a deliberate drill (restore into a
-throwaway local database and confirm the data looks right), not the
-first time it's tried during an actual incident.
+This restore procedure was rehearsed end-to-end 2026-08-15 (restored
+into a throwaway local database, 2,123 documents across 33
+collections, 0 failures — see §2.1.1) — it's a real, working
+procedure, not just a written plan.
 
 ## 3. Cloudinary media
 
@@ -117,12 +149,17 @@ data, not just this app's own state.
 ## 6. Remaining Next Steps
 
 1. ~~Add the `MONGODB_URI` repository secret~~ — done, verified
-   working (2026-08-08, Actions run #2, Success).
-2. Confirm env vars/secrets (§5) have a record somewhere outside
+   working (2026-08-08).
+2. ~~Do one rehearsal restore (§2.3) into a throwaway local database~~ —
+   done 2026-08-15, and it's *why* the empty-backup bug above was
+   caught in the first place — a real restore into a throwaway local
+   DB, not just checking Actions for a checkmark.
+3. Confirm env vars/secrets (§5) have a record somewhere outside
    Render's dashboard.
-3. Do one rehearsal restore (§2.3) into a throwaway local database, so
-   the first time this procedure is used isn't during a real incident.
-4. (Optional, lower priority) Consider whether Cloudinary's own
+4. Periodically repeat the real-restore check (§2.1.1), not just glance
+   at the Actions tab — e.g. next time a risky migration is about to
+   run, or every few months as a habit.
+5. (Optional, lower priority) Consider whether Cloudinary's own
    backup/export features are worth enabling, given the single-sourced
    dependency noted in §3.
 5. (Optional) If the store outgrows the free tier's 512 MB cap or the
