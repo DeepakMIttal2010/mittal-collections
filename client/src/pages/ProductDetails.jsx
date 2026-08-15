@@ -30,6 +30,7 @@ import {
   FaLock,
   FaMedal,
   FaBan,
+  FaTruck,
 } from "react-icons/fa";
 import {
   FaFacebookF,
@@ -455,6 +456,7 @@ function ProductDetails() {
   ];
 
   const specRows = [
+    { label: "What's Included", value: product.whatsIncluded },
     { label: "Fabric", value: product.fabric },
     { label: "Size", value: product.size },
     { label: "GSM", value: product.gsm },
@@ -827,8 +829,12 @@ function ProductDetails() {
               </a>
             ))}
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6 pt-6 border-t border-slate-200">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mt-6 pt-6 border-t border-slate-200">
             {[
+              {
+                icon: <FaTruck />,
+                label: "Free Delivery in Vasundhara",
+              },
               {
                 icon: <FaMoneyBillWave />,
                 label: "Pay on Delivery",

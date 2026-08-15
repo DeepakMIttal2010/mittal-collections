@@ -414,6 +414,7 @@ export const duplicateProduct = async (req, res) => {
       washCare: source.washCare,
       brand: source.brand,
       countryOfOrigin: source.countryOfOrigin,
+      whatsIncluded: source.whatsIncluded,
 
       featured: false,
       isTrending: false,
@@ -631,6 +632,7 @@ export const addProduct = async (req, res) => {
       washCare,
       brand,
       countryOfOrigin,
+      whatsIncluded,
       isReturnable,
       returnPeriodDays,
       restockAlertEnabled,
@@ -680,6 +682,7 @@ export const addProduct = async (req, res) => {
       washCare: washCare || "",
       brand: brand || "",
       countryOfOrigin: countryOfOrigin || "",
+      whatsIncluded: whatsIncluded || "",
 
       isReturnable: isReturnable === undefined ? true : isReturnable === "true",
       returnPeriodDays: returnPeriodDays || 0,
@@ -753,6 +756,7 @@ export const updateProduct = async (req, res) => {
     product.washCare = req.body.washCare || "";
     product.brand = req.body.brand || "";
     product.countryOfOrigin = req.body.countryOfOrigin || "";
+    product.whatsIncluded = req.body.whatsIncluded || "";
 
     product.isReturnable =
       req.body.isReturnable === undefined

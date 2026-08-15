@@ -92,6 +92,12 @@ const productSchema = new mongoose.Schema(
     brand: { type: String, default: "", trim: true },
     countryOfOrigin: { type: String, default: "", trim: true },
 
+    // e.g. "Set of 5 Cushion Covers" or "1 Bedsheet + 2 Pillow Covers" —
+    // shown as its own labeled line on the product page so a customer
+    // doesn't have to parse the description paragraph to know exactly
+    // what they're getting.
+    whatsIncluded: { type: String, default: "", trim: true },
+
     rating: {
       type: Number,
       default: 5,

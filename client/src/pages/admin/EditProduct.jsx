@@ -52,6 +52,7 @@ function EditProduct() {
     washCare: "",
     brand: "",
     countryOfOrigin: "",
+    whatsIncluded: "",
     isReturnable: true,
     returnPeriodDays: "",
     restockAlertEnabled: false,
@@ -98,6 +99,7 @@ function EditProduct() {
         washCare: product.washCare || "",
         brand: product.brand || "",
         countryOfOrigin: product.countryOfOrigin || "",
+        whatsIncluded: product.whatsIncluded || "",
         isReturnable:
           product.isReturnable === undefined ? true : product.isReturnable,
         returnPeriodDays: product.returnPeriodDays || "",
@@ -453,6 +455,18 @@ function EditProduct() {
               onChange={handleChange}
             />
           </div>
+        </div>
+
+        <div className="form-group">
+          <label>What's Included (optional)</label>
+
+          <input
+            type="text"
+            name="whatsIncluded"
+            placeholder="e.g. Set of 5 Cushion Covers"
+            value={formData.whatsIncluded}
+            onChange={handleChange}
+          />
         </div>
 
         <div className="form-group">

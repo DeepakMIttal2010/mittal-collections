@@ -44,6 +44,7 @@ function AddProduct() {
     washCare: "",
     brand: "",
     countryOfOrigin: "",
+    whatsIncluded: "",
     isReturnable: true,
     returnPeriodDays: "",
     restockAlertEnabled: false,
@@ -138,6 +139,7 @@ function AddProduct() {
     data.append("washCare", formData.washCare);
     data.append("brand", formData.brand);
     data.append("countryOfOrigin", formData.countryOfOrigin);
+    data.append("whatsIncluded", formData.whatsIncluded);
     data.append("isReturnable", formData.isReturnable);
     data.append("returnPeriodDays", formData.returnPeriodDays);
     data.append("restockAlertEnabled", formData.restockAlertEnabled);
@@ -375,6 +377,18 @@ function AddProduct() {
               onChange={handleChange}
             />
           </div>
+        </div>
+
+        <div className="form-group">
+          <label>What's Included (optional)</label>
+
+          <input
+            type="text"
+            name="whatsIncluded"
+            placeholder="e.g. Set of 5 Cushion Covers"
+            value={formData.whatsIncluded}
+            onChange={handleChange}
+          />
         </div>
 
         <div className="form-group">
