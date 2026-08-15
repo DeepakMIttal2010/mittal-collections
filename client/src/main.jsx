@@ -5,6 +5,7 @@ import { BrowserRouter } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
 
 import App from "./App";
+import ErrorBoundary from "./components/ErrorBoundary";
 
 import { CartProvider } from "./context/CartContext";
 import { WishlistProvider } from "./context/WishlistContext";
@@ -16,31 +17,33 @@ import "react-toastify/dist/ReactToastify.css";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
-    <HelmetProvider>
-      <BrowserRouter>
-        <LanguageProvider>
-          <AuthProvider>
-            <CartProvider>
-              <WishlistProvider>
-                <CompareProvider>
-                  <App />
+    <ErrorBoundary>
+      <HelmetProvider>
+        <BrowserRouter>
+          <LanguageProvider>
+            <AuthProvider>
+              <CartProvider>
+                <WishlistProvider>
+                  <CompareProvider>
+                    <App />
 
-                  <ToastContainer
-                    position="top-right"
-                    autoClose={2000}
-                    hideProgressBar={false}
-                    newestOnTop
-                    closeOnClick
-                    pauseOnHover
-                    draggable
-                    theme="colored"
-                  />
-                </CompareProvider>
-              </WishlistProvider>
-            </CartProvider>
-          </AuthProvider>
-        </LanguageProvider>
-      </BrowserRouter>
-    </HelmetProvider>
+                    <ToastContainer
+                      position="top-right"
+                      autoClose={2000}
+                      hideProgressBar={false}
+                      newestOnTop
+                      closeOnClick
+                      pauseOnHover
+                      draggable
+                      theme="colored"
+                    />
+                  </CompareProvider>
+                </WishlistProvider>
+              </CartProvider>
+            </AuthProvider>
+          </LanguageProvider>
+        </BrowserRouter>
+      </HelmetProvider>
+    </ErrorBoundary>
   </React.StrictMode>,
 );

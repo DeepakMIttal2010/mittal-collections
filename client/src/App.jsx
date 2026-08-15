@@ -7,6 +7,7 @@ import ZoomControl from "./components/ZoomControl";
 import VisitTracker from "./components/VisitTracker";
 import WhatsAppButton from "./components/WhatsAppButton";
 import CompareBar from "./components/CompareBar";
+import ErrorBoundary from "./components/ErrorBoundary";
 
 function App() {
   const { pathname } = useLocation();
@@ -15,7 +16,9 @@ function App() {
   return (
     <>
       <ScrollToTop />
-      <AppRoutes />
+      <ErrorBoundary resetKey={pathname}>
+        <AppRoutes />
+      </ErrorBoundary>
       <BackToTopButton />
       {isAdmin && <ZoomControl />}
       {!isAdmin && <VisitTracker />}
