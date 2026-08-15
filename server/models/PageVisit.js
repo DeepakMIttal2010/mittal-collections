@@ -39,7 +39,13 @@ const pageVisitSchema = new mongoose.Schema(
   },
 );
 
-pageVisitSchema.index({ createdAt: -1 });
+// TTL index — auto-deletes visits older than 1 year so this collection
+// doesn't grow unbounded. Report queries only ever look back a bounded
+// custom date range, so a year of retention is more than sufficient.
+pageVisitSchema.index(
+  { createdAt: 1 },
+  { expireAfterSeconds: 365 * 24 * 60 * 60 },
+);
 
 const PageVisit = mongoose.model("PageVisit", pageVisitSchema);
 
