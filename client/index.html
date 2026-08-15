@@ -20,16 +20,25 @@
          removed by Helmet (it only manages tags it renders itself),
          leaving two duplicate description tags on every page. -->
 
-    <!-- Google tag (gtag.js) -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-1HP8PP1ZDM"></script>
+    <!-- Google tag (gtag.js) — the dataLayer/gtag stub is set up
+         immediately so early gtag() calls queue correctly, but the
+         actual ~164KB script is only fetched after window "load" so
+         it doesn't compete with the app's own JS for the initial
+         render/interactive budget. -->
     <script>
       window.dataLayer = window.dataLayer || [];
       function gtag() {
         dataLayer.push(arguments);
       }
       gtag("js", new Date());
-
       gtag("config", "G-1HP8PP1ZDM");
+
+      window.addEventListener("load", () => {
+        const script = document.createElement("script");
+        script.async = true;
+        script.src = "https://www.googletagmanager.com/gtag/js?id=G-1HP8PP1ZDM";
+        document.head.appendChild(script);
+      });
     </script>
   </head>
   <body>
