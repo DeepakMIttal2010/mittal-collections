@@ -99,7 +99,15 @@ function Hero() {
   const goNext = () => setActiveIndex((prev) => (prev + 1) % slides.length);
 
   return (
-    <section className="hero">
+    <>
+      <div className="hero-value-strip">
+        {t(
+          "Mittal Collections — Quality Home Furnishing at Great Prices",
+          "मित्तल कलेक्शन्स — बेहतरीन कीमतों पर क्वालिटी होम फर्निशिंग",
+        )}
+      </div>
+
+      <section className="hero">
       <img src={backgroundImage} alt={imageAlt} className="hero-bg-image" />
       <div className="hero-overlay">
         <div className="container">
@@ -172,7 +180,8 @@ function Hero() {
           </>
         )}
       </div>
-    </section>
+      </section>
+    </>
   );
 }
 

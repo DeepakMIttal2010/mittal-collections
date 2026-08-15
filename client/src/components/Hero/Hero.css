@@ -1,3 +1,13 @@
+.hero-value-strip {
+  background: #1e293b;
+  color: #fff;
+  text-align: center;
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 0.6rem 1rem;
+}
+
 .hero {
   position: relative;
   height: 85vh;

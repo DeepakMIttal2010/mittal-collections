@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import Seo from "../components/Seo";
 import Hero from "../components/Hero/Hero";
+import CategoryQuickLinks from "../components/CategoryQuickLinks/CategoryQuickLinks";
 import TrustBar from "../components/TrustBar/TrustBar";
 import RecentlyViewed from "../components/RecentlyViewed/RecentlyViewed";
 import Categories from "../components/Categories/Categories";
@@ -67,6 +68,7 @@ function Home() {
         jsonLd={localBusinessJsonLd}
       />
       <Hero />
+      <CategoryQuickLinks />
       <TrustBar />
       <RecentlyViewed />
       <Categories />

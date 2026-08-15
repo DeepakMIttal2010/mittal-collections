@@ -1,7 +1,10 @@
-import { FaTags, FaTruck, FaUndoAlt, FaMoneyBillWave } from "react-icons/fa";
+import { useEffect, useState } from "react";
+import { FaTags, FaTruck, FaUndoAlt, FaMoneyBillWave, FaWhatsapp } from "react-icons/fa";
 
 import "./TrustBar.css";
 import { useLanguage } from "../../context/LanguageContext";
+import { getSiteSettings } from "../../services/settingsService";
+import { toWhatsAppNumber } from "../../utils/whatsapp";
 
 const items = [
   {
@@ -13,9 +16,9 @@ const items = [
   },
   {
     icon: <FaTruck />,
-    title: "Free Delivery",
-    titleHi: "मुफ्त डिलीवरी",
-    subtitle: "on eligible orders.",
+    title: "Fast Local Delivery",
+    titleHi: "तेज़ लोकल डिलीवरी",
+    subtitle: "on eligible orders",
     subtitleHi: "योग्य ऑर्डर पर",
   },
   {
@@ -27,15 +30,34 @@ const items = [
   },
   {
     icon: <FaMoneyBillWave />,
-    title: "COD Available",
-    titleHi: "कैश ऑन डिलीवरी उपलब्ध",
-    subtitle: "Pay at doorstep",
-    subtitleHi: "घर पर पेमेंट करें",
+    title: "Secure Payment",
+    titleHi: "सुरक्षित पेमेंट",
+    subtitle: "COD or online",
+    subtitleHi: "COD या ऑनलाइन",
   },
 ];
 
 function TrustBar() {
   const { t } = useLanguage();
+  const [phone, setPhone] = useState("");
+
+  useEffect(() => {
+    const loadPhone = async () => {
+      const response = await getSiteSettings();
+
+      if (response.success && response.settings.phone) {
+        setPhone(response.settings.phone);
+      }
+    };
+
+    loadPhone();
+  }, []);
+
+  const waLink = phone
+    ? `https://wa.me/${toWhatsAppNumber(phone)}?text=${encodeURIComponent(
+        "Hi, I have a question about a product on Mittal Collections.",
+      )}`
+    : null;
 
   return (
     <div className="trust-bar-wrap">
@@ -51,6 +73,20 @@ function TrustBar() {
             )}
           </div>
         ))}
+
+        {waLink && (
+          <a href={waLink} target="_blank" rel="noopener noreferrer" className="trust-bar-item-link">
+            <div className="trust-bar-item">
+              <div className="trust-bar-icon">
+                <FaWhatsapp />
+              </div>
+              <div className="trust-bar-title">
+                {t("WhatsApp / Call Support", "व्हाट्सएप / कॉल सहायता")}
+              </div>
+              <div className="trust-bar-subtitle">{phone}</div>
+            </div>
+          </a>
+        )}
       </div>
     </div>
   );
