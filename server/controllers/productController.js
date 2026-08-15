@@ -1,5 +1,6 @@
 import Product from "../models/Product.js";
 import Order from "../models/Order.js";
+import OfflineSale from "../models/OfflineSale.js";
 import StockAlert from "../models/StockAlert.js";
 import SearchLog from "../models/SearchLog.js";
 import User from "../models/User.js";
@@ -928,11 +929,12 @@ export const permanentlyDeleteProduct = async (req, res) => {
       });
     }
 
-    const hasOrders = await Order.exists({
-      "orderItems.product": product._id,
-    });
+    const [hasOrders, hasOfflineSales] = await Promise.all([
+      Order.exists({ "orderItems.product": product._id }),
+      OfflineSale.exists({ "items.product": product._id }),
+    ]);
 
-    if (hasOrders) {
+    if (hasOrders || hasOfflineSales) {
       return res.status(400).json({
         success: false,
         message:

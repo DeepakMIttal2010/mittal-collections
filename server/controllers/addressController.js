@@ -5,7 +5,10 @@ import Address from "../models/Address.js";
 // ============================
 export const getAddresses = async (req, res) => {
   try {
-    const addresses = await Address.find({ user: req.user.id }).sort({
+    const addresses = await Address.find({
+      user: req.user.id,
+      isActive: true,
+    }).sort({
       isDefault: -1,
       createdAt: -1,
     });
@@ -48,10 +51,16 @@ export const addAddress = async (req, res) => {
     }
 
     if (isDefault) {
-      await Address.updateMany({ user: req.user.id }, { isDefault: false });
+      await Address.updateMany(
+        { user: req.user.id, isActive: true },
+        { isDefault: false },
+      );
     }
 
-    const existingCount = await Address.countDocuments({ user: req.user.id });
+    const existingCount = await Address.countDocuments({
+      user: req.user.id,
+      isActive: true,
+    });
 
     const newAddress = await Address.create({
       user: req.user.id,
@@ -88,6 +97,7 @@ export const updateAddress = async (req, res) => {
     const existing = await Address.findOne({
       _id: req.params.id,
       user: req.user.id,
+      isActive: true,
     });
 
     if (!existing) {
@@ -101,7 +111,10 @@ export const updateAddress = async (req, res) => {
       req.body;
 
     if (isDefault) {
-      await Address.updateMany({ user: req.user.id }, { isDefault: false });
+      await Address.updateMany(
+        { user: req.user.id, isActive: true },
+        { isDefault: false },
+      );
     }
 
     existing.fullName = fullName ?? existing.fullName;
@@ -138,6 +151,7 @@ export const deleteAddress = async (req, res) => {
     const existing = await Address.findOne({
       _id: req.params.id,
       user: req.user.id,
+      isActive: true,
     });
 
     if (!existing) {
@@ -149,10 +163,15 @@ export const deleteAddress = async (req, res) => {
 
     const wasDefault = existing.isDefault;
 
-    await existing.deleteOne();
+    existing.isActive = false;
+    existing.isDefault = false;
+    await existing.save();
 
     if (wasDefault) {
-      const another = await Address.findOne({ user: req.user.id }).sort({
+      const another = await Address.findOne({
+        user: req.user.id,
+        isActive: true,
+      }).sort({
         createdAt: -1,
       });
 
@@ -184,6 +203,7 @@ export const setDefaultAddress = async (req, res) => {
     const existing = await Address.findOne({
       _id: req.params.id,
       user: req.user.id,
+      isActive: true,
     });
 
     if (!existing) {
@@ -193,7 +213,10 @@ export const setDefaultAddress = async (req, res) => {
       });
     }
 
-    await Address.updateMany({ user: req.user.id }, { isDefault: false });
+    await Address.updateMany(
+      { user: req.user.id, isActive: true },
+      { isDefault: false },
+    );
 
     existing.isDefault = true;
     await existing.save();

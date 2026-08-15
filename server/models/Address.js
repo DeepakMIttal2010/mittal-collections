@@ -60,6 +60,16 @@ const addressSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+
+    // Soft-delete flag — a deleted address is never actually removed
+    // from the database, just hidden from "pick an address" pickers.
+    // Existing orders never need this: shippingAddress above is a full
+    // embedded snapshot taken at order time, not a live reference, so
+    // a past order's displayed address is already unaffected either way.
+    isActive: {
+      type: Boolean,
+      default: true,
+    },
   },
   {
     timestamps: true,
