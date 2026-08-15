@@ -8,6 +8,8 @@ import {
   FaWhatsapp,
   FaInstagram,
   FaFacebookF,
+  FaImage,
+  FaVideo,
 } from "react-icons/fa";
 
 import { imgUrl } from "../../services/api";
@@ -15,6 +17,9 @@ import { productUrl } from "../../utils/productUrl";
 
 const CANVAS_W = 1080;
 const CANVAS_H = 1920;
+const MAX_SLIDES = 5;
+const SLIDE_MS = 1600;
+const MIN_VIDEO_MS = 5000;
 
 // Canvas has no built-in text wrapping — measure and break manually.
 const wrapText = (ctx, text, maxWidth) => {
@@ -45,11 +50,141 @@ const loadImage = (src) =>
     img.src = src;
   });
 
+// Draws the product photo, cover-fit, filling the whole canvas.
+const drawBackground = (ctx, img) => {
+  const scale = Math.max(CANVAS_W / img.width, CANVAS_H / img.height);
+  const drawW = img.width * scale;
+  const drawH = img.height * scale;
+  ctx.drawImage(img, (CANVAS_W - drawW) / 2, (CANVAS_H - drawH) / 2, drawW, drawH);
+};
+
+// Draws every branding element on top of whatever background is already
+// on the canvas — brand wordmark, discount badge, name, price, CTA + QR.
+// Shared between the static image and every video frame so both look
+// identical apart from which product photo is showing underneath.
+const drawOverlay = (ctx, { product, hasDiscount, discountPct, qrImg }) => {
+  const gradient = ctx.createLinearGradient(0, CANVAS_H * 0.45, 0, CANVAS_H);
+  gradient.addColorStop(0, "rgba(0,0,0,0)");
+  gradient.addColorStop(1, "rgba(0,0,0,0.85)");
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+
+  ctx.textBaseline = "alphabetic";
+  ctx.font = "600 40px system-ui, sans-serif";
+  ctx.fillStyle = "#ffffff";
+  ctx.shadowColor = "rgba(0,0,0,0.5)";
+  ctx.shadowBlur = 12;
+  ctx.fillText("MITTAL", 60, 100);
+  ctx.fillStyle = "#f59e0b";
+  ctx.fillText("COLLECTIONS", 60 + ctx.measureText("MITTAL ").width, 100);
+
+  if (hasDiscount) {
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = "#dc2626";
+    const badgeText = `${discountPct}% OFF`;
+    ctx.font = "700 34px system-ui, sans-serif";
+    const badgeW = ctx.measureText(badgeText).width + 48;
+    ctx.beginPath();
+    ctx.roundRect(CANVAS_W - badgeW - 50, 55, badgeW, 64, 32);
+    ctx.fill();
+    ctx.fillStyle = "#ffffff";
+    ctx.fillText(badgeText, CANVAS_W - badgeW - 50 + 24, 100);
+  }
+
+  ctx.shadowColor = "rgba(0,0,0,0.6)";
+  ctx.shadowBlur = 10;
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "700 56px system-ui, sans-serif";
+  const nameLines = wrapText(ctx, product.name, CANVAS_W - 120).slice(0, 3);
+  let y = CANVAS_H - 430;
+  nameLines.forEach((line) => {
+    ctx.fillText(line, 60, y);
+    y += 66;
+  });
+
+  y += 20;
+  ctx.font = "800 76px system-ui, sans-serif";
+  ctx.fillStyle = "#ffffff";
+  ctx.fillText(`₹${product.price}`, 60, y);
+  const priceW = ctx.measureText(`₹${product.price}`).width;
+
+  if (hasDiscount) {
+    ctx.font = "500 44px system-ui, sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,0.6)";
+    const oldPriceText = `₹${product.oldPrice}`;
+    const oldX = 60 + priceW + 24;
+    ctx.fillText(oldPriceText, oldX, y);
+    const oldW = ctx.measureText(oldPriceText).width;
+    ctx.strokeStyle = "rgba(255,255,255,0.6)";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(oldX, y - 16);
+    ctx.lineTo(oldX + oldW, y - 16);
+    ctx.stroke();
+  }
+
+  y += 60;
+  ctx.shadowBlur = 0;
+  ctx.font = "500 34px system-ui, sans-serif";
+  ctx.fillStyle = "rgba(255,255,255,0.85)";
+  ctx.fillText("Shop now at mittalcollections.com", 60, y);
+
+  const qrSize = 220;
+  const qrX = CANVAS_W - qrSize - 60;
+  const qrY = CANVAS_H - qrSize - 70;
+
+  ctx.fillStyle = "#ffffff";
+  ctx.beginPath();
+  ctx.roundRect(qrX - 16, qrY - 16, qrSize + 32, qrSize + 32, 16);
+  ctx.fill();
+  ctx.drawImage(qrImg, qrX, qrY, qrSize, qrSize);
+
+  ctx.textAlign = "center";
+  ctx.font = "700 30px system-ui, sans-serif";
+  const ctaText = "👉 Click Here to Buy";
+  const ctaW = ctx.measureText(ctaText).width + 56;
+  const ctaX = qrX + qrSize / 2;
+  const ctaY = qrY - 46;
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = "#f59e0b";
+  ctx.beginPath();
+  ctx.roundRect(ctaX - ctaW / 2, ctaY - 44, ctaW, 60, 30);
+  ctx.fill();
+  ctx.fillStyle = "#ffffff";
+  ctx.fillText(ctaText, ctaX, ctaY - 4);
+
+  ctx.font = "500 24px system-ui, sans-serif";
+  ctx.fillStyle = "rgba(255,255,255,0.85)";
+  ctx.shadowColor = "rgba(0,0,0,0.6)";
+  ctx.shadowBlur = 8;
+  ctx.fillText("(or scan below)", ctaX, ctaY + 30);
+  ctx.textAlign = "left";
+};
+
+// Picks the best video mimeType this browser's MediaRecorder actually
+// supports — Safari can record straight to mp4, Chrome/Firefox/Edge
+// only do webm.
+const pickVideoMimeType = () => {
+  const candidates = [
+    "video/mp4",
+    "video/webm;codecs=vp9",
+    "video/webm;codecs=vp8",
+    "video/webm",
+  ];
+  return candidates.find((type) => MediaRecorder.isTypeSupported?.(type)) || "";
+};
+
 function ShareProductModal({ product, onClose }) {
   const canvasRef = useRef(null);
+  const videoCanvasRef = useRef(null);
+  const [mode, setMode] = useState("image");
   const [rendering, setRendering] = useState(true);
   const [error, setError] = useState("");
   const [canShareFiles, setCanShareFiles] = useState(false);
+  const [videoRecording, setVideoRecording] = useState(false);
+  const [videoUrl, setVideoUrl] = useState(null);
+  const [videoBlob, setVideoBlob] = useState(null);
+  const [videoError, setVideoError] = useState("");
 
   const productLink = `${window.location.origin}${productUrl(product)}`;
   const hasDiscount = product.oldPrice && product.oldPrice > product.price;
@@ -59,6 +194,8 @@ function ShareProductModal({ product, onClose }) {
       )
     : 0;
 
+  const overlayInfo = { product, hasDiscount, discountPct };
+
   useEffect(() => {
     const render = async () => {
       try {
@@ -67,134 +204,16 @@ function ShareProductModal({ product, onClose }) {
         canvas.width = CANVAS_W;
         canvas.height = CANVAS_H;
 
-        // Background product photo, cover-fit.
         const productImg = await loadImage(imgUrl(product.image));
-        const scale = Math.max(
-          CANVAS_W / productImg.width,
-          CANVAS_H / productImg.height,
-        );
-        const drawW = productImg.width * scale;
-        const drawH = productImg.height * scale;
-        ctx.drawImage(
-          productImg,
-          (CANVAS_W - drawW) / 2,
-          (CANVAS_H - drawH) / 2,
-          drawW,
-          drawH,
-        );
+        drawBackground(ctx, productImg);
 
-        // Bottom gradient so white text stays legible over any photo.
-        const gradient = ctx.createLinearGradient(0, CANVAS_H * 0.45, 0, CANVAS_H);
-        gradient.addColorStop(0, "rgba(0,0,0,0)");
-        gradient.addColorStop(1, "rgba(0,0,0,0.85)");
-        ctx.fillStyle = gradient;
-        ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
-
-        // Brand wordmark, top.
-        ctx.textBaseline = "alphabetic";
-        ctx.font = "600 40px system-ui, sans-serif";
-        ctx.fillStyle = "#ffffff";
-        ctx.shadowColor = "rgba(0,0,0,0.5)";
-        ctx.shadowBlur = 12;
-        ctx.fillText("MITTAL", 60, 100);
-        ctx.fillStyle = "#f59e0b";
-        ctx.fillText("COLLECTIONS", 60 + ctx.measureText("MITTAL ").width, 100);
-
-        // Discount badge, top-right.
-        if (hasDiscount) {
-          ctx.shadowBlur = 0;
-          ctx.fillStyle = "#dc2626";
-          const badgeText = `${discountPct}% OFF`;
-          ctx.font = "700 34px system-ui, sans-serif";
-          const badgeW = ctx.measureText(badgeText).width + 48;
-          ctx.beginPath();
-          ctx.roundRect(CANVAS_W - badgeW - 50, 55, badgeW, 64, 32);
-          ctx.fill();
-          ctx.fillStyle = "#ffffff";
-          ctx.fillText(badgeText, CANVAS_W - badgeW - 50 + 24, 100);
-        }
-
-        // Product name, wrapped, bottom section.
-        ctx.shadowColor = "rgba(0,0,0,0.6)";
-        ctx.shadowBlur = 10;
-        ctx.fillStyle = "#ffffff";
-        ctx.font = "700 56px system-ui, sans-serif";
-        const nameLines = wrapText(ctx, product.name, CANVAS_W - 120).slice(0, 3);
-        let y = CANVAS_H - 430;
-        nameLines.forEach((line) => {
-          ctx.fillText(line, 60, y);
-          y += 66;
-        });
-
-        // Price row.
-        y += 20;
-        ctx.font = "800 76px system-ui, sans-serif";
-        ctx.fillStyle = "#ffffff";
-        ctx.fillText(`₹${product.price}`, 60, y);
-        const priceW = ctx.measureText(`₹${product.price}`).width;
-
-        if (hasDiscount) {
-          ctx.font = "500 44px system-ui, sans-serif";
-          ctx.fillStyle = "rgba(255,255,255,0.6)";
-          const oldPriceText = `₹${product.oldPrice}`;
-          const oldX = 60 + priceW + 24;
-          ctx.fillText(oldPriceText, oldX, y);
-          const oldW = ctx.measureText(oldPriceText).width;
-          ctx.strokeStyle = "rgba(255,255,255,0.6)";
-          ctx.lineWidth = 3;
-          ctx.beginPath();
-          ctx.moveTo(oldX, y - 16);
-          ctx.lineTo(oldX + oldW, y - 16);
-          ctx.stroke();
-        }
-
-        // Call to action + site domain.
-        y += 60;
-        ctx.shadowBlur = 0;
-        ctx.font = "500 34px system-ui, sans-serif";
-        ctx.fillStyle = "rgba(255,255,255,0.85)";
-        ctx.fillText("Shop now at mittalcollections.com", 60, y);
-
-        // QR code, bottom-right, linking to the product page.
         const qrDataUrl = await QRCode.toDataURL(productLink, {
           width: 260,
           margin: 1,
         });
         const qrImg = await loadImage(qrDataUrl);
-        const qrSize = 220;
-        const qrX = CANVAS_W - qrSize - 60;
-        const qrY = CANVAS_H - qrSize - 70;
 
-        ctx.fillStyle = "#ffffff";
-        ctx.beginPath();
-        ctx.roundRect(qrX - 16, qrY - 16, qrSize + 32, qrSize + 32, 16);
-        ctx.fill();
-        ctx.drawImage(qrImg, qrX, qrY, qrSize, qrSize);
-
-        // "Click Here to Buy" CTA button pointing at the QR code — a
-        // WhatsApp Status image can't carry a real tappable link, so
-        // this call-to-action plus the QR scan underneath it is the
-        // closest practical substitute.
-        ctx.textAlign = "center";
-        ctx.font = "700 30px system-ui, sans-serif";
-        const ctaText = "👉 Click Here to Buy";
-        const ctaW = ctx.measureText(ctaText).width + 56;
-        const ctaX = qrX + qrSize / 2;
-        const ctaY = qrY - 46;
-        ctx.shadowBlur = 0;
-        ctx.fillStyle = "#f59e0b";
-        ctx.beginPath();
-        ctx.roundRect(ctaX - ctaW / 2, ctaY - 44, ctaW, 60, 30);
-        ctx.fill();
-        ctx.fillStyle = "#ffffff";
-        ctx.fillText(ctaText, ctaX, ctaY - 4);
-
-        ctx.font = "500 24px system-ui, sans-serif";
-        ctx.fillStyle = "rgba(255,255,255,0.85)";
-        ctx.shadowColor = "rgba(0,0,0,0.6)";
-        ctx.shadowBlur = 8;
-        ctx.fillText("(or scan below)", ctaX, ctaY + 30);
-        ctx.textAlign = "left";
+        drawOverlay(ctx, { ...overlayInfo, qrImg });
 
         setRendering(false);
 
@@ -209,25 +228,29 @@ function ShareProductModal({ product, onClose }) {
     };
 
     render();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [product, productLink, hasDiscount, discountPct]);
 
-  const getBlob = () =>
+  useEffect(() => {
+    return () => {
+      if (videoUrl) URL.revokeObjectURL(videoUrl);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const getImageBlob = () =>
     new Promise((resolve) => canvasRef.current.toBlob(resolve, "image/png"));
 
   const caption = `${product.name} — ₹${product.price}\n${productLink}`;
 
-  const handleShare = async () => {
-    const blob = await getBlob();
+  const handleShareImage = async () => {
+    const blob = await getImageBlob();
     if (!blob) return;
 
     const file = new File([blob], `${product.slug || "product"}.png`, {
       type: "image/png",
     });
 
-    // WhatsApp attaches this text as a caption automatically, but
-    // Instagram and Facebook's share targets both ignore pre-filled
-    // text for anti-spam reasons — copy it to the clipboard so it's a
-    // one-tap paste into their caption field instead of retyping.
     try {
       await navigator.clipboard.writeText(caption);
       toast.info("Caption copied — paste it if Instagram/Facebook don't fill it in");
@@ -237,20 +260,14 @@ function ShareProductModal({ product, onClose }) {
     }
 
     try {
-      await navigator.share({
-        files: [file],
-        title: product.name,
-        text: caption,
-      });
+      await navigator.share({ files: [file], title: product.name, text: caption });
     } catch (err) {
-      if (err.name !== "AbortError") {
-        console.error("Share failed:", err);
-      }
+      if (err.name !== "AbortError") console.error("Share failed:", err);
     }
   };
 
-  const handleDownload = async () => {
-    const blob = await getBlob();
+  const handleDownloadImage = async () => {
+    const blob = await getImageBlob();
     if (!blob) return;
 
     const url = URL.createObjectURL(blob);
@@ -260,6 +277,128 @@ function ShareProductModal({ product, onClose }) {
     link.click();
     URL.revokeObjectURL(url);
   };
+
+  const generateVideo = async () => {
+    setVideoError("");
+    setVideoRecording(true);
+    setVideoUrl(null);
+    setVideoBlob(null);
+
+    try {
+      const mimeType = pickVideoMimeType();
+      if (!mimeType) {
+        throw new Error("This browser can't record video. Try a different browser.");
+      }
+
+      const images = (product.images?.length ? product.images : [product.image]).slice(
+        0,
+        MAX_SLIDES,
+      );
+      const loadedImages = await Promise.all(images.map((src) => loadImage(imgUrl(src))));
+
+      const qrDataUrl = await QRCode.toDataURL(productLink, { width: 260, margin: 1 });
+      const qrImg = await loadImage(qrDataUrl);
+
+      const canvas = videoCanvasRef.current;
+      canvas.width = CANVAS_W;
+      canvas.height = CANVAS_H;
+      const ctx = canvas.getContext("2d");
+
+      const slideMs = Math.max(SLIDE_MS, MIN_VIDEO_MS / loadedImages.length);
+
+      const stream = canvas.captureStream(30);
+      const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 4_000_000 });
+      const chunks = [];
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunks.push(e.data);
+      };
+
+      const stopped = new Promise((resolve) => {
+        recorder.onstop = resolve;
+      });
+
+      recorder.start();
+
+      let frameHandle;
+      const startedAt = performance.now();
+      const totalMs = slideMs * loadedImages.length;
+
+      const drawFrame = () => {
+        const elapsed = performance.now() - startedAt;
+        const index = Math.min(
+          Math.floor(elapsed / slideMs),
+          loadedImages.length - 1,
+        );
+
+        drawBackground(ctx, loadedImages[index]);
+        drawOverlay(ctx, { ...overlayInfo, qrImg });
+
+        if (elapsed < totalMs) {
+          frameHandle = requestAnimationFrame(drawFrame);
+        } else {
+          recorder.stop();
+        }
+      };
+
+      frameHandle = requestAnimationFrame(drawFrame);
+
+      await stopped;
+      cancelAnimationFrame(frameHandle);
+
+      const blob = new Blob(chunks, { type: mimeType.split(";")[0] });
+      const url = URL.createObjectURL(blob);
+      setVideoBlob(blob);
+      setVideoUrl(url);
+    } catch (err) {
+      console.error("Video generation error:", err);
+      setVideoError(err.message || "Could not generate the video. Try again.");
+    } finally {
+      setVideoRecording(false);
+    }
+  };
+
+  const handleModeChange = (next) => {
+    setMode(next);
+    if (next === "video" && !videoUrl && !videoRecording) {
+      generateVideo();
+    }
+  };
+
+  const videoExt = videoBlob?.type.includes("mp4") ? "mp4" : "webm";
+
+  const handleDownloadVideo = () => {
+    if (!videoUrl) return;
+
+    const link = document.createElement("a");
+    link.href = videoUrl;
+    link.download = `${product.slug || "product"}-share.${videoExt}`;
+    link.click();
+  };
+
+  const handleShareVideo = async () => {
+    if (!videoBlob) return;
+
+    const file = new File([videoBlob], `${product.slug || "product"}.${videoExt}`, {
+      type: videoBlob.type,
+    });
+
+    try {
+      await navigator.clipboard.writeText(caption);
+      toast.info("Caption copied — paste it if Instagram/Facebook don't fill it in");
+    } catch {
+      // Not worth blocking the share over a clipboard failure.
+    }
+
+    try {
+      await navigator.share({ files: [file], title: product.name, text: caption });
+    } catch (err) {
+      if (err.name !== "AbortError") console.error("Share failed:", err);
+    }
+  };
+
+  const canShareVideoFiles =
+    videoBlob &&
+    navigator.canShare?.({ files: [new File([], `x.${videoExt}`, { type: videoBlob.type })] });
 
   return (
     <div
@@ -280,12 +419,42 @@ function ShareProductModal({ product, onClose }) {
 
         <div className="bg-slate-50 p-4 overflow-y-auto min-h-0 flex items-center justify-center">
           <div className="relative rounded-lg overflow-hidden bg-slate-100 w-full max-w-[280px] aspect-[9/16] mx-auto">
-            {rendering && (
-              <div className="absolute inset-0 flex items-center justify-center text-sm text-slate-400">
-                Generating...
-              </div>
+            {mode === "image" ? (
+              <>
+                {rendering && (
+                  <div className="absolute inset-0 flex items-center justify-center text-sm text-slate-400">
+                    Generating...
+                  </div>
+                )}
+                <canvas ref={canvasRef} className="w-full h-full object-contain" />
+              </>
+            ) : (
+              <>
+                {videoRecording && (
+                  <div className="absolute inset-0 flex items-center justify-center text-sm text-slate-400 text-center px-4">
+                    Recording video...
+                    <br />
+                    (takes a few seconds)
+                  </div>
+                )}
+                {!videoRecording && videoUrl && (
+                  <video
+                    src={videoUrl}
+                    controls
+                    loop
+                    playsInline
+                    className="w-full h-full object-contain"
+                  />
+                )}
+                {!videoRecording && !videoUrl && !videoError && (
+                  <div className="absolute inset-0 flex items-center justify-center text-sm text-slate-400">
+                    —
+                  </div>
+                )}
+              </>
             )}
-            <canvas ref={canvasRef} className="w-full h-full object-contain" />
+            {/* Offscreen canvas used only for recording — never shown directly. */}
+            <canvas ref={videoCanvasRef} className="hidden" />
           </div>
         </div>
 
@@ -296,52 +465,123 @@ function ShareProductModal({ product, onClose }) {
             </h3>
             <p className="text-sm text-slate-500 mb-4">{product.name}</p>
 
-            {error && <p className="text-sm text-red-600 mb-3">{error}</p>}
-
-            <div className="space-y-2">
-              {canShareFiles && (
-                <div className="flex items-center justify-center gap-2 text-xs text-slate-500 mb-1">
-                  <span>Share via</span>
-                  <FaWhatsapp className="text-base text-[#25D366]" />
-                  <FaInstagram className="text-base text-[#E1306C]" />
-                  <FaFacebookF className="text-base text-[#1877F2]" />
-                  <span>& more</span>
-                </div>
-              )}
-
-              {canShareFiles && (
-                <button
-                  onClick={handleShare}
-                  disabled={rendering}
-                  className="w-full flex items-center justify-center gap-2 bg-blue-700 hover:bg-blue-800 text-white font-semibold py-3 rounded-full transition-colors disabled:opacity-50"
-                >
-                  <FaShareAlt />
-                  Share
-                </button>
-              )}
-
+            <div className="flex gap-2 mb-4">
               <button
-                onClick={handleDownload}
-                disabled={rendering}
-                className="w-full flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-900 text-white font-semibold py-3 rounded-full transition-colors disabled:opacity-50"
+                onClick={() => handleModeChange("image")}
+                className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-full text-sm font-semibold border transition-colors ${
+                  mode === "image"
+                    ? "bg-slate-900 text-white border-slate-900"
+                    : "text-slate-600 border-slate-300 hover:bg-slate-50"
+                }`}
               >
-                <FaDownload />
-                Download Image
+                <FaImage /> Image
+              </button>
+              <button
+                onClick={() => handleModeChange("video")}
+                className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-full text-sm font-semibold border transition-colors ${
+                  mode === "video"
+                    ? "bg-slate-900 text-white border-slate-900"
+                    : "text-slate-600 border-slate-300 hover:bg-slate-50"
+                }`}
+              >
+                <FaVideo /> Video
               </button>
             </div>
 
-            {canShareFiles ? (
-              <p className="text-xs text-slate-500 mt-3">
-                Opens your phone's share menu — pick WhatsApp Status,
-                Instagram Story, Facebook or any app. On Instagram/Facebook
-                the caption often won't fill in automatically (their apps
-                block that); it's copied to your clipboard, so just paste it
-                into the caption field.
-              </p>
+            {mode === "image" && error && (
+              <p className="text-sm text-red-600 mb-3">{error}</p>
+            )}
+            {mode === "video" && videoError && (
+              <p className="text-sm text-red-600 mb-3">{videoError}</p>
+            )}
+
+            <div className="space-y-2">
+              {mode === "image" ? (
+                <>
+                  {canShareFiles && (
+                    <div className="flex items-center justify-center gap-2 text-xs text-slate-500 mb-1">
+                      <span>Share via</span>
+                      <FaWhatsapp className="text-base text-[#25D366]" />
+                      <FaInstagram className="text-base text-[#E1306C]" />
+                      <FaFacebookF className="text-base text-[#1877F2]" />
+                      <span>& more</span>
+                    </div>
+                  )}
+
+                  {canShareFiles && (
+                    <button
+                      onClick={handleShareImage}
+                      disabled={rendering}
+                      className="w-full flex items-center justify-center gap-2 bg-blue-700 hover:bg-blue-800 text-white font-semibold py-3 rounded-full transition-colors disabled:opacity-50"
+                    >
+                      <FaShareAlt />
+                      Share
+                    </button>
+                  )}
+
+                  <button
+                    onClick={handleDownloadImage}
+                    disabled={rendering}
+                    className="w-full flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-900 text-white font-semibold py-3 rounded-full transition-colors disabled:opacity-50"
+                  >
+                    <FaDownload />
+                    Download Image
+                  </button>
+                </>
+              ) : (
+                <>
+                  {canShareVideoFiles && (
+                    <button
+                      onClick={handleShareVideo}
+                      disabled={videoRecording || !videoUrl}
+                      className="w-full flex items-center justify-center gap-2 bg-blue-700 hover:bg-blue-800 text-white font-semibold py-3 rounded-full transition-colors disabled:opacity-50"
+                    >
+                      <FaShareAlt />
+                      Share
+                    </button>
+                  )}
+
+                  <button
+                    onClick={handleDownloadVideo}
+                    disabled={videoRecording || !videoUrl}
+                    className="w-full flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-900 text-white font-semibold py-3 rounded-full transition-colors disabled:opacity-50"
+                  >
+                    <FaDownload />
+                    Download Video
+                  </button>
+
+                  {!videoRecording && (
+                    <button
+                      onClick={generateVideo}
+                      className="w-full text-sm text-slate-500 hover:text-slate-700 py-1"
+                    >
+                      Regenerate
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+
+            {mode === "image" ? (
+              canShareFiles ? (
+                <p className="text-xs text-slate-500 mt-3">
+                  Opens your phone's share menu — pick WhatsApp Status,
+                  Instagram Story, Facebook or any app. On Instagram/Facebook
+                  the caption often won't fill in automatically (their apps
+                  block that); it's copied to your clipboard, so just paste it
+                  into the caption field.
+                </p>
+              ) : (
+                <p className="text-xs text-slate-500 mt-3">
+                  Direct share works on mobile. On desktop, download the image
+                  and post it from your phone instead.
+                </p>
+              )
             ) : (
               <p className="text-xs text-slate-500 mt-3">
-                Direct share works on mobile. On desktop, download the image
-                and post it from your phone instead.
+                Silent slideshow video cycling through the product's photos —
+                add trending audio yourself when posting to Reels/Stories.
+                Same caption-copy behavior as the image on share.
               </p>
             )}
           </div>
