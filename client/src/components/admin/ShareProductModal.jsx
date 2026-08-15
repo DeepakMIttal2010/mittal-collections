@@ -10,6 +10,8 @@ import {
   FaFacebookF,
   FaImage,
   FaVideo,
+  FaCopy,
+  FaExclamationTriangle,
 } from "react-icons/fa";
 
 import { imgUrl } from "../../services/api";
@@ -18,6 +20,69 @@ import { productUrl } from "../../utils/productUrl";
 const CANVAS_W = 1080;
 const CANVAS_H = 1920;
 const MAX_SLIDES = 5;
+
+// Hinglish hook line + hashtag set per category, matching the style of
+// posts already being written by hand for the brand's Instagram — see
+// the "Ghar ke entrance ko dijiye naya look" doormat post this was
+// modeled on.
+const CATEGORY_CONTENT = {
+  "Doormats": {
+    hook: "Ghar ke entrance ko dijiye naya look ✨",
+    hashtags: ["#doormat", "#antislipmat", "#entrancedecor"],
+  },
+  "Cushion Covers": {
+    hook: "Apne sofa ko dijiye ek stylish touch ✨",
+    hashtags: ["#cushioncovers", "#sofadecor", "#cushioncoversale"],
+  },
+  "Bedsheets": {
+    hook: "Apne bedroom ko dijiye ek royal touch ✨",
+    hashtags: ["#bedsheets", "#beddingsets", "#bedroomdecor"],
+  },
+};
+const DEFAULT_CATEGORY_CONTENT = {
+  hook: "Apne ghar ko dijiye ek naya look ✨",
+  hashtags: ["#homedecor"],
+};
+const COMMON_HASHTAGS = [
+  "#homedecorindia",
+  "#ghardecor",
+  "#onlineshoppingindia",
+  "#interiordesignindia",
+  "#mittalcollections",
+];
+
+// Builds an Instagram-ready caption: Hinglish hook, a description
+// highlight, size/fabric/what's-included when the product has them, the
+// local-delivery message, price, a CTA, the link, then hashtags — not
+// just a bare "name — price" line.
+const buildCaption = (product, productLink) => {
+  const content = CATEGORY_CONTENT[product.category?.name] || DEFAULT_CATEGORY_CONTENT;
+  const hasDiscount = product.oldPrice && product.oldPrice > product.price;
+
+  const lines = [content.hook];
+
+  const firstSentence = (product.description || "").split(/(?<=[.!])\s/)[0]?.trim();
+  if (firstSentence) lines.push(firstSentence);
+
+  if (product.whatsIncluded) lines.push(`📦 ${product.whatsIncluded}`);
+  if (product.size) lines.push(`📏 Size: ${product.size}`);
+  if (product.fabric) lines.push(`🧵 Fabric: ${product.fabric}`);
+
+  lines.push("🚚 Free Delivery in Vasundhara & nearby areas | COD available");
+  lines.push(
+    hasDiscount
+      ? `💰 ₹${product.price} (MRP ₹${product.oldPrice})`
+      : `💰 ₹${product.price}`,
+  );
+
+  lines.push("Order karein — niche link se 👇");
+  lines.push("");
+  lines.push(productLink);
+  lines.push(".");
+  lines.push([...content.hashtags, ...COMMON_HASHTAGS].join(" "));
+
+  return lines.join("\n");
+};
 const SLIDE_MS = 1600;
 const MIN_VIDEO_MS = 5000;
 
@@ -175,6 +240,7 @@ const pickVideoMimeType = () => {
 };
 
 function ShareProductModal({ product, onClose }) {
+  const isOffline = product.visibility === "offline";
   const canvasRef = useRef(null);
   const videoCanvasRef = useRef(null);
   const [mode, setMode] = useState("image");
@@ -197,6 +263,11 @@ function ShareProductModal({ product, onClose }) {
   const overlayInfo = { product, hasDiscount, discountPct };
 
   useEffect(() => {
+    if (isOffline) {
+      setRendering(false);
+      return;
+    }
+
     const render = async () => {
       try {
         const canvas = canvasRef.current;
@@ -241,7 +312,16 @@ function ShareProductModal({ product, onClose }) {
   const getImageBlob = () =>
     new Promise((resolve) => canvasRef.current.toBlob(resolve, "image/png"));
 
-  const caption = `${product.name} — ₹${product.price}\n${productLink}`;
+  const caption = buildCaption(product, productLink);
+
+  const handleCopyCaption = async () => {
+    try {
+      await navigator.clipboard.writeText(caption);
+      toast.success("Caption copied");
+    } catch {
+      toast.error("Couldn't copy — select and copy the text manually");
+    }
+  };
 
   const handleShareImage = async () => {
     const blob = await getImageBlob();
@@ -399,6 +479,43 @@ function ShareProductModal({ product, onClose }) {
   const canShareVideoFiles =
     videoBlob &&
     navigator.canShare?.({ files: [new File([], `x.${videoExt}`, { type: videoBlob.type })] });
+
+  if (isOffline) {
+    return (
+      <div
+        onClick={onClose}
+        className="fixed inset-0 z-[1000] bg-black/50 flex items-center justify-center p-4"
+      >
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className="relative bg-white rounded-xl shadow-2xl w-full max-w-md p-8 text-center"
+        >
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            className="absolute top-3 right-3 w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center"
+          >
+            <FaTimes />
+          </button>
+
+          <div className="w-14 h-14 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center mx-auto mb-4">
+            <FaExclamationTriangle className="text-2xl" />
+          </div>
+
+          <h3 className="font-bold text-slate-900 text-lg mb-2">
+            This product can't be shared
+          </h3>
+
+          <p className="text-sm text-slate-500">
+            "{product.name}" is set to <strong>Offline Only</strong> — it has
+            no public page, so a shared link would show "Product Not Found"
+            to anyone who clicks it. It's only sellable in-store via POS/QR
+            scan, not meant to be advertised publicly.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -584,6 +701,28 @@ function ShareProductModal({ product, onClose }) {
                 Same caption-copy behavior as the image on share.
               </p>
             )}
+
+            <div className="mt-4 pt-4 border-t border-slate-200">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-semibold text-slate-700">
+                  Caption
+                </span>
+                <button
+                  onClick={handleCopyCaption}
+                  className="flex items-center gap-1.5 text-xs font-medium text-blue-700 hover:text-blue-800"
+                >
+                  <FaCopy />
+                  Copy Caption
+                </button>
+              </div>
+              <textarea
+                readOnly
+                value={caption}
+                rows={8}
+                className="w-full text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded-lg p-3 resize-none font-mono"
+                onClick={(e) => e.target.select()}
+              />
+            </div>
           </div>
         </div>
       </div>
