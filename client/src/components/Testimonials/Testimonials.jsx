@@ -51,6 +51,7 @@ function Testimonials() {
             type="button"
             onClick={() => setPage((p) => Math.max(p - 1, 0))}
             disabled={page === 0}
+            aria-label="Previous testimonials"
             className="shrink-0 w-10 h-10 rounded-full border border-slate-300 flex items-center justify-center text-slate-600 hover:border-amber-500 hover:text-amber-600 transition-colors disabled:opacity-30 disabled:pointer-events-none"
           >
             <FaChevronLeft />
@@ -82,6 +83,7 @@ function Testimonials() {
             type="button"
             onClick={() => setPage((p) => Math.min(p + 1, totalPages - 1))}
             disabled={page >= totalPages - 1}
+            aria-label="Next testimonials"
             className="shrink-0 w-10 h-10 rounded-full border border-slate-300 flex items-center justify-center text-slate-600 hover:border-amber-500 hover:text-amber-600 transition-colors disabled:opacity-30 disabled:pointer-events-none"
           >
             <FaChevronRight />

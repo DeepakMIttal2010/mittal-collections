@@ -77,6 +77,7 @@ function CartDrawer() {
           <button
             type="button"
             onClick={closeCart}
+            aria-label="Close cart"
             className="w-9 h-9 rounded-full border border-slate-200 flex items-center justify-center text-slate-500 hover:text-slate-800"
           >
             <FaTimes />

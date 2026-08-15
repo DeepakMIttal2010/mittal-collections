@@ -56,6 +56,7 @@ function ProductCard({ product }) {
           <div className="product-icons">
             <button
               type="button"
+              aria-label="Add to wishlist"
               onClick={(e) => {
                 e.preventDefault();
                 addToWishlist(product);
@@ -66,6 +67,7 @@ function ProductCard({ product }) {
 
             <button
               type="button"
+              aria-label="Quick view"
               onClick={(e) => {
                 e.preventDefault();
                 setShowQuickView(true);
