@@ -237,11 +237,21 @@ export const updateArticle = async (req, res) => {
 
     if (excerpt !== undefined) article.excerpt = excerpt;
     if (content !== undefined) article.content = content;
-    if (coverImage !== undefined) article.coverImage = coverImage;
+
+    let oldCoverImage = null;
+    if (coverImage !== undefined && coverImage !== article.coverImage) {
+      oldCoverImage = article.coverImage;
+      article.coverImage = coverImage;
+    }
+
     if (isActive !== undefined)
       article.isActive = isActive === true || isActive === "true";
 
     await article.save();
+
+    if (oldCoverImage) {
+      await deleteCloudinaryAssetsByUrl([oldCoverImage]);
+    }
 
     res.status(200).json({
       success: true,

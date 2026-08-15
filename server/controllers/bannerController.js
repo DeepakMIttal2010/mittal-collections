@@ -152,11 +152,17 @@ export const updateBanner = async (req, res) => {
     if (displayOrder !== undefined) banner.displayOrder = displayOrder;
     if (isActive !== undefined) banner.isActive = isActive === "true";
 
+    let oldImage = null;
     if (req.file) {
+      oldImage = banner.image;
       banner.image = req.file.path;
     }
 
     await banner.save();
+
+    if (oldImage) {
+      await deleteCloudinaryAssetsByUrl([oldImage]);
+    }
 
     res.status(200).json({
       success: true,

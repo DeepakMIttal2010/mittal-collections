@@ -152,9 +152,18 @@ export const updateSubcategory = async (req, res) => {
     if (subtitle !== undefined) subcategory.subtitle = subtitle;
     if (displayOrder !== undefined) subcategory.displayOrder = displayOrder;
     if (isActive !== undefined) subcategory.isActive = isActive === "true";
-    if (req.file) subcategory.image = req.file.path;
+
+    let oldImage = null;
+    if (req.file) {
+      oldImage = subcategory.image;
+      subcategory.image = req.file.path;
+    }
 
     await subcategory.save();
+
+    if (oldImage) {
+      await deleteCloudinaryAssetsByUrl([oldImage]);
+    }
 
     res.status(200).json({
       success: true,

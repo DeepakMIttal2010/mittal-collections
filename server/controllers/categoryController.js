@@ -194,11 +194,17 @@ export const updateCategory = async (req, res) => {
     if (isActive !== undefined)
       category.isActive = isActive === "true" || isActive === true;
 
+    let oldImage = null;
     if (req.file) {
+      oldImage = category.image;
       category.image = req.file.path;
     }
 
     await category.save();
+
+    if (oldImage) {
+      await deleteCloudinaryAssetsByUrl([oldImage]);
+    }
 
     res.status(200).json({
       success: true,

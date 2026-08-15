@@ -3,6 +3,8 @@ import Order from "../models/Order.js";
 import StockAlert from "../models/StockAlert.js";
 import SearchLog from "../models/SearchLog.js";
 import User from "../models/User.js";
+import Wishlist from "../models/Wishlist.js";
+import Review from "../models/Review.js";
 import { rankProducts } from "../utils/fuzzySearch.js";
 import { sendEmail } from "../config/mailer.js";
 import { notifyUser } from "../utils/notify.js";
@@ -763,9 +765,12 @@ export const updateProduct = async (req, res) => {
     product.purchasePrice = req.body.purchasePrice || 0;
     if (req.body.purchaseDate) product.purchaseDate = req.body.purchaseDate;
 
-    let existingImages = product.images.length
+    const oldImages = product.images.length
       ? product.images
       : [product.image].filter(Boolean);
+    const oldVideos = product.videos || [];
+
+    let existingImages = oldImages;
 
     if (req.body.existingImages !== undefined) {
       try {
@@ -794,7 +799,7 @@ export const updateProduct = async (req, res) => {
     product.images = finalImages;
     product.image = finalImages[mainIndex];
 
-    let existingVideos = product.videos || [];
+    let existingVideos = oldVideos;
 
     if (req.body.existingVideos !== undefined) {
       try {
@@ -809,6 +814,14 @@ export const updateProduct = async (req, res) => {
     product.videos = [...existingVideos, ...newVideos];
 
     await product.save();
+
+    const removedAssets = [
+      ...oldImages.filter((url) => !finalImages.includes(url)),
+      ...oldVideos.filter((url) => !product.videos.includes(url)),
+    ];
+    if (removedAssets.length) {
+      await deleteCloudinaryAssetsByUrl(removedAssets);
+    }
 
     if (wasOutOfStock && product.stock > 0) {
       notifyStockAlertSubscribers(product).catch((error) =>
@@ -933,6 +946,15 @@ export const permanentlyDeleteProduct = async (req, res) => {
       product.image,
       ...product.images,
       ...product.videos,
+    ]);
+
+    // Clean up dangling references — none of these block the delete
+    // (unlike Order above, they're not meaningful without the product
+    // they point at), so just remove them rather than guard against them.
+    await Promise.all([
+      Wishlist.deleteMany({ product: product._id }),
+      StockAlert.deleteMany({ product: product._id }),
+      Review.deleteMany({ product: product._id }),
     ]);
 
     res.json({
