@@ -3,7 +3,11 @@
   z-index: 5;
   width: 90%;
   max-width: 1200px;
-  margin: -20px auto 0;
+  /* Used to be -20px to float this up onto the Hero banner's bottom
+     edge, back when TrustBar rendered immediately after Hero. Now
+     CategoryQuickLinks sits between them, so that negative margin was
+     pulling this up into the category row instead, overlapping it. */
+  margin: 20px auto 0;
 }
 
 .trust-bar-card {
