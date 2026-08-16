@@ -168,14 +168,14 @@ needed here — this was worth verifying but isn't a gap.
 `CRON_SECRET`, etc. exist in Render's dashboard environment variable
 settings (per `DEPLOYMENT.md` §3) and in a local `.env` (gitignored,
 so not backed up by git by design — correctly, since it shouldn't be).
-**Worth confirming:** is there a secure record of these values kept
-anywhere outside Render's dashboard (a password manager, a sealed
-note)? If Render access were ever lost, regenerating `JWT_SECRET`
-would silently invalidate every logged-in user's session (forcing
-re-login, not data loss) — annoying but recoverable. Losing the
-Cloudinary/Brevo/MongoDB credentials without a record elsewhere would
-be a bigger problem since those point at *other* services' actual
-data, not just this app's own state.
+
+**RESOLVED 2026-08-16.** Confirmed a secure record of these values now
+exists outside Render's dashboard, saved in Google Password Manager
+(as a note-style entry, since Password Manager doesn't have a
+dedicated "secure note" type — the values are stored under a
+non-real-site entry rather than against an actual login). If Render
+access were ever lost, these can be recovered from there instead of
+depending solely on Render's dashboard being reachable.
 
 ## 6. Remaining Next Steps
 
@@ -190,11 +190,14 @@ data, not just this app's own state.
 4. ~~Add the three `CLOUDINARY_*` repository secrets~~ — done
    2026-08-16, and verified with a real triggered run + downloaded
    artifact (354 files, all valid), not just assumed to work.
-5. Confirm env vars/secrets (§5) have a record somewhere outside
-   Render's dashboard.
+5. ~~Confirm env vars/secrets (§5) have a record somewhere outside
+   Render's dashboard~~ — done 2026-08-16, saved in Google Password
+   Manager.
 6. Periodically repeat the real-restore check (§2.1.1) for both Mongo
    and Cloudinary, not just glance at the Actions tab — e.g. next time
    a risky migration is about to run, or every few months as a habit.
+   This is the only genuinely open item left on this list — everything
+   else here is done.
 7. (Optional) If the store outgrows the free tier's 512 MB cap or the
    weekly backup cadence stops feeling sufficient, revisit upgrading
    to Atlas M10+ for real continuous/point-in-time backups instead of
