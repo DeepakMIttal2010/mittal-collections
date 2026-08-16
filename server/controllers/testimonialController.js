@@ -63,10 +63,10 @@ export const addTestimonial = async (req, res) => {
   try {
     const { name, city, rating, review, displayOrder, isActive } = req.body;
 
-    if (!name || !city || !review) {
+    if (!name || !city) {
       return res.status(400).json({
         success: false,
-        message: "Name, city and review are required",
+        message: "Name and city are required",
       });
     }
 
@@ -74,7 +74,7 @@ export const addTestimonial = async (req, res) => {
       name,
       city,
       rating: rating || 5,
-      review,
+      review: review || "",
       displayOrder: displayOrder || 0,
       isActive: isActive === undefined ? true : isActive,
     });
@@ -113,7 +113,7 @@ export const updateTestimonial = async (req, res) => {
     if (name) testimonial.name = name;
     if (city) testimonial.city = city;
     if (rating !== undefined) testimonial.rating = rating;
-    if (review) testimonial.review = review;
+    if (review !== undefined) testimonial.review = review;
     if (displayOrder !== undefined) testimonial.displayOrder = displayOrder;
     if (isActive !== undefined) testimonial.isActive = isActive;
 

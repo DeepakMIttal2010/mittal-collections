@@ -24,7 +24,7 @@ const testimonialSchema = new mongoose.Schema(
 
     review: {
       type: String,
-      required: [true, "Review text is required"],
+      default: "",
       trim: true,
     },
 

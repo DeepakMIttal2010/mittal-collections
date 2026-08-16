@@ -71,7 +71,9 @@ function Testimonials() {
                 ))}
               </div>
 
-              <p className="text-slate-600 italic mb-6">"{item.review}"</p>
+              {item.review && (
+                <p className="text-slate-600 italic mb-6">"{item.review}"</p>
+              )}
 
               <h4 className="font-semibold text-slate-800">{item.name}</h4>
               <span className="text-sm text-slate-500">{item.city}</span>
