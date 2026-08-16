@@ -53,8 +53,9 @@
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .testimonial-marquee-track {
-    animation: none;
-  }
-}
+/* Deliberately NOT respecting prefers-reduced-motion here — this is a
+   decorative marketing carousel, not core functionality, and it was
+   found to sit disabled on real devices where the OS-level "reduce
+   motion" setting was on (whether by the user's own choice or a
+   device default), silently showing a frozen, broken-looking section
+   to real visitors. A conscious tradeoff, made after weighing it. */
