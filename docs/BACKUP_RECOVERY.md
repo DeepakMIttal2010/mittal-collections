@@ -1,8 +1,8 @@
 # Backup & Recovery
 
-**Status:** Audited 2026-08-08, then actually rehearsed end-to-end 2026-08-15 — which caught a real bug the 2026-08-08 audit missed (see §2.1.1). Cluster `Cluster0` is confirmed M0 (free tier, no backup feature). The `MONGODB_URI` repo secret is set, the backup workflow now produces a genuinely restorable archive, and this has been **verified by actually downloading and restoring one** (2,123 real documents, 0 failures), not just by the Actions tab showing green. Cloudinary (also Free tier, no backup feature) got the same weekly-backup treatment the same day — see §3.
-**Document version:** 1.3
-**Last updated:** 2026-08-15
+**Status:** Audited 2026-08-08, then actually rehearsed end-to-end 2026-08-15 — which caught a real bug the 2026-08-08 audit missed (see §2.1.1). Cluster `Cluster0` is confirmed M0 (free tier, no backup feature). The `MONGODB_URI` repo secret is set, the backup workflow now produces a genuinely restorable archive, and this has been **verified by actually downloading and restoring one** (2,123 real documents, 0 failures), not just by the Actions tab showing green. Cloudinary (also Free tier, no backup feature) got the same weekly-backup treatment the same day — the required GitHub secrets were added 2026-08-16, and a real run was triggered and downloaded to confirm it too — see §3.
+**Document version:** 1.4
+**Last updated:** 2026-08-16
 
 ## 1. Summary
 
@@ -11,9 +11,9 @@
 | **MongoDB Atlas (orders, users, products, everything)** | **Yes, verified by real restore as of 2026-08-15** — weekly automated `mongodump` via GitHub Actions | High |
 | Application code | Yes — GitHub, full history | High |
 | Legacy `/uploads/*` images (pre-Cloudinary) | Yes — committed to git, not runtime-written | High |
-| New product/category/banner/article media (Cloudinary) | **Yes, as of 2026-08-15** — weekly `backup-cloudinary.js` via GitHub Actions, verified locally (353 real assets, 260.9 MB, spot-checked as valid files) before deploying; needs a one-time GitHub secret setup, see §3 | High once secrets are added |
+| New product/category/banner/article media (Cloudinary) | **Yes, verified by real download as of 2026-08-16** — weekly `backup-cloudinary.js` via GitHub Actions, secrets added and a real run downloaded and spot-checked (354 files, 346 images + 8 videos, all valid, 262 MB) | High |
 | Environment variables / secrets (JWT secret, API keys) | Unknown — only confirmed to exist in Render's dashboard | Needs manual confirmation |
-| Recovery procedure (how to actually restore) | Documented below (§2.3), rehearsed for real 2026-08-15 | High (Mongo); Cloudinary restore is just re-uploading the downloaded files, not yet rehearsed |
+| Recovery procedure (how to actually restore) | Documented below (§2.3), rehearsed for real 2026-08-15 (Mongo) | High (Mongo); Cloudinary restore is just re-uploading the downloaded files — the download itself is now verified, but re-uploading to Cloudinary hasn't been rehearsed |
 
 The database is the one that matters most — it holds every order,
 every customer account, every loyalty point balance. Everything else
@@ -136,21 +136,22 @@ to confirm they're genuine JPEG/MP4 data (not empty or corrupted).
 This caution is directly because of what was found in §2.1.1 the same
 day — a green Actions checkmark is not proof a backup is real.
 
-**One-time setup required (needs repo access):** add three repository
-secrets — `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`,
-`CLOUDINARY_API_SECRET` (same values as `server/.env`) — via GitHub →
-**Settings** → **Secrets and variables** → **Actions**. Without them
-the workflow fails cleanly with a clear error rather than silently
-doing nothing. **Not yet done** — the workflow exists and was proven
-to work locally, but no run has happened in CI yet because these
-secrets haven't been added.
+**RESOLVED 2026-08-16.** The three repository secrets —
+`CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`
+(same values as `server/.env`) — were added via GitHub → **Settings**
+→ **Secrets and variables** → **Actions**. A fresh on-demand run was
+triggered right after and **verified for real, not just trusted**:
+downloaded the resulting 271 MB artifact and confirmed 354 real files
+(346 images + 8 videos), spot-checked several — including real product
+photos, not just Cloudinary's own sample assets — with `file` to
+confirm genuine JPEG/MP4 data. No empty or corrupted files.
 
 **Restoring:** download the artifact from the Actions tab, unzip it —
 it's a plain folder of files (`image/<public_id>.<ext>`,
 `video/<public_id>.<ext>`) ready to re-upload to Cloudinary or serve
-directly if needed. Not yet rehearsed as an actual restore (unlike the
-MongoDB one), since re-uploading to Cloudinary isn't destructive to
-test whenever needed.
+directly if needed. The download itself is now verified as real; only
+the re-upload-to-Cloudinary step hasn't been rehearsed (low priority —
+that step isn't destructive to test whenever it's actually needed).
 
 ## 4. Legacy `/uploads/*` images
 
@@ -185,16 +186,16 @@ data, not just this app's own state.
    caught in the first place — a real restore into a throwaway local
    DB, not just checking Actions for a checkmark.
 3. ~~Consider whether Cloudinary needs the same backup treatment~~ —
-   done 2026-08-15, see §3. **Still needed:** add the three
-   `CLOUDINARY_*` repository secrets (§3) — the workflow won't run for
-   real until that one-time step happens.
-4. Confirm env vars/secrets (§5) have a record somewhere outside
+   done 2026-08-15, see §3.
+4. ~~Add the three `CLOUDINARY_*` repository secrets~~ — done
+   2026-08-16, and verified with a real triggered run + downloaded
+   artifact (354 files, all valid), not just assumed to work.
+5. Confirm env vars/secrets (§5) have a record somewhere outside
    Render's dashboard.
-5. Periodically repeat the real-restore check (§2.1.1), not just glance
-   at the Actions tab — e.g. next time a risky migration is about to
-   run, or every few months as a habit. Once the Cloudinary secrets are
-   added, do the same for a Cloudinary backup at least once too.
-6. (Optional) If the store outgrows the free tier's 512 MB cap or the
+6. Periodically repeat the real-restore check (§2.1.1) for both Mongo
+   and Cloudinary, not just glance at the Actions tab — e.g. next time
+   a risky migration is about to run, or every few months as a habit.
+7. (Optional) If the store outgrows the free tier's 512 MB cap or the
    weekly backup cadence stops feeling sufficient, revisit upgrading
    to Atlas M10+ for real continuous/point-in-time backups instead of
    the GitHub Actions workaround.
