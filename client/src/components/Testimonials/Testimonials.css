@@ -1,0 +1,60 @@
+.testimonial-marquee {
+  width: 100%;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent,
+    black 5%,
+    black 95%,
+    transparent
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    black 5%,
+    black 95%,
+    transparent
+  );
+}
+
+.testimonial-marquee-track {
+  display: flex;
+  width: max-content;
+  gap: 1.5rem;
+  padding: 0 1rem;
+  animation-name: testimonial-scroll;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+/* Pauses on hover so a customer/admin can actually read a card instead
+   of it scrolling past mid-sentence — scoped to devices with a real
+   mouse/pointer only. Touch devices don't reliably clear :hover after
+   a tap ("sticky hover"), which would otherwise leave the marquee
+   stuck paused on mobile after someone taps anywhere near it. */
+@media (hover: hover) and (pointer: fine) {
+  .testimonial-marquee:hover .testimonial-marquee-track {
+    animation-play-state: paused;
+  }
+}
+
+.testimonial-card {
+  flex: 0 0 320px;
+}
+
+@keyframes testimonial-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    /* Exactly one full (undoubled) set's width, since translateX % is
+       relative to the track's own — doubled — width. */
+    transform: translateX(-50%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .testimonial-marquee-track {
+    animation: none;
+  }
+}
