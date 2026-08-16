@@ -210,7 +210,7 @@ function Header() {
       <div className="max-w-7xl mx-auto px-4 py-4 flex items-center gap-3 sm:gap-8">
         {/* Logo */}
         <Link to="/" className="shrink-0">
-          <h2 className="text-lg sm:text-2xl font-bold tracking-wide text-slate-800 whitespace-nowrap">
+          <h2 className="text-base sm:text-2xl font-bold sm:tracking-wide text-slate-800 whitespace-nowrap">
             MITTAL <span className="text-amber-600">COLLECTIONS</span>
           </h2>
         </Link>
@@ -301,7 +301,7 @@ function Header() {
         </form>
 
         {/* Right Icons */}
-        <div className="flex items-center gap-3 sm:gap-6 ml-auto shrink-0">
+        <div className="flex items-center gap-2 sm:gap-6 ml-auto shrink-0">
           {/* Language toggle */}
           <div className="flex items-center rounded-full border border-slate-200 text-xs font-medium overflow-hidden shrink-0">
             <button
