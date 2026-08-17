@@ -44,7 +44,6 @@ function EditProduct() {
     isActive: true,
     isTrending: false,
     trendingRank: 0,
-    isHotelCollection: false,
     visibility: "both",
     optimizeImages: true,
     fabric: "",
@@ -92,7 +91,6 @@ function EditProduct() {
         isActive: product.isActive,
         isTrending: product.isTrending || false,
         trendingRank: product.trendingRank || 0,
-        isHotelCollection: product.isHotelCollection || false,
         visibility: product.visibility || "both",
         optimizeImages: true,
         fabric: product.fabric || "",
@@ -634,16 +632,6 @@ function EditProduct() {
               onChange={handleChange}
             />
             Show in Trending
-          </label>
-
-          <label>
-            <input
-              type="checkbox"
-              name="isHotelCollection"
-              checked={formData.isHotelCollection}
-              onChange={handleChange}
-            />
-            Show in Hotel Collection
           </label>
 
           <label>

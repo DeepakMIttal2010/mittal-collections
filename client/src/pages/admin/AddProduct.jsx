@@ -36,7 +36,6 @@ function AddProduct() {
     isActive: true,
     isTrending: false,
     trendingRank: 0,
-    isHotelCollection: false,
     visibility: "both",
     optimizeImages: true,
     fabric: "",
@@ -131,7 +130,6 @@ function AddProduct() {
     data.append("isActive", formData.isActive);
     data.append("isTrending", formData.isTrending);
     data.append("trendingRank", formData.trendingRank);
-    data.append("isHotelCollection", formData.isHotelCollection);
     data.append("visibility", formData.visibility);
     data.append("mainImageIndex", mainImageIndex);
     data.append("optimizeImages", formData.optimizeImages);
@@ -500,16 +498,6 @@ function AddProduct() {
               onChange={handleChange}
             />
             Show in Trending
-          </label>
-
-          <label>
-            <input
-              type="checkbox"
-              name="isHotelCollection"
-              checked={formData.isHotelCollection}
-              onChange={handleChange}
-            />
-            Show in Hotel Collection
           </label>
 
           <label>
