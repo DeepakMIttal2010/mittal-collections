@@ -24,7 +24,11 @@ const AUTO_CLOSE_MS = 5000;
 // on-demand (bypassing login/suppression/timing) so an admin can see
 // precisely what a customer sees, without needing to open an incognito
 // window or clear localStorage.
-function WelcomeBenefitsPopup({ previewMode = false, onClose } = {}) {
+function WelcomeBenefitsPopup({
+  previewMode = false,
+  previewCelebrate = false,
+  onClose,
+} = {}) {
   const {
     user,
     isLoggedIn,
@@ -38,7 +42,7 @@ function WelcomeBenefitsPopup({ previewMode = false, onClose } = {}) {
   const [enabled, setEnabled] = useState(true);
   const [visible, setVisible] = useState(false);
   const [entered, setEntered] = useState(false);
-  const [celebrateMode, setCelebrateMode] = useState(false);
+  const [celebrateMode, setCelebrateMode] = useState(previewCelebrate);
 
   useEffect(() => {
     getPublicRewardsInfo().then((response) => {
@@ -110,7 +114,7 @@ function WelcomeBenefitsPopup({ previewMode = false, onClose } = {}) {
 
   const handleClose = () => {
     setEntered(false);
-    if (celebrateMode) clearJustRegistered();
+    if (celebrateMode && !previewMode) clearJustRegistered();
     setTimeout(() => {
       setVisible(false);
       onClose?.();

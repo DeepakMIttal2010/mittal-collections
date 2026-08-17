@@ -10,6 +10,8 @@ import WelcomeBenefitsPopup from "../../components/WelcomeBenefitsPopup";
 function AdminSettings() {
   const [loading, setLoading] = useState(true);
   const [showPopupPreview, setShowPopupPreview] = useState(false);
+  const [showRegisteredPopupPreview, setShowRegisteredPopupPreview] =
+    useState(false);
   const [saving, setSaving] = useState(false);
 
   const [formData, setFormData] = useState({
@@ -429,7 +431,10 @@ function AdminSettings() {
         <p className="text-sm text-slate-500 -mt-2">
           The "Welcome to Mittal Collections" benefits popup shown to
           first-time guests (hidden for logged-in customers, and won't
-          reappear for 24 hours after being shown).
+          reappear for 24 hours after being shown). The toggle below only
+          controls this guest version — the "🎉 Registration Successful!"
+          variant shown right after a new signup always fires, since it's
+          a one-time confirmation rather than a repeat marketing nudge.
         </p>
 
         <div className="flex items-center justify-between flex-wrap gap-3">
@@ -443,13 +448,23 @@ function AdminSettings() {
             Show the welcome popup to new visitors
           </label>
 
-          <button
-            type="button"
-            onClick={() => setShowPopupPreview(true)}
-            className="text-sm text-blue-700 hover:text-blue-900 font-medium"
-          >
-            Preview Popup
-          </button>
+          <div className="flex items-center gap-4">
+            <button
+              type="button"
+              onClick={() => setShowPopupPreview(true)}
+              className="text-sm text-blue-700 hover:text-blue-900 font-medium"
+            >
+              Preview Popup
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowRegisteredPopupPreview(true)}
+              className="text-sm text-blue-700 hover:text-blue-900 font-medium"
+            >
+              Preview After-Registration Popup
+            </button>
+          </div>
         </div>
 
         <hr className="border-slate-200" />
@@ -550,6 +565,14 @@ function AdminSettings() {
         <WelcomeBenefitsPopup
           previewMode
           onClose={() => setShowPopupPreview(false)}
+        />
+      )}
+
+      {showRegisteredPopupPreview && (
+        <WelcomeBenefitsPopup
+          previewMode
+          previewCelebrate
+          onClose={() => setShowRegisteredPopupPreview(false)}
         />
       )}
     </div>
