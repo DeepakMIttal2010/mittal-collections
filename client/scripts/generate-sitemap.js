@@ -8,6 +8,7 @@ const API_URL =
 const STATIC_ROUTES = [
   "/",
   "/trending",
+  "/hotel-collection",
   "/about",
   "/contact",
   "/articles",

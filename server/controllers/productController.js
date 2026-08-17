@@ -419,6 +419,7 @@ export const duplicateProduct = async (req, res) => {
       featured: false,
       isTrending: false,
       trendingRank: 0,
+      isHotelCollection: false,
       isActive: false,
 
       isReturnable: source.isReturnable,
@@ -506,6 +507,40 @@ export const getTrendingProducts = async (req, res) => {
       success: true,
       products,
       lastUpdated,
+    });
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};
+
+// ============================
+// GET HOTEL COLLECTION PRODUCTS (Public) — a cross-cutting tag, not a
+// category/subcategory, so a product still shows on its normal category
+// page too (see isHotelCollection comment in the model).
+// ============================
+export const getHotelCollectionProducts = async (req, res) => {
+  try {
+    const limit = Math.max(parseInt(req.query.limit, 10) || 50, 1);
+
+    const products = await Product.find({
+      isActive: true,
+      isHotelCollection: true,
+      visibility: { $ne: "offline" },
+    })
+      .select(COST_FIELDS)
+      .populate("category", "name slug image")
+      .populate("subcategory", "name slug")
+      .sort({ updatedAt: -1 })
+      .limit(limit);
+
+    res.status(200).json({
+      success: true,
+      products,
     });
   } catch (error) {
     console.error(error);
@@ -625,6 +660,7 @@ export const addProduct = async (req, res) => {
       isActive,
       isTrending,
       trendingRank,
+      isHotelCollection,
       mainImageIndex,
       fabric,
       size,
@@ -672,6 +708,7 @@ export const addProduct = async (req, res) => {
       isActive: isActive === "true",
       isTrending: isTrending === "true",
       trendingRank: trendingRank || 0,
+      isHotelCollection: isHotelCollection === "true",
       visibility: ["both", "online", "offline"].includes(visibility)
         ? visibility
         : "both",
@@ -744,6 +781,7 @@ export const updateProduct = async (req, res) => {
     product.isActive = req.body.isActive === "true";
     product.isTrending = req.body.isTrending === "true";
     product.trendingRank = req.body.trendingRank || 0;
+    product.isHotelCollection = req.body.isHotelCollection === "true";
     product.visibility = ["both", "online", "offline"].includes(
       req.body.visibility,
     )

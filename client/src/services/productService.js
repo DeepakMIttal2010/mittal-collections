@@ -88,6 +88,35 @@ export const getTrendingProducts = async (limit = 10) => {
 };
 
 // ==========================
+// Get Hotel Collection Products
+// ==========================
+export const getHotelCollectionProducts = async (limit = 50) => {
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/products/hotel-collection?limit=${limit}`,
+    );
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch hotel collection products");
+    }
+
+    const data = await response.json();
+
+    return {
+      success: data.success,
+      products: data.products || [],
+    };
+  } catch (error) {
+    console.error("Get Hotel Collection Products Error:", error);
+
+    return {
+      success: false,
+      products: [],
+    };
+  }
+};
+
+// ==========================
 // Search Products
 // ==========================
 export const searchProducts = async (

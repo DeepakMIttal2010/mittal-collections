@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 
 import Seo from "../components/Seo";
 import Hero from "../components/Hero/Hero";
@@ -70,6 +71,21 @@ function Home() {
       <Hero />
       <CategoryQuickLinks />
       <TrustBar />
+
+      {/* Plain internal link (not a full carousel section) so the
+          /hotel-collection page has an internal link pointing to it —
+          without one, it's an orphan page Google has no easy way to
+          discover/crawl. The page itself carries the SEO value; this
+          is just how it gets found. */}
+      <div className="text-center py-4">
+        <Link
+          to="/hotel-collection"
+          className="text-sm font-medium text-amber-700 hover:text-amber-800 underline underline-offset-2"
+        >
+          Shop our Hotel-Style Bedsheets Collection
+        </Link>
+      </div>
+
       <RecentlyViewed />
       <Categories />
       <TrendingSection />

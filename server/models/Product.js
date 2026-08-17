@@ -120,6 +120,16 @@ const productSchema = new mongoose.Schema(
       default: 0,
     },
 
+    // Cross-cutting tag, independent of category/subcategory (which are
+    // single-value and already used for the normal browsing taxonomy) —
+    // lets a product show up in a separate "Hotel Collection" page/section
+    // without leaving its regular category page. Same pattern as
+    // isTrending/featured above.
+    isHotelCollection: {
+      type: Boolean,
+      default: false,
+    },
+
     isActive: {
       type: Boolean,
       default: true,
