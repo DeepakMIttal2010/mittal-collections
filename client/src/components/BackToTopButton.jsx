@@ -26,7 +26,7 @@ function BackToTopButton() {
     <button
       onClick={scrollToTop}
       aria-label="Back to top"
-      className="fixed bottom-6 right-6 z-50 w-11 h-11 rounded-full bg-amber-500 hover:bg-amber-600 text-white shadow-lg flex items-center justify-center transition-colors"
+      className="fixed bottom-20 md:bottom-6 right-6 z-50 w-11 h-11 rounded-full bg-amber-500 hover:bg-amber-600 text-white shadow-lg flex items-center justify-center transition-colors"
     >
       <FaArrowUp className="text-sm" />
     </button>

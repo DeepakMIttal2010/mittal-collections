@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
 import { NavLink } from "react-router-dom";
-import { FaBars, FaTimes, FaChevronDown, FaChevronUp } from "react-icons/fa";
+import { FaTimes, FaChevronDown, FaChevronUp } from "react-icons/fa";
 
 import { getCategories } from "../services/categoryService";
 import { getSubcategories } from "../services/subcategoryService";
 
-function MobileMenu() {
-  const [isOpen, setIsOpen] = useState(false);
+// Controlled drawer — open state lives in MainLayout so BottomNav's
+// "Categories" tab can open the same drawer instead of each owning a
+// separate copy of the categories/subcategories fetch and expand state.
+function MobileMenu({ isOpen, onClose }) {
   const [categories, setCategories] = useState([]);
   const [subcategories, setSubcategories] = useState([]);
   const [openCategoryId, setOpenCategoryId] = useState(null);
@@ -43,7 +45,7 @@ function MobileMenu() {
   };
 
   const close = () => {
-    setIsOpen(false);
+    onClose();
     setOpenCategoryId(null);
   };
 
@@ -53,16 +55,6 @@ function MobileMenu() {
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setIsOpen(true)}
-        aria-label="Open menu"
-        className="flex items-center gap-2 py-3 text-sm font-medium text-slate-700"
-      >
-        <FaBars />
-        Menu
-      </button>
-
       <div
         onClick={close}
         className={`fixed inset-0 bg-black/40 z-[100] transition-opacity md:hidden ${

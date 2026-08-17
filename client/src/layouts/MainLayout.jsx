@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
 
 import Header from "../components/Header/Header";
@@ -8,6 +9,8 @@ import CouponBanner from "../components/CouponBanner";
 import DeliveryOfferBanner from "../components/DeliveryOfferBanner";
 import WelcomeBenefitsPopup from "../components/WelcomeBenefitsPopup";
 import ErrorBoundary from "../components/ErrorBoundary";
+import MobileMenu from "../components/MobileMenu";
+import BottomNav from "../components/BottomNav/BottomNav";
 
 // If the header ever crashes (it has, before — a missing translation
 // destructure once blanked the whole site) this keeps at least a
@@ -24,6 +27,7 @@ function HeaderFallback() {
 
 function MainLayout() {
   const { pathname } = useLocation();
+  const [categoriesOpen, setCategoriesOpen] = useState(false);
 
   return (
     <>
@@ -38,8 +42,21 @@ function MainLayout() {
 
       <Footer />
 
+      {/* Spacer so the fixed BottomNav never covers the last bit of
+          footer content on mobile. */}
+      <div className="h-20 md:hidden" />
+
       <CartDrawer />
       <WelcomeBenefitsPopup />
+
+      <MobileMenu
+        isOpen={categoriesOpen}
+        onClose={() => setCategoriesOpen(false)}
+      />
+      <BottomNav
+        categoriesOpen={categoriesOpen}
+        onOpenCategories={() => setCategoriesOpen(true)}
+      />
     </>
   );
 }

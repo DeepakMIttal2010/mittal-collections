@@ -10,11 +10,12 @@ function CompareBar() {
   if (compareItems.length === 0) return null;
 
   return (
-    // Sits above the WhatsApp button and Back-to-top button (both
-    // bottom-6) rather than sharing their row — at up to max-w-[94vw]
-    // wide and horizontally centered, it would otherwise overlap the
-    // WhatsApp button on narrow viewports.
-    <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 sm:gap-3 max-w-[94vw] bg-white shadow-xl border border-slate-200 rounded-full pl-2.5 sm:pl-3 pr-3 sm:pr-4 py-2 overflow-hidden">
+    // Sits above the WhatsApp button and Back-to-top button rather than
+    // sharing their row — at up to max-w-[94vw] wide and horizontally
+    // centered, it would otherwise overlap the WhatsApp button on narrow
+    // viewports. Both those buttons sit higher on mobile (bottom-20) to
+    // clear BottomNav, so this shifts up to match on mobile too.
+    <div className="fixed bottom-36 md:bottom-24 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 sm:gap-3 max-w-[94vw] bg-white shadow-xl border border-slate-200 rounded-full pl-2.5 sm:pl-3 pr-3 sm:pr-4 py-2 overflow-hidden">
       <div className="hidden sm:flex items-center -space-x-2 shrink-0">
         {compareItems.map((product) => (
           <div key={product._id} className="relative">
