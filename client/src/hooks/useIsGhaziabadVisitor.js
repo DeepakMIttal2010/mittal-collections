@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { useAuth } from "../context/AuthContext";
 import { getAddresses } from "../services/addressService";
 import { getMyLocation } from "../services/analyticsService";
+import { DEFAULT_ADDRESS_CHANGED_EVENT } from "../utils/addressEvents";
 
 // Same "is this a crawler" list vercel.json uses to route bots to the
 // prerendered meta-tag response for /product and /category — reused here
@@ -26,39 +27,48 @@ export function useIsGhaziabadVisitor() {
   const { isLoggedIn } = useAuth();
   const [isGhaziabad, setIsGhaziabad] = useState(true);
 
-  useEffect(() => {
+  const checkCity = useCallback(async () => {
     // Crawlers never get geo-gated — this content exists specifically for
     // local search visibility, so hiding it from Googlebot (whose crawl
     // servers obviously never resolve to a Ghaziabad IP) would silently
     // undo the whole point of having it.
     if (BOT_UA_PATTERN.test(navigator.userAgent)) return;
 
-    const checkCity = async () => {
-      if (isLoggedIn) {
-        const response = await getAddresses();
+    if (isLoggedIn) {
+      const response = await getAddresses();
 
-        if (response.success && response.addresses.length > 0) {
-          const address =
-            response.addresses.find((a) => a.isDefault) ||
-            response.addresses[0];
+      if (response.success && response.addresses.length > 0) {
+        const address =
+          response.addresses.find((a) => a.isDefault) ||
+          response.addresses[0];
 
-          if (address.city) {
-            setIsGhaziabad(address.city.toLowerCase().includes("ghaziabad"));
-          }
-          return;
+        if (address.city) {
+          setIsGhaziabad(address.city.toLowerCase().includes("ghaziabad"));
         }
+        return;
       }
+    }
 
-      const response = await getMyLocation();
-      const { city } = response.location || {};
+    const response = await getMyLocation();
+    const { city } = response.location || {};
 
-      if (city) {
-        setIsGhaziabad(city.toLowerCase().includes("ghaziabad"));
-      }
-    };
-
-    checkCity();
+    if (city) {
+      setIsGhaziabad(city.toLowerCase().includes("ghaziabad"));
+    }
   }, [isLoggedIn]);
+
+  useEffect(() => {
+    checkCity();
+  }, [checkCity]);
+
+  // Re-check whenever the customer picks a different default address from
+  // the Header dropdown — otherwise this stays stuck on whatever it
+  // resolved at mount, even after the visible "Deliver to" city changes.
+  useEffect(() => {
+    window.addEventListener(DEFAULT_ADDRESS_CHANGED_EVENT, checkCity);
+    return () =>
+      window.removeEventListener(DEFAULT_ADDRESS_CHANGED_EVENT, checkCity);
+  }, [checkCity]);
 
   return isGhaziabad;
 }

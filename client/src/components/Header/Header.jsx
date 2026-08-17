@@ -17,7 +17,10 @@ import { useLanguage } from "../../context/LanguageContext";
 import { useInstallPrompt } from "../../hooks/useInstallPrompt";
 import { getSearchSuggestions } from "../../services/productService";
 import { getMyLocation } from "../../services/analyticsService";
-import { getAddresses } from "../../services/addressService";
+import {
+  getAddresses,
+  setDefaultAddress,
+} from "../../services/addressService";
 import {
   getMyNotifications,
   markNotificationRead,
@@ -25,6 +28,7 @@ import {
 } from "../../services/notificationService";
 import { imgUrl } from "../../services/api";
 import { productUrl } from "../../utils/productUrl";
+import { notifyDefaultAddressChanged } from "../../utils/addressEvents";
 
 const NOTIFICATION_POLL_MS = 30000;
 
@@ -57,6 +61,9 @@ function Header() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [deliverName, setDeliverName] = useState("");
   const [deliverPlace, setDeliverPlace] = useState("");
+  const [savedAddresses, setSavedAddresses] = useState([]);
+  const [addressOpen, setAddressOpen] = useState(false);
+  const [switchingAddressId, setSwitchingAddressId] = useState(null);
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -112,40 +119,67 @@ function Header() {
   // Always a "Deliver to [Name] / [Place]" pair — the real name + saved
   // address for logged-in customers, "Guest" + a geo-IP guess otherwise.
   // The place always resolves to something concrete (our own home city +
-  // pincode as the last resort) rather than a bare "India".
-  useEffect(() => {
-    const loadDeliverTo = async () => {
-      if (isLoggedIn) {
-        const response = await getAddresses();
+  // pincode as the last resort) rather than a bare "India". Also keeps
+  // the full address list around so the dropdown can offer a real pick
+  // -a-different-address action instead of just linking to /addresses.
+  const loadDeliverTo = useCallback(async () => {
+    if (isLoggedIn) {
+      const response = await getAddresses();
 
-        if (response.success && response.addresses.length > 0) {
-          const address =
-            response.addresses.find((a) => a.isDefault) ||
-            response.addresses[0];
+      if (response.success && response.addresses.length > 0) {
+        setSavedAddresses(response.addresses);
 
-          setDeliverName(user?.name || "");
-          setDeliverPlace(
-            [address.city, address.pincode].filter(Boolean).join(" "),
-          );
-          return;
-        }
+        const address =
+          response.addresses.find((a) => a.isDefault) ||
+          response.addresses[0];
+
+        // The address's own recipient name, not the account holder's —
+        // an office/gift address can genuinely have a different name on
+        // it than whoever is logged in.
+        setDeliverName(address.fullName || user?.name || "");
+        setDeliverPlace(
+          [address.city, address.pincode].filter(Boolean).join(" "),
+        );
+        return;
       }
 
-      const response = await getMyLocation();
+      setSavedAddresses([]);
+    }
 
-      // City-level geo data isn't available for every IP on the free
-      // database — fall back to state, then our home city, rather than
-      // showing nothing.
-      const { city, region } = response.location || {};
+    const response = await getMyLocation();
 
-      setDeliverName(isLoggedIn ? user?.name || "" : "Guest");
-      if (city) setDeliverPlace(city);
-      else if (region) setDeliverPlace(region);
-      else setDeliverPlace("Ghaziabad 201012");
-    };
+    // City-level geo data isn't available for every IP on the free
+    // database — fall back to state, then our home city, rather than
+    // showing nothing.
+    const { city, region } = response.location || {};
 
-    loadDeliverTo();
+    setDeliverName(isLoggedIn ? user?.name || "" : "Guest");
+    if (city) setDeliverPlace(city);
+    else if (region) setDeliverPlace(region);
+    else setDeliverPlace("Ghaziabad 201012");
   }, [isLoggedIn, user]);
+
+  useEffect(() => {
+    loadDeliverTo();
+  }, [loadDeliverTo]);
+
+  const handleSelectAddress = async (address) => {
+    if (address.isDefault) {
+      setAddressOpen(false);
+      return;
+    }
+
+    setSwitchingAddressId(address._id);
+    const response = await setDefaultAddress(address._id);
+    setSwitchingAddressId(null);
+
+    if (response.success) {
+      await loadDeliverTo();
+      notifyDefaultAddressChanged();
+    }
+
+    setAddressOpen(false);
+  };
 
   const goToSearch = useCallback(
     (value) => {
@@ -234,28 +268,110 @@ function Header() {
         </Link>
 
         {/* Delivery location — saved address if logged in, else an IP-based guess */}
-        {deliverPlace && (
-          <Link
-            to={isLoggedIn ? "/addresses" : "/login"}
-            className="hidden lg:flex items-start gap-1.5 shrink-0 leading-tight"
-          >
-            <FaMapMarkerAlt className="text-amber-600 mt-1 text-base shrink-0" />
-            {deliverName ? (
-              <span>
-                <span className="block text-xs text-slate-500">
-                  Deliver to {deliverName}
+        {deliverPlace &&
+          (isLoggedIn && savedAddresses.length > 0 ? (
+            <div
+              className="relative hidden lg:block shrink-0"
+              onMouseEnter={() => setAddressOpen(true)}
+              onMouseLeave={() => setAddressOpen(false)}
+            >
+              <button
+                type="button"
+                className="flex items-start gap-1.5 leading-tight"
+              >
+                <FaMapMarkerAlt className="text-amber-600 mt-1 text-base shrink-0" />
+                <span>
+                  <span className="block text-xs text-slate-500">
+                    Deliver to {deliverName}
+                  </span>
+                  <span className="block text-sm font-bold text-slate-900">
+                    {deliverPlace}
+                  </span>
                 </span>
-                <span className="block text-sm font-bold text-slate-900">
-                  {deliverPlace}
+              </button>
+
+              {addressOpen && (
+                <div className="absolute top-full left-0 z-50 mt-1 w-72 bg-white border border-slate-200 rounded-lg shadow-lg py-2">
+                  <div className="px-4 py-1.5 text-xs font-semibold text-slate-400 uppercase tracking-wide">
+                    Choose delivery address
+                  </div>
+
+                  {savedAddresses.map((address) => (
+                    <button
+                      key={address._id}
+                      type="button"
+                      onClick={() => handleSelectAddress(address)}
+                      disabled={switchingAddressId === address._id}
+                      className={`w-full flex items-start gap-2 px-4 py-2 text-left hover:bg-slate-50 disabled:opacity-60 ${
+                        address.isDefault ? "bg-amber-50/60" : ""
+                      }`}
+                    >
+                      <FaMapMarkerAlt
+                        className={`mt-1 text-sm shrink-0 ${
+                          address.isDefault
+                            ? "text-amber-600"
+                            : "text-slate-300"
+                        }`}
+                      />
+                      <span className="min-w-0">
+                        <span className="block text-sm font-medium text-slate-800 truncate">
+                          {address.fullName}
+                          {address.isDefault && (
+                            <span className="ml-1.5 text-[10px] font-semibold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded align-middle">
+                              Current
+                            </span>
+                          )}
+                        </span>
+                        <span className="block text-xs text-slate-500 truncate">
+                          {[address.city, address.pincode]
+                            .filter(Boolean)
+                            .join(" ")}
+                        </span>
+                      </span>
+                    </button>
+                  ))}
+
+                  <div className="border-t border-slate-100 mt-1 pt-1">
+                    <Link
+                      to="/addresses/add"
+                      onClick={() => setAddressOpen(false)}
+                      className="block px-4 py-2 text-sm font-medium text-blue-700 hover:bg-slate-50"
+                    >
+                      + Add New Address
+                    </Link>
+                    <Link
+                      to="/addresses"
+                      onClick={() => setAddressOpen(false)}
+                      className="block px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 hover:text-amber-600"
+                    >
+                      Manage Addresses
+                    </Link>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <Link
+              to={isLoggedIn ? "/addresses/add" : "/login"}
+              className="hidden lg:flex items-start gap-1.5 shrink-0 leading-tight"
+            >
+              <FaMapMarkerAlt className="text-amber-600 mt-1 text-base shrink-0" />
+              {deliverName ? (
+                <span>
+                  <span className="block text-xs text-slate-500">
+                    Deliver to {deliverName}
+                  </span>
+                  <span className="block text-sm font-bold text-slate-900">
+                    {deliverPlace}
+                  </span>
                 </span>
-              </span>
-            ) : (
-              <span className="text-sm font-bold text-slate-900">
-                Deliver to: {deliverPlace}
-              </span>
-            )}
-          </Link>
-        )}
+              ) : (
+                <span className="text-sm font-bold text-slate-900">
+                  Deliver to: {deliverPlace}
+                </span>
+              )}
+            </Link>
+          ))}
 
         {/* Search */}
         <form
