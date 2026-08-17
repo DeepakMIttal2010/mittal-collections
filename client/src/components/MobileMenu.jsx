@@ -64,8 +64,11 @@ function MobileMenu({ isOpen, onClose }) {
         }`}
       />
 
+      {/* Full width on mobile (no max-w cap) — matches CartDrawer's
+          effective full-screen coverage, so BottomNav's icons never
+          peek through a dimmed gap on the right while this is open. */}
       <div
-        className={`fixed top-0 left-0 h-full w-full max-w-xs bg-white z-[101] shadow-xl flex flex-col transition-transform duration-300 md:hidden ${
+        className={`fixed top-0 left-0 h-full w-full bg-white z-[101] shadow-xl flex flex-col transition-transform duration-300 md:hidden ${
           isOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
