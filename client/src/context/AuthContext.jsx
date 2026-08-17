@@ -14,6 +14,14 @@ export const AuthProvider = ({ children }) => {
   // without guessing from the user object alone.
   const [justLoggedIn, setJustLoggedIn] = useState(false);
 
+  // Separate from justLoggedIn — that fires on every login, including a
+  // returning customer's routine sign-in. This fires only at the true
+  // moment an account is first created (email/password OTP verified, or
+  // a brand-new Google account finishing its mobile-number step), so the
+  // congratulations/benefits popup shows once for new signups instead of
+  // nagging repeat visitors every time they log in.
+  const [justRegistered, setJustRegistered] = useState(false);
+
   const login = (userData, token) => {
     localStorage.setItem("token", token);
     localStorage.setItem("user", JSON.stringify(userData));
@@ -23,6 +31,9 @@ export const AuthProvider = ({ children }) => {
   };
 
   const clearJustLoggedIn = () => setJustLoggedIn(false);
+
+  const markJustRegistered = () => setJustRegistered(true);
+  const clearJustRegistered = () => setJustRegistered(false);
 
   const logout = () => {
     localStorage.removeItem("token");
@@ -49,6 +60,9 @@ export const AuthProvider = ({ children }) => {
         isLoggedIn: !!user,
         justLoggedIn,
         clearJustLoggedIn,
+        justRegistered,
+        markJustRegistered,
+        clearJustRegistered,
       }}
     >
       {children}

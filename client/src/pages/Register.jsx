@@ -26,7 +26,7 @@ function Register() {
   const [subscribeNewsletter, setSubscribeNewsletter] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showMobileModal, setShowMobileModal] = useState(false);
-  const { login } = useAuth();
+  const { login, markJustRegistered } = useAuth();
 
   const [otpStep, setOtpStep] = useState(false);
   const [otp, setOtp] = useState("");
@@ -91,6 +91,7 @@ function Register() {
 
       if (data.success) {
         toast.success("Registration Successful");
+        markJustRegistered();
 
         if (subscribeNewsletter) {
           subscribeToNewsletter(formData.email);
@@ -305,7 +306,11 @@ function Register() {
         <CompleteMobileModal
           onDone={() => {
             setShowMobileModal(false);
-            navigate(redirectTo);
+            // Brand-new Google account (see CompleteMobileModal) — send
+            // them to their account page to confirm the profile is set
+            // up, rather than wherever `redirectTo` happened to point
+            // (usually just "/").
+            navigate("/account");
           }}
         />
       )}

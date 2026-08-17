@@ -5,9 +5,11 @@ import { useAuth } from "../context/AuthContext";
 
 // Shown right after a Google sign-in that created a brand-new account —
 // Google doesn't provide a phone number, but the rest of the app (order
-// delivery, SMS-style contact) assumes every user has one.
+// delivery, SMS-style contact) assumes every user has one. The fuller
+// congratulations + benefits message is left to WelcomeBenefitsPopup
+// (triggered via markJustRegistered below) rather than duplicated here.
 function CompleteMobileModal({ onDone }) {
-  const { user, updateUser } = useAuth();
+  const { user, updateUser, markJustRegistered } = useAuth();
   const [mobile, setMobile] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -28,6 +30,7 @@ function CompleteMobileModal({ onDone }) {
     if (response.success) {
       updateUser({ mobile });
       toast.success("Mobile number saved");
+      markJustRegistered();
       onDone();
     } else {
       setError(response.message || "Unable to save mobile number");

@@ -138,7 +138,11 @@ function Login() {
         <CompleteMobileModal
           onDone={() => {
             setShowMobileModal(false);
-            navigate(redirectTo);
+            // Brand-new Google account (see CompleteMobileModal) — send
+            // them to their account page to confirm the profile is set
+            // up, rather than wherever `redirectTo` happened to point
+            // (usually just "/").
+            navigate("/account");
           }}
         />
       )}

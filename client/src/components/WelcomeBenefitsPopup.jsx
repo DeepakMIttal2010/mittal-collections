@@ -13,6 +13,7 @@ import {
 import { useAuth } from "../context/AuthContext";
 import { getPublicRewardsInfo } from "../services/rewardsService";
 import { getSiteSettings } from "../services/settingsService";
+import { getBannerCoupon } from "../services/couponService";
 
 const SHOWN_KEY = "mc_welcome_popup_shown_at";
 const SUPPRESS_MS = 24 * 60 * 60 * 1000; // 24 hours
@@ -24,15 +25,28 @@ const AUTO_CLOSE_MS = 5000;
 // precisely what a customer sees, without needing to open an incognito
 // window or clear localStorage.
 function WelcomeBenefitsPopup({ previewMode = false, onClose } = {}) {
-  const { isLoggedIn, justLoggedIn, clearJustLoggedIn } = useAuth();
+  const {
+    user,
+    isLoggedIn,
+    justLoggedIn,
+    clearJustLoggedIn,
+    justRegistered,
+    clearJustRegistered,
+  } = useAuth();
   const [rewards, setRewards] = useState(null);
+  const [coupon, setCoupon] = useState(null);
   const [enabled, setEnabled] = useState(true);
   const [visible, setVisible] = useState(false);
   const [entered, setEntered] = useState(false);
+  const [celebrateMode, setCelebrateMode] = useState(false);
 
   useEffect(() => {
     getPublicRewardsInfo().then((response) => {
       if (response.success) setRewards(response);
+    });
+
+    getBannerCoupon().then((response) => {
+      if (response.success && response.coupon) setCoupon(response.coupon);
     });
 
     getSiteSettings().then((response) => {
@@ -41,6 +55,17 @@ function WelcomeBenefitsPopup({ previewMode = false, onClose } = {}) {
       }
     });
   }, []);
+
+  // Just finished registering (email/password OTP verified, or a brand
+  // -new Google account completed its mobile-number step) — show the
+  // congratulations variant right away, ignoring the guest-only /
+  // suppression rules below which are for the pre-signup pitch.
+  useEffect(() => {
+    if (!justRegistered) return;
+
+    setCelebrateMode(true);
+    setVisible(true);
+  }, [justRegistered]);
 
   // Show at most once every 24 hours, shortly after the site opens —
   // only for guests. Registered customers already know what the account
@@ -85,6 +110,7 @@ function WelcomeBenefitsPopup({ previewMode = false, onClose } = {}) {
 
   const handleClose = () => {
     setEntered(false);
+    if (celebrateMode) clearJustRegistered();
     setTimeout(() => {
       setVisible(false);
       onClose?.();
@@ -104,7 +130,23 @@ function WelcomeBenefitsPopup({ previewMode = false, onClose } = {}) {
 
   if (!visible || !rewards) return null;
 
+  const discountLabel = coupon
+    ? coupon.discountType === "flat"
+      ? `₹${coupon.discountValue} OFF`
+      : `${coupon.discountValue}% OFF`
+    : null;
+
   const benefits = [
+    // Only relevant right after signup — a first-order discount they can
+    // use immediately, so it leads the list in celebrate mode.
+    ...(celebrateMode && coupon
+      ? [
+          {
+            icon: <FaGift />,
+            text: `${discountLabel} on ${coupon.firstOrderOnly ? "Your First Order" : "Your Order"} — Use code ${coupon.code}${coupon.maxDiscount ? ` (up to ₹${coupon.maxDiscount})` : ""}`,
+          },
+        ]
+      : []),
     { icon: <FaCheckCircle />, text: "100% Genuine Products" },
     {
       icon: <FaTruck />,
@@ -159,10 +201,14 @@ function WelcomeBenefitsPopup({ previewMode = false, onClose } = {}) {
           </span>
 
           <h2 className="relative text-lg font-bold text-white mb-0.5">
-            Welcome to Mittal Collections!
+            {celebrateMode
+              ? `🎉 Registration Successful!`
+              : "Welcome to Mittal Collections!"}
           </h2>
           <p className="relative text-xs text-amber-50">
-            Here&apos;s what you get when you shop with us:
+            {celebrateMode
+              ? `Thanks for joining us${user?.name ? `, ${user.name}` : ""}! Here's what you get:`
+              : "Here's what you get when you shop with us:"}
           </p>
         </div>
 
@@ -179,11 +225,15 @@ function WelcomeBenefitsPopup({ previewMode = false, onClose } = {}) {
           </ul>
 
           <Link
-            to={isLoggedIn ? "/account" : "/register"}
+            to={celebrateMode ? "/" : isLoggedIn ? "/account" : "/register"}
             onClick={handleClose}
             className="block text-center bg-gradient-to-r from-orange-600 to-amber-500 hover:from-orange-700 hover:to-amber-600 text-white text-sm font-semibold rounded-full py-2.5 transition-colors"
           >
-            {isLoggedIn ? "See My Rewards" : "Sign Up & Start Earning"}
+            {celebrateMode
+              ? "Start Shopping"
+              : isLoggedIn
+                ? "See My Rewards"
+                : "Sign Up & Start Earning"}
           </Link>
         </div>
       </div>
