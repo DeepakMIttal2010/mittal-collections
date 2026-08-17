@@ -44,6 +44,7 @@ function EditProduct() {
     isActive: true,
     isTrending: false,
     trendingRank: 0,
+    showInNewArrivals: true,
     visibility: "both",
     optimizeImages: true,
     fabric: "",
@@ -91,6 +92,10 @@ function EditProduct() {
         isActive: product.isActive,
         isTrending: product.isTrending || false,
         trendingRank: product.trendingRank || 0,
+        showInNewArrivals:
+          product.showInNewArrivals === undefined
+            ? true
+            : product.showInNewArrivals,
         visibility: product.visibility || "both",
         optimizeImages: true,
         fabric: product.fabric || "",
@@ -632,6 +637,16 @@ function EditProduct() {
               onChange={handleChange}
             />
             Show in Trending
+          </label>
+
+          <label>
+            <input
+              type="checkbox"
+              name="showInNewArrivals"
+              checked={formData.showInNewArrivals}
+              onChange={handleChange}
+            />
+            Show in New Arrivals
           </label>
 
           <label>

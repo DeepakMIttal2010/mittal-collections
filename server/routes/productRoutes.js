@@ -11,6 +11,7 @@ import {
   duplicateProduct,
   decodeProductNumberController,
   getTrendingProducts,
+  getNewArrivalProducts,
   getBestSellers,
   getSearchSuggestions,
   getProductById,
@@ -27,6 +28,7 @@ const router = express.Router();
 // Public routes — koi bhi dekh sakta hai
 router.get("/", getProducts);
 router.get("/trending", getTrendingProducts);
+router.get("/new-arrivals", getNewArrivalProducts);
 router.get("/best-sellers", getBestSellers);
 router.get("/suggestions", getSearchSuggestions);
 

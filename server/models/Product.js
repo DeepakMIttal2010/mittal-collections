@@ -120,6 +120,15 @@ const productSchema = new mongoose.Schema(
       default: 0,
     },
 
+    // Defaults true — every product shows in "New Arrivals" out of the
+    // box, but an admin can uncheck this for a specific product (e.g. a
+    // bulk-imported or backdated listing) without it ever needing to
+    // show up there.
+    showInNewArrivals: {
+      type: Boolean,
+      default: true,
+    },
+
     isActive: {
       type: Boolean,
       default: true,

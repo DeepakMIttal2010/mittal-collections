@@ -88,6 +88,35 @@ export const getTrendingProducts = async (limit = 10) => {
 };
 
 // ==========================
+// Get New Arrival Products
+// ==========================
+export const getNewArrivalProducts = async (limit = 8) => {
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/products/new-arrivals?limit=${limit}`,
+    );
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch new arrival products");
+    }
+
+    const data = await response.json();
+
+    return {
+      success: data.success,
+      products: data.products || [],
+    };
+  } catch (error) {
+    console.error("Get New Arrival Products Error:", error);
+
+    return {
+      success: false,
+      products: [],
+    };
+  }
+};
+
+// ==========================
 // Search Products
 // ==========================
 export const searchProducts = async (

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import { getProducts } from "../../services/productService";
+import { getNewArrivalProducts } from "../../services/productService";
 import ProductGrid from "../ProductGrid/ProductGrid";
 import ProductGridSkeleton from "../ProductGrid/ProductGridSkeleton";
 import { useLanguage } from "../../context/LanguageContext";
@@ -13,9 +13,9 @@ function NewArrivals() {
   const { t } = useLanguage();
 
   useEffect(() => {
-    getProducts().then((response) => {
+    getNewArrivalProducts(ARRIVALS_COUNT).then((response) => {
       if (response.success) {
-        setProducts(response.products.slice(0, ARRIVALS_COUNT));
+        setProducts(response.products);
       }
 
       setLoading(false);

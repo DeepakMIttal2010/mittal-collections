@@ -419,6 +419,7 @@ export const duplicateProduct = async (req, res) => {
       featured: false,
       isTrending: false,
       trendingRank: 0,
+      showInNewArrivals: source.showInNewArrivals,
       isActive: false,
 
       isReturnable: source.isReturnable,
@@ -506,6 +507,42 @@ export const getTrendingProducts = async (req, res) => {
       success: true,
       products,
       lastUpdated,
+    });
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};
+
+// ============================
+// GET NEW ARRIVAL PRODUCTS (Public) — newest products, excluding any
+// specific ones an admin has opted out via showInNewArrivals.
+// ============================
+export const getNewArrivalProducts = async (req, res) => {
+  try {
+    const limit = Math.max(parseInt(req.query.limit, 10) || 8, 1);
+
+    const products = await Product.find({
+      isActive: true,
+      // Older products predate this field and have no value stored in the
+      // database at all — only $ne: false (not a strict true check) also
+      // matches those, so they keep showing up as before.
+      showInNewArrivals: { $ne: false },
+      visibility: { $ne: "offline" },
+    })
+      .select(COST_FIELDS)
+      .populate("category", "name slug image")
+      .populate("subcategory", "name slug")
+      .sort({ createdAt: -1 })
+      .limit(limit);
+
+    res.status(200).json({
+      success: true,
+      products,
     });
   } catch (error) {
     console.error(error);
@@ -625,6 +662,7 @@ export const addProduct = async (req, res) => {
       isActive,
       isTrending,
       trendingRank,
+      showInNewArrivals,
       mainImageIndex,
       fabric,
       size,
@@ -672,6 +710,8 @@ export const addProduct = async (req, res) => {
       isActive: isActive === "true",
       isTrending: isTrending === "true",
       trendingRank: trendingRank || 0,
+      showInNewArrivals:
+        showInNewArrivals === undefined ? true : showInNewArrivals === "true",
       visibility: ["both", "online", "offline"].includes(visibility)
         ? visibility
         : "both",
@@ -744,6 +784,10 @@ export const updateProduct = async (req, res) => {
     product.isActive = req.body.isActive === "true";
     product.isTrending = req.body.isTrending === "true";
     product.trendingRank = req.body.trendingRank || 0;
+    product.showInNewArrivals =
+      req.body.showInNewArrivals === undefined
+        ? true
+        : req.body.showInNewArrivals === "true";
     product.visibility = ["both", "online", "offline"].includes(
       req.body.visibility,
     )
