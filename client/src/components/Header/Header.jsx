@@ -7,12 +7,14 @@ import {
   FaMicrophone,
   FaMapMarkerAlt,
   FaBell,
+  FaDownload,
 } from "react-icons/fa";
 
 import { useCart } from "../../context/CartContext";
 import { useWishlist } from "../../context/WishlistContext";
 import { useAuth } from "../../context/AuthContext";
 import { useLanguage } from "../../context/LanguageContext";
+import { useInstallPrompt } from "../../hooks/useInstallPrompt";
 import { getSearchSuggestions } from "../../services/productService";
 import { getMyLocation } from "../../services/analyticsService";
 import { getAddresses } from "../../services/addressService";
@@ -43,11 +45,14 @@ function Header() {
   const { totalWishlistItems } = useWishlist();
   const { user, logout, isLoggedIn } = useAuth();
   const { language, setLanguage, t } = useLanguage();
+  const { showIcon: showInstallIcon, canPromptNatively, promptInstall } =
+    useInstallPrompt();
   const navigate = useNavigate();
 
   const [query, setQuery] = useState("");
   const [listening, setListening] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
+  const [showInstallHelp, setShowInstallHelp] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [deliverName, setDeliverName] = useState("");
@@ -89,6 +94,19 @@ function Header() {
   const handleMarkAllRead = async () => {
     await markAllNotificationsRead();
     loadNotifications();
+  };
+
+  const handleInstallClick = async () => {
+    if (canPromptNatively) {
+      await promptInstall();
+      return;
+    }
+
+    // No `beforeinstallprompt` yet (Chrome hasn't decided to offer it) or
+    // never will (iOS Safari has no such API) — the icon still stays
+    // visible per the "always there when not installed" ask, so give
+    // people the manual path instead of doing nothing on click.
+    setShowInstallHelp(true);
   };
 
   // Always a "Deliver to [Name] / [Place]" pair — the real name + saved
@@ -301,7 +319,7 @@ function Header() {
         </form>
 
         {/* Right Icons */}
-        <div className="flex items-center gap-2 sm:gap-6 ml-auto shrink-0">
+        <div className="flex items-center gap-1 sm:gap-6 ml-auto shrink-0">
           {/* Language toggle */}
           <div className="flex items-center rounded-full border border-slate-200 text-xs font-medium overflow-hidden shrink-0">
             <button
@@ -327,6 +345,41 @@ function Header() {
               हिं
             </button>
           </div>
+
+          {showInstallIcon && (
+            <div
+              className="relative"
+              onMouseLeave={() => setShowInstallHelp(false)}
+            >
+              <button
+                type="button"
+                onClick={handleInstallClick}
+                aria-label="Install the Mittal Collections app"
+                title="Install App"
+                className="flex flex-col items-center text-slate-600 hover:text-blue-700 transition-colors"
+              >
+                <FaDownload className="text-lg" />
+                <span className="hidden sm:block text-xs mt-0.5">
+                  Install
+                </span>
+              </button>
+
+              {showInstallHelp && (
+                <div className="absolute top-full right-0 z-50 mt-1 w-56 bg-white border border-slate-200 rounded-lg shadow-lg p-3 text-xs text-slate-600 leading-relaxed">
+                  Apne browser ke menu se{" "}
+                  <strong>&quot;Add to Home Screen&quot;</strong> ya{" "}
+                  <strong>&quot;Install App&quot;</strong> option chunein.
+                  <button
+                    type="button"
+                    onClick={() => setShowInstallHelp(false)}
+                    className="block mt-2 text-blue-700 font-medium hover:underline"
+                  >
+                    Got it
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
           {isLoggedIn ? (
             <div
