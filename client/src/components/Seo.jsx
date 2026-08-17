@@ -4,13 +4,14 @@ const SITE_NAME = "Mittal Collections";
 const DEFAULT_IMAGE =
   "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=1200";
 
-function Seo({ title, description, image, url, jsonLd }) {
+function Seo({ title, description, image, url, jsonLd, noindex = false }) {
   const fullTitle = title ? `${title} | ${SITE_NAME}` : SITE_NAME;
 
   return (
     <Helmet>
       <title>{fullTitle}</title>
       {description && <meta name="description" content={description} />}
+      {noindex && <meta name="robots" content="noindex, nofollow" />}
 
       <meta property="og:type" content="website" />
       <meta property="og:site_name" content={SITE_NAME} />

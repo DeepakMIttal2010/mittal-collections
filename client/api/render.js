@@ -132,16 +132,24 @@ export default async function handler(req, res) {
     const meta = await buildMeta(path);
 
     res.setHeader("Content-Type", "text/html; charset=utf-8");
+
+    if (!meta) {
+      // A confidently-resolved "doesn't exist" (product/category genuinely
+      // not found via the API, not a network hiccup — see catch below)
+      // must say so with a real 404, not 200. Google was treating the
+      // 200-with-generic-shell response as a "Soft 404": it looked like a
+      // valid page with no distinguishing content, instead of a clear
+      // signal to drop it from the index. Short cache so a since-restored
+      // product isn't stuck behind a stale 404 for long.
+      res.setHeader("Cache-Control", "public, max-age=60, s-maxage=300");
+      res.status(404).send(shellHtml);
+      return;
+    }
+
     res.setHeader(
       "Cache-Control",
       "public, max-age=300, s-maxage=3600, stale-while-revalidate=86400",
     );
-
-    if (!meta) {
-      res.status(200).send(shellHtml);
-      return;
-    }
-
     res.status(200).send(injectMeta(shellHtml, meta));
   } catch (error) {
     console.error("Bot prerender error:", error);

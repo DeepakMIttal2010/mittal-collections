@@ -339,6 +339,7 @@ function ProductDetails() {
   if (!product) {
     return (
       <div className="p-16 text-center">
+        <Seo title="Product Not Found" noindex />
         <h2 className="text-xl font-semibold text-slate-800 mb-4">
           Product Not Found
         </h2>

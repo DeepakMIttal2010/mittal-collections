@@ -117,6 +117,7 @@ function CategoryPage() {
   if (status === "not-found") {
     return (
       <div className="max-w-7xl mx-auto px-4 py-8">
+        <Seo title="Category Not Found" noindex />
         <h2 className="text-xl font-semibold text-slate-800 mb-2">
           Category not found
         </h2>

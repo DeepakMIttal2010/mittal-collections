@@ -8,6 +8,7 @@ function NotFound() {
       <Seo
         title="Page Not Found"
         description="The page you're looking for doesn't exist."
+        noindex
       />
 
       <p className="text-sm font-semibold text-amber-600 mb-3">404</p>

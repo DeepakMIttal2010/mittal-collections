@@ -57,6 +57,11 @@ function SearchResults() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
+      {/* noindex, not just a canonical — there's no single canonical URL
+          for arbitrary search queries, and robots.txt disallowing /search
+          only blocks crawling, not indexing a URL Google discovers via an
+          external link. This was showing up as "Duplicate without
+          user-selected canonical" in Search Console. */}
       <Seo
         title={hasQuery ? `Search results for "${query}"` : "Search"}
         description={
@@ -64,6 +69,7 @@ function SearchResults() {
             ? `Search results for "${query}" at Mittal Collections.`
             : "Search Mittal Collections for bedsheets, towels, curtains and more."
         }
+        noindex
       />
 
       <h2 className="text-xl font-semibold text-slate-800 mb-6">
