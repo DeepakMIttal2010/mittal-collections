@@ -13,6 +13,7 @@ import { getCategories } from "../../services/categoryService";
 import { getSubcategories } from "../../services/subcategoryService";
 import { getSiteSettings } from "../../services/settingsService";
 import { getFooterLinks } from "../../services/footerLinkService";
+import { useIsGhaziabadVisitor } from "../../hooks/useIsGhaziabadVisitor";
 
 const SOCIAL_ICONS = [
   { key: "facebook", icon: FaFacebookF, label: "Facebook" },
@@ -21,7 +22,25 @@ const SOCIAL_ICONS = [
   { key: "linkedin", icon: FaLinkedinIn, label: "LinkedIn" },
 ];
 
+// Full delivery-area list — kept out of the top banner (which only has
+// room for a short "Vasundhara & 10 km आसपास" summary) and given its own
+// scannable spot here instead, where a customer can actually check for
+// their specific locality without waiting on a scrolling ticker.
+const DELIVERY_AREAS = [
+  "Vasundhara",
+  "Vaishali",
+  "Indirapuram",
+  "Kaushambi",
+  "Sahibabad",
+  "Mohan Nagar",
+  "Rajendra Nagar",
+  "Lajpat Nagar",
+  "Suryanagar",
+  "Brij Vihar",
+];
+
 function Footer() {
+  const isGhaziabad = useIsGhaziabadVisitor();
   const [categories, setCategories] = useState([]);
   const [subcategories, setSubcategories] = useState([]);
   const [settings, setSettings] = useState({});
@@ -178,6 +197,31 @@ function Footer() {
               )}
             </div>
           </div>
+
+          {isGhaziabad && (
+            <>
+              <hr className="border-slate-700 my-10" />
+
+              <div id="delivery-areas" className="mb-10 scroll-mt-6">
+                <h3 className="text-amber-500 font-semibold mb-1">
+                  We Deliver To (Ghaziabad)
+                </h3>
+                <p className="text-sm text-slate-400 mb-4">
+                  🚚 FREE & FAST DELIVERY within 24 Hours
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {DELIVERY_AREAS.map((area) => (
+                    <span
+                      key={area}
+                      className="text-xs bg-slate-800 text-slate-300 rounded-full px-3 py-1.5"
+                    >
+                      {area}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
 
           <hr className="border-slate-700 my-10" />
 
