@@ -865,10 +865,20 @@ export const updateProduct = async (req, res) => {
       });
     }
 
-    const mainIndex = Math.min(
-      Math.max(parseInt(req.body.mainImageIndex, 10) || 0, 0),
-      finalImages.length - 1,
-    );
+    // Preserve the current cover image when mainImageIndex isn't sent at
+    // all, the same way existingImages/existingVideos already do above —
+    // otherwise any script or caller that omits this field (there's no
+    // reason to resend it when neither the image list nor the chosen
+    // cover is changing) silently resets the cover back to the first
+    // image, undoing whatever the admin had deliberately picked.
+    let mainIndex = Math.max(existingImages.indexOf(product.image), 0);
+
+    if (req.body.mainImageIndex !== undefined) {
+      mainIndex = Math.min(
+        Math.max(parseInt(req.body.mainImageIndex, 10) || 0, 0),
+        finalImages.length - 1,
+      );
+    }
 
     product.images = finalImages;
     product.image = finalImages[mainIndex];
