@@ -81,7 +81,7 @@ unit, city, state, pincode, country (default `"India"`), isDefault.
 `Review` and `Question` also carry an `isSeenByAdmin: Boolean` (default
 `false`), feeding the same admin notification pattern as `Order`.
 
-**Indexes:** `{user, createdAt:-1}`, `{orderStatus}`, `{"orderItems.product"}` (the last one backs the best-sellers aggregation).
+**Indexes:** `{user, createdAt:-1}`, `{orderStatus}`, `{"orderItems.product"}` (the last one backs the best-sellers aggregation), `{createdAt:-1}` (admin order list), `{isSeenByAdmin:1, createdAt:-1}` (admin notification poll).
 
 ### `Coupon`
 code (unique, uppercase), discountType (`percentage`\|`flat`),
