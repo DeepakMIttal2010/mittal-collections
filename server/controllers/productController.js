@@ -550,6 +550,7 @@ export const getNewArrivalProducts = async (req, res) => {
       // matches those, so they keep showing up as before.
       showInNewArrivals: { $ne: false },
       visibility: { $ne: "offline" },
+      $or: [{ stock: { $gt: 0 } }, { willRestock: { $ne: false } }],
     })
       .select(COST_FIELDS)
       .populate("category", "name slug image")
@@ -598,6 +599,7 @@ export const getBestSellers = async (req, res) => {
       _id: { $in: productIds },
       isActive: true,
       visibility: { $ne: "offline" },
+      $or: [{ stock: { $gt: 0 } }, { willRestock: { $ne: false } }],
     })
       .select(COST_FIELDS)
       .populate("category", "name slug image")
