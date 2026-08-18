@@ -6,6 +6,9 @@ import { HelmetProvider } from "react-helmet-async";
 
 import App from "./App";
 import ErrorBoundary from "./components/ErrorBoundary";
+import { installAuthFetchGuard } from "./utils/authFetchGuard";
+
+installAuthFetchGuard();
 
 import { CartProvider } from "./context/CartContext";
 import { WishlistProvider } from "./context/WishlistContext";
