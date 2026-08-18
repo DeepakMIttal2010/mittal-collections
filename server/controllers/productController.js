@@ -283,6 +283,7 @@ export const getAllProductsAdmin = async (req, res) => {
       "isReturnable",
       "isTrending",
       "restockAlertEnabled",
+      "willRestock",
       "categoryName",
     ];
     const sortBy = allowedSortFields.includes(req.query.sortBy)
