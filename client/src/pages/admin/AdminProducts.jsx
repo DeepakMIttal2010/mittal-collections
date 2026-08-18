@@ -30,6 +30,7 @@ const OPTIONAL_COLUMNS = [
   { key: "isReturnable", label: "Returnable" },
   { key: "isTrending", label: "Trending" },
   { key: "restockAlertEnabled", label: "Restock Alert" },
+  { key: "willRestock", label: "Will Restock" },
   { key: "visibility", label: "Show Product" },
 ];
 
@@ -59,6 +60,7 @@ function AdminProducts() {
     isReturnable: false,
     isTrending: false,
     restockAlertEnabled: false,
+    willRestock: false,
     visibility: true,
   });
 
@@ -185,6 +187,7 @@ function AdminProducts() {
       "Returnable",
       "Trending",
       "Restock Alert",
+      "Will Restock",
       "Show Product",
       "Status",
       "Product ID",
@@ -210,6 +213,7 @@ function AdminProducts() {
       p.isReturnable ? "Yes" : "No",
       p.isTrending ? "Yes" : "No",
       p.restockAlertEnabled ? "Yes" : "No",
+      p.willRestock === false ? "No" : "Yes",
       VISIBILITY_LABELS[p.visibility || "both"],
       p.isActive ? "Active" : "Inactive",
       p._id,
