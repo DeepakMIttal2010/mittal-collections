@@ -84,9 +84,9 @@ function EditProduct() {
         description: product.description || "",
         nameHi: product.nameHi || "",
         descriptionHi: product.descriptionHi || "",
-        price: product.price || "",
-        oldPrice: product.oldPrice || "",
-        stock: product.stock || "",
+        price: product.price ?? "",
+        oldPrice: product.oldPrice ?? "",
+        stock: product.stock ?? "",
         category: product.category?._id || "",
         subcategory: product.subcategory?._id || "",
         featured: product.featured,
@@ -110,10 +110,10 @@ function EditProduct() {
         whatsIncluded: product.whatsIncluded || "",
         isReturnable:
           product.isReturnable === undefined ? true : product.isReturnable,
-        returnPeriodDays: product.returnPeriodDays || "",
+        returnPeriodDays: product.returnPeriodDays ?? "",
         restockAlertEnabled: product.restockAlertEnabled || false,
-        restockAlertQuantity: product.restockAlertQuantity || "",
-        purchasePrice: product.purchasePrice || "",
+        restockAlertQuantity: product.restockAlertQuantity ?? "",
+        purchasePrice: product.purchasePrice ?? "",
         purchaseDate: product.purchaseDate
           ? product.purchaseDate.slice(0, 10)
           : "",
