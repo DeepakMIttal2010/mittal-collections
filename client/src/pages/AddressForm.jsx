@@ -52,7 +52,7 @@ function AddressForm() {
   }, []);
 
   useEffect(() => {
-    if (!isEdit) return;
+    if (!isEdit || !isLoggedIn) return;
 
     const loadAddress = async () => {
       const data = await getAddresses();
@@ -79,7 +79,7 @@ function AddressForm() {
     };
 
     loadAddress();
-  }, [id, isEdit, navigate]);
+  }, [id, isEdit, isLoggedIn, navigate]);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
