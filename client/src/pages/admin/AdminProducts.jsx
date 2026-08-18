@@ -66,9 +66,36 @@ function AdminProducts() {
 
   const [categories, setCategories] = useState([]);
   const [subcategories, setSubcategories] = useState([]);
-  const [categoryFilter, setCategoryFilter] = useState("");
-  const [subcategoryFilter, setSubcategoryFilter] = useState("");
+  // Remembered for the browser tab's session — so navigating away to edit
+  // a product and back doesn't lose the category/subcategory you'd
+  // filtered down to. Cleared on an explicit "Reset Filters" click, or
+  // when the tab/session actually ends (sessionStorage, not localStorage).
+  const [categoryFilter, setCategoryFilter] = useState(
+    () => sessionStorage.getItem("adminProductsCategoryFilter") || "",
+  );
+  const [subcategoryFilter, setSubcategoryFilter] = useState(
+    () => sessionStorage.getItem("adminProductsSubcategoryFilter") || "",
+  );
   const [exporting, setExporting] = useState(false);
+
+  useEffect(() => {
+    if (categoryFilter) {
+      sessionStorage.setItem("adminProductsCategoryFilter", categoryFilter);
+    } else {
+      sessionStorage.removeItem("adminProductsCategoryFilter");
+    }
+  }, [categoryFilter]);
+
+  useEffect(() => {
+    if (subcategoryFilter) {
+      sessionStorage.setItem(
+        "adminProductsSubcategoryFilter",
+        subcategoryFilter,
+      );
+    } else {
+      sessionStorage.removeItem("adminProductsSubcategoryFilter");
+    }
+  }, [subcategoryFilter]);
 
   const toggleColumn = (key) => {
     setVisibleColumns((prev) => ({ ...prev, [key]: !prev[key] }));
