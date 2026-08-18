@@ -22,6 +22,43 @@ const getLocation = (rawIp = "") => {
   };
 };
 
+// geoip-lite's free offline database frequently can't resolve a city for
+// Indian mobile-carrier IPs (their large shared CGNAT ranges aren't well
+// covered) — when that happens, callers relying on this for a visible
+// customer-facing decision (e.g. "is this visitor near Ghaziabad", used to
+// gate the delivery banner) were silently defaulting to their own
+// optimistic fallback, which showed the Ghaziabad-only banner to visitors
+// in completely unrelated cities. Only used for that low-frequency,
+// UI-driving lookup — NOT for the high-frequency recordVisit analytics
+// path, where blocking every page view on a third-party HTTP call isn't
+// worth it for data that's already best-effort.
+const getLocationWithFallback = async (rawIp = "") => {
+  const local = getLocation(rawIp);
+
+  if (local.city) return local;
+
+  try {
+    const ip = rawIp.replace("::ffff:", "");
+    const response = await fetch(
+      `http://ip-api.com/json/${ip}?fields=status,countryCode,regionName,city`,
+      { signal: AbortSignal.timeout(2000) },
+    );
+    const data = await response.json();
+
+    if (data.status === "success") {
+      return {
+        country: data.countryCode || local.country,
+        region: data.regionName || local.region,
+        city: data.city || "",
+      };
+    }
+  } catch {
+    // best-effort — fall through to whatever geoip-lite already gave us
+  }
+
+  return local;
+};
+
 // ============================
 // Get Product View Count — last 24h (Public)
 // ============================
@@ -54,7 +91,7 @@ export const getProductViewCount = async (req, res) => {
 // ============================
 export const getMyLocation = async (req, res) => {
   try {
-    const { country, region, city } = getLocation(req.ip);
+    const { country, region, city } = await getLocationWithFallback(req.ip);
 
     res.json({
       success: true,
