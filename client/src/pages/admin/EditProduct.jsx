@@ -45,6 +45,7 @@ function EditProduct() {
     isTrending: false,
     trendingRank: 0,
     showInNewArrivals: true,
+    willRestock: true,
     visibility: "both",
     optimizeImages: true,
     fabric: "",
@@ -96,6 +97,8 @@ function EditProduct() {
           product.showInNewArrivals === undefined
             ? true
             : product.showInNewArrivals,
+        willRestock:
+          product.willRestock === undefined ? true : product.willRestock,
         visibility: product.visibility || "both",
         optimizeImages: true,
         fabric: product.fabric || "",
@@ -647,6 +650,16 @@ function EditProduct() {
               onChange={handleChange}
             />
             Show in New Arrivals
+          </label>
+
+          <label title="Uncheck for a one-off/discontinued item — it disappears from the site once it sells out, instead of staying listed with a 'Notify Me' option.">
+            <input
+              type="checkbox"
+              name="willRestock"
+              checked={formData.willRestock}
+              onChange={handleChange}
+            />
+            Will Restock
           </label>
 
           <label>

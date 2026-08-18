@@ -129,6 +129,17 @@ const productSchema = new mongoose.Schema(
       default: true,
     },
 
+    // Defaults true — most products get restocked, so once stock hits 0
+    // they still show (deprioritized to the end of listings) with a
+    // "Notify Me" option. An admin can mark a one-off/discontinued
+    // product as false so it disappears from the storefront entirely
+    // the moment it sells out, instead of lingering with a dead
+    // "Notify Me" form nobody should bother filling in.
+    willRestock: {
+      type: Boolean,
+      default: true,
+    },
+
     isActive: {
       type: Boolean,
       default: true,

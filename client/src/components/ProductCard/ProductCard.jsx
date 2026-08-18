@@ -14,7 +14,7 @@ import { useWishlist } from "../../context/WishlistContext";
 import { useCart } from "../../context/CartContext";
 import { useCompare } from "../../context/CompareContext";
 import QuickViewModal from "./QuickViewModal";
-import { LOW_STOCK_THRESHOLD } from "../../utils/stock";
+import { LOW_STOCK_THRESHOLD, getStockStatus } from "../../utils/stock";
 import { productUrl } from "../../utils/productUrl";
 import { getEarnRate } from "../../services/rewardsService";
 import { useLanguage } from "../../context/LanguageContext";
@@ -31,6 +31,7 @@ function ProductCard({ product }) {
     ((product.oldPrice - product.price) / product.oldPrice) * 100,
   );
   const isLowStock = product.stock > 0 && product.stock <= LOW_STOCK_THRESHOLD;
+  const isOutOfStock = product.stock <= 0;
   const pointsPreview = earnRate ? Math.floor(product.price / earnRate) : 0;
 
   useEffect(() => {
@@ -49,8 +50,14 @@ function ProductCard({ product }) {
 
           <span className="discount-badge">{discount}% OFF</span>
 
-          {isLowStock && (
-            <span className="stock-badge">Only {product.stock} left!</span>
+          {isOutOfStock ? (
+            <span className="stock-badge out-of-stock-badge">
+              {getStockStatus(product.stock).label}
+            </span>
+          ) : (
+            isLowStock && (
+              <span className="stock-badge">Only {product.stock} left!</span>
+            )
           )}
 
           <div className="product-icons">
@@ -119,13 +126,14 @@ function ProductCard({ product }) {
         <button
           className="cart-btn"
           type="button"
+          disabled={isOutOfStock}
           onClick={(e) => {
             e.preventDefault();
             addToCart(product);
           }}
         >
           <FaShoppingCart />
-          Add to Cart
+          {isOutOfStock ? "Out of Stock" : "Add to Cart"}
         </button>
       </div>
 

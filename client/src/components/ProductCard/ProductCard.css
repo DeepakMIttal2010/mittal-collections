@@ -56,6 +56,10 @@
   font-weight: bold;
 }
 
+.out-of-stock-badge {
+  background: #dc2626;
+}
+
 .product-icons {
   position: absolute;
   top: 15px;
@@ -180,4 +184,13 @@
 
 .cart-btn:hover {
   background: #2e7d32;
+}
+
+.cart-btn:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+}
+
+.cart-btn:disabled:hover {
+  background: #9ca3af;
 }

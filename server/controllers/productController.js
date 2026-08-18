@@ -126,7 +126,14 @@ export const subscribeStockAlert = async (req, res) => {
 // ============================
 export const getProducts = async (req, res) => {
   try {
-    const filter = { isActive: true, visibility: { $ne: "offline" } };
+    const filter = {
+      isActive: true,
+      visibility: { $ne: "offline" },
+      // A one-off/discontinued product (willRestock: false) disappears
+      // entirely once it sells out — everything else stays listed (see
+      // the stable re-sort below, which pushes it to the end instead).
+      $or: [{ stock: { $gt: 0 } }, { willRestock: { $ne: false } }],
+    };
 
     const { search, category, subcategory, maxPrice, minPrice, sortBy } =
       req.query;
@@ -171,6 +178,13 @@ export const getProducts = async (req, res) => {
       );
     }
 
+    // Stable final pass — an out-of-stock-but-restockable product stays
+    // in the results (for its "Notify Me" alert + SEO) but always sinks
+    // to the end, regardless of whatever sort was applied above.
+    products = [...products].sort(
+      (a, b) => Number(b.stock > 0) - Number(a.stock > 0),
+    );
+
     res.status(200).json({
       success: true,
       count: products.length,
@@ -200,6 +214,7 @@ export const getSearchSuggestions = async (req, res) => {
     const products = await Product.find({
       isActive: true,
       visibility: { $ne: "offline" },
+      $or: [{ stock: { $gt: 0 } }, { willRestock: { $ne: false } }],
     }).select("name slug price image");
 
     const ranked = rankProducts(q.trim(), products).slice(0, 6);
@@ -420,6 +435,7 @@ export const duplicateProduct = async (req, res) => {
       isTrending: false,
       trendingRank: 0,
       showInNewArrivals: source.showInNewArrivals,
+      willRestock: source.willRestock,
       isActive: false,
 
       isReturnable: source.isReturnable,
@@ -488,6 +504,7 @@ export const getTrendingProducts = async (req, res) => {
       isActive: true,
       isTrending: true,
       visibility: { $ne: "offline" },
+      $or: [{ stock: { $gt: 0 } }, { willRestock: { $ne: false } }],
     })
       .select(COST_FIELDS)
       .populate("category", "name slug image")
@@ -663,6 +680,7 @@ export const addProduct = async (req, res) => {
       isTrending,
       trendingRank,
       showInNewArrivals,
+      willRestock,
       mainImageIndex,
       fabric,
       size,
@@ -712,6 +730,7 @@ export const addProduct = async (req, res) => {
       trendingRank: trendingRank || 0,
       showInNewArrivals:
         showInNewArrivals === undefined ? true : showInNewArrivals === "true",
+      willRestock: willRestock === undefined ? true : willRestock === "true",
       visibility: ["both", "online", "offline"].includes(visibility)
         ? visibility
         : "both",
@@ -788,6 +807,10 @@ export const updateProduct = async (req, res) => {
       req.body.showInNewArrivals === undefined
         ? true
         : req.body.showInNewArrivals === "true";
+    product.willRestock =
+      req.body.willRestock === undefined
+        ? true
+        : req.body.willRestock === "true";
     product.visibility = ["both", "online", "offline"].includes(
       req.body.visibility,
     )

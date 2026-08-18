@@ -37,6 +37,7 @@ function AddProduct() {
     isTrending: false,
     trendingRank: 0,
     showInNewArrivals: true,
+    willRestock: true,
     visibility: "both",
     optimizeImages: true,
     fabric: "",
@@ -132,6 +133,7 @@ function AddProduct() {
     data.append("isTrending", formData.isTrending);
     data.append("trendingRank", formData.trendingRank);
     data.append("showInNewArrivals", formData.showInNewArrivals);
+    data.append("willRestock", formData.willRestock);
     data.append("visibility", formData.visibility);
     data.append("mainImageIndex", mainImageIndex);
     data.append("optimizeImages", formData.optimizeImages);
@@ -510,6 +512,16 @@ function AddProduct() {
               onChange={handleChange}
             />
             Show in New Arrivals
+          </label>
+
+          <label title="Uncheck for a one-off/discontinued item — it disappears from the site once it sells out, instead of staying listed with a 'Notify Me' option.">
+            <input
+              type="checkbox"
+              name="willRestock"
+              checked={formData.willRestock}
+              onChange={handleChange}
+            />
+            Will Restock
           </label>
 
           <label>

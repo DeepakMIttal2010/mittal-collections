@@ -27,25 +27,35 @@ function sortProducts(products, sortBy) {
 
   switch (sortBy) {
     case "price-asc":
-      return sorted.sort((a, b) => a.price - b.price);
+      sorted.sort((a, b) => a.price - b.price);
+      break;
     case "price-desc":
-      return sorted.sort((a, b) => b.price - a.price);
+      sorted.sort((a, b) => b.price - a.price);
+      break;
     case "name-asc":
-      return sorted.sort((a, b) => a.name.localeCompare(b.name));
+      sorted.sort((a, b) => a.name.localeCompare(b.name));
+      break;
     case "name-desc":
-      return sorted.sort((a, b) => b.name.localeCompare(a.name));
+      sorted.sort((a, b) => b.name.localeCompare(a.name));
+      break;
     case "date-asc":
-      return sorted.sort(
-        (a, b) => new Date(a.createdAt) - new Date(b.createdAt),
-      );
+      sorted.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+      break;
     case "date-desc":
-      return sorted.sort(
-        (a, b) => new Date(b.createdAt) - new Date(a.createdAt),
-      );
+      sorted.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      break;
     case "featured":
     default:
-      return sorted.sort((a, b) => (b.featured === true) - (a.featured === true));
+      sorted.sort((a, b) => (b.featured === true) - (a.featured === true));
   }
+
+  // Stable final pass, same as the backend's default listing order — an
+  // out-of-stock-but-restockable product still shows (for its "Notify Me"
+  // alert) but always sinks below every in-stock product, regardless of
+  // which sort mode is selected above (price, name, featured, etc.).
+  sorted.sort((a, b) => Number(b.stock > 0) - Number(a.stock > 0));
+
+  return sorted;
 }
 
 function CategoryPage() {
