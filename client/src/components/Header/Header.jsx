@@ -499,7 +499,7 @@ function Header() {
 
           {isLoggedIn ? (
             <div
-              className="relative"
+              className="hidden md:block relative"
               onMouseEnter={() => setAccountOpen(true)}
               onMouseLeave={() => setAccountOpen(false)}
             >
@@ -560,7 +560,7 @@ function Header() {
           ) : (
             <Link
               to="/login"
-              className="flex flex-col items-center text-slate-600 hover:text-blue-700 transition-colors"
+              className="hidden md:flex flex-col items-center text-slate-600 hover:text-blue-700 transition-colors"
             >
               <FaUser className="text-lg" />
               <span className="hidden sm:block text-xs mt-0.5">Account</span>
