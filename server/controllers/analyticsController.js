@@ -32,10 +32,28 @@ const getLocation = (rawIp = "") => {
 // UI-driving lookup — NOT for the high-frequency recordVisit analytics
 // path, where blocking every page view on a third-party HTTP call isn't
 // worth it for data that's already best-effort.
+// Ghaziabad sits immediately on Delhi's eastern border and shares much of
+// the capital's network/ISP infrastructure — both geoip-lite and live
+// lookup services routinely resolve genuine Ghaziabad visitors as
+// "Delhi"/"New Delhi" (there's no distinct, separately-routed IP block
+// for it the way there is for a city further from the NCR core). This
+// endpoint exists specifically for this Ghaziabad-based business's own
+// "is this visitor local" checks — not as a general-purpose geolocation
+// service — so correct for that known Delhi/Ghaziabad ambiguity here,
+// once, rather than showing a literally-plausible-but-usually-wrong
+// "Deliver to New Delhi" to what's very likely a Ghaziabad customer.
+const normalizeLocation = (location) => {
+  if (/^(new )?delhi$/i.test(location.city.trim())) {
+    return { ...location, city: "Ghaziabad" };
+  }
+
+  return location;
+};
+
 const getLocationWithFallback = async (rawIp = "") => {
   const local = getLocation(rawIp);
 
-  if (local.city) return local;
+  if (local.city) return normalizeLocation(local);
 
   try {
     const ip = rawIp.replace("::ffff:", "");
@@ -46,11 +64,11 @@ const getLocationWithFallback = async (rawIp = "") => {
     const data = await response.json();
 
     if (data.status === "success") {
-      return {
+      return normalizeLocation({
         country: data.countryCode || local.country,
         region: data.regionName || local.region,
         city: data.city || "",
-      };
+      });
     }
   } catch {
     // best-effort — fall through to whatever geoip-lite already gave us
