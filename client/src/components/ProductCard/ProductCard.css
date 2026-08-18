@@ -47,7 +47,7 @@
 .stock-badge {
   position: absolute;
   bottom: 15px;
-  left: 15px;
+  right: 15px;
   background: #d97706;
   color: white;
   padding: 5px 11px;

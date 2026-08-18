@@ -1,6 +1,7 @@
 import { imgUrl } from "../../services/api";
 import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   FaTimes,
   FaStar,
@@ -49,7 +50,13 @@ function QuickViewModal({ product, onClose }) {
         )
       : 0;
 
-  return (
+  // Portalled straight to <body> — rendered inline inside a hovered
+  // ProductCard, whose `:hover { transform: translateY(-8px) }` creates a
+  // new containing block for any `position: fixed` descendant. Without
+  // the portal, `inset-0` resolves against that ~300px card instead of
+  // the viewport, squeezing the whole modal into the card's own box with
+  // no visible backdrop instead of covering the screen.
+  return createPortal(
     <div
       onClick={onClose}
       className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4"
@@ -126,7 +133,10 @@ function QuickViewModal({ product, onClose }) {
 
           <div className="mt-auto flex gap-2">
             <button
-              onClick={() => addToCart(product)}
+              onClick={() => {
+                addToCart(product);
+                onClose();
+              }}
               disabled={product.stock <= 0}
               className="flex-1 flex items-center justify-center gap-2 bg-blue-900 hover:bg-blue-950 text-white font-semibold rounded-full px-4 py-2.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
@@ -168,7 +178,8 @@ function QuickViewModal({ product, onClose }) {
           </Link>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
