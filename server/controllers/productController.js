@@ -1,5 +1,5 @@
 import Product from "../models/Product.js";
-import Category from "../models/Category.js";
+import NewArrivalsSection from "../models/NewArrivalsSection.js";
 import Order from "../models/Order.js";
 import OfflineSale from "../models/OfflineSale.js";
 import StockAlert from "../models/StockAlert.js";
@@ -587,35 +587,41 @@ export const getNewArrivalsByCategory = async (req, res) => {
       1,
     );
 
-    const categories = await Category.find({
+    const configuredSections = await NewArrivalsSection.find({
       isActive: true,
-      showInHomeNewArrivals: true,
-    }).sort({ displayOrder: 1, name: 1 });
+    })
+      .populate("category", "name slug isActive")
+      .sort({ displayOrder: 1 });
 
     const sections = await Promise.all(
-      categories.map(async (category) => {
-        const products = await Product.find({
-          isActive: true,
-          category: category._id,
-          showInNewArrivals: { $ne: false },
-          visibility: { $ne: "offline" },
-          $or: [{ stock: { $gt: 0 } }, { willRestock: { $ne: false } }],
-        })
-          .select(COST_FIELDS)
-          .populate("category", "name slug image")
-          .populate("subcategory", "name slug")
-          .sort({ createdAt: -1 })
-          .limit(perCategoryLimit);
+      configuredSections
+        // A category itself could have been deactivated (or its section
+        // deleted from under it) without the reference being cleaned up —
+        // skip rather than crash on a null/inactive category.
+        .filter((section) => section.category?.isActive)
+        .map(async (section) => {
+          const products = await Product.find({
+            isActive: true,
+            category: section.category._id,
+            showInNewArrivals: { $ne: false },
+            visibility: { $ne: "offline" },
+            $or: [{ stock: { $gt: 0 } }, { willRestock: { $ne: false } }],
+          })
+            .select(COST_FIELDS)
+            .populate("category", "name slug image")
+            .populate("subcategory", "name slug")
+            .sort({ createdAt: -1 })
+            .limit(perCategoryLimit);
 
-        return {
-          category: {
-            _id: category._id,
-            name: category.name,
-            slug: category.slug,
-          },
-          products,
-        };
-      }),
+          return {
+            category: {
+              _id: section.category._id,
+              name: section.category.name,
+              slug: section.category.slug,
+            },
+            products,
+          };
+        }),
     );
 
     res.status(200).json({

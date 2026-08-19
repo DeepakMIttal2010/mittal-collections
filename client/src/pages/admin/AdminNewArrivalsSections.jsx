@@ -1,137 +1,364 @@
 import { useEffect, useState } from "react";
+import { FaSort, FaSortUp, FaSortDown } from "react-icons/fa";
 
 import { imgUrl } from "../../services/api";
+import { getCategories } from "../../services/categoryService";
 import {
-  getAllCategories,
-  updateCategory,
-} from "../../services/adminCategoryService";
+  getAllNewArrivalsSectionsAdmin,
+  addNewArrivalsSection,
+  updateNewArrivalsSection,
+  restoreNewArrivalsSection,
+  deleteNewArrivalsSection,
+  permanentlyDeleteNewArrivalsSection,
+} from "../../services/adminNewArrivalsSectionService";
 
-// Lets an admin pick which categories get their own "New Arrivals"
-// section on the homepage (Category.showInHomeNewArrivals) — off by
-// default per category, so the homepage only shows sections the admin
-// has deliberately opted into instead of one for every category.
 function AdminNewArrivalsSections() {
+  const [sections, setSections] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [savingId, setSavingId] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [editingId, setEditingId] = useState(null);
 
-  const loadCategories = async () => {
+  const [formData, setFormData] = useState({
+    category: "",
+    displayOrder: 0,
+    isActive: true,
+  });
+
+  const [sortBy, setSortBy] = useState("displayOrder");
+  const [sortOrder, setSortOrder] = useState("asc");
+
+  const loadData = async () => {
     setLoading(true);
 
-    const response = await getAllCategories({ limit: 100, sortBy: "displayOrder", sortOrder: "asc" });
+    const [sectionsRes, categoriesRes] = await Promise.all([
+      getAllNewArrivalsSectionsAdmin({ sortBy, sortOrder }),
+      getCategories(),
+    ]);
 
-    if (response.success) {
-      setCategories(response.categories);
-    }
+    if (sectionsRes.success) setSections(sectionsRes.sections);
+    if (categoriesRes.success) setCategories(categoriesRes.categories);
 
     setLoading(false);
   };
 
   useEffect(() => {
-    loadCategories();
-  }, []);
+    loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sortBy, sortOrder]);
 
-  const handleToggle = async (category) => {
-    const nextValue = !category.showInHomeNewArrivals;
-
-    setSavingId(category._id);
-    setCategories((prev) =>
-      prev.map((c) =>
-        c._id === category._id
-          ? { ...c, showInHomeNewArrivals: nextValue }
-          : c,
-      ),
-    );
-
-    const formData = new FormData();
-    formData.append("showInHomeNewArrivals", nextValue);
-
-    const response = await updateCategory(category._id, formData);
-
-    if (!response.success) {
-      // Revert on failure — don't leave the toggle showing a state that
-      // never actually saved.
-      setCategories((prev) =>
-        prev.map((c) =>
-          c._id === category._id
-            ? { ...c, showInHomeNewArrivals: !nextValue }
-            : c,
-        ),
-      );
-      alert(response.message || "Unable to update category");
+  const toggleSort = (field) => {
+    if (sortBy === field) {
+      setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortBy(field);
+      setSortOrder("asc");
     }
-
-    setSavingId(null);
   };
 
-  if (loading) {
-    return (
-      <div className="p-8 text-center text-slate-500">
-        Loading Categories...
-      </div>
+  const renderSortIcon = (field) => {
+    if (sortBy !== field)
+      return <FaSort className="inline text-slate-300 ml-1" />;
+    return sortOrder === "asc" ? (
+      <FaSortUp className="inline text-slate-700 ml-1" />
+    ) : (
+      <FaSortDown className="inline text-slate-700 ml-1" />
     );
+  };
+
+  const handleChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: type === "checkbox" ? checked : value,
+    }));
+  };
+
+  const resetForm = () => {
+    setFormData({ category: "", displayOrder: 0, isActive: true });
+    setEditingId(null);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    setSaving(true);
+
+    const response = editingId
+      ? await updateNewArrivalsSection(editingId, formData)
+      : await addNewArrivalsSection(formData);
+
+    setSaving(false);
+
+    if (response.success) {
+      resetForm();
+      loadData();
+    } else {
+      alert(response.message || "Something went wrong");
+    }
+  };
+
+  const handleEdit = (item) => {
+    setEditingId(item._id);
+    setFormData({
+      category: item.category?._id || "",
+      displayOrder: item.displayOrder,
+      isActive: item.isActive,
+    });
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm("Delete this New Arrivals section?")) return;
+
+    const response = await deleteNewArrivalsSection(id);
+
+    if (response.success) {
+      loadData();
+    } else {
+      alert(response.message);
+    }
+  };
+
+  const handleRestore = async (id) => {
+    const response = await restoreNewArrivalsSection(id);
+
+    if (response.success) {
+      loadData();
+    } else {
+      alert(response.message);
+    }
+  };
+
+  const handlePermanentDelete = async (id) => {
+    if (
+      !window.confirm(
+        "Permanently delete this section? This cannot be undone.",
+      )
+    )
+      return;
+
+    const response = await permanentlyDeleteNewArrivalsSection(id);
+
+    if (response.success) {
+      loadData();
+    } else {
+      alert(response.message);
+    }
+  };
+
+  // A category that already has an active section shouldn't be offered
+  // again — except the one currently being edited, which needs to keep
+  // showing its own category as selected.
+  const categoryOptions = categories.filter(
+    (c) =>
+      c._id === formData.category ||
+      !sections.some((s) => s.isActive && s.category?._id === c._id),
+  );
+
+  if (loading) {
+    return <div className="p-8 text-center text-slate-500">Loading...</div>;
   }
 
   return (
     <div className="p-6">
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold text-slate-800">
-          Homepage — New Arrivals by Category
-        </h2>
-        <p className="text-slate-500 mt-1">
-          Turn on a category here to give it its own "New Arrivals" section
-          on the homepage, showing that category's newest products. Off by
-          default — the homepage only shows sections for categories you
-          enable below.
-        </p>
-      </div>
+      <h2 className="text-2xl font-bold text-slate-800 mb-2">
+        Homepage — New Arrivals by Category
+      </h2>
+      <p className="text-sm text-slate-500 mb-6">
+        Manage which categories get their own "New Arrivals" section on the
+        homepage and the dedicated /new-arrivals page, showing that
+        category's newest products, and in what order.
+      </p>
 
-      {categories.length === 0 ? (
+      {/* Add / Edit Form */}
+      <form
+        onSubmit={handleSubmit}
+        className="bg-white border border-slate-200 rounded-xl p-6 mb-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end"
+      >
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">
+            Category
+          </label>
+          <select
+            name="category"
+            value={formData.category}
+            onChange={handleChange}
+            required
+            className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">Select category</option>
+            {categoryOptions.map((c) => (
+              <option key={c._id} value={c._id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">
+            Order (Priority)
+          </label>
+          <input
+            type="number"
+            name="displayOrder"
+            value={formData.displayOrder}
+            onChange={handleChange}
+            className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+
+        <div className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            name="isActive"
+            checked={formData.isActive}
+            onChange={handleChange}
+            id="isActive"
+          />
+          <label htmlFor="isActive" className="text-sm text-slate-700">
+            Active
+          </label>
+        </div>
+
+        <div className="flex gap-2">
+          <button
+            type="submit"
+            disabled={saving}
+            className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg transition-colors disabled:opacity-60"
+          >
+            {saving ? "Saving..." : editingId ? "Update" : "+ Add"}
+          </button>
+
+          {editingId && (
+            <button
+              type="button"
+              onClick={resetForm}
+              className="px-4 py-2 rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50"
+            >
+              Cancel
+            </button>
+          )}
+        </div>
+      </form>
+
+      {/* Table */}
+      {sections.length === 0 ? (
         <div className="text-center text-slate-500 py-12 bg-white rounded-lg border border-slate-200">
-          No Categories Found
+          No New Arrivals Sections Yet
         </div>
       ) : (
-        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden divide-y divide-slate-100">
-          {categories.map((category) => (
-            <div
-              key={category._id}
-              className="flex items-center gap-4 px-5 py-4"
-            >
-              <img
-                src={imgUrl(category.image)}
-                alt={category.name}
-                className="w-12 h-12 object-cover rounded-lg shrink-0"
-              />
+        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 text-slate-600">
+              <tr>
+                <th className="text-left px-4 py-3 font-semibold">
+                  Category
+                </th>
+                <th
+                  className="text-center px-4 py-3 font-semibold cursor-pointer select-none hover:text-slate-900"
+                  onClick={() => toggleSort("displayOrder")}
+                >
+                  Order
+                  {renderSortIcon("displayOrder")}
+                </th>
+                <th
+                  className="text-left px-4 py-3 font-semibold cursor-pointer select-none hover:text-slate-900"
+                  onClick={() => toggleSort("createdAt")}
+                >
+                  Created
+                  {renderSortIcon("createdAt")}
+                </th>
+                <th className="text-center px-4 py-3 font-semibold">
+                  Status
+                </th>
+                <th className="text-center px-4 py-3 font-semibold">
+                  Actions
+                </th>
+              </tr>
+            </thead>
 
-              <div className="flex-1 min-w-0">
-                <h3 className="font-semibold text-slate-800 truncate">
-                  {category.name}
-                </h3>
-                {!category.isActive && (
-                  <span className="text-xs font-semibold text-red-600">
-                    Inactive category
-                  </span>
-                )}
-              </div>
-
-              <label className="flex items-center gap-2.5 text-sm font-medium text-slate-700 cursor-pointer shrink-0">
-                <span className="w-16 text-right">
-                  {category.showInHomeNewArrivals ? "Showing" : "Hidden"}
-                </span>
-                <span className="relative inline-block w-11 h-6">
-                  <input
-                    type="checkbox"
-                    checked={!!category.showInHomeNewArrivals}
-                    disabled={savingId === category._id}
-                    onChange={() => handleToggle(category)}
-                    className="peer sr-only"
-                  />
-                  <span className="absolute inset-0 rounded-full bg-slate-300 peer-checked:bg-blue-600 transition-colors peer-disabled:opacity-50" />
-                  <span className="absolute left-1 top-1 w-4 h-4 rounded-full bg-white transition-transform peer-checked:translate-x-5" />
-                </span>
-              </label>
-            </div>
-          ))}
+            <tbody className="divide-y divide-slate-100">
+              {sections.map((item) => (
+                <tr key={item._id} className="hover:bg-slate-50">
+                  <td className="px-4 py-3 font-medium text-slate-800">
+                    <div className="flex items-center gap-3">
+                      {item.category?.image && (
+                        <img
+                          src={imgUrl(item.category.image)}
+                          alt={item.category?.name}
+                          className="w-9 h-9 object-cover rounded-lg"
+                        />
+                      )}
+                      {item.category?.name || (
+                        <span className="text-red-600">
+                          Category no longer exists
+                        </span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    {item.displayOrder}
+                  </td>
+                  <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
+                    {new Date(item.createdAt).toLocaleString("en-IN", {
+                      day: "2-digit",
+                      month: "short",
+                      year: "numeric",
+                      hour: "numeric",
+                      minute: "2-digit",
+                    })}
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    <span
+                      className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
+                        item.isActive
+                          ? "bg-green-100 text-green-700"
+                          : "bg-red-100 text-red-700"
+                      }`}
+                    >
+                      {item.isActive ? "Active" : "Inactive"}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center justify-center gap-2">
+                      {item.isActive ? (
+                        <>
+                          <button
+                            onClick={() => handleEdit(item)}
+                            className="text-xs font-medium px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleDelete(item._id)}
+                            className="text-xs font-medium px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white"
+                          >
+                            Delete
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => handleRestore(item._id)}
+                            className="text-xs font-medium px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white"
+                          >
+                            Restore
+                          </button>
+                          <button
+                            onClick={() => handlePermanentDelete(item._id)}
+                            className="text-xs font-medium px-3 py-1.5 rounded-lg border border-red-600 text-red-600 hover:bg-red-50"
+                          >
+                            Delete Permanently
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </div>
