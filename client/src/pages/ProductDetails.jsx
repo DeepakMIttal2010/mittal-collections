@@ -30,7 +30,6 @@ import {
   FaLock,
   FaMedal,
   FaBan,
-  FaTruck,
   FaPalette,
 } from "react-icons/fa";
 import {
@@ -840,12 +839,8 @@ function ProductDetails() {
               </a>
             ))}
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mt-6 pt-6 border-t border-slate-200">
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-4 gap-4 mt-6 pt-6 border-t border-slate-200">
             {[
-              {
-                icon: <FaTruck />,
-                label: "Free Delivery in Vasundhara",
-              },
               {
                 icon: <FaMoneyBillWave />,
                 label: "Pay on Delivery",

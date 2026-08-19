@@ -207,7 +207,7 @@ function Footer() {
                   We Deliver To (Ghaziabad)
                 </h3>
                 <p className="text-sm text-slate-400 mb-4">
-                  🚚 FREE & FAST DELIVERY within 24 Hours
+                  🚚 FAST DELIVERY within 24 Hours
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {DELIVERY_AREAS.map((area) => (

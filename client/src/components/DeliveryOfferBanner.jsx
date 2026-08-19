@@ -30,7 +30,7 @@ function DeliveryOfferBanner() {
       <div className="max-w-7xl mx-auto px-10 py-2 flex items-center justify-center gap-2 text-center flex-wrap">
         <span className="shrink-0">🚚</span>
         <span>
-          <strong>FREE & FAST DELIVERY within 24 Hours</strong> — Ghaziabad:
+          <strong>FAST DELIVERY within 24 Hours</strong> — Ghaziabad:
           Vasundhara, Vaishali, Indirapuram & आसपास
         </span>
         <a
