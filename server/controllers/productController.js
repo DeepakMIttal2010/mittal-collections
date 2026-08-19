@@ -433,6 +433,7 @@ export const duplicateProduct = async (req, res) => {
       brand: source.brand,
       countryOfOrigin: source.countryOfOrigin,
       whatsIncluded: source.whatsIncluded,
+      colorVariesNote: source.colorVariesNote,
 
       featured: false,
       isTrending: false,
@@ -830,6 +831,7 @@ export const addProduct = async (req, res) => {
       brand,
       countryOfOrigin,
       whatsIncluded,
+      colorVariesNote,
       isReturnable,
       returnPeriodDays,
       restockAlertEnabled,
@@ -883,6 +885,7 @@ export const addProduct = async (req, res) => {
       brand: brand || "",
       countryOfOrigin: countryOfOrigin || "",
       whatsIncluded: whatsIncluded || "",
+      colorVariesNote: colorVariesNote || "",
 
       isReturnable: isReturnable === undefined ? true : isReturnable === "true",
       returnPeriodDays: returnPeriodDays || 0,
@@ -965,6 +968,7 @@ export const updateProduct = async (req, res) => {
     product.brand = req.body.brand || "";
     product.countryOfOrigin = req.body.countryOfOrigin || "";
     product.whatsIncluded = req.body.whatsIncluded || "";
+    product.colorVariesNote = req.body.colorVariesNote || "";
 
     product.isReturnable =
       req.body.isReturnable === undefined

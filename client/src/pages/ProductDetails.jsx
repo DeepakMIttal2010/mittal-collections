@@ -31,6 +31,7 @@ import {
   FaMedal,
   FaBan,
   FaTruck,
+  FaPalette,
 } from "react-icons/fa";
 import {
   FaFacebookF,
@@ -678,6 +679,15 @@ function ProductDetails() {
               {viewCount} {viewCount === 1 ? "person" : "people"} viewed this
               today
             </p>
+          )}
+
+          {product.colorVariesNote && (
+            <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mb-4">
+              <FaPalette className="text-amber-600 mt-0.5 shrink-0" />
+              <p className="text-sm text-amber-800 font-medium">
+                {product.colorVariesNote}
+              </p>
+            </div>
           )}
 
           {product.stock <= 0 &&

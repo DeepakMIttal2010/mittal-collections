@@ -47,6 +47,7 @@ function AddProduct() {
     brand: "",
     countryOfOrigin: "",
     whatsIncluded: "",
+    colorVariesNote: "",
     isReturnable: true,
     returnPeriodDays: "",
     restockAlertEnabled: false,
@@ -144,6 +145,7 @@ function AddProduct() {
     data.append("brand", formData.brand);
     data.append("countryOfOrigin", formData.countryOfOrigin);
     data.append("whatsIncluded", formData.whatsIncluded);
+    data.append("colorVariesNote", formData.colorVariesNote);
     data.append("isReturnable", formData.isReturnable);
     data.append("returnPeriodDays", formData.returnPeriodDays);
     data.append("restockAlertEnabled", formData.restockAlertEnabled);
@@ -391,6 +393,18 @@ function AddProduct() {
             name="whatsIncluded"
             placeholder="e.g. Set of 5 Cushion Covers"
             value={formData.whatsIncluded}
+            onChange={handleChange}
+          />
+        </div>
+
+        <div className="form-group">
+          <label>Colour Variation Notice (optional)</label>
+
+          <input
+            type="text"
+            name="colorVariesNote"
+            placeholder="e.g. Available in multiple colours - same quality. We'll send any available colour unless you confirm a specific one via Contact Us."
+            value={formData.colorVariesNote}
             onChange={handleChange}
           />
         </div>

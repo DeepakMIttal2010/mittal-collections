@@ -55,6 +55,7 @@ function EditProduct() {
     brand: "",
     countryOfOrigin: "",
     whatsIncluded: "",
+    colorVariesNote: "",
     isReturnable: true,
     returnPeriodDays: "",
     restockAlertEnabled: false,
@@ -108,6 +109,7 @@ function EditProduct() {
         brand: product.brand || "",
         countryOfOrigin: product.countryOfOrigin || "",
         whatsIncluded: product.whatsIncluded || "",
+        colorVariesNote: product.colorVariesNote || "",
         isReturnable:
           product.isReturnable === undefined ? true : product.isReturnable,
         returnPeriodDays: product.returnPeriodDays ?? "",
@@ -473,6 +475,18 @@ function EditProduct() {
             name="whatsIncluded"
             placeholder="e.g. Set of 5 Cushion Covers"
             value={formData.whatsIncluded}
+            onChange={handleChange}
+          />
+        </div>
+
+        <div className="form-group">
+          <label>Colour Variation Notice (optional)</label>
+
+          <input
+            type="text"
+            name="colorVariesNote"
+            placeholder="e.g. Available in multiple colours - same quality. We'll send any available colour unless you confirm a specific one via Contact Us."
+            value={formData.colorVariesNote}
             onChange={handleChange}
           />
         </div>

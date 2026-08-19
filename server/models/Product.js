@@ -98,6 +98,12 @@ const productSchema = new mongoose.Schema(
     // what they're getting.
     whatsIncluded: { type: String, default: "", trim: true },
 
+    // Set when the exact same product ships in a few different colours
+    // (admin picks whichever is in stock) — shown as a highlighted notice
+    // on the product page so a customer wanting one specific colour knows
+    // to confirm via Contact Us before ordering, instead of assuming.
+    colorVariesNote: { type: String, default: "", trim: true },
+
     rating: {
       type: Number,
       default: 5,
