@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { FaTags, FaTruck, FaUndoAlt, FaMoneyBillWave, FaWhatsapp } from "react-icons/fa";
+import { FaTags, FaTruck, FaUndoAlt, FaLock, FaMoneyBillWave, FaWhatsapp } from "react-icons/fa";
 
 import "./TrustBar.css";
 import { useLanguage } from "../../context/LanguageContext";
@@ -29,11 +29,18 @@ const items = [
     subtitleHi: "बिना किसी झंझट के",
   },
   {
-    icon: <FaMoneyBillWave />,
+    icon: <FaLock />,
     title: "Secure Payment",
     titleHi: "सुरक्षित पेमेंट",
-    subtitle: "COD or online",
-    subtitleHi: "COD या ऑनलाइन",
+    subtitle: "100% safe checkout",
+    subtitleHi: "100% सुरक्षित चेकआउट",
+  },
+  {
+    icon: <FaMoneyBillWave />,
+    title: "Cash on Delivery",
+    titleHi: "कैश ऑन डिलीवरी",
+    subtitle: "Pay when it arrives",
+    subtitleHi: "आने पर भुगतान करें",
   },
 ];
 

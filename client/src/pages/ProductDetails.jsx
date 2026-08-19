@@ -31,6 +31,7 @@ import {
   FaMedal,
   FaBan,
   FaPalette,
+  FaTruck,
 } from "react-icons/fa";
 import {
   FaFacebookF,
@@ -839,8 +840,12 @@ function ProductDetails() {
               </a>
             ))}
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-4 gap-4 mt-6 pt-6 border-t border-slate-200">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mt-6 pt-6 border-t border-slate-200">
             {[
+              {
+                icon: <FaTruck />,
+                label: "Fast Delivery",
+              },
               {
                 icon: <FaMoneyBillWave />,
                 label: "Pay on Delivery",
@@ -861,6 +866,10 @@ function ProductDetails() {
               {
                 icon: <FaMedal />,
                 label: "100% Genuine",
+              },
+              {
+                icon: <FaWhatsapp />,
+                label: "WhatsApp Support",
               },
             ].map((item) => (
               <div
