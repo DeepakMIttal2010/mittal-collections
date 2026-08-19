@@ -180,7 +180,14 @@ export const updateCategory = async (req, res) => {
       });
     }
 
-    const { name, description, featured, displayOrder, isActive } = req.body;
+    const {
+      name,
+      description,
+      featured,
+      displayOrder,
+      isActive,
+      showInHomeNewArrivals,
+    } = req.body;
 
     if (name && name !== category.name) {
       category.name = name;
@@ -193,6 +200,9 @@ export const updateCategory = async (req, res) => {
     if (displayOrder !== undefined) category.displayOrder = displayOrder;
     if (isActive !== undefined)
       category.isActive = isActive === "true" || isActive === true;
+    if (showInHomeNewArrivals !== undefined)
+      category.showInHomeNewArrivals =
+        showInHomeNewArrivals === "true" || showInHomeNewArrivals === true;
 
     let oldImage = null;
     if (req.file) {

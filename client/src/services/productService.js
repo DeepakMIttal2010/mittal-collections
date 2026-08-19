@@ -117,6 +117,35 @@ export const getNewArrivalProducts = async (limit = 8) => {
 };
 
 // ==========================
+// Get New Arrivals By Category
+// ==========================
+export const getNewArrivalsByCategory = async (limit = 8) => {
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/products/new-arrivals-by-category?limit=${limit}`,
+    );
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch new arrivals by category");
+    }
+
+    const data = await response.json();
+
+    return {
+      success: data.success,
+      sections: data.sections || [],
+    };
+  } catch (error) {
+    console.error("Get New Arrivals By Category Error:", error);
+
+    return {
+      success: false,
+      sections: [],
+    };
+  }
+};
+
+// ==========================
 // Search Products
 // ==========================
 export const searchProducts = async (

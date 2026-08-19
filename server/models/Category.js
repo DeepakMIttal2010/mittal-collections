@@ -47,6 +47,14 @@ const categorySchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+
+    // Off by default — an admin opts a category in to get its own "New
+    // Arrivals" section on the homepage (newest products in that category
+    // only), rather than every category cluttering the homepage.
+    showInHomeNewArrivals: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
     timestamps: true,

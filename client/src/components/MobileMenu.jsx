@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { NavLink } from "react-router-dom";
-import { FaTimes, FaChevronDown, FaChevronUp } from "react-icons/fa";
+import { FaTimes, FaChevronDown, FaChevronUp, FaBell } from "react-icons/fa";
 
 import { getCategories } from "../services/categoryService";
 import { getSubcategories } from "../services/subcategoryService";
@@ -156,6 +156,15 @@ function MobileMenu({ isOpen, onClose }) {
               </div>
             );
           })}
+
+          <NavLink
+            to="/new-arrivals"
+            onClick={close}
+            className="flex items-center gap-2 px-5 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-amber-600 border-t border-slate-100"
+          >
+            <FaBell className="text-amber-500" />
+            New Arrivals
+          </NavLink>
 
           <NavLink
             to="/articles"

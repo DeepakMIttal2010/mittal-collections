@@ -12,7 +12,7 @@ import PriceShowcase from "../components/PriceShowcase/PriceShowcase";
 import WhyChooseUs from "../components/WhyChooseUs/WhyChooseUs";
 import Testimonials from "../components/Testimonials/Testimonials";
 import Newsletter from "../components/Newsletter/Newsletter";
-import NewArrivals from "../components/NewArrivals/NewArrivals";
+import CategoryNewArrivals from "../components/NewArrivals/CategoryNewArrivals";
 import Faq from "../components/Faq/Faq";
 import { getSiteSettings } from "../services/settingsService";
 
@@ -75,7 +75,7 @@ function Home() {
       <TrendingSection />
       <SizeShowcase />
       <PriceShowcase />
-      <NewArrivals />
+      <CategoryNewArrivals />
       <WhyChooseUs />
       <Testimonials />
       <Faq />

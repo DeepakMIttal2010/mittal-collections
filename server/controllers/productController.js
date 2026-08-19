@@ -1,4 +1,5 @@
 import Product from "../models/Product.js";
+import Category from "../models/Category.js";
 import Order from "../models/Order.js";
 import OfflineSale from "../models/OfflineSale.js";
 import StockAlert from "../models/StockAlert.js";
@@ -562,6 +563,67 @@ export const getNewArrivalProducts = async (req, res) => {
     res.status(200).json({
       success: true,
       products,
+    });
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};
+
+// ============================
+// GET NEW ARRIVALS BY CATEGORY (Public) — one "New Arrivals" section per
+// admin-opted-in category, each showing only that category's newest
+// products. Powers the homepage's category-wise New Arrivals sections
+// (replaces the old single site-wide section).
+// ============================
+export const getNewArrivalsByCategory = async (req, res) => {
+  try {
+    const perCategoryLimit = Math.max(
+      parseInt(req.query.limit, 10) || 8,
+      1,
+    );
+
+    const categories = await Category.find({
+      isActive: true,
+      showInHomeNewArrivals: true,
+    }).sort({ displayOrder: 1, name: 1 });
+
+    const sections = await Promise.all(
+      categories.map(async (category) => {
+        const products = await Product.find({
+          isActive: true,
+          category: category._id,
+          showInNewArrivals: { $ne: false },
+          visibility: { $ne: "offline" },
+          $or: [{ stock: { $gt: 0 } }, { willRestock: { $ne: false } }],
+        })
+          .select(COST_FIELDS)
+          .populate("category", "name slug image")
+          .populate("subcategory", "name slug")
+          .sort({ createdAt: -1 })
+          .limit(perCategoryLimit);
+
+        return {
+          category: {
+            _id: category._id,
+            name: category.name,
+            slug: category.slug,
+          },
+          products,
+        };
+      }),
+    );
+
+    res.status(200).json({
+      success: true,
+      // A category with zero currently-qualifying products would just be
+      // an empty heading — skip it rather than showing nothing under a
+      // section title.
+      sections: sections.filter((section) => section.products.length > 0),
     });
   } catch (error) {
     console.error(error);

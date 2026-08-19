@@ -22,6 +22,7 @@ const Addresses = lazy(() => import("../pages/Addresses"));
 const AddressForm = lazy(() => import("../pages/AddressForm"));
 const ProductDetails = lazy(() => import("../pages/ProductDetails"));
 const TrendingPage = lazy(() => import("../pages/TrendingPage"));
+const NewArrivalsPage = lazy(() => import("../pages/NewArrivalsPage"));
 const PriceRangePage = lazy(() => import("../pages/PriceRangePage"));
 const SearchResults = lazy(() => import("../pages/SearchResults"));
 const CategoryPage = lazy(() => import("../pages/CategoryPage"));
@@ -53,6 +54,9 @@ const AdminBulkImport = lazy(() => import("../pages/admin/AdminBulkImport"));
 const AdminCategories = lazy(() => import("../pages/admin/AdminCategories"));
 const AddCategory = lazy(() => import("../pages/admin/AddCategory"));
 const EditCategory = lazy(() => import("../pages/admin/EditCategory"));
+const AdminNewArrivalsSections = lazy(
+  () => import("../pages/admin/AdminNewArrivalsSections"),
+);
 
 const AdminSubcategories = lazy(
   () => import("../pages/admin/AdminSubcategories"),
@@ -167,6 +171,7 @@ function AppRoutes() {
           {/* Product Details */}
           <Route path="/product/:id/:slug?" element={<ProductDetails />} />
           <Route path="/trending" element={<TrendingPage />} />
+          <Route path="/new-arrivals" element={<NewArrivalsPage />} />
           <Route path="/price/:maxPrice" element={<PriceRangePage />} />
           <Route path="/search" element={<SearchResults />} />
           <Route path="/category/:categorySlug" element={<CategoryPage />} />
@@ -197,6 +202,10 @@ function AppRoutes() {
           <Route path="products/edit/:id" element={<EditProduct />} />
           <Route path="products/bulk-import" element={<AdminBulkImport />} />
           <Route path="categories" element={<AdminCategories />} />
+          <Route
+            path="new-arrivals"
+            element={<AdminNewArrivalsSections />}
+          />
           <Route path="subcategories" element={<AdminSubcategories />} />
           <Route path="testimonials" element={<AdminTestimonials />} />
           <Route path="reviews" element={<AdminReviews />} />

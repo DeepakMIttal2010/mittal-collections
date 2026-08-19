@@ -12,6 +12,7 @@ import {
   decodeProductNumberController,
   getTrendingProducts,
   getNewArrivalProducts,
+  getNewArrivalsByCategory,
   getBestSellers,
   getSearchSuggestions,
   getProductById,
@@ -29,6 +30,7 @@ const router = express.Router();
 router.get("/", getProducts);
 router.get("/trending", getTrendingProducts);
 router.get("/new-arrivals", getNewArrivalProducts);
+router.get("/new-arrivals-by-category", getNewArrivalsByCategory);
 router.get("/best-sellers", getBestSellers);
 router.get("/suggestions", getSearchSuggestions);
 
