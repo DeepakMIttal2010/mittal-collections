@@ -489,8 +489,8 @@ function ProductDetails() {
         title={product.name}
         description={
           product.description
-            ? product.description.slice(0, 160)
-            : `Buy ${product.name} at Mittal Collections`
+            ? `Buy online in Ghaziabad - ${product.description}`.slice(0, 160)
+            : `Buy ${product.name} online in Ghaziabad at Mittal Collections`
         }
         image={imgUrl(product.image)}
         url={shareUrl}
