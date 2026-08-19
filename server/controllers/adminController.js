@@ -70,6 +70,10 @@ export const getDashboardData = async (req, res) => {
     const totalUsers = await User.countDocuments();
 
     const salesAgg = await Order.aggregate([
+      // A cancelled order never earned any money — matches the same
+      // exclusion already used for the Reports page's revenue figure
+      // (see revenueOrdersFilter below), just not previously applied here.
+      { $match: { orderStatus: { $ne: "Cancelled" } } },
       { $group: { _id: null, totalSales: { $sum: "$totalPrice" } } },
     ]);
 
