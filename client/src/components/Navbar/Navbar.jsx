@@ -1,5 +1,5 @@
 import { NavLink } from "react-router-dom";
-import { FaBell } from "react-icons/fa";
+import { FaBell, FaFire } from "react-icons/fa";
 import MegaMenu from "../MegaMenu";
 
 // Mobile no longer gets this row at all — the "Categories" tab in
@@ -21,6 +21,16 @@ function Navbar() {
 
           {/* Dynamic categories + subcategories mega menu */}
           <MegaMenu linkClassName={linkClass} />
+
+          <NavLink
+            to="/trending"
+            className={({ isActive }) =>
+              `flex items-center gap-1.5 ${linkClass({ isActive })}`
+            }
+          >
+            <FaFire className="text-xs text-amber-500" />
+            Top Trending
+          </NavLink>
 
           <NavLink
             to="/new-arrivals"

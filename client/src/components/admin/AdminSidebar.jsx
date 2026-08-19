@@ -28,6 +28,7 @@ import {
   FaBook,
   FaChevronDown,
   FaLayerGroup,
+  FaFire,
 } from "react-icons/fa";
 
 import { logoutAdmin, getCurrentAdminUser } from "../../services/authService";
@@ -76,6 +77,7 @@ const NAV_GROUPS = [
     label: "Content & Marketing",
     items: [
       { to: "/admin/banners", icon: FaImages, label: "Home Banners" },
+      { to: "/admin/trending", icon: FaFire, label: "Top Trending by Category" },
       { to: "/admin/new-arrivals", icon: FaLayerGroup, label: "New Arrivals by Category" },
       { to: "/admin/price-ranges", icon: FaTag, label: "Shop by Price" },
       { to: "/admin/pages", icon: FaFileAlt, label: "Site Content" },

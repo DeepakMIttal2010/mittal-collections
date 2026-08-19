@@ -57,6 +57,9 @@ const EditCategory = lazy(() => import("../pages/admin/EditCategory"));
 const AdminNewArrivalsSections = lazy(
   () => import("../pages/admin/AdminNewArrivalsSections"),
 );
+const AdminTrendingByCategory = lazy(
+  () => import("../pages/admin/AdminTrendingByCategory"),
+);
 
 const AdminSubcategories = lazy(
   () => import("../pages/admin/AdminSubcategories"),
@@ -205,6 +208,10 @@ function AppRoutes() {
           <Route
             path="new-arrivals"
             element={<AdminNewArrivalsSections />}
+          />
+          <Route
+            path="trending"
+            element={<AdminTrendingByCategory />}
           />
           <Route path="subcategories" element={<AdminSubcategories />} />
           <Route path="testimonials" element={<AdminTestimonials />} />

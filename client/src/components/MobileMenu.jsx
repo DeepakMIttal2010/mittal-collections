@@ -1,6 +1,12 @@
 import { useEffect, useState } from "react";
 import { NavLink } from "react-router-dom";
-import { FaTimes, FaChevronDown, FaChevronUp, FaBell } from "react-icons/fa";
+import {
+  FaTimes,
+  FaChevronDown,
+  FaChevronUp,
+  FaBell,
+  FaFire,
+} from "react-icons/fa";
 
 import { getCategories } from "../services/categoryService";
 import { getSubcategories } from "../services/subcategoryService";
@@ -156,6 +162,15 @@ function MobileMenu({ isOpen, onClose }) {
               </div>
             );
           })}
+
+          <NavLink
+            to="/trending"
+            onClick={close}
+            className="flex items-center gap-2 px-5 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-amber-600 border-t border-slate-100"
+          >
+            <FaFire className="text-amber-500" />
+            Top Trending
+          </NavLink>
 
           <NavLink
             to="/new-arrivals"

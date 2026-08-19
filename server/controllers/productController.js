@@ -1,5 +1,6 @@
 import Product from "../models/Product.js";
 import NewArrivalsSection from "../models/NewArrivalsSection.js";
+import TrendingSection from "../models/TrendingSection.js";
 import Order from "../models/Order.js";
 import OfflineSale from "../models/OfflineSale.js";
 import StockAlert from "../models/StockAlert.js";
@@ -525,6 +526,75 @@ export const getTrendingProducts = async (req, res) => {
     res.status(200).json({
       success: true,
       products,
+      lastUpdated,
+    });
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};
+
+// ============================
+// GET TRENDING PRODUCTS BY CATEGORY (Public) — which categories get a
+// "Top Trending" section, and in what order, comes from the admin-curated
+// TrendingSection list (mirrors NewArrivalsSection). Which products show
+// inside each section still comes from the existing per-product
+// isTrending/trendingRank fields set on the product's own Edit page.
+// ============================
+export const getTrendingProductsByCategory = async (req, res) => {
+  try {
+    const perCategoryLimit = Math.max(parseInt(req.query.limit, 10) || 10, 1);
+
+    const configuredSections = await TrendingSection.find({ isActive: true })
+      .populate("category", "name slug isActive")
+      .sort({ displayOrder: 1 });
+
+    const sections = await Promise.all(
+      configuredSections
+        .filter((section) => section.category?.isActive)
+        .map(async (section) => {
+          const products = await Product.find({
+            isActive: true,
+            category: section.category._id,
+            isTrending: true,
+            visibility: { $ne: "offline" },
+            $or: [{ stock: { $gt: 0 } }, { willRestock: { $ne: false } }],
+          })
+            .select(COST_FIELDS)
+            .populate("category", "name slug image")
+            .populate("subcategory", "name slug")
+            .sort({ trendingRank: 1, updatedAt: -1 })
+            .limit(perCategoryLimit);
+
+          return {
+            category: {
+              _id: section.category._id,
+              name: section.category.name,
+              slug: section.category.slug,
+            },
+            products,
+          };
+        }),
+    );
+
+    const populatedSections = sections.filter((s) => s.products.length > 0);
+
+    const allTrendingProducts = populatedSections.flatMap((s) => s.products);
+    const lastUpdated = allTrendingProducts.length
+      ? allTrendingProducts.reduce(
+          (latest, product) =>
+            product.updatedAt > latest ? product.updatedAt : latest,
+          allTrendingProducts[0].updatedAt,
+        )
+      : null;
+
+    res.status(200).json({
+      success: true,
+      sections: populatedSections,
       lastUpdated,
     });
   } catch (error) {

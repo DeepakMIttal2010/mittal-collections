@@ -88,6 +88,37 @@ export const getTrendingProducts = async (limit = 10) => {
 };
 
 // ==========================
+// Get Trending Products By Category
+// ==========================
+export const getTrendingProductsByCategory = async (limit = 10) => {
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/products/trending-by-category?limit=${limit}`,
+    );
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch trending products by category");
+    }
+
+    const data = await response.json();
+
+    return {
+      success: data.success,
+      sections: data.sections || [],
+      lastUpdated: data.lastUpdated || null,
+    };
+  } catch (error) {
+    console.error("Get Trending Products By Category Error:", error);
+
+    return {
+      success: false,
+      sections: [],
+      lastUpdated: null,
+    };
+  }
+};
+
+// ==========================
 // Get New Arrival Products
 // ==========================
 export const getNewArrivalProducts = async (limit = 8) => {
