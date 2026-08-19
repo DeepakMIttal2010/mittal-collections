@@ -198,11 +198,11 @@ function Footer() {
             </div>
           </div>
 
-          {isGhaziabad && (
-            <>
-              <hr className="border-slate-700 my-10" />
+          <hr className="border-slate-700 my-10" />
 
-              <div id="delivery-areas" className="mb-10 scroll-mt-6">
+          <div id="delivery-areas" className="mb-10 scroll-mt-6">
+            {isGhaziabad ? (
+              <>
                 <h3 className="text-amber-500 font-semibold mb-1">
                   We Deliver To (Ghaziabad)
                 </h3>
@@ -219,9 +219,20 @@ function Footer() {
                     </span>
                   ))}
                 </div>
-              </div>
-            </>
-          )}
+              </>
+            ) : (
+              <>
+                <h3 className="text-amber-500 font-semibold mb-1">
+                  We Deliver Pan-India
+                </h3>
+                <p className="text-sm text-slate-400">
+                  🚚 Usually delivered in 3-7 business days — same-day
+                  delivery within 24 Hours in Ghaziabad (Vasundhara, Vaishali,
+                  Indirapuram & nearby).
+                </p>
+              </>
+            )}
+          </div>
 
           <hr className="border-slate-700 my-10" />
 
