@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { FaBell } from "react-icons/fa";
 
 import { useAuth } from "../context/AuthContext";
@@ -60,6 +60,14 @@ function Notifications() {
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-8">
+      <div className="text-sm mb-2">
+        <Link to="/account" className="text-blue-700 hover:underline">
+          Your Account
+        </Link>
+        <span className="text-slate-400 mx-2">›</span>
+        <span className="text-amber-600 font-medium">Alerts</span>
+      </div>
+
       <div className="flex items-center justify-between flex-wrap gap-3 mb-6">
         <h1 className="text-2xl font-bold text-slate-900">Notifications</h1>
 

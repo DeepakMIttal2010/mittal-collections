@@ -72,7 +72,6 @@ function Account() {
   const [loyaltyPoints, setLoyaltyPoints] = useState(user?.loyaltyPoints || 0);
   const [referralCode, setReferralCode] = useState(user?.referralCode || "");
   const [unreadCount, setUnreadCount] = useState(0);
-  const [latestNotification, setLatestNotification] = useState(null);
   const [rewards, setRewards] = useState({
     loyalty: {
       earnRate: 20,
@@ -103,10 +102,7 @@ function Account() {
     });
 
     getMyNotifications().then((response) => {
-      if (response.success) {
-        setUnreadCount(response.unreadCount);
-        setLatestNotification(response.notifications[0] || null);
-      }
+      if (response.success) setUnreadCount(response.unreadCount);
     });
   }, [isLoggedIn, navigate]);
 
@@ -121,36 +117,29 @@ function Account() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-10">
-      <h1 className="text-3xl font-bold text-slate-900 mb-1">Your Account</h1>
-      <p className="text-slate-500 mb-6">Hi, {user?.name}</p>
+      <div className="flex items-start justify-between gap-4 mb-6">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900 mb-1">
+            Your Account
+          </h1>
+          <p className="text-slate-500">Hi, {user?.name}</p>
+        </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
         <Link
           to="/notifications"
-          className="bg-rose-50 border border-rose-200 rounded-xl p-5 flex items-center gap-4 hover:border-rose-400 hover:shadow-md transition-all"
+          title="Alerts"
+          className="relative shrink-0 w-11 h-11 rounded-full bg-white border border-slate-200 text-slate-600 hover:text-rose-600 hover:border-rose-300 flex items-center justify-center text-lg transition-colors"
         >
-          <span className="relative w-12 h-12 shrink-0 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center text-lg">
-            <FaBell />
-            {unreadCount > 0 && (
-              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
-                {unreadCount > 9 ? "9+" : unreadCount}
-              </span>
-            )}
-          </span>
-          <span>
-            <span className="block font-semibold text-slate-800">
-              {unreadCount > 0
-                ? `${unreadCount} Unread Alert${unreadCount > 1 ? "s" : ""}`
-                : "Alerts"}
+          <FaBell />
+          {unreadCount > 0 && (
+            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
+              {unreadCount > 9 ? "9+" : unreadCount}
             </span>
-            <span className="block text-sm text-slate-500 mt-0.5">
-              {latestNotification
-                ? latestNotification.title
-                : "Order updates, back-in-stock and other notifications"}
-            </span>
-          </span>
+          )}
         </Link>
+      </div>
 
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-5">
           <Link to="/loyalty-history" className="flex items-center gap-4 mb-3">
             <span className="w-12 h-12 shrink-0 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center text-lg">
