@@ -215,10 +215,13 @@ export const searchProducts = async (
 // ==========================
 // Search Suggestions (autocomplete)
 // ==========================
-export const getSearchSuggestions = async (query) => {
+export const getSearchSuggestions = async (query, category = "") => {
   try {
+    const params = new URLSearchParams({ q: query });
+    if (category) params.set("category", category);
+
     const response = await fetch(
-      `${API_BASE_URL}/products/suggestions?q=${encodeURIComponent(query)}`,
+      `${API_BASE_URL}/products/suggestions?${params.toString()}`,
     );
 
     if (!response.ok) {

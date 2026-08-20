@@ -244,17 +244,25 @@ export const getProducts = async (req, res) => {
 // ============================
 export const getSearchSuggestions = async (req, res) => {
   try {
-    const { q } = req.query;
+    const { q, category } = req.query;
 
     if (!q || !q.trim()) {
       return res.status(200).json({ success: true, products: [] });
     }
 
-    const products = await Product.find({
+    const filter = {
       isActive: true,
       visibility: { $ne: "offline" },
       $or: [{ stock: { $gt: 0 } }, { willRestock: { $ne: false } }],
-    }).select("name slug price image");
+    };
+
+    if (category && category.trim()) {
+      filter.category = category.trim();
+    }
+
+    const products = await Product.find(filter).select(
+      "name slug price image",
+    );
 
     const ranked = rankProducts(q.trim(), products).slice(0, 6);
 

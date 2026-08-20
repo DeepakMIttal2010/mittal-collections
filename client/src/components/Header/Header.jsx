@@ -265,12 +265,12 @@ function Header() {
     }
 
     const timeout = setTimeout(async () => {
-      const response = await getSearchSuggestions(trimmed);
+      const response = await getSearchSuggestions(trimmed, searchCategory);
       if (response.success) setSuggestions(response.products);
     }, 250);
 
     return () => clearTimeout(timeout);
-  }, [query]);
+  }, [query, searchCategory]);
 
   const handleSuggestionClick = (product) => {
     setShowSuggestions(false);
