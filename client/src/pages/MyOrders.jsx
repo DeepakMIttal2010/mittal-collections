@@ -129,6 +129,7 @@ function OrderCard({ order, onBuyAgain }) {
                 <div className="min-w-0">
                   <p className="text-sm text-slate-800 line-clamp-2">
                     {item.name}
+                    {item.size ? ` (Size: ${item.size})` : ""}
                   </p>
                   <p className="text-xs text-slate-500 mb-1">
                     Qty {item.quantity} · ₹{item.price}
@@ -362,6 +363,7 @@ function MyOrders() {
                       <div className="min-w-0">
                         <p className="font-medium text-slate-800 truncate">
                           {item.name}
+                          {item.size ? ` (Size: ${item.size})` : ""}
                         </p>
                         <p className="text-sm text-slate-500">
                           ₹{item.price}

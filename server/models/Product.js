@@ -83,6 +83,34 @@ const productSchema = new mongoose.Schema(
       min: 0,
     },
 
+    // Optional size variants (e.g. Curtains sold as 7x4, 9x4 — same
+    // fabric/quality, different price and stock per size). When present,
+    // the top-level price/oldPrice mirror the FIRST variant (so the
+    // product page has a sane default before the customer picks a size,
+    // and every listing/search/sitemap that only knows about the
+    // top-level fields still shows a sensible price) and top-level stock
+    // is kept as the SUM of every variant's stock (so existing
+    // in-stock/out-of-stock checks elsewhere keep working without
+    // needing to know about variants at all). Both are recomputed
+    // server-side in addProduct/updateProduct whenever variants change —
+    // never trust a client-sent top-level price/stock over the variants
+    // themselves once variants exist.
+    variants: {
+      type: [
+        {
+          size: { type: String, required: true, trim: true },
+          price: { type: Number, required: true, min: 0 },
+          oldPrice: { type: Number, default: 0 },
+          stock: { type: Number, default: 0, min: 0 },
+          // Internal cost accounting, same admin-only visibility as the
+          // top-level purchasePrice below — different sizes of the same
+          // product can genuinely cost different amounts from the supplier.
+          purchasePrice: { type: Number, default: 0, min: 0 },
+        },
+      ],
+      default: [],
+    },
+
     // Optional specs — shown on the product page only when filled in,
     // never required so admins aren't blocked adding a product quickly.
     fabric: { type: String, default: "", trim: true },

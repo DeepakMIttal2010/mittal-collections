@@ -56,21 +56,31 @@ export function CartProvider({ children }) {
   const openCart = () => setIsCartOpen(true);
   const closeCart = () => setIsCartOpen(false);
 
-  const addToCart = (product, qty = 1) => {
-    const existingItem = cartItems.find((item) => item._id === product._id);
+  // variant, when given, is one entry from product.variants (a size with
+  // its own price/stock) — see ProductDetails.jsx's size selector. Each
+  // size becomes its own cart line (distinct _id) since price/stock
+  // differ per size, but the real product ObjectId is kept as productId
+  // so checkout still submits a valid order item.
+  const addToCart = (product, qty = 1, variant = null) => {
+    const lineId = variant ? `${product._id}::${variant.size}` : product._id;
+    const price = variant ? variant.price : product.price;
+    const oldPrice = variant ? variant.oldPrice : product.oldPrice;
+    const stock = variant ? variant.stock : product.stock;
+
+    const existingItem = cartItems.find((item) => item._id === lineId);
 
     if (existingItem) {
-      const newQuantity = Math.min(existingItem.quantity + qty, product.stock);
+      const newQuantity = Math.min(existingItem.quantity + qty, stock);
 
       if (newQuantity <= existingItem.quantity) {
-        toast.error(`Only ${product.stock} in stock`);
+        toast.error(`Only ${stock} in stock`);
         openCart();
         return;
       }
 
       setCartItems(
         cartItems.map((item) =>
-          item._id === product._id
+          item._id === lineId
             ? {
                 ...item,
                 quantity: newQuantity,
@@ -81,7 +91,7 @@ export function CartProvider({ children }) {
 
       toast.info("Product quantity updated");
     } else {
-      if (product.stock <= 0) {
+      if (stock <= 0) {
         toast.error("Out of stock");
         return;
       }
@@ -90,7 +100,13 @@ export function CartProvider({ children }) {
         ...cartItems,
         {
           ...product,
-          quantity: Math.min(qty, product.stock),
+          _id: lineId,
+          productId: product._id,
+          price,
+          oldPrice,
+          stock,
+          selectedSize: variant?.size || "",
+          quantity: Math.min(qty, stock),
         },
       ]);
 

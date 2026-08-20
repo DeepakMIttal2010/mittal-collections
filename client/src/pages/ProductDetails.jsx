@@ -63,6 +63,7 @@ function ProductDetails() {
   const { t } = useLanguage();
 
   const [product, setProduct] = useState(null);
+  const [selectedVariant, setSelectedVariant] = useState(null);
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
   const [zoomStyle, setZoomStyle] = useState({});
@@ -143,6 +144,10 @@ function ProductDetails() {
 
       if (response.success) {
         setProduct(response.product);
+        // Default to the first size, matching what the top-level
+        // price/stock already reflect (see Product.js's variants field).
+        setSelectedVariant(response.product.variants?.[0] || null);
+        setQuantity(1);
         addRecentlyViewed(response.product._id);
 
         getProductViewCount(response.product._id).then((viewRes) => {
@@ -275,11 +280,11 @@ function ProductDetails() {
   };
 
   const handleAddToCart = () => {
-    addToCart(product, quantity);
+    addToCart(product, quantity, selectedVariant);
   };
 
   const handleBuyNow = () => {
-    addToCart(product, quantity);
+    addToCart(product, quantity, selectedVariant);
     navigate(isLoggedIn ? "/checkout" : "/login?redirect=/checkout");
   };
 
@@ -356,8 +361,20 @@ function ProductDetails() {
   const shareUrl = `${window.location.origin}${productUrl(product)}`;
   const shareText = product.name;
   const displayDescription = t(product.description, product.descriptionHi);
+
+  // Size variants (e.g. Curtains sold as 7x4/9x4) each carry their own
+  // price/MRP/stock — once a size is selected these override the
+  // top-level product fields, which otherwise just mirror the first
+  // variant as a sane pre-selection default (see Product.js).
+  const hasVariants = product.variants?.length > 0;
+  const displayPrice = selectedVariant ? selectedVariant.price : product.price;
+  const displayOldPrice = selectedVariant
+    ? selectedVariant.oldPrice
+    : product.oldPrice;
+  const displayStock = selectedVariant ? selectedVariant.stock : product.stock;
+
   const pointsPreview = earnRate
-    ? Math.floor((product.price * quantity) / earnRate)
+    ? Math.floor((displayPrice * quantity) / earnRate)
     : 0;
 
   const handleNotifySubmit = async (e) => {
@@ -403,9 +420,9 @@ function ProductDetails() {
   ];
 
   const discount =
-    product.oldPrice > product.price
+    displayOldPrice > displayPrice
       ? Math.round(
-          ((product.oldPrice - product.price) / product.oldPrice) * 100,
+          ((displayOldPrice - displayPrice) / displayOldPrice) * 100,
         )
       : 0;
 
@@ -651,14 +668,47 @@ function ProductDetails() {
 
           <div className="flex items-center gap-3 mb-4">
             <span className="text-3xl font-bold text-slate-900">
-              ₹{product.price}
+              ₹{displayPrice}
             </span>
-            {product.oldPrice > product.price && (
+            {displayOldPrice > displayPrice && (
               <span className="text-lg text-slate-400 line-through">
-                ₹{product.oldPrice}
+                ₹{displayOldPrice}
               </span>
             )}
           </div>
+
+          {hasVariants && (
+            <div className="mb-5">
+              <p className="text-sm font-medium text-slate-700 mb-2">
+                {t("Size", "साइज़")}:{" "}
+                <span className="font-semibold text-slate-900">
+                  {selectedVariant?.size}
+                </span>
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {product.variants.map((variant) => (
+                  <button
+                    key={variant.size}
+                    type="button"
+                    onClick={() => {
+                      setSelectedVariant(variant);
+                      setQuantity(1);
+                    }}
+                    disabled={variant.stock <= 0}
+                    className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                      selectedVariant?.size === variant.size
+                        ? "border-blue-700 bg-blue-50 text-blue-700"
+                        : variant.stock <= 0
+                          ? "border-slate-200 text-slate-300 cursor-not-allowed line-through"
+                          : "border-slate-300 text-slate-700 hover:border-blue-400"
+                    }`}
+                  >
+                    {variant.size}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {pointsPreview > 0 && (
             <p className="flex items-center gap-1.5 text-sm text-amber-700 mb-4">
@@ -670,9 +720,9 @@ function ProductDetails() {
           <p
             className={`text-sm font-semibold ${
               viewCount > 0 ? "mb-2" : "mb-4"
-            } ${getStockStatus(product.stock).className}`}
+            } ${getStockStatus(displayStock).className}`}
           >
-            {getStockStatus(product.stock).label}
+            {getStockStatus(displayStock).label}
           </p>
 
           {viewCount > 0 && (
@@ -692,7 +742,7 @@ function ProductDetails() {
             </div>
           )}
 
-          {product.stock <= 0 &&
+          {displayStock <= 0 &&
             (notifySubmitted ? (
               <p className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-4 py-3 mb-6">
                 We&apos;ll email you when this is back in stock.
@@ -778,7 +828,7 @@ function ProductDetails() {
               <button
                 type="button"
                 onClick={() =>
-                  setQuantity((q) => Math.min(q + 1, product.stock || q + 1))
+                  setQuantity((q) => Math.min(q + 1, displayStock || q + 1))
                 }
                 className="px-3 py-1.5 text-slate-600 hover:bg-slate-50"
               >
@@ -790,11 +840,11 @@ function ProductDetails() {
           <div className="flex gap-3 mb-3">
             <button
               onClick={handleAddToCart}
-              disabled={product.stock <= 0}
+              disabled={displayStock <= 0}
               className="flex-1 flex items-center justify-center gap-2 bg-blue-900 hover:bg-blue-950 text-white font-semibold rounded-full px-6 py-3 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <FaShoppingCart />
-              Add to Cart — ₹{product.price * quantity}
+              Add to Cart — ₹{displayPrice * quantity}
             </button>
 
             <button
@@ -812,14 +862,14 @@ function ProductDetails() {
 
           <button
             onClick={handleBuyNow}
-            disabled={product.stock <= 0}
+            disabled={displayStock <= 0}
             className="w-full border-2 border-blue-900 text-blue-900 font-semibold rounded-full px-6 py-3 hover:bg-blue-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Buy it now
           </button>
 
           {whatsappPhone &&
-            (product.stock <= 0 ? (
+            (displayStock <= 0 ? (
               <button
                 type="button"
                 disabled
@@ -831,7 +881,7 @@ function ProductDetails() {
             ) : (
               <a
                 href={`https://wa.me/${toWhatsAppNumber(whatsappPhone)}?text=${encodeURIComponent(
-                  `Hi, I want to order this product:\n${product.name} (₹${product.price})\n${shareUrl}`,
+                  `Hi, I want to order this product:\n${product.name}${selectedVariant ? ` - Size: ${selectedVariant.size}` : ""} (₹${displayPrice})\n${shareUrl}`,
                 )}`}
                 target="_blank"
                 rel="noopener noreferrer"

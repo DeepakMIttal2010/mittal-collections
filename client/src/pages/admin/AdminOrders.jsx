@@ -285,6 +285,7 @@ function AdminOrders() {
                                 className="text-slate-800 hover:text-blue-600 hover:underline"
                               >
                                 {item.name}
+                                {item.size ? ` (Size: ${item.size})` : ""}
                               </Link>
                               <p className="text-slate-500 text-xs">
                                 Qty: {item.quantity} × ₹{item.price}

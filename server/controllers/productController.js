@@ -17,8 +17,11 @@ import {
 } from "../utils/costCipher.js";
 import { deleteCloudinaryAssetsByUrl } from "../utils/cloudinaryCleanup.js";
 
-// Never sent by a public route — cost data is admin-only.
-const COST_FIELDS = "-purchasePrice -purchaseDate";
+// Never sent by a public route — cost data is admin-only. The nested
+// variants.purchasePrice needs its own dotted exclusion; a bare
+// "-purchasePrice" only strips the top-level field, not the same-named
+// field inside each variants[] subdocument.
+const COST_FIELDS = "-purchasePrice -purchaseDate -variants.purchasePrice";
 
 const generateSlug = (name) =>
   name
@@ -26,6 +29,30 @@ const generateSlug = (name) =>
     .trim()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)/g, "");
+
+// Size variants (e.g. Curtains sold as 7x4/9x4, same fabric/quality, each
+// with its own price/MRP/stock) arrive as a JSON string in the multipart
+// form, same pattern as existingImages/existingVideos below.
+const parseVariants = (raw) => {
+  if (!raw) return [];
+
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+
+    return parsed
+      .filter((v) => v && String(v.size || "").trim() && v.price !== "" && v.price !== undefined)
+      .map((v) => ({
+        size: String(v.size).trim(),
+        price: Number(v.price) || 0,
+        oldPrice: Number(v.oldPrice) || 0,
+        stock: Math.max(Number(v.stock) || 0, 0),
+        purchasePrice: Math.max(Number(v.purchasePrice) || 0, 0),
+      }));
+  } catch {
+    return [];
+  }
+};
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -435,6 +462,7 @@ export const duplicateProduct = async (req, res) => {
       category: source.category,
       subcategory: source.subcategory,
       stock: source.stock,
+      variants: source.variants,
 
       fabric: source.fabric,
       size: source.size,
@@ -866,17 +894,27 @@ export const addProduct = async (req, res) => {
       images.length - 1,
     );
 
+    const variants = parseVariants(req.body.variants);
+    const hasVariants = variants.length > 0;
+
     const product = await Product.create({
       name,
       slug: generateSlug(name),
       description,
       nameHi: nameHi || "",
       descriptionHi: descriptionHi || "",
-      price,
-      oldPrice,
+      // Once variants exist, the top-level price/oldPrice/stock are
+      // derived from them (first variant's price, summed stock) rather
+      // than trusting whatever was separately sent for those fields —
+      // see the variants schema comment in Product.js.
+      price: hasVariants ? variants[0].price : price,
+      oldPrice: hasVariants ? variants[0].oldPrice : oldPrice,
       category,
       subcategory: subcategory || null,
-      stock,
+      stock: hasVariants
+        ? variants.reduce((sum, v) => sum + v.stock, 0)
+        : stock,
+      variants,
       featured: featured === "true",
       isActive: isActive === "true",
       isTrending: isTrending === "true",
@@ -903,7 +941,7 @@ export const addProduct = async (req, res) => {
       restockAlertEnabled: restockAlertEnabled === "true",
       restockAlertQuantity: restockAlertQuantity || 0,
 
-      purchasePrice: purchasePrice || 0,
+      purchasePrice: hasVariants ? variants[0].purchasePrice : purchasePrice || 0,
       purchaseDate: purchaseDate || Date.now(),
 
       image: images[mainIndex],
@@ -947,11 +985,19 @@ export const updateProduct = async (req, res) => {
     product.description = req.body.description;
     product.nameHi = req.body.nameHi || "";
     product.descriptionHi = req.body.descriptionHi || "";
-    product.price = req.body.price;
-    product.oldPrice = req.body.oldPrice;
+    const variants = parseVariants(req.body.variants);
+    const hasVariants = variants.length > 0;
+
+    // Same rule as addProduct — once variants exist they're the source of
+    // truth for price/oldPrice/stock, not whatever was separately sent.
+    product.price = hasVariants ? variants[0].price : req.body.price;
+    product.oldPrice = hasVariants ? variants[0].oldPrice : req.body.oldPrice;
     product.category = req.body.category;
     product.subcategory = req.body.subcategory || null;
-    product.stock = req.body.stock;
+    product.stock = hasVariants
+      ? variants.reduce((sum, v) => sum + v.stock, 0)
+      : req.body.stock;
+    product.variants = variants;
 
     product.featured = req.body.featured === "true";
     product.isActive = req.body.isActive === "true";
@@ -989,7 +1035,9 @@ export const updateProduct = async (req, res) => {
     product.restockAlertEnabled = req.body.restockAlertEnabled === "true";
     product.restockAlertQuantity = req.body.restockAlertQuantity || 0;
 
-    product.purchasePrice = req.body.purchasePrice || 0;
+    product.purchasePrice = hasVariants
+      ? variants[0].purchasePrice
+      : req.body.purchasePrice || 0;
     if (req.body.purchaseDate) product.purchaseDate = req.body.purchaseDate;
 
     const oldImages = product.images.length

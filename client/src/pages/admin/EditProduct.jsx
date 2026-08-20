@@ -30,6 +30,27 @@ function EditProduct() {
   const [categories, setCategories] = useState([]);
   const [subcategories, setSubcategories] = useState([]);
 
+  // Size variants — see AddProduct.jsx for the same pattern.
+  const [hasVariants, setHasVariants] = useState(false);
+  const [variants, setVariants] = useState([
+    { size: "", price: "", oldPrice: "", stock: "", purchasePrice: "" },
+  ]);
+
+  const handleVariantChange = (index, field, value) => {
+    setVariants((prev) =>
+      prev.map((v, i) => (i === index ? { ...v, [field]: value } : v)),
+    );
+  };
+
+  const addVariantRow = () =>
+    setVariants((prev) => [
+      ...prev,
+      { size: "", price: "", oldPrice: "", stock: "", purchasePrice: "" },
+    ]);
+
+  const removeVariantRow = (index) =>
+    setVariants((prev) => prev.filter((_, i) => i !== index));
+
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -122,6 +143,24 @@ function EditProduct() {
       });
 
       setProductNumber(product.productNumber || "");
+
+      if (product.variants?.length > 0) {
+        setHasVariants(true);
+        setVariants(
+          product.variants.map((v) => ({
+            size: v.size || "",
+            price: v.price ?? "",
+            oldPrice: v.oldPrice ?? "",
+            stock: v.stock ?? "",
+            purchasePrice: v.purchasePrice ?? "",
+          })),
+        );
+      } else {
+        setHasVariants(false);
+        setVariants([
+          { size: "", price: "", oldPrice: "", stock: "", purchasePrice: "" },
+        ]);
+      }
 
       const images = product.images?.length
         ? product.images
@@ -217,6 +256,15 @@ function EditProduct() {
       return;
     }
 
+    const cleanVariants = hasVariants
+      ? variants.filter((v) => v.size.trim() && v.price !== "")
+      : [];
+
+    if (hasVariants && cleanVariants.length === 0) {
+      alert("Add at least one size variant with a size and price, or turn off size variants");
+      return;
+    }
+
     setSaving(true);
 
     const data = new FormData();
@@ -227,6 +275,7 @@ function EditProduct() {
       }
     });
 
+    data.append("variants", JSON.stringify(cleanVariants));
     data.append("existingImages", JSON.stringify(existingImages));
     data.append("mainImageIndex", mainImageIndex);
     newImages.forEach((file) => data.append("images", file));
@@ -314,37 +363,44 @@ function EditProduct() {
 
         <div className="form-row">
           <div className="form-group">
-            <label>Price</label>
+            <label>
+              Price{hasVariants ? " (auto, from first size below)" : ""}
+            </label>
 
             <input
               type="number"
               name="price"
               value={formData.price}
               onChange={handleChange}
+              disabled={hasVariants}
             />
           </div>
 
           <div className="form-group">
-            <label>Old Price</label>
+            <label>
+              Old Price{hasVariants ? " (auto, from first size below)" : ""}
+            </label>
 
             <input
               type="number"
               name="oldPrice"
               value={formData.oldPrice}
               onChange={handleChange}
+              disabled={hasVariants}
             />
           </div>
         </div>
 
         <div className="form-row">
           <div className="form-group">
-            <label>Stock</label>
+            <label>Stock{hasVariants ? " (auto, sum of sizes below)" : ""}</label>
 
             <input
               type="number"
               name="stock"
               value={formData.stock}
               onChange={handleChange}
+              disabled={hasVariants}
             />
           </div>
 
@@ -388,6 +444,99 @@ function EditProduct() {
             </select>
           </div>
         </div>
+
+        <div className="checkbox-row">
+          <label>
+            <input
+              type="checkbox"
+              checked={hasVariants}
+              onChange={(e) => setHasVariants(e.target.checked)}
+            />
+            This product comes in multiple sizes, each with its own price/stock (e.g. Curtains 7x4, 9x4)
+          </label>
+        </div>
+
+        {hasVariants && (
+          <div className="form-group">
+            <label>Size Variants</label>
+
+            {variants.map((variant, index) => (
+              <div
+                key={index}
+                className="form-row"
+                style={{ alignItems: "flex-end" }}
+              >
+                <div className="form-group">
+                  <label>Size</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 7x4"
+                    value={variant.size}
+                    onChange={(e) =>
+                      handleVariantChange(index, "size", e.target.value)
+                    }
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Price</label>
+                  <input
+                    type="number"
+                    value={variant.price}
+                    onChange={(e) =>
+                      handleVariantChange(index, "price", e.target.value)
+                    }
+                  />
+                </div>
+                <div className="form-group">
+                  <label>MRP</label>
+                  <input
+                    type="number"
+                    value={variant.oldPrice}
+                    onChange={(e) =>
+                      handleVariantChange(index, "oldPrice", e.target.value)
+                    }
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Stock</label>
+                  <input
+                    type="number"
+                    value={variant.stock}
+                    onChange={(e) =>
+                      handleVariantChange(index, "stock", e.target.value)
+                    }
+                  />
+                </div>
+                <div className="form-group">
+                  <label title="Internal cost, not shown to customers">
+                    Purchase Price
+                  </label>
+                  <input
+                    type="number"
+                    value={variant.purchasePrice}
+                    onChange={(e) =>
+                      handleVariantChange(index, "purchasePrice", e.target.value)
+                    }
+                  />
+                </div>
+                <div className="form-group">
+                  <button
+                    type="button"
+                    className="save-btn"
+                    onClick={() => removeVariantRow(index)}
+                    disabled={variants.length === 1}
+                  >
+                    Remove
+                  </button>
+                </div>
+              </div>
+            ))}
+
+            <button type="button" className="save-btn" onClick={addVariantRow}>
+              + Add Size
+            </button>
+          </div>
+        )}
 
         <div className="form-row">
           <div className="form-group">
@@ -750,7 +899,10 @@ function EditProduct() {
 
         <div className="form-row">
           <div className="form-group">
-            <label>Purchase Price / Cost (internal, not shown to customers)</label>
+            <label>
+              Purchase Price / Cost (internal, not shown to customers)
+              {hasVariants ? " (auto, from first size above)" : ""}
+            </label>
 
             <input
               type="number"
@@ -758,6 +910,7 @@ function EditProduct() {
               placeholder="What you paid for it"
               value={formData.purchasePrice}
               onChange={handleChange}
+              disabled={hasVariants}
               min="0"
             />
           </div>

@@ -23,6 +23,13 @@ const orderSchema = new mongoose.Schema(
         price: Number,
 
         quantity: Number,
+
+        // Which size variant was purchased, if the product has any (see
+        // Product.js's variants field) — empty for a non-variant product.
+        size: {
+          type: String,
+          default: "",
+        },
       },
     ],
 

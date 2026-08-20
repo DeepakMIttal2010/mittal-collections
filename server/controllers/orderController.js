@@ -88,27 +88,45 @@ const ORDER_STATUS_MESSAGES = {
 
 // Atomically reserve stock for every item. If any item doesn't have enough
 // stock, roll back the items already reserved and return that item's name.
+// For a variant item (item.size set), both the specific variant's stock
+// AND the top-level stock (kept as a sum-of-variants rollup, see
+// Product.js) are decremented in the same update, matched via
+// arrayFilters so a same-named size on another product can't collide.
 const reserveStock = async (orderItems) => {
   const reserved = [];
 
   for (const item of orderItems) {
-    const updated = await Product.findOneAndUpdate(
-      { _id: item.product, stock: { $gte: item.quantity } },
-      { $inc: { stock: -item.quantity } },
-      { new: true },
-    );
+    const updated = item.size
+      ? await Product.findOneAndUpdate(
+          {
+            _id: item.product,
+            stock: { $gte: item.quantity },
+            variants: {
+              $elemMatch: { size: item.size, stock: { $gte: item.quantity } },
+            },
+          },
+          { $inc: { stock: -item.quantity, "variants.$[v].stock": -item.quantity } },
+          { new: true, arrayFilters: [{ "v.size": item.size }] },
+        )
+      : await Product.findOneAndUpdate(
+          { _id: item.product, stock: { $gte: item.quantity } },
+          { $inc: { stock: -item.quantity } },
+          { new: true },
+        );
 
     if (!updated) {
       for (const r of reserved) {
-        await Product.findByIdAndUpdate(r.product, {
-          $inc: { stock: r.quantity },
-        });
+        await restoreStock([r]);
       }
 
       return { success: false, failedItemName: item.name };
     }
 
-    reserved.push({ product: item.product, quantity: item.quantity });
+    reserved.push({
+      product: item.product,
+      quantity: item.quantity,
+      size: item.size,
+    });
   }
 
   return { success: true };
@@ -116,11 +134,17 @@ const reserveStock = async (orderItems) => {
 
 export const restoreStock = async (orderItems) => {
   for (const item of orderItems) {
-    const product = await Product.findByIdAndUpdate(
-      item.product,
-      { $inc: { stock: item.quantity } },
-      { new: true },
-    );
+    const product = item.size
+      ? await Product.findOneAndUpdate(
+          { _id: item.product, "variants.size": item.size },
+          { $inc: { stock: item.quantity, "variants.$[v].stock": item.quantity } },
+          { new: true, arrayFilters: [{ "v.size": item.size }] },
+        )
+      : await Product.findByIdAndUpdate(
+          item.product,
+          { $inc: { stock: item.quantity } },
+          { new: true },
+        );
 
     const wasOutOfStock = product && product.stock - item.quantity <= 0;
 

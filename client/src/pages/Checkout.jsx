@@ -211,11 +211,12 @@ function Checkout() {
     setPlacing(true);
 
     const orderItems = cartItems.map((item) => ({
-      product: item._id,
+      product: item.productId || item._id,
       name: item.name,
       image: item.image,
       price: item.price,
       quantity: item.quantity,
+      size: item.selectedSize || "",
     }));
 
     const response = await createOrder({

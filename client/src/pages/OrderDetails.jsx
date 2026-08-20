@@ -138,6 +138,11 @@ function OrderDetails() {
                     <p className="font-medium text-slate-800 truncate">
                       {item.name}
                     </p>
+                    {item.size && (
+                      <p className="text-xs text-slate-400">
+                        Size: {item.size}
+                      </p>
+                    )}
                     <p className="text-sm text-slate-500">
                       ₹{item.price} × {item.quantity}
                     </p>

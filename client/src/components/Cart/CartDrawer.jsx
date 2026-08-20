@@ -135,6 +135,11 @@ function CartDrawer() {
                     <p className="text-sm font-medium text-slate-800 line-clamp-2">
                       {item.name}
                     </p>
+                    {item.selectedSize && (
+                      <p className="text-xs text-slate-400">
+                        Size: {item.selectedSize}
+                      </p>
+                    )}
                     <p className="text-sm text-slate-500 mt-1">
                       ₹{item.price}
                     </p>

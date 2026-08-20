@@ -89,7 +89,10 @@ function Cart() {
                 <div className="cart-info">
                   <h3>{item.name}</h3>
 
-                  <p>{item.category?.name}</p>
+                  <p>
+                    {item.category?.name}
+                    {item.selectedSize ? ` · Size: ${item.selectedSize}` : ""}
+                  </p>
 
                   <h4>₹{item.price}</h4>
                 </div>
