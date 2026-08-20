@@ -185,7 +185,7 @@ function Cart() {
             </div>
 
             <div className="summary-row">
-              <span>Shipping</span>
+              <span>Shipping*</span>
               <span>{deliveryFee === 0 ? "FREE" : `₹${deliveryFee}`}</span>
             </div>
 
@@ -205,7 +205,7 @@ function Cart() {
                       font: "inherit",
                     }}
                   >
-                    Bundle discount ({bundleInfo.discountPercent}%)
+                    Bundle discount ({bundleInfo.discountPercent}%)*
                   </button>
                   <span>-₹{bundleInfo.discountAmount}</span>
                 </div>
@@ -274,6 +274,12 @@ function Cart() {
               <span>Total</span>
               <span>₹{orderTotal}</span>
             </div>
+
+            <p style={{ fontSize: "0.7rem", color: "#94a3b8", marginTop: "8px" }}>
+              *Shipping varies by delivery address and order value.
+              {bundleInfo.discountAmount > 0 &&
+                " *Bundle discount applies to the best-matching pair only — other items aren't discounted twice."}
+            </p>
 
             {pointsPreview > 0 && (
               <p

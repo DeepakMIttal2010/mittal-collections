@@ -52,40 +52,52 @@ export const calculateBundleDiscount = async (orderItems) => {
 
   const presentCategoryIds = new Set(categoryByProductId.values());
 
-  const matchedRule = rules
+  // Discount applies only to items from the matched rule's two categories,
+  // not the whole order — an unrelated item riding along must not get
+  // discounted just because some bundle unlocked. When more than one rule
+  // matches at once (e.g. cart has Bedsheets + Cushion Covers + Doormats,
+  // and each pair has its own rule), only one rule ever applies — never
+  // stacked — but which one is picked matters: it's whichever pair yields
+  // the highest actual rupee discount, not just the highest percent (a
+  // lower % on a bigger-value pair can beat a higher % on a smaller one).
+  const eligibleSubtotalFor = (rule) => {
+    const ruleCategoryIds = new Set([
+      rule.categoryA.toString(),
+      rule.categoryB.toString(),
+    ]);
+
+    return orderItems.reduce((sum, item) => {
+      const categoryId = categoryByProductId.get(item.product.toString());
+      return categoryId && ruleCategoryIds.has(categoryId)
+        ? sum + item.price * item.quantity
+        : sum;
+    }, 0);
+  };
+
+  const bestCandidate = rules
     .filter(
       (rule) =>
         presentCategoryIds.has(rule.categoryA.toString()) &&
         presentCategoryIds.has(rule.categoryB.toString()),
     )
-    .sort((a, b) => b.discountPercent - a.discountPercent)[0];
+    .map((rule) => {
+      const eligibleSubtotal = eligibleSubtotalFor(rule);
+      return {
+        rule,
+        discountAmount: Math.round(
+          (eligibleSubtotal * rule.discountPercent) / 100,
+        ),
+      };
+    })
+    .sort((a, b) => b.discountAmount - a.discountAmount)[0];
 
-  if (!matchedRule) {
+  if (!bestCandidate) {
     return { eligible: false, discountAmount: 0 };
   }
 
-  // Discount applies only to items from the two matched categories, not
-  // the whole order — an unrelated item riding along in the same order
-  // must not get discounted just because a bundle unlocked.
-  const ruleCategoryIds = new Set([
-    matchedRule.categoryA.toString(),
-    matchedRule.categoryB.toString(),
-  ]);
-
-  const bundleEligibleSubtotal = orderItems.reduce((sum, item) => {
-    const categoryId = categoryByProductId.get(item.product.toString());
-    return categoryId && ruleCategoryIds.has(categoryId)
-      ? sum + item.price * item.quantity
-      : sum;
-  }, 0);
-
-  const discountAmount = Math.round(
-    (bundleEligibleSubtotal * matchedRule.discountPercent) / 100,
-  );
-
   return {
     eligible: true,
-    discountAmount,
-    discountPercent: matchedRule.discountPercent,
+    discountAmount: bestCandidate.discountAmount,
+    discountPercent: bestCandidate.rule.discountPercent,
   };
 };

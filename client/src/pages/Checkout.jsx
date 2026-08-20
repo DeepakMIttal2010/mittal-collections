@@ -548,7 +548,7 @@ function Checkout() {
                   onClick={() => setShowDeliveryInfo((prev) => !prev)}
                   className="text-blue-600 hover:underline"
                 >
-                  Delivery:
+                  Delivery*:
                 </button>
                 <span>{deliveryFee === 0 ? "FREE" : `₹${deliveryFee}`}</span>
               </div>
@@ -597,7 +597,7 @@ function Checkout() {
                       onClick={() => setShowBundleInfo((prev) => !prev)}
                       className="hover:underline"
                     >
-                      Bundle discount ({bundleInfo.discountPercent}%):
+                      Bundle discount ({bundleInfo.discountPercent}%)*:
                     </button>
                     <span>-₹{bundleInfo.discountAmount}</span>
                   </div>
@@ -605,6 +605,12 @@ function Checkout() {
                   {showBundleInfo && (
                     <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-xs text-green-800 space-y-1.5">
                       <p className="font-semibold">Items in this bundle</p>
+                      <p className="text-green-700">
+                        *Only the best-matching pair gets the discount —
+                        other items in your order aren&apos;t discounted
+                        twice, even if they&apos;d also qualify for a
+                        different bundle.
+                      </p>
                       {bundleInfo.eligibleItems.map((item) => (
                         <div key={item._id} className="flex justify-between">
                           <span>

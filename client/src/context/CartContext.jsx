@@ -171,17 +171,44 @@ export function CartProvider({ children }) {
     cartItems.map((item) => item.category?._id).filter(Boolean),
   );
 
-  const matchedRule = bundleRules
+  // Discount applies only to items from a matched rule's two categories,
+  // not the whole cart — an unrelated item (e.g. a towel) riding along
+  // must not get discounted just because a bundle unlocked. When more
+  // than one rule matches at once, only one is ever applied — never
+  // stacked — but it's whichever pair yields the highest actual rupee
+  // discount, not just the highest percent (mirrors the server-side
+  // calculation in bundleDiscount.js, which is what checkout charges).
+  const eligibleItemsFor = (rule) => {
+    const ruleCategoryIds = new Set([rule.categoryA?._id, rule.categoryB?._id]);
+    return cartItems.filter((item) => ruleCategoryIds.has(item.category?._id));
+  };
+
+  const bestCandidate = bundleRules
     .filter(
       (rule) =>
         presentCategoryIds.has(rule.categoryA?._id) &&
         presentCategoryIds.has(rule.categoryB?._id),
     )
-    .sort((a, b) => b.discountPercent - a.discountPercent)[0];
+    .map((rule) => {
+      const eligibleItems = eligibleItemsFor(rule);
+      const eligibleSubtotal = eligibleItems.reduce(
+        (sum, item) => sum + item.price * item.quantity,
+        0,
+      );
+      return {
+        rule,
+        eligibleItems,
+        eligibleSubtotal,
+        discountAmount: Math.round(
+          (eligibleSubtotal * rule.discountPercent) / 100,
+        ),
+      };
+    })
+    .sort((a, b) => b.discountAmount - a.discountAmount)[0];
 
   // No full match yet — find a rule that's one category away, to nudge
   // the customer toward completing it (prefer the highest-value nudge).
-  const nudgeRule = matchedRule
+  const nudgeRule = bestCandidate
     ? null
     : bundleRules
         .filter((rule) => {
@@ -197,30 +224,13 @@ export function CartProvider({ children }) {
       : nudgeRule.categoryA
     : null;
 
-  // Discount applies only to items from the two matched categories, not
-  // the whole cart — an unrelated item (e.g. a towel) riding along in the
-  // same cart must not get discounted just because a bundle unlocked.
-  const ruleCategoryIds = matchedRule
-    ? new Set([matchedRule.categoryA?._id, matchedRule.categoryB?._id])
-    : null;
-
-  const bundleEligibleItems = ruleCategoryIds
-    ? cartItems.filter((item) => ruleCategoryIds.has(item.category?._id))
-    : [];
-
-  const bundleEligibleSubtotal = bundleEligibleItems.reduce(
-    (sum, item) => sum + item.price * item.quantity,
-    0,
-  );
-
   const bundleInfo = {
-    eligible: Boolean(matchedRule),
-    discountPercent: matchedRule?.discountPercent || nudgeRule?.discountPercent || 0,
-    discountAmount: matchedRule
-      ? Math.round((bundleEligibleSubtotal * matchedRule.discountPercent) / 100)
-      : 0,
-    eligibleItems: bundleEligibleItems,
-    eligibleSubtotal: bundleEligibleSubtotal,
+    eligible: Boolean(bestCandidate),
+    discountPercent:
+      bestCandidate?.rule.discountPercent || nudgeRule?.discountPercent || 0,
+    discountAmount: bestCandidate?.discountAmount || 0,
+    eligibleItems: bestCandidate?.eligibleItems || [],
+    eligibleSubtotal: bestCandidate?.eligibleSubtotal || 0,
     missingCategoryLabel: nudgeMissingCategory?.name || null,
     missingCategorySlug: nudgeMissingCategory?.slug || null,
   };
