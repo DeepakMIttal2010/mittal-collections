@@ -8,8 +8,10 @@ import {
   FaMapMarkerAlt,
   FaBell,
   FaDownload,
+  FaChevronDown,
 } from "react-icons/fa";
 
+import { getCategories } from "../../services/categoryService";
 import { useCart } from "../../context/CartContext";
 import { useWishlist } from "../../context/WishlistContext";
 import { useAuth } from "../../context/AuthContext";
@@ -54,6 +56,12 @@ function Header() {
   const navigate = useNavigate();
 
   const [query, setQuery] = useState("");
+  const [searchCategory, setSearchCategory] = useState("");
+  const [categories, setCategories] = useState([]);
+  const [categoryMenuOpen, setCategoryMenuOpen] = useState(false);
+  const categoryMenuRef = useRef(null);
+  const [mobileCategoryMenuOpen, setMobileCategoryMenuOpen] = useState(false);
+  const mobileCategoryMenuRef = useRef(null);
   const [listening, setListening] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [showInstallHelp, setShowInstallHelp] = useState(false);
@@ -68,6 +76,51 @@ function Header() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [showNotifications, setShowNotifications] = useState(false);
   const recognitionRef = useRef(null);
+
+  useEffect(() => {
+    getCategories().then((response) => {
+      if (response.success) {
+        setCategories(
+          [...response.categories].sort((a, b) => a.name.localeCompare(b.name)),
+        );
+      }
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!categoryMenuOpen) return;
+
+    const handleClickOutside = (e) => {
+      if (
+        categoryMenuRef.current &&
+        !categoryMenuRef.current.contains(e.target)
+      ) {
+        setCategoryMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [categoryMenuOpen]);
+
+  useEffect(() => {
+    if (!mobileCategoryMenuOpen) return;
+
+    const handleClickOutside = (e) => {
+      if (
+        mobileCategoryMenuRef.current &&
+        !mobileCategoryMenuRef.current.contains(e.target)
+      ) {
+        setMobileCategoryMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [mobileCategoryMenuOpen]);
+
+  const selectedCategoryName =
+    categories.find((c) => c._id === searchCategory)?.name || "All";
 
   const loadNotifications = useCallback(async () => {
     const response = await getMyNotifications();
@@ -182,13 +235,17 @@ function Header() {
   };
 
   const goToSearch = useCallback(
-    (value) => {
+    (value, categoryId = searchCategory) => {
       const trimmed = value.trim();
       if (!trimmed) return;
       setShowSuggestions(false);
-      navigate(`/search?q=${encodeURIComponent(trimmed)}`);
+
+      const params = new URLSearchParams({ q: trimmed });
+      if (categoryId) params.set("category", categoryId);
+
+      navigate(`/search?${params.toString()}`);
     },
-    [navigate],
+    [navigate, searchCategory],
   );
 
   useEffect(() => {
@@ -378,7 +435,58 @@ function Header() {
           onSubmit={handleSearchSubmit}
           className="relative flex-1 max-w-2xl mx-auto hidden md:flex"
         >
-          <div className="w-full flex items-center border border-slate-300 rounded-full overflow-hidden pl-5 pr-1.5 py-1.5">
+          <div className="w-full flex items-center border border-slate-300 rounded-full pr-1.5 py-1.5">
+            <div className="relative shrink-0" ref={categoryMenuRef}>
+              <button
+                type="button"
+                onClick={() => setCategoryMenuOpen((prev) => !prev)}
+                aria-label="Search category"
+                aria-expanded={categoryMenuOpen}
+                className="flex items-center gap-1 h-full bg-slate-100 rounded-l-full text-xs font-medium text-slate-600 border-r border-slate-300 pl-4 pr-2.5 py-2 hover:bg-slate-200 transition-colors"
+              >
+                <span className="max-w-[70px] truncate">
+                  {selectedCategoryName}
+                </span>
+                <FaChevronDown className="text-[9px] shrink-0" />
+              </button>
+
+              {categoryMenuOpen && (
+                <div className="absolute top-full left-0 mt-1 w-52 max-h-80 overflow-y-auto bg-white border border-slate-200 rounded-lg shadow-lg z-50 py-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchCategory("");
+                      setCategoryMenuOpen(false);
+                    }}
+                    className={`w-full text-left px-4 py-2 text-sm ${
+                      searchCategory === ""
+                        ? "bg-blue-700 text-white font-semibold"
+                        : "text-slate-700 hover:bg-slate-50"
+                    }`}
+                  >
+                    All Categories
+                  </button>
+
+                  {categories.map((c) => (
+                    <button
+                      key={c._id}
+                      type="button"
+                      onClick={() => {
+                        setSearchCategory(c._id);
+                        setCategoryMenuOpen(false);
+                      }}
+                      className={`w-full text-left px-4 py-2 text-sm ${
+                        searchCategory === c._id
+                          ? "bg-blue-700 text-white font-semibold"
+                          : "text-slate-700 hover:bg-slate-50"
+                      }`}
+                    >
+                      {c.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
             <input
               type="text"
               value={query}
@@ -386,7 +494,7 @@ function Header() {
               onFocus={() => setShowSuggestions(true)}
               onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
               placeholder="Search Bedsheets, Towels, Curtains..."
-              className="flex-1 outline-none text-sm text-slate-700 placeholder:text-slate-400"
+              className="flex-1 min-w-0 outline-none text-sm text-slate-700 placeholder:text-slate-400 pl-3"
             />
             <button
               type="button"
@@ -682,7 +790,58 @@ function Header() {
 
       {/* Mobile search (shows below on small screens) */}
       <form onSubmit={handleSearchSubmit} className="relative px-4 pb-3 md:hidden">
-        <div className="flex items-center border border-slate-300 rounded-full overflow-hidden pl-4 pr-1.5 py-1.5">
+        <div className="flex items-center border border-slate-300 rounded-full pr-1.5 py-1.5">
+          <div className="relative shrink-0" ref={mobileCategoryMenuRef}>
+            <button
+              type="button"
+              onClick={() => setMobileCategoryMenuOpen((prev) => !prev)}
+              aria-label="Search category"
+              aria-expanded={mobileCategoryMenuOpen}
+              className="flex items-center gap-1 h-full bg-slate-100 rounded-l-full text-xs font-medium text-slate-600 border-r border-slate-300 pl-3 pr-1.5 py-2"
+            >
+              <span className="max-w-[52px] truncate">
+                {selectedCategoryName}
+              </span>
+              <FaChevronDown className="text-[9px] shrink-0" />
+            </button>
+
+            {mobileCategoryMenuOpen && (
+              <div className="absolute top-full left-0 mt-1 w-48 max-h-72 overflow-y-auto bg-white border border-slate-200 rounded-lg shadow-lg z-50 py-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchCategory("");
+                    setMobileCategoryMenuOpen(false);
+                  }}
+                  className={`w-full text-left px-4 py-2 text-sm ${
+                    searchCategory === ""
+                      ? "bg-blue-700 text-white font-semibold"
+                      : "text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  All Categories
+                </button>
+
+                {categories.map((c) => (
+                  <button
+                    key={c._id}
+                    type="button"
+                    onClick={() => {
+                      setSearchCategory(c._id);
+                      setMobileCategoryMenuOpen(false);
+                    }}
+                    className={`w-full text-left px-4 py-2 text-sm ${
+                      searchCategory === c._id
+                        ? "bg-blue-700 text-white font-semibold"
+                        : "text-slate-700 hover:bg-slate-50"
+                    }`}
+                  >
+                    {c.name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <input
             type="text"
             value={query}
@@ -690,7 +849,7 @@ function Header() {
             onFocus={() => setShowSuggestions(true)}
             onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
             placeholder="Search products..."
-            className="flex-1 outline-none text-sm text-slate-700 placeholder:text-slate-400"
+            className="flex-1 min-w-0 outline-none text-sm text-slate-700 placeholder:text-slate-400 pl-3"
           />
           <button
             type="button"

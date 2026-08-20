@@ -9,28 +9,36 @@ import Seo from "../components/Seo";
 function SearchResults() {
   const [searchParams] = useSearchParams();
   const query = searchParams.get("q") || "";
+  const categoryFromUrl = searchParams.get("category") || "";
 
   const [products, setProducts] = useState([]);
   const [loadedQuery, setLoadedQuery] = useState(null);
   const [categories, setCategories] = useState([]);
 
-  const [category, setCategory] = useState("");
+  const [category, setCategory] = useState(categoryFromUrl);
   const [sortBy, setSortBy] = useState("");
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
 
   useEffect(() => {
     getCategories().then((res) => {
-      if (res.success) setCategories(res.categories);
+      if (res.success) {
+        setCategories(
+          [...res.categories].sort((a, b) => a.name.localeCompare(b.name)),
+        );
+      }
     });
   }, []);
 
   useEffect(() => {
-    // Reset filters when the search term itself changes
-    setCategory("");
+    // Reset filters when the search term itself changes, except the
+    // category — the header's own "All ▾" dropdown already picked one
+    // for this exact search, so respect it instead of clearing it.
+    setCategory(categoryFromUrl);
     setSortBy("");
     setMinPrice("");
     setMaxPrice("");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query]);
 
   useEffect(() => {
