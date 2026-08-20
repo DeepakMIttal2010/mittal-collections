@@ -11,7 +11,8 @@ import ProductGridSkeleton from "../components/ProductGrid/ProductGridSkeleton";
 import Seo from "../components/Seo";
 import Breadcrumbs from "../components/Breadcrumbs";
 import { buildBreadcrumbJsonLd } from "../utils/breadcrumbJsonLd";
-import { FaRulerCombined } from "react-icons/fa";
+import { getSiteSettings } from "../services/settingsService";
+import { FaRulerCombined, FaGift } from "react-icons/fa";
 
 // Sizing help callout shown on the matching category's product listing —
 // curtains gets the interactive calculator (real measurement math is
@@ -102,12 +103,17 @@ function CategoryPage() {
   const [activeSubcategory, setActiveSubcategory] = useState(null);
   const [products, setProducts] = useState([]);
   const [sortBy, setSortBy] = useState("featured");
+  const [bundlePartner, setBundlePartner] = useState(null);
+  const [bundleDiscountPercent, setBundleDiscountPercent] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
 
     const load = async () => {
-      const catRes = await getCategories();
+      const [catRes, settingsRes] = await Promise.all([
+        getCategories(),
+        getSiteSettings(),
+      ]);
       const matchedCategory = catRes.categories.find(
         (c) => c.slug === categorySlug,
       );
@@ -130,11 +136,30 @@ function CategoryPage() {
         ? await getProductsBySubcategory(matchedSubcategory._id)
         : await getProductsByCategory(matchedCategory._id);
 
+      // Same bundle-discount rules the product-detail page's "Complete
+      // the Look" banner uses (see ProductDetails.jsx) — surfaced here
+      // too so the discount is visible while browsing, not just after
+      // opening a specific product.
+      const matchedRule = (settingsRes.settings?.bundleRules || [])
+        .filter((rule) => rule.isActive)
+        .find(
+          (rule) =>
+            rule.categoryA?._id === matchedCategory._id ||
+            rule.categoryB?._id === matchedCategory._id,
+        );
+      const partner = matchedRule
+        ? matchedRule.categoryA?._id === matchedCategory._id
+          ? matchedRule.categoryB
+          : matchedRule.categoryA
+        : null;
+
       if (cancelled) return;
       setCategory(matchedCategory);
       setSubcategoryList(categorySubcategories);
       setActiveSubcategory(matchedSubcategory);
       setProducts(productsRes.products);
+      setBundlePartner(partner);
+      setBundleDiscountPercent(matchedRule?.discountPercent || 0);
       setStatus("ready");
     };
 
@@ -212,6 +237,26 @@ function CategoryPage() {
         {category.name}
         {activeSubcategory ? ` / ${activeSubcategory.name}` : ""}
       </h1>
+
+      {bundlePartner && (
+        <Link
+          to={`/category/${bundlePartner.slug}`}
+          className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-6 hover:border-amber-400 transition-colors"
+        >
+          <span className="w-9 h-9 shrink-0 rounded-full bg-amber-600 text-white flex items-center justify-center text-sm">
+            <FaGift />
+          </span>
+          <span className="text-sm">
+            <span className="font-semibold text-amber-800">
+              Buy {category.name} + {bundlePartner.name} together
+            </span>{" "}
+            <span className="text-amber-700">
+              and get {bundleDiscountPercent}% off automatically at checkout
+              →
+            </span>
+          </span>
+        </Link>
+      )}
 
       {SIZE_HELP_LINKS[categorySlug] && (
         <Link
