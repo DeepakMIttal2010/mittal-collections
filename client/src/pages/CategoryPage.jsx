@@ -39,6 +39,11 @@ const SIZE_HELP_LINKS = {
     label: "Face, hand or bath towel?",
     cta: "See our Towel Size Guide →",
   },
+  "cushion-covers": {
+    to: "/articles/cushion-cover-size-guide-standard-sizes-what-we-stock",
+    label: "Not sure which cushion cover size fits?",
+    cta: "See our Cushion Cover Size Guide →",
+  },
 };
 
 const SORT_OPTIONS = [
