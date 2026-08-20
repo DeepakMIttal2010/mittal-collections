@@ -1,4 +1,5 @@
 import Product from "../models/Product.js";
+import Category from "../models/Category.js";
 import SiteSettings from "../models/SiteSettings.js";
 
 // "Complete the Look" bundles: buying from both categories in an active
@@ -95,9 +96,17 @@ export const calculateBundleDiscount = async (orderItems) => {
     return { eligible: false, discountAmount: 0 };
   }
 
+  // Snapshotted onto the order (see Order.js's bundleDiscountCategories)
+  // so a later rule edit can't rewrite what a past order actually got.
+  const matchedCategories = await Category.find({
+    _id: { $in: [bestCandidate.rule.categoryA, bestCandidate.rule.categoryB] },
+  }).select("name");
+  const categoryNames = matchedCategories.map((c) => c.name);
+
   return {
     eligible: true,
     discountAmount: bestCandidate.discountAmount,
     discountPercent: bestCandidate.rule.discountPercent,
+    categoryNames,
   };
 };

@@ -76,6 +76,11 @@ const orderSchema = new mongoose.Schema(
       required: true,
     },
 
+    deliveryFee: {
+      type: Number,
+      default: 0,
+    },
+
     couponCode: {
       type: String,
       default: null,
@@ -89,6 +94,19 @@ const orderSchema = new mongoose.Schema(
     bundleDiscountAmount: {
       type: Number,
       default: 0,
+    },
+
+    // Snapshotted at order time rather than re-derived from today's
+    // bundleRules — an admin editing the rule later shouldn't rewrite
+    // history for what a past order actually got discounted for.
+    bundleDiscountPercent: {
+      type: Number,
+      default: 0,
+    },
+
+    bundleDiscountCategories: {
+      type: [String],
+      default: [],
     },
 
     pointsRedeemed: {

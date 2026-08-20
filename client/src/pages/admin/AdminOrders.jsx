@@ -253,7 +253,7 @@ function AdminOrders() {
               {/* Expanded Details */}
               {expandedId === order._id && (
                 <div className="border-t border-slate-100 p-4 bg-slate-50">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {/* Items */}
                     <div>
                       <h4 className="text-sm font-semibold text-slate-700 mb-2">
@@ -328,6 +328,69 @@ function AdminOrders() {
                             {order.isPaid ? "Yes" : "No"}
                           </span>
                         </p>
+                      </div>
+                    </div>
+
+                    {/* Price Breakdown — same numbers the customer sees on
+                        their own Order Details page, so support/admin and
+                        customer are never looking at different totals. */}
+                    <div>
+                      <h4 className="text-sm font-semibold text-slate-700 mb-2">
+                        Price Breakdown
+                      </h4>
+                      <div className="text-sm text-slate-600 space-y-1 bg-white border border-slate-200 rounded-lg p-3">
+                        <div className="flex justify-between">
+                          <span>Items</span>
+                          <span>
+                            ₹
+                            {order.orderItems.reduce(
+                              (sum, item) => sum + item.price * item.quantity,
+                              0,
+                            )}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Delivery</span>
+                          <span>
+                            {!order.deliveryFee
+                              ? "FREE"
+                              : `₹${order.deliveryFee}`}
+                          </span>
+                        </div>
+                        {order.discountAmount > 0 && (
+                          <div className="flex justify-between text-green-600">
+                            <span>
+                              Coupon discount
+                              {order.couponCode
+                                ? ` (${order.couponCode})`
+                                : ""}
+                            </span>
+                            <span>-₹{order.discountAmount}</span>
+                          </div>
+                        )}
+                        {order.bundleDiscountAmount > 0 && (
+                          <div className="flex justify-between text-green-600">
+                            <span>
+                              Bundle discount ({order.bundleDiscountPercent}%)
+                              {order.bundleDiscountCategories?.length === 2
+                                ? ` — ${order.bundleDiscountCategories[0]} + ${order.bundleDiscountCategories[1]}`
+                                : ""}
+                            </span>
+                            <span>-₹{order.bundleDiscountAmount}</span>
+                          </div>
+                        )}
+                        {order.pointsDiscount > 0 && (
+                          <div className="flex justify-between text-green-600">
+                            <span>
+                              Loyalty points ({order.pointsRedeemed} pts)
+                            </span>
+                            <span>-₹{order.pointsDiscount}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between font-semibold text-slate-800 border-t border-slate-200 pt-1.5 mt-1">
+                          <span>Total</span>
+                          <span>₹{order.totalPrice}</span>
+                        </div>
                       </div>
                     </div>
                   </div>

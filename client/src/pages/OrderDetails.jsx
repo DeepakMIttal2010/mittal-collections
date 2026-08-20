@@ -66,11 +66,6 @@ function OrderDetails() {
     (sum, item) => sum + item.price * item.quantity,
     0,
   );
-  const deliveryFee =
-    order.totalPrice +
-    (order.discountAmount || 0) +
-    (order.pointsDiscount || 0) -
-    itemsSubtotal;
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
@@ -183,8 +178,10 @@ function OrderDetails() {
                 <span>₹{itemsSubtotal}</span>
               </div>
               <div className="flex justify-between text-slate-600">
-                <span>Delivery:</span>
-                <span>{deliveryFee === 0 ? "FREE" : `₹${deliveryFee}`}</span>
+                <span>Delivery*:</span>
+                <span>
+                  {!order.deliveryFee ? "FREE" : `₹${order.deliveryFee}`}
+                </span>
               </div>
               {order.discountAmount > 0 && (
                 <div className="flex justify-between text-green-600">
@@ -195,6 +192,22 @@ function OrderDetails() {
                   <span>-₹{order.discountAmount}</span>
                 </div>
               )}
+              {order.bundleDiscountAmount > 0 && (
+                <div className="flex justify-between text-green-600">
+                  <span>
+                    Bundle discount ({order.bundleDiscountPercent}%)*:
+                  </span>
+                  <span>-₹{order.bundleDiscountAmount}</span>
+                </div>
+              )}
+              {order.bundleDiscountAmount > 0 &&
+                order.bundleDiscountCategories?.length === 2 && (
+                  <p className="text-xs text-slate-400">
+                    *Applied because your order included both{" "}
+                    {order.bundleDiscountCategories[0]} and{" "}
+                    {order.bundleDiscountCategories[1]}.
+                  </p>
+                )}
               {order.pointsDiscount > 0 && (
                 <div className="flex justify-between text-green-600">
                   <span>Points redeemed ({order.pointsRedeemed}):</span>
@@ -209,6 +222,11 @@ function OrderDetails() {
                 ₹{order.totalPrice}
               </span>
             </div>
+
+            <p className="text-xs text-slate-400 mt-2">
+              *Delivery fee depends on the address and order value at the
+              time of purchase.
+            </p>
 
             <div className="border-t border-slate-100 mt-4 pt-4 text-sm text-slate-600 space-y-1">
               <p>Payment: {order.paymentMethod}</p>
