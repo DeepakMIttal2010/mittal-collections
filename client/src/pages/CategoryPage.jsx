@@ -146,9 +146,19 @@ function CategoryPage() {
         : "border-slate-300 text-slate-700 hover:border-amber-600 hover:text-amber-600"
     }`;
 
-  const pageTitle = activeSubcategory
-    ? `${activeSubcategory.name} - ${category.name}`
-    : category.name;
+  // "Double Bed Size" under Bedsheets is 100% cotton products, but the
+  // subcategory's own display name (used for the nav pill) doesn't say
+  // so — that exact phrase has real, currently-unranked Search Console
+  // demand, so the <title>/meta description (not the visible pill) get
+  // it woven in here instead of renaming the subcategory itself.
+  const isCottonDoubleBedsheets =
+    categorySlug === "bedsheets" && activeSubcategory?.slug === "double-bed-size";
+
+  const pageTitle = isCottonDoubleBedsheets
+    ? "Cotton Double Bedsheets"
+    : activeSubcategory
+      ? `${activeSubcategory.name} - ${category.name}`
+      : category.name;
 
   const breadcrumbItems = [
     { name: "Home", path: "/" },
