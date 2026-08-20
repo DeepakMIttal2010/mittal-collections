@@ -50,6 +50,7 @@ function Checkout() {
     shippingTiers: [],
   });
   const [showDeliveryInfo, setShowDeliveryInfo] = useState(false);
+  const [showBundleInfo, setShowBundleInfo] = useState(false);
 
   useEffect(() => {
     if (!isLoggedIn) {
@@ -589,12 +590,40 @@ function Checkout() {
                 </div>
               )}
               {bundleInfo.discountAmount > 0 && (
-                <div className="flex justify-between text-green-600">
-                  <span>
-                    Bundle discount ({bundleInfo.discountPercent}%):
-                  </span>
-                  <span>-₹{bundleInfo.discountAmount}</span>
-                </div>
+                <>
+                  <div className="flex justify-between text-green-600">
+                    <button
+                      type="button"
+                      onClick={() => setShowBundleInfo((prev) => !prev)}
+                      className="hover:underline"
+                    >
+                      Bundle discount ({bundleInfo.discountPercent}%):
+                    </button>
+                    <span>-₹{bundleInfo.discountAmount}</span>
+                  </div>
+
+                  {showBundleInfo && (
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-xs text-green-800 space-y-1.5">
+                      <p className="font-semibold">Items in this bundle</p>
+                      {bundleInfo.eligibleItems.map((item) => (
+                        <div key={item._id} className="flex justify-between">
+                          <span>
+                            {item.name} × {item.quantity}
+                          </span>
+                          <span>₹{item.price * item.quantity}</span>
+                        </div>
+                      ))}
+                      <div className="flex justify-between font-semibold border-t border-green-200 pt-1.5">
+                        <span>Eligible subtotal</span>
+                        <span>₹{bundleInfo.eligibleSubtotal}</span>
+                      </div>
+                      <div className="flex justify-between font-semibold">
+                        <span>{bundleInfo.discountPercent}% off</span>
+                        <span>-₹{bundleInfo.discountAmount}</span>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
               {pointsDiscount > 0 && (
                 <div className="flex justify-between text-green-600">

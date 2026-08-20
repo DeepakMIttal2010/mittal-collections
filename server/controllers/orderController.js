@@ -206,7 +206,7 @@ export const createOrder = async (req, res) => {
       }
     }
 
-    const bundleResult = await calculateBundleDiscount(orderItems, subtotal);
+    const bundleResult = await calculateBundleDiscount(orderItems);
     const bundleDiscountAmount = bundleResult.discountAmount;
 
     // Loyalty points redemption — capped to what the user actually holds

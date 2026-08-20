@@ -197,12 +197,30 @@ export function CartProvider({ children }) {
       : nudgeRule.categoryA
     : null;
 
+  // Discount applies only to items from the two matched categories, not
+  // the whole cart — an unrelated item (e.g. a towel) riding along in the
+  // same cart must not get discounted just because a bundle unlocked.
+  const ruleCategoryIds = matchedRule
+    ? new Set([matchedRule.categoryA?._id, matchedRule.categoryB?._id])
+    : null;
+
+  const bundleEligibleItems = ruleCategoryIds
+    ? cartItems.filter((item) => ruleCategoryIds.has(item.category?._id))
+    : [];
+
+  const bundleEligibleSubtotal = bundleEligibleItems.reduce(
+    (sum, item) => sum + item.price * item.quantity,
+    0,
+  );
+
   const bundleInfo = {
     eligible: Boolean(matchedRule),
     discountPercent: matchedRule?.discountPercent || nudgeRule?.discountPercent || 0,
     discountAmount: matchedRule
-      ? Math.round((totalPrice * matchedRule.discountPercent) / 100)
+      ? Math.round((bundleEligibleSubtotal * matchedRule.discountPercent) / 100)
       : 0,
+    eligibleItems: bundleEligibleItems,
+    eligibleSubtotal: bundleEligibleSubtotal,
     missingCategoryLabel: nudgeMissingCategory?.name || null,
     missingCategorySlug: nudgeMissingCategory?.slug || null,
   };

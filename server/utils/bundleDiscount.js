@@ -33,7 +33,7 @@ const getActiveBundleRules = async () => {
 
 // Re-derives category membership from the database (never trusts client-sent
 // category data) and returns the best matching bundle discount, if any.
-export const calculateBundleDiscount = async (orderItems, subtotal) => {
+export const calculateBundleDiscount = async (orderItems) => {
   const rules = await getActiveBundleRules();
 
   if (rules.length === 0) {
@@ -46,9 +46,11 @@ export const calculateBundleDiscount = async (orderItems, subtotal) => {
     "category",
   );
 
-  const presentCategoryIds = new Set(
-    products.map((p) => p.category?.toString()).filter(Boolean),
+  const categoryByProductId = new Map(
+    products.map((p) => [p._id.toString(), p.category?.toString()]),
   );
+
+  const presentCategoryIds = new Set(categoryByProductId.values());
 
   const matchedRule = rules
     .filter(
@@ -62,8 +64,23 @@ export const calculateBundleDiscount = async (orderItems, subtotal) => {
     return { eligible: false, discountAmount: 0 };
   }
 
+  // Discount applies only to items from the two matched categories, not
+  // the whole order — an unrelated item riding along in the same order
+  // must not get discounted just because a bundle unlocked.
+  const ruleCategoryIds = new Set([
+    matchedRule.categoryA.toString(),
+    matchedRule.categoryB.toString(),
+  ]);
+
+  const bundleEligibleSubtotal = orderItems.reduce((sum, item) => {
+    const categoryId = categoryByProductId.get(item.product.toString());
+    return categoryId && ruleCategoryIds.has(categoryId)
+      ? sum + item.price * item.quantity
+      : sum;
+  }, 0);
+
   const discountAmount = Math.round(
-    (subtotal * matchedRule.discountPercent) / 100,
+    (bundleEligibleSubtotal * matchedRule.discountPercent) / 100,
   );
 
   return {

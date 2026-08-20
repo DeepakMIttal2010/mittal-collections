@@ -21,6 +21,7 @@ function Cart() {
     bundleInfo,
   } = useCart();
 
+  const [showBundleInfo, setShowBundleInfo] = useState(false);
   const [earnRate, setEarnRate] = useState(null);
   const [shipping, setShipping] = useState({
     freeShippingThreshold: 499,
@@ -189,10 +190,82 @@ function Cart() {
             </div>
 
             {bundleInfo.discountAmount > 0 && (
-              <div className="summary-row" style={{ color: "#15803d" }}>
-                <span>Bundle discount</span>
-                <span>-₹{bundleInfo.discountAmount}</span>
-              </div>
+              <>
+                <div className="summary-row" style={{ color: "#15803d" }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowBundleInfo((prev) => !prev)}
+                    style={{
+                      color: "#15803d",
+                      textDecoration: "underline",
+                      background: "none",
+                      border: "none",
+                      padding: 0,
+                      cursor: "pointer",
+                      font: "inherit",
+                    }}
+                  >
+                    Bundle discount ({bundleInfo.discountPercent}%)
+                  </button>
+                  <span>-₹{bundleInfo.discountAmount}</span>
+                </div>
+
+                {showBundleInfo && (
+                  <div
+                    style={{
+                      background: "#f0fdf4",
+                      border: "1px solid #bbf7d0",
+                      borderRadius: "10px",
+                      padding: "10px 12px",
+                      margin: "0 0 10px",
+                      fontSize: "0.8rem",
+                      color: "#166534",
+                    }}
+                  >
+                    <p style={{ fontWeight: 700, marginBottom: "6px" }}>
+                      Items in this bundle
+                    </p>
+                    {bundleInfo.eligibleItems.map((item) => (
+                      <div
+                        key={item._id}
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          marginBottom: "3px",
+                        }}
+                      >
+                        <span>
+                          {item.name} × {item.quantity}
+                        </span>
+                        <span>₹{item.price * item.quantity}</span>
+                      </div>
+                    ))}
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        borderTop: "1px solid #bbf7d0",
+                        marginTop: "6px",
+                        paddingTop: "6px",
+                        fontWeight: 700,
+                      }}
+                    >
+                      <span>Eligible subtotal</span>
+                      <span>₹{bundleInfo.eligibleSubtotal}</span>
+                    </div>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        fontWeight: 700,
+                      }}
+                    >
+                      <span>{bundleInfo.discountPercent}% off</span>
+                      <span>-₹{bundleInfo.discountAmount}</span>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
 
             <hr />
