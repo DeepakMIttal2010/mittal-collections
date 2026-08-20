@@ -237,15 +237,23 @@ function Header() {
   const goToSearch = useCallback(
     (value, categoryId = searchCategory) => {
       const trimmed = value.trim();
-      if (!trimmed) return;
       setShowSuggestions(false);
+
+      if (!trimmed) {
+        // No search text — if a category is picked, "Go" should behave
+        // like browsing that category rather than doing nothing.
+        if (!categoryId) return;
+        const category = categories.find((c) => c._id === categoryId);
+        if (category) navigate(`/category/${category.slug}`);
+        return;
+      }
 
       const params = new URLSearchParams({ q: trimmed });
       if (categoryId) params.set("category", categoryId);
 
       navigate(`/search?${params.toString()}`);
     },
-    [navigate, searchCategory],
+    [navigate, searchCategory, categories],
   );
 
   useEffect(() => {

@@ -15,10 +15,38 @@ function SearchResults() {
   const [loadedQuery, setLoadedQuery] = useState(null);
   const [categories, setCategories] = useState([]);
 
-  const [category, setCategory] = useState(categoryFromUrl);
-  const [sortBy, setSortBy] = useState("");
-  const [minPrice, setMinPrice] = useState("");
-  const [maxPrice, setMaxPrice] = useState("");
+  // Filters are keyed to the query they belong to and reset synchronously
+  // during render (not via a useEffect) whenever the query changes. Doing
+  // this in an effect would fire one extra render/fetch with the new query
+  // still paired to the previous query's category — a stray API call
+  // (e.g. "blue" search still filtered by a leftover "Bedsheets" pick)
+  // that flashes wrong/empty results before self-correcting a moment later.
+  const [filters, setFilters] = useState(() => ({
+    forQuery: query,
+    category: categoryFromUrl,
+    sortBy: "",
+    minPrice: "",
+    maxPrice: "",
+  }));
+
+  if (filters.forQuery !== query) {
+    setFilters({
+      forQuery: query,
+      category: categoryFromUrl,
+      sortBy: "",
+      minPrice: "",
+      maxPrice: "",
+    });
+  }
+
+  const { category, sortBy, minPrice, maxPrice } = filters;
+  const setCategory = (value) =>
+    setFilters((f) => ({ ...f, category: value }));
+  const setSortBy = (value) => setFilters((f) => ({ ...f, sortBy: value }));
+  const setMinPrice = (value) =>
+    setFilters((f) => ({ ...f, minPrice: value }));
+  const setMaxPrice = (value) =>
+    setFilters((f) => ({ ...f, maxPrice: value }));
 
   useEffect(() => {
     getCategories().then((res) => {
@@ -29,17 +57,6 @@ function SearchResults() {
       }
     });
   }, []);
-
-  useEffect(() => {
-    // Reset filters when the search term itself changes, except the
-    // category — the header's own "All ▾" dropdown already picked one
-    // for this exact search, so respect it instead of clearing it.
-    setCategory(categoryFromUrl);
-    setSortBy("");
-    setMinPrice("");
-    setMaxPrice("");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query]);
 
   useEffect(() => {
     if (!query.trim()) return;
