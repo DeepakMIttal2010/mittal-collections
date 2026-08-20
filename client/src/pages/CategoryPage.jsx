@@ -13,6 +13,34 @@ import Breadcrumbs from "../components/Breadcrumbs";
 import { buildBreadcrumbJsonLd } from "../utils/breadcrumbJsonLd";
 import { FaRulerCombined } from "react-icons/fa";
 
+// Sizing help callout shown on the matching category's product listing —
+// curtains gets the interactive calculator (real measurement math is
+// involved there); the others just need a size-reference guide, since
+// customers repeatedly ask "which size do I actually need" for all of
+// these (bed size, room/entrance, use-case).
+const SIZE_HELP_LINKS = {
+  curtains: {
+    to: "/curtain-size-calculator",
+    label: "Not sure what size to buy?",
+    cta: "Use our free Curtain Size Calculator →",
+  },
+  bedsheets: {
+    to: "/articles/bedsheet-size-guide-which-size-fits-single-double-queen-king-beds",
+    label: "Confused about bed sizes?",
+    cta: "See our Bedsheet Size Guide (Single/Double/Queen/King) →",
+  },
+  doormats: {
+    to: "/articles/doormat-size-guide-which-size-for-entrance-bedroom-bathroom-kitchen",
+    label: "Not sure which size fits where?",
+    cta: "See our Doormat Size Guide →",
+  },
+  towels: {
+    to: "/articles/towel-size-guide-which-size-for-face-hand-bath-cleaning",
+    label: "Face, hand or bath towel?",
+    cta: "See our Towel Size Guide →",
+  },
+};
+
 const SORT_OPTIONS = [
   { value: "featured", label: "Featured" },
   { value: "price-asc", label: "Price, low to high" },
@@ -180,9 +208,9 @@ function CategoryPage() {
         {activeSubcategory ? ` / ${activeSubcategory.name}` : ""}
       </h1>
 
-      {categorySlug === "curtains" && (
+      {SIZE_HELP_LINKS[categorySlug] && (
         <Link
-          to="/curtain-size-calculator"
+          to={SIZE_HELP_LINKS[categorySlug].to}
           className="flex items-center gap-3 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 mb-6 hover:border-blue-400 transition-colors"
         >
           <span className="w-9 h-9 shrink-0 rounded-full bg-blue-900 text-white flex items-center justify-center text-sm">
@@ -190,10 +218,10 @@ function CategoryPage() {
           </span>
           <span className="text-sm">
             <span className="font-semibold text-blue-900">
-              Not sure what size to buy?
+              {SIZE_HELP_LINKS[categorySlug].label}
             </span>{" "}
             <span className="text-blue-700">
-              Use our free Curtain Size Calculator →
+              {SIZE_HELP_LINKS[categorySlug].cta}
             </span>
           </span>
         </Link>

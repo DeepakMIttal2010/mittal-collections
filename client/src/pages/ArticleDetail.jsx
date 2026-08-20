@@ -111,7 +111,10 @@ function ArticleDetail() {
           [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:mb-4
           [&_li]:mb-1
           [&_a]:text-amber-600 [&_a]:underline
-          [&_img]:rounded-lg [&_img]:my-4"
+          [&_img]:rounded-lg [&_img]:my-4
+          [&_table]:w-full [&_table]:my-6 [&_table]:border-collapse [&_table]:text-sm
+          [&_th]:text-left [&_th]:bg-slate-50 [&_th]:font-semibold [&_th]:text-slate-700 [&_th]:px-3 [&_th]:py-2 [&_th]:border [&_th]:border-slate-200
+          [&_td]:px-3 [&_td]:py-2 [&_td]:border [&_td]:border-slate-200"
         dangerouslySetInnerHTML={{ __html: article.content }}
       />
     </div>
