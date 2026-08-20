@@ -213,38 +213,42 @@ function CategoryPage() {
         {activeSubcategory ? ` / ${activeSubcategory.name}` : ""}
       </h1>
 
-      {SIZE_HELP_LINKS[categorySlug] && (
-        <Link
-          to={SIZE_HELP_LINKS[categorySlug].to}
-          className="inline-flex items-center gap-1.5 bg-blue-50 border border-blue-200 rounded-full px-3 py-1.5 mb-6 text-xs text-blue-700 hover:border-blue-400 transition-colors"
-        >
-          <FaRulerCombined className="text-blue-900 shrink-0" />
-          {SIZE_HELP_LINKS[categorySlug].cta}
-        </Link>
-      )}
+      {(subcategoryList.length > 0 || SIZE_HELP_LINKS[categorySlug]) && (
+        <div className="flex flex-wrap items-center gap-3 mb-6">
+          {subcategoryList.length > 0 && (
+            <>
+              <button
+                type="button"
+                className={pillClass(!activeSubcategory)}
+                onClick={() => navigate(`/category/${categorySlug}`)}
+              >
+                All
+              </button>
 
-      {subcategoryList.length > 0 && (
-        <div className="flex flex-wrap gap-3 mb-6">
-          <button
-            type="button"
-            className={pillClass(!activeSubcategory)}
-            onClick={() => navigate(`/category/${categorySlug}`)}
-          >
-            All
-          </button>
+              {subcategoryList.map((sub) => (
+                <button
+                  key={sub._id}
+                  type="button"
+                  className={pillClass(activeSubcategory?._id === sub._id)}
+                  onClick={() =>
+                    navigate(`/category/${categorySlug}/${sub.slug}`)
+                  }
+                >
+                  {sub.name}
+                </button>
+              ))}
+            </>
+          )}
 
-          {subcategoryList.map((sub) => (
-            <button
-              key={sub._id}
-              type="button"
-              className={pillClass(activeSubcategory?._id === sub._id)}
-              onClick={() =>
-                navigate(`/category/${categorySlug}/${sub.slug}`)
-              }
+          {SIZE_HELP_LINKS[categorySlug] && (
+            <Link
+              to={SIZE_HELP_LINKS[categorySlug].to}
+              className="inline-flex items-center gap-1.5 bg-blue-50 border border-blue-200 rounded-full px-3 py-1.5 ml-auto text-xs text-blue-700 hover:border-blue-400 transition-colors"
             >
-              {sub.name}
-            </button>
-          ))}
+              <FaRulerCombined className="text-blue-900 shrink-0" />
+              {SIZE_HELP_LINKS[categorySlug].cta}
+            </Link>
+          )}
         </div>
       )}
 
