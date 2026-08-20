@@ -508,8 +508,8 @@ function ProductDetails() {
         title={product.name}
         description={
           product.description
-            ? `Buy online in Ghaziabad - ${product.description}`.slice(0, 160)
-            : `Buy ${product.name} online in Ghaziabad at Mittal Collections`
+            ? `Buy online, pan-India delivery (24hr in Ghaziabad) - ${product.description}`.slice(0, 160)
+            : `Buy ${product.name} online with pan-India delivery - fast 24-hour delivery in Ghaziabad`
         }
         image={imgUrl(product.image)}
         url={shareUrl}

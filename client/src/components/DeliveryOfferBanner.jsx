@@ -32,7 +32,7 @@ function DeliveryOfferBanner() {
         {isGhaziabad ? (
           <>
             <span>
-              <strong>FAST DELIVERY within 24 Hours</strong> — Ghaziabad:
+              <strong>FAST DELIVERY within 24 Hours</strong> — Ghaziabad*:
               Vasundhara, Vaishali, Indirapuram & आसपास
             </span>
             <a

@@ -206,8 +206,12 @@ function Footer() {
                 <h3 className="text-amber-500 font-semibold mb-1">
                   We Deliver To (Ghaziabad)
                 </h3>
-                <p className="text-sm text-slate-400 mb-4">
-                  🚚 FAST DELIVERY within 24 Hours
+                <p className="text-sm text-slate-400 mb-1">
+                  🚚 FAST DELIVERY within 24 Hours*
+                </p>
+                <p className="text-xs text-slate-500 mb-4">
+                  *Subject to order cutoff time, product availability and
+                  exact delivery address within these areas.
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {DELIVERY_AREAS.map((area) => (

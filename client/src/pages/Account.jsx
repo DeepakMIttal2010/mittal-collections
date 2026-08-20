@@ -13,6 +13,7 @@ import {
   FaTicketAlt,
   FaUndoAlt,
   FaSignOutAlt,
+  FaBell,
 } from "react-icons/fa";
 import { FaWhatsapp } from "react-icons/fa6";
 import { useAuth } from "../context/AuthContext";
@@ -31,6 +32,12 @@ const ACCOUNT_LINKS = [
     icon: FaHeart,
     title: "Wishlist",
     description: "View and manage items you've saved for later",
+  },
+  {
+    to: "/notifications",
+    icon: FaBell,
+    title: "Alerts",
+    description: "Order updates, back-in-stock and other notifications",
   },
   {
     to: "/addresses",
