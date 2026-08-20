@@ -4,6 +4,7 @@ import { Link, useParams, useNavigate } from "react-router-dom";
 
 import { getOrderById } from "../services/orderService";
 import { useAuth } from "../context/AuthContext";
+import OrderStatusTimeline from "../components/OrderStatusTimeline";
 
 const STATUS_COLORS = {
   Pending: "bg-slate-100 text-slate-700",
@@ -106,6 +107,11 @@ function OrderDetails() {
         >
           {order.orderStatus}
         </span>
+      </div>
+
+      <div className="border border-slate-200 rounded-xl bg-white p-5 mb-6">
+        <h2 className="font-semibold text-slate-800 mb-4">Order Status</h2>
+        <OrderStatusTimeline order={order} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
