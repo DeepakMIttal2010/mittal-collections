@@ -6,7 +6,6 @@ import {
   FaShoppingCart,
   FaMicrophone,
   FaMapMarkerAlt,
-  FaBell,
   FaDownload,
   FaChevronDown,
 } from "react-icons/fa";
@@ -23,28 +22,9 @@ import {
   getAddresses,
   setDefaultAddress,
 } from "../../services/addressService";
-import {
-  getMyNotifications,
-  markNotificationRead,
-  markAllNotificationsRead,
-} from "../../services/notificationService";
 import { imgUrl } from "../../services/api";
 import { productUrl } from "../../utils/productUrl";
 import { notifyDefaultAddressChanged } from "../../utils/addressEvents";
-
-const NOTIFICATION_POLL_MS = 30000;
-
-const timeAgo = (dateString) => {
-  const seconds = Math.floor((Date.now() - new Date(dateString)) / 1000);
-
-  if (seconds < 60) return "just now";
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
-};
 
 function Header() {
   const { totalItems, openCart } = useCart();
@@ -72,9 +52,6 @@ function Header() {
   const [savedAddresses, setSavedAddresses] = useState([]);
   const [addressOpen, setAddressOpen] = useState(false);
   const [switchingAddressId, setSwitchingAddressId] = useState(null);
-  const [notifications, setNotifications] = useState([]);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [showNotifications, setShowNotifications] = useState(false);
   const recognitionRef = useRef(null);
 
   useEffect(() => {
@@ -121,40 +98,6 @@ function Header() {
 
   const selectedCategoryName =
     categories.find((c) => c._id === searchCategory)?.name || "All";
-
-  const loadNotifications = useCallback(async () => {
-    const response = await getMyNotifications();
-
-    if (response.success) {
-      setNotifications(response.notifications);
-      setUnreadCount(response.unreadCount);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!isLoggedIn) {
-      setNotifications([]);
-      setUnreadCount(0);
-      return;
-    }
-
-    loadNotifications();
-
-    const interval = setInterval(loadNotifications, NOTIFICATION_POLL_MS);
-    return () => clearInterval(interval);
-  }, [isLoggedIn, loadNotifications]);
-
-  const handleNotificationClick = async (item) => {
-    setShowNotifications(false);
-    if (!item.isRead) await markNotificationRead(item._id);
-    loadNotifications();
-    if (item.link) navigate(item.link);
-  };
-
-  const handleMarkAllRead = async () => {
-    await markAllNotificationsRead();
-    loadNotifications();
-  };
 
   const handleInstallClick = async () => {
     if (canPromptNatively) {
@@ -681,90 +624,6 @@ function Header() {
               <FaUser className="text-lg" />
               <span className="hidden sm:block text-xs mt-0.5">Account</span>
             </Link>
-          )}
-
-          {isLoggedIn && (
-            <div
-              className="relative"
-              onMouseEnter={() => setShowNotifications(true)}
-              onMouseLeave={() => setShowNotifications(false)}
-            >
-              <button
-                type="button"
-                className="relative flex flex-col items-center text-slate-600 hover:text-blue-700 transition-colors"
-              >
-                <FaBell className="text-lg" />
-                <span className="hidden sm:block text-xs mt-0.5">Alerts</span>
-                {unreadCount > 0 && (
-                  <span className="absolute -top-1.5 -right-2 bg-red-500 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
-                    {unreadCount > 9 ? "9+" : unreadCount}
-                  </span>
-                )}
-              </button>
-
-              {showNotifications && (
-                <div className="absolute top-full right-0 z-50 mt-1 w-80 bg-white border border-slate-200 rounded-lg shadow-lg overflow-hidden">
-                  <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
-                    <h4 className="font-semibold text-slate-800 text-sm">
-                      Notifications
-                    </h4>
-                    {unreadCount > 0 && (
-                      <button
-                        onClick={handleMarkAllRead}
-                        className="text-xs font-medium text-blue-700 hover:underline"
-                      >
-                        Mark all as read
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="max-h-96 overflow-y-auto">
-                    {notifications.length === 0 ? (
-                      <p className="text-sm text-slate-400 text-center py-8">
-                        No notifications yet
-                      </p>
-                    ) : (
-                      notifications.map((item) => (
-                        <button
-                          key={item._id}
-                          onClick={() => handleNotificationClick(item)}
-                          className={`w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-slate-50 border-b border-slate-50 last:border-b-0 ${
-                            item.isRead ? "" : "bg-blue-50/40"
-                          }`}
-                        >
-                          <span
-                            className={`mt-1 w-2 h-2 rounded-full shrink-0 ${
-                              item.isRead ? "bg-transparent" : "bg-blue-600"
-                            }`}
-                          />
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm font-medium text-slate-800 truncate">
-                              {item.title}
-                            </p>
-                            {item.message && (
-                              <p className="text-xs text-slate-500 truncate">
-                                {item.message}
-                              </p>
-                            )}
-                          </div>
-                          <span className="text-xs text-slate-400 shrink-0">
-                            {timeAgo(item.createdAt)}
-                          </span>
-                        </button>
-                      ))
-                    )}
-                  </div>
-
-                  <Link
-                    to="/notifications"
-                    onClick={() => setShowNotifications(false)}
-                    className="block text-center text-xs font-medium text-blue-700 hover:underline py-2.5 border-t border-slate-100"
-                  >
-                    View all notifications
-                  </Link>
-                </div>
-              )}
-            </div>
           )}
 
           <Link
