@@ -216,19 +216,10 @@ function CategoryPage() {
       {SIZE_HELP_LINKS[categorySlug] && (
         <Link
           to={SIZE_HELP_LINKS[categorySlug].to}
-          className="flex items-center gap-3 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 mb-6 hover:border-blue-400 transition-colors"
+          className="inline-flex items-center gap-1.5 bg-blue-50 border border-blue-200 rounded-full px-3 py-1.5 mb-6 text-xs text-blue-700 hover:border-blue-400 transition-colors"
         >
-          <span className="w-9 h-9 shrink-0 rounded-full bg-blue-900 text-white flex items-center justify-center text-sm">
-            <FaRulerCombined />
-          </span>
-          <span className="text-sm">
-            <span className="font-semibold text-blue-900">
-              {SIZE_HELP_LINKS[categorySlug].label}
-            </span>{" "}
-            <span className="text-blue-700">
-              {SIZE_HELP_LINKS[categorySlug].cta}
-            </span>
-          </span>
+          <FaRulerCombined className="text-blue-900 shrink-0" />
+          {SIZE_HELP_LINKS[categorySlug].cta}
         </Link>
       )}
 
