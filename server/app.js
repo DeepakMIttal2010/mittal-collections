@@ -98,8 +98,15 @@ const authLimiter = rateLimit({
 });
 app.use("/api/auth", authLimiter);
 
-// Static Upload Folder
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+// Static Upload Folder — these are legacy uploads only, never overwritten
+// in place (new uploads go to Cloudinary), so a long cache is safe.
+app.use(
+  "/uploads",
+  express.static(path.join(__dirname, "uploads"), {
+    maxAge: "30d",
+    immutable: true,
+  }),
+);
 
 // Routes
 app.use("/api/auth", authRoutes);

@@ -43,7 +43,7 @@ function ProductCard({ product }) {
       <Link to={productUrl(product)} className="product-link">
         <div className="product-image">
           <img
-            src={`${imgUrl(product.image)}`}
+            src={`${imgUrl(product.image, "w_400,q_auto,f_auto")}`}
             alt={t(product.name, product.nameHi)}
             loading="lazy"
           />

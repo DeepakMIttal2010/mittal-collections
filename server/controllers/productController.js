@@ -157,7 +157,8 @@ export const getProducts = async (req, res) => {
       .select(COST_FIELDS)
       .populate("category", "name slug image")
       .populate("subcategory", "name slug")
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean();
 
     const hasSearch = search && search.trim();
     if (hasSearch) {

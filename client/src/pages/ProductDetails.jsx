@@ -166,17 +166,19 @@ function ProductDetails() {
         const categoryId = response.product.category?._id;
 
         if (categoryId) {
-          const relatedRes = await getProductsByCategory(categoryId);
+          // Independent of each other — fetch together instead of
+          // waterfalling, and only chain the bundle-partner fetch after
+          // since it needs settingsRes's matched rule first.
+          const [relatedRes, settingsRes] = await Promise.all([
+            getProductsByCategory(categoryId),
+            getSiteSettings(),
+          ]);
 
           if (relatedRes.success) {
             setRelatedProducts(
               relatedRes.products.filter((p) => p._id !== id),
             );
           }
-        }
-
-        if (categoryId) {
-          const settingsRes = await getSiteSettings();
 
           const matchedRule = (settingsRes.settings?.bundleRules || [])
             .filter((rule) => rule.isActive)
@@ -542,7 +544,7 @@ function ProductDetails() {
 
                   <img
                     key={activeMedia?.url}
-                    src={`${imgUrl(activeMedia?.url)}`}
+                    src={`${imgUrl(activeMedia?.url, "w_1000,q_auto,f_auto")}`}
                     alt={t(product.name, product.nameHi)}
                     style={zoomStyle}
                     onLoad={() => setMainImageLoaded(true)}
@@ -602,7 +604,7 @@ function ProductDetails() {
                       />
                     ) : (
                       <img
-                        src={`${imgUrl(item.url)}`}
+                        src={`${imgUrl(item.url, "w_150,q_auto,f_auto")}`}
                         alt={t(product.name, product.nameHi)}
                         loading="lazy"
                         className="w-full h-full object-cover"
