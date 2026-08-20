@@ -11,6 +11,7 @@ import ProductGridSkeleton from "../components/ProductGrid/ProductGridSkeleton";
 import Seo from "../components/Seo";
 import Breadcrumbs from "../components/Breadcrumbs";
 import { buildBreadcrumbJsonLd } from "../utils/breadcrumbJsonLd";
+import { FaRulerCombined } from "react-icons/fa";
 
 const SORT_OPTIONS = [
   { value: "featured", label: "Featured" },
@@ -168,6 +169,25 @@ function CategoryPage() {
         {category.name}
         {activeSubcategory ? ` / ${activeSubcategory.name}` : ""}
       </h1>
+
+      {categorySlug === "curtains" && (
+        <Link
+          to="/curtain-size-calculator"
+          className="flex items-center gap-3 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 mb-6 hover:border-blue-400 transition-colors"
+        >
+          <span className="w-9 h-9 shrink-0 rounded-full bg-blue-900 text-white flex items-center justify-center text-sm">
+            <FaRulerCombined />
+          </span>
+          <span className="text-sm">
+            <span className="font-semibold text-blue-900">
+              Not sure what size to buy?
+            </span>{" "}
+            <span className="text-blue-700">
+              Use our free Curtain Size Calculator →
+            </span>
+          </span>
+        </Link>
+      )}
 
       {subcategoryList.length > 0 && (
         <div className="flex flex-wrap gap-3 mb-6">

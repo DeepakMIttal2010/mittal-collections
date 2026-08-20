@@ -39,6 +39,39 @@ const PRESETS = [
 const STANDARD_WIDTHS_FT = [3, 3.5, 4, 4.5, 5, 6, 7];
 const STANDARD_LENGTHS_FT = [4, 5, 6, 7, 7.5, 8, 9];
 
+const STANDARD_SIZE_CHART = [
+  { size: "3 x 5 ft", use: "Small window, cafe-style" },
+  { size: "4 x 5 ft", use: "Standard window" },
+  { size: "4 x 7 ft", use: "Standard window, floor-length" },
+  { size: "4.5 x 7 ft", use: "Large window / French window" },
+  { size: "5 x 7 ft", use: "Wide window / balcony door" },
+  { size: "5 x 9 ft", use: "Door curtain, floor-length" },
+  { size: "7 x 9 ft", use: "Large door / room divider" },
+];
+
+const FAQS = [
+  {
+    q: "How do I calculate curtain size from window measurements?",
+    a: "Measure your window's width and drop (height) in inches, then multiply the width by your chosen fullness (2x is standard) to get the fabric width you need. This calculator does that math for you and rounds it up to the nearest standard size sold in stores.",
+  },
+  {
+    q: "How do I calculate curtain rod length?",
+    a: "Rod length = window width + overhang on each side. For an outside-mount rod, add 4–6 inches of overhang per side so the curtain can fully clear the window when opened. Enter your window width above and pick \"Outside Mount\" to get the exact rod length.",
+  },
+  {
+    q: "Does this calculator work in inches or feet?",
+    a: "Enter your measurements in inches (the most common way windows are measured in India) — the calculator instantly converts and rounds the result to the nearest standard feet size (like 4x7 ft or 5x9 ft) that curtains are actually sold in.",
+  },
+  {
+    q: "How much fabric width do I need for curtains?",
+    a: "For a natural, gathered drape, buy 1.5–2.5 times your rod length in total fabric width — 2x (\"Full\") is the most popular choice. Split that total evenly across your number of panels (usually 2).",
+  },
+  {
+    q: "What are the standard curtain sizes available in India?",
+    a: "The most common ready-made curtain sizes are 4x5 ft, 4x7 ft, 4.5x7 ft, 5x7 ft, 5x9 ft and 7x9 ft — see the size chart below for which one fits your window.",
+  },
+];
+
 const roundUpToStandard = (valueFt, standardList) => {
   const match = standardList.find((ft) => ft >= valueFt);
   return match || standardList[standardList.length - 1];
@@ -84,21 +117,32 @@ function CurtainSizeCalculator() {
     setHeightIn(preset.height);
   };
 
-  const jsonLd = {
-    "@context": "https://schema.org",
-    "@type": "WebApplication",
-    name: "Curtain Size Calculator",
-    applicationCategory: "UtilitiesApplication",
-    description:
-      "Free tool to calculate the curtain size, rod length and fabric width you need based on your window measurements.",
-    url: "https://www.mittalcollections.com/curtain-size-calculator",
-  };
+  const jsonLd = [
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      name: "Curtain Size Calculator",
+      applicationCategory: "UtilitiesApplication",
+      description:
+        "Free tool to calculate the curtain size, rod length and fabric width you need based on your window measurements.",
+      url: "https://www.mittalcollections.com/curtain-size-calculator",
+    },
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      mainEntity: FAQS.map((f) => ({
+        "@type": "Question",
+        name: f.q,
+        acceptedAnswer: { "@type": "Answer", text: f.a },
+      })),
+    },
+  ];
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-12">
       <Seo
-        title="Curtain Size Calculator — Find Your Perfect Curtain Size"
-        description="Free curtain size calculator. Enter your window measurements and get the ideal rod length, fabric width and curtain length instantly."
+        title="Curtain Size & Rod Length Calculator (in Inches) — Find Your Perfect Fit"
+        description="Free curtain size calculator. Enter your window measurements in inches and instantly get the rod length, fabric width and curtain length to buy, plus a standard curtain size chart."
         url="https://www.mittalcollections.com/curtain-size-calculator"
         jsonLd={jsonLd}
       />
@@ -374,6 +418,50 @@ function CurtainSizeCalculator() {
             Read our full curtain measurement guide →
           </Link>
         </p>
+      </div>
+
+      <div className="mt-12 max-w-2xl">
+        <h2 className="text-lg font-semibold text-slate-800 mb-3">
+          Standard Curtain Size Chart (India)
+        </h2>
+        <div className="overflow-x-auto border border-slate-200 rounded-xl">
+          <table className="w-full text-sm text-left">
+            <thead className="bg-slate-50 text-slate-600">
+              <tr>
+                <th className="px-4 py-2.5 font-medium">Size</th>
+                <th className="px-4 py-2.5 font-medium">Best For</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {STANDARD_SIZE_CHART.map((row) => (
+                <tr key={row.size}>
+                  <td className="px-4 py-2.5 font-medium text-slate-800">
+                    {row.size}
+                  </td>
+                  <td className="px-4 py-2.5 text-slate-500">{row.use}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="mt-12 max-w-2xl">
+        <h2 className="text-lg font-semibold text-slate-800 mb-3">
+          Frequently Asked Questions
+        </h2>
+        <div className="space-y-4">
+          {FAQS.map((faq) => (
+            <div key={faq.q}>
+              <p className="font-medium text-slate-800 text-sm mb-1">
+                {faq.q}
+              </p>
+              <p className="text-sm text-slate-500 leading-relaxed">
+                {faq.a}
+              </p>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
