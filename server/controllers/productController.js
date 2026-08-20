@@ -187,6 +187,15 @@ export const getProducts = async (req, res) => {
       (a, b) => Number(b.stock > 0) - Number(a.stock > 0),
     );
 
+    // limit is applied last, after every sort pass above, so a capped
+    // request still gets the correctly-ordered top N rather than an
+    // arbitrary DB-order slice. No caller currently sends this param, so
+    // omitting it keeps today's "return everything" behavior unchanged.
+    const parsedLimit = parseInt(req.query.limit, 10);
+    if (parsedLimit > 0) {
+      products = products.slice(0, parsedLimit);
+    }
+
     res.status(200).json({
       success: true,
       count: products.length,
