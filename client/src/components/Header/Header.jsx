@@ -53,6 +53,8 @@ function Header() {
   const [addressOpen, setAddressOpen] = useState(false);
   const [switchingAddressId, setSwitchingAddressId] = useState(null);
   const recognitionRef = useRef(null);
+  const searchFormRef = useRef(null);
+  const mobileSearchFormRef = useRef(null);
 
   useEffect(() => {
     getCategories().then((response) => {
@@ -98,6 +100,25 @@ function Header() {
 
   const selectedCategoryName =
     categories.find((c) => c._id === searchCategory)?.name || "All";
+
+  // Outside-click (not onBlur+setTimeout) to hide suggestions — onBlur
+  // fires on mousedown, before the click event a suggestion button
+  // needs, so on a slower click (real mouse/trackpad, not a synthetic
+  // test click) the panel could unmount out from under the click and
+  // eat it. This mirrors the category dropdown's own outside-click
+  // pattern above, which doesn't have that race.
+  useEffect(() => {
+    if (!showSuggestions) return;
+
+    const handleClickOutside = (e) => {
+      const insideDesktop = searchFormRef.current?.contains(e.target);
+      const insideMobile = mobileSearchFormRef.current?.contains(e.target);
+      if (!insideDesktop && !insideMobile) setShowSuggestions(false);
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showSuggestions]);
 
   const handleInstallClick = async () => {
     if (canPromptNatively) {
@@ -383,6 +404,7 @@ function Header() {
 
         {/* Search */}
         <form
+          ref={searchFormRef}
           onSubmit={handleSearchSubmit}
           className="relative flex-1 max-w-2xl mx-auto hidden md:flex"
         >
@@ -443,7 +465,6 @@ function Header() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onFocus={() => setShowSuggestions(true)}
-              onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
               placeholder="Search Bedsheets, Towels, Curtains..."
               className="flex-1 min-w-0 outline-none text-sm text-slate-700 placeholder:text-slate-400 pl-3"
             />
@@ -656,7 +677,11 @@ function Header() {
       </div>
 
       {/* Mobile search (shows below on small screens) */}
-      <form onSubmit={handleSearchSubmit} className="relative px-4 pb-3 md:hidden">
+      <form
+        ref={mobileSearchFormRef}
+        onSubmit={handleSearchSubmit}
+        className="relative px-4 pb-3 md:hidden"
+      >
         <div className="flex items-center border border-slate-300 rounded-full pr-1.5 py-1.5">
           <div className="relative shrink-0" ref={mobileCategoryMenuRef}>
             <button
@@ -714,7 +739,6 @@ function Header() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onFocus={() => setShowSuggestions(true)}
-            onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
             placeholder="Search products..."
             className="flex-1 min-w-0 outline-none text-sm text-slate-700 placeholder:text-slate-400 pl-3"
           />
