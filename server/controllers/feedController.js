@@ -54,16 +54,37 @@ export const getGoogleProductFeed = async (req, res) => {
     const products = await Product.find({
       isActive: true,
       visibility: { $ne: "offline" },
+      // Same rule the site's own listings use (see getProducts) - a
+      // one-off/discontinued product (willRestock: false) that's sold
+      // out disappears from the site entirely, so it shouldn't linger
+      // in the Shopping feed as an "out of stock" listing indefinitely.
+      $or: [{ stock: { $gt: 0 } }, { willRestock: { $ne: false } }],
     })
       .select(
-        "name description price oldPrice image images stock slug brand category productNumber",
+        "name description price oldPrice image images stock variants slug brand category productNumber",
       )
       .populate("category", "name");
 
     const items = products
       .map((product) => {
-        const price = `${product.price.toFixed(2)} INR`;
-        const availability = product.stock > 0 ? "in stock" : "out of stock";
+        // For a variant product, the landing page defaults to showing
+        // the FIRST variant's own stock (see ProductDetails.jsx), not
+        // the summed total across all sizes - the feed has to match
+        // that exact default view, or Google flags a price/availability
+        // mismatch between the feed and what the page actually shows.
+        const availabilityStock = product.variants?.length
+          ? product.variants[0].stock
+          : product.stock;
+        const availability =
+          availabilityStock > 0 ? "in stock" : "out of stock";
+
+        const salePrice =
+          product.oldPrice > product.price
+            ? `      <g:sale_price>${product.price.toFixed(2)} INR</g:sale_price>\n`
+            : "";
+        const listPrice =
+          product.oldPrice > product.price ? product.oldPrice : product.price;
+
         const brand = escapeXml(product.brand || BRAND_NAME);
         const extraImages = (product.images || [])
           .filter((url) => url !== product.image)
@@ -79,8 +100,8 @@ export const getGoogleProductFeed = async (req, res) => {
       <g:image_link>${escapeXml(product.image)}</g:image_link>
 ${extraImages}
       <g:availability>${availability}</g:availability>
-      <g:price>${price}</g:price>
-      <g:condition>new</g:condition>
+      <g:price>${listPrice.toFixed(2)} INR</g:price>
+${salePrice}      <g:condition>new</g:condition>
       <g:brand>${brand}</g:brand>
       <g:identifier_exists>no</g:identifier_exists>
       <g:product_type>${escapeXml(product.category?.name || "")}</g:product_type>
