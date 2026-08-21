@@ -22,6 +22,7 @@ const Addresses = lazy(() => import("../pages/Addresses"));
 const AddressForm = lazy(() => import("../pages/AddressForm"));
 const ProductDetails = lazy(() => import("../pages/ProductDetails"));
 const TrendingPage = lazy(() => import("../pages/TrendingPage"));
+const ClearanceSalePage = lazy(() => import("../pages/ClearanceSalePage"));
 const NewArrivalsPage = lazy(() => import("../pages/NewArrivalsPage"));
 const PriceRangePage = lazy(() => import("../pages/PriceRangePage"));
 const SearchResults = lazy(() => import("../pages/SearchResults"));
@@ -174,6 +175,7 @@ function AppRoutes() {
           {/* Product Details */}
           <Route path="/product/:id/:slug?" element={<ProductDetails />} />
           <Route path="/trending" element={<TrendingPage />} />
+          <Route path="/clearance-sale" element={<ClearanceSalePage />} />
           <Route path="/new-arrivals" element={<NewArrivalsPage />} />
           <Route path="/price/:maxPrice" element={<PriceRangePage />} />
           <Route path="/search" element={<SearchResults />} />

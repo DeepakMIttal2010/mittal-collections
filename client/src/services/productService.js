@@ -56,6 +56,33 @@ export const getBestSellers = async (limit = 10) => {
   }
 };
 
+export const getBigSavingsProducts = async (limit = 8) => {
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/products/big-savings?limit=${limit}`,
+    );
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch big savings products");
+    }
+
+    const data = await response.json();
+
+    return {
+      success: data.success,
+      sections: data.sections || [],
+      minDiscountPercent: data.minDiscountPercent,
+    };
+  } catch (error) {
+    console.error("Get Big Savings Products Error:", error);
+
+    return {
+      success: false,
+      sections: [],
+    };
+  }
+};
+
 // ==========================
 // Get Trending Products
 // ==========================

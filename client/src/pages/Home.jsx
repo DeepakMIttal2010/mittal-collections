@@ -7,6 +7,7 @@ import TrustBar from "../components/TrustBar/TrustBar";
 import RecentlyViewed from "../components/RecentlyViewed/RecentlyViewed";
 import Categories from "../components/Categories/Categories";
 import TrendingSection from "../components/TrendingSection/TrendingSection";
+import ClearanceSale from "../components/ClearanceSale/ClearanceSale";
 import SizeShowcase from "../components/SubcategoryShowcase/SizeShowcase";
 import PriceShowcase from "../components/PriceShowcase/PriceShowcase";
 import WhyChooseUs from "../components/WhyChooseUs/WhyChooseUs";
@@ -73,6 +74,7 @@ function Home() {
       <RecentlyViewed />
       <Categories />
       <TrendingSection />
+      <ClearanceSale />
       <SizeShowcase />
       <PriceShowcase />
       <CategoryNewArrivals />

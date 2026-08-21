@@ -6,6 +6,7 @@ import {
   FaChevronUp,
   FaBell,
   FaFire,
+  FaTag,
 } from "react-icons/fa";
 
 import { getCategories } from "../services/categoryService";
@@ -170,6 +171,15 @@ function MobileMenu({ isOpen, onClose }) {
           >
             <FaFire className="text-amber-500" />
             Top Trending
+          </NavLink>
+
+          <NavLink
+            to="/clearance-sale"
+            onClick={close}
+            className="flex items-center gap-2 px-5 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-amber-600 border-t border-slate-100"
+          >
+            <FaTag className="text-red-600" />
+            Clearance Sale
           </NavLink>
 
           <NavLink

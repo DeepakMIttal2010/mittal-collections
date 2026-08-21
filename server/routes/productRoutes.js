@@ -15,6 +15,7 @@ import {
   getNewArrivalProducts,
   getNewArrivalsByCategory,
   getBestSellers,
+  getBigSavingsProducts,
   getSearchSuggestions,
   getProductById,
   addProduct,
@@ -34,6 +35,7 @@ router.get("/trending-by-category", getTrendingProductsByCategory);
 router.get("/new-arrivals", getNewArrivalProducts);
 router.get("/new-arrivals-by-category", getNewArrivalsByCategory);
 router.get("/best-sellers", getBestSellers);
+router.get("/big-savings", getBigSavingsProducts);
 router.get("/suggestions", getSearchSuggestions);
 
 // Admin-only routes — login + admin role dono zaroori (must come before /:id)

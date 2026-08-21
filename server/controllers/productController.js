@@ -820,6 +820,117 @@ export const getBestSellers = async (req, res) => {
 };
 
 // ============================
+// GET BIG SAVINGS / CLEARANCE PRODUCTS — grouped by category, no admin
+// curation needed. Any category with at least one product discounted
+// 35%+ off MRP gets its own section, ordered by how many discounted
+// items that category actually has (most first) — not admin-managed,
+// unlike New Arrivals sections.
+// ============================
+const BIG_SAVINGS_MIN_DISCOUNT_PERCENT = 35;
+
+export const getBigSavingsProducts = async (req, res) => {
+  try {
+    const perCategoryLimit = Math.max(parseInt(req.query.limit, 10) || 8, 1);
+
+    const candidates = await Product.aggregate([
+      {
+        $match: {
+          isActive: true,
+          visibility: { $ne: "offline" },
+          oldPrice: { $gt: 0 },
+        },
+      },
+      {
+        $addFields: {
+          discountPercent: {
+            $multiply: [
+              {
+                $divide: [
+                  { $subtract: ["$oldPrice", "$price"] },
+                  "$oldPrice",
+                ],
+              },
+              100,
+            ],
+          },
+        },
+      },
+      { $match: { discountPercent: { $gte: BIG_SAVINGS_MIN_DISCOUNT_PERCENT } } },
+      { $sort: { discountPercent: -1 } },
+      { $limit: 500 }, // safety cap, not a per-category limit
+      { $project: { _id: 1, discountPercent: 1 } },
+    ]);
+
+    const productIds = candidates.map((entry) => entry._id);
+
+    const products = await Product.find({
+      _id: { $in: productIds },
+      $or: [{ stock: { $gt: 0 } }, { willRestock: { $ne: false } }],
+    })
+      .select(COST_FIELDS)
+      .populate("category", "name slug image isActive")
+      .populate("subcategory", "name slug");
+
+    const discountById = new Map(
+      candidates.map((entry) => [entry._id.toString(), entry.discountPercent]),
+    );
+
+    const byCategory = new Map();
+
+    for (const product of products) {
+      // A category could have been deliberately deactivated (e.g. taken
+      // off the site temporarily) without deactivating its products —
+      // skip it here the same way getNewArrivalsByCategory does, so a
+      // hidden category doesn't resurface via this section.
+      if (!product.category || !product.category.isActive) continue;
+
+      const key = product.category._id.toString();
+
+      if (!byCategory.has(key)) {
+        byCategory.set(key, { category: product.category, products: [] });
+      }
+
+      byCategory.get(key).products.push(product);
+    }
+
+    const sections = [...byCategory.values()]
+      .map(({ category, products: categoryProducts }) => {
+        const sorted = categoryProducts.sort(
+          (a, b) =>
+            (discountById.get(b._id.toString()) || 0) -
+            (discountById.get(a._id.toString()) || 0),
+        );
+
+        return {
+          category: {
+            _id: category._id,
+            name: category.name,
+            slug: category.slug,
+          },
+          totalCount: sorted.length,
+          products: sorted.slice(0, perCategoryLimit),
+        };
+      })
+      // Category with the most discounted items shows first.
+      .sort((a, b) => b.totalCount - a.totalCount)
+      .map(({ totalCount, ...section }) => section);
+
+    res.status(200).json({
+      success: true,
+      sections,
+      minDiscountPercent: BIG_SAVINGS_MIN_DISCOUNT_PERCENT,
+    });
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};
+
+// ============================
 // GET SINGLE PRODUCT
 // ============================
 export const getProductById = async (req, res) => {
