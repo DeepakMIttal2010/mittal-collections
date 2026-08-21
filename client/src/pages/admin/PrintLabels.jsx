@@ -306,7 +306,7 @@ function PrintLabels() {
                   alt={`QR code for ${label.name}`}
                   className="mx-auto w-full max-w-[110px]"
                 />
-                <p className="text-xs font-semibold text-slate-800 mt-1.5 truncate">
+                <p className="text-xs font-semibold text-slate-800 mt-1.5 line-clamp-2">
                   {label.name}
                 </p>
                 {label.categoryName && (
