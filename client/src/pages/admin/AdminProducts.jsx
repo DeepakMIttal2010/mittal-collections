@@ -20,8 +20,13 @@ import {
 } from "../../services/adminProductService";
 import { getCategories } from "../../services/categoryService";
 import { getSubcategories } from "../../services/subcategoryService";
+import { getSiteSettingsAdmin } from "../../services/adminSettingsService";
 import ProductQuickView from "../../components/admin/ProductQuickView";
 import ShareProductModal from "../../components/admin/ShareProductModal";
+
+// Fallback when no admin-configured rule matches a product's
+// category/subcategory (see AdminSettings.jsx "Cost/Price Auto-Fill Rules").
+const DEFAULT_PRICING_RULE = { miscExpensesPercent: 10 };
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
@@ -180,15 +185,18 @@ function AdminProducts() {
   const handleExportExcel = async () => {
     setExporting(true);
 
-    const response = await getAllProducts({
-      page: 1,
-      limit: 5000,
-      search,
-      sortBy,
-      sortOrder,
-      category: categoryFilter,
-      subcategory: subcategoryFilter,
-    });
+    const [response, settingsRes] = await Promise.all([
+      getAllProducts({
+        page: 1,
+        limit: 5000,
+        search,
+        sortBy,
+        sortOrder,
+        category: categoryFilter,
+        subcategory: subcategoryFilter,
+      }),
+      getSiteSettingsAdmin(),
+    ]);
 
     setExporting(false);
 
@@ -197,13 +205,35 @@ function AdminProducts() {
       return;
     }
 
+    const pricingRules = (settingsRes.settings?.pricingRules || []).filter(
+      (r) => r.isActive !== false,
+    );
+
+    const resolveRule = (categoryId, subcategoryId) => {
+      const subMatch =
+        subcategoryId &&
+        pricingRules.find(
+          (r) =>
+            (r.category?._id || r.category) === categoryId &&
+            (r.subcategory?._id || r.subcategory) === subcategoryId,
+        );
+      if (subMatch) return subMatch;
+
+      const catMatch = pricingRules.find(
+        (r) => (r.category?._id || r.category) === categoryId && !r.subcategory,
+      );
+      if (catMatch) return catMatch;
+
+      return DEFAULT_PRICING_RULE;
+    };
+
     const columns = [
       "Name",
       "Category",
       "Subcategory",
       "Price",
       "MRP",
-      "All Sizes (Price/MRP/Purchase Price)",
+      "All Sizes (Price/MRP)",
       "Stock",
       "Purchase Price",
       "Misc Exps",
@@ -227,17 +257,44 @@ function AdminProducts() {
     ];
 
     const rows = response.products.map((p) => {
-      const purchasePrice = Math.round(Number(p.purchasePrice) || 0);
-      const miscExpenses = Math.round(Number(p.miscExpenses) || 0);
+      const hasVariants = p.variants?.length > 0;
+      const rule = resolveRule(p.category?._id, p.subcategory?._id);
 
-      const allSizes = p.variants?.length
+      const allSizes = hasVariants
         ? p.variants
             .map(
               (v) =>
-                `${v.size}: ₹${v.price}${v.oldPrice ? ` (MRP ₹${v.oldPrice})` : ""}${v.purchasePrice ? ` [PP ₹${v.purchasePrice}]` : ""}`,
+                `${v.size}: ₹${v.price}${v.oldPrice ? ` (MRP ₹${v.oldPrice})` : ""}`,
             )
             .join(" | ")
         : "";
+
+      // Per-variant misc expenses/total cost — each size can have its own
+      // purchase price (e.g. Curtains 7x4 vs 9x4), so a single top-level
+      // number would be misleading for variant products.
+      const purchasePriceDisplay = hasVariants
+        ? p.variants.map((v) => `${v.size}: ₹${Math.round(Number(v.purchasePrice) || 0)}`).join(" | ")
+        : Math.round(Number(p.purchasePrice) || 0);
+
+      const miscExpensesDisplay = hasVariants
+        ? p.variants
+            .map((v) => {
+              const pp = Math.round(Number(v.purchasePrice) || 0);
+              const misc = Math.round((pp * rule.miscExpensesPercent) / 100);
+              return `${v.size}: ₹${misc}`;
+            })
+            .join(" | ")
+        : Math.round(Number(p.miscExpenses) || 0);
+
+      const totalCostDisplay = hasVariants
+        ? p.variants
+            .map((v) => {
+              const pp = Math.round(Number(v.purchasePrice) || 0);
+              const misc = Math.round((pp * rule.miscExpensesPercent) / 100);
+              return `${v.size}: ₹${pp + misc}`;
+            })
+            .join(" | ")
+        : Math.round(Number(p.purchasePrice) || 0) + Math.round(Number(p.miscExpenses) || 0);
 
       return [
         p.name,
@@ -247,9 +304,9 @@ function AdminProducts() {
         p.oldPrice || "",
         allSizes,
         p.stock,
-        purchasePrice,
-        miscExpenses,
-        purchasePrice + miscExpenses,
+        purchasePriceDisplay,
+        miscExpensesDisplay,
+        totalCostDisplay,
         p.fabric || "",
         p.size || "",
         p.gsm || "",
