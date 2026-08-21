@@ -207,7 +207,6 @@ function AdminProducts() {
       "Fabric",
       "Size",
       "GSM",
-      "Wash Care",
       "Brand",
       "Country of Origin",
       "Featured",
@@ -219,11 +218,11 @@ function AdminProducts() {
       "Status",
       "Purchase Price",
       "Misc Exps",
-      "Amount",
+      "Total Cost",
+      "Purchase Date",
       "Product ID",
       "Product Number",
       "Created Date",
-      "Product URL",
     ];
 
     const rows = response.products.map((p) => {
@@ -240,7 +239,6 @@ function AdminProducts() {
         p.fabric || "",
         p.size || "",
         p.gsm || "",
-        p.washCare || "",
         p.brand || "",
         p.countryOfOrigin || "",
         p.featured ? "Yes" : "No",
@@ -253,6 +251,13 @@ function AdminProducts() {
         purchasePrice,
         miscExpenses,
         purchasePrice + miscExpenses,
+        p.purchaseDate
+          ? new Date(p.purchaseDate).toLocaleDateString("en-IN", {
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+            })
+          : "",
         p._id,
         p.productNumber || "",
         new Date(p.createdAt).toLocaleDateString("en-IN", {
@@ -260,7 +265,6 @@ function AdminProducts() {
           month: "short",
           year: "numeric",
         }),
-        `${window.location.origin}/product/${p._id}/${p.slug}`,
       ];
     });
 
