@@ -217,41 +217,52 @@ function AdminProducts() {
       "Will Restock",
       "Show Product",
       "Status",
+      "Purchase Price",
+      "Misc Exps",
+      "Amount",
       "Product ID",
       "Product Number",
       "Created Date",
       "Product URL",
     ];
 
-    const rows = response.products.map((p) => [
-      p.name,
-      p.category?.name || "",
-      p.subcategory?.name || "",
-      p.price,
-      p.oldPrice || "",
-      p.stock,
-      p.fabric || "",
-      p.size || "",
-      p.gsm || "",
-      p.washCare || "",
-      p.brand || "",
-      p.countryOfOrigin || "",
-      p.featured ? "Yes" : "No",
-      p.isReturnable ? "Yes" : "No",
-      p.isTrending ? "Yes" : "No",
-      p.restockAlertEnabled ? "Yes" : "No",
-      p.willRestock === false ? "No" : "Yes",
-      VISIBILITY_LABELS[p.visibility || "both"],
-      p.isActive ? "Active" : "Inactive",
-      p._id,
-      p.productNumber || "",
-      new Date(p.createdAt).toLocaleDateString("en-IN", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      }),
-      `${window.location.origin}/product/${p._id}/${p.slug}`,
-    ]);
+    const rows = response.products.map((p) => {
+      const purchasePrice = Math.round(Number(p.purchasePrice) || 0);
+      const miscExpenses = Math.round(Number(p.miscExpenses) || 0);
+
+      return [
+        p.name,
+        p.category?.name || "",
+        p.subcategory?.name || "",
+        p.price,
+        p.oldPrice || "",
+        p.stock,
+        p.fabric || "",
+        p.size || "",
+        p.gsm || "",
+        p.washCare || "",
+        p.brand || "",
+        p.countryOfOrigin || "",
+        p.featured ? "Yes" : "No",
+        p.isReturnable ? "Yes" : "No",
+        p.isTrending ? "Yes" : "No",
+        p.restockAlertEnabled ? "Yes" : "No",
+        p.willRestock === false ? "No" : "Yes",
+        VISIBILITY_LABELS[p.visibility || "both"],
+        p.isActive ? "Active" : "Inactive",
+        purchasePrice,
+        miscExpenses,
+        purchasePrice + miscExpenses,
+        p._id,
+        p.productNumber || "",
+        new Date(p.createdAt).toLocaleDateString("en-IN", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        }),
+        `${window.location.origin}/product/${p._id}/${p.slug}`,
+      ];
+    });
 
     const csv =
       "﻿" +

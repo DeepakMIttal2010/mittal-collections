@@ -3,8 +3,6 @@
     { "source": "/bedsheets", "destination": "/category/bedsheets", "permanent": true },
     { "source": "/towels", "destination": "/category/towels", "permanent": true },
     { "source": "/curtains", "destination": "/category/curtains", "permanent": true },
-    { "source": "/pillows", "destination": "/category/pillows", "permanent": true },
-    { "source": "/blankets", "destination": "/category/blankets", "permanent": true },
     { "source": "/offers", "destination": "/trending", "permanent": true }
   ],
   "rewrites": [
