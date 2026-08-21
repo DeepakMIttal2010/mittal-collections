@@ -622,7 +622,7 @@ function ProductDetails() {
                     ) : (
                       <img
                         src={`${imgUrl(item.url, "w_150,q_auto,f_auto")}`}
-                        alt={t(product.name, product.nameHi)}
+                        alt={`${t(product.name, product.nameHi)} - photo ${index + 1}`}
                         loading="lazy"
                         className="w-full h-full object-cover"
                       />
@@ -1127,7 +1127,7 @@ function ProductDetails() {
             >
               <img
                 src={`${imgUrl(mediaItems[lightboxIndex]?.url)}`}
-                alt={t(product.name, product.nameHi)}
+                alt={`${t(product.name, product.nameHi)} - photo ${lightboxIndex + 1}`}
                 onClick={toggleLightboxZoom}
                 className={
                   isLightboxZoomed

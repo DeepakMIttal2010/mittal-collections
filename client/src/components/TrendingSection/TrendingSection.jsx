@@ -74,7 +74,7 @@ function TrendingCategoryRow({ category, products, t, isFirst }) {
             <div className="relative rounded-xl overflow-hidden shadow-md aspect-[4/5] bg-slate-100">
               <img
                 src={`${imgUrl(product.image)}`}
-                alt={product.name}
+                alt={t(product.name, product.nameHi)}
                 loading="lazy"
                 className="w-full h-full object-cover"
               />

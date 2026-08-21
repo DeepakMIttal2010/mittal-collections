@@ -62,8 +62,8 @@ function Home() {
   return (
     <>
       <Seo
-        title="Home Furnishing Store in Vasundhara, Ghaziabad"
-        description="Shop premium bedsheets, curtains, towels, pillows, cushions and blankets at Mittal Collections — Sector 3, Vasundhara, Ghaziabad. Serving Indirapuram, Vaishali and nearby areas."
+        title="Buy Bedsheets, Curtains & Towels Online — Pan-India Delivery"
+        description="Shop premium cotton bedsheets, curtains, towels, cushions and doormats online with pan-India delivery — fast 24-hour delivery in Vasundhara, Indirapuram, Vaishali and nearby Ghaziabad. Genuine products, easy returns."
         url="https://www.mittalcollections.com/"
         jsonLd={localBusinessJsonLd}
       />
