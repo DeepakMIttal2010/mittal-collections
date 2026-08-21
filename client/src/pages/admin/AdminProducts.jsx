@@ -234,6 +234,7 @@ function AdminProducts() {
       "Subcategory",
       "Price",
       "MRP",
+      "Discount % of MRP",
       "All Sizes (Price/MRP)",
       "Stock (size-wise)",
       "Purchase Price",
@@ -301,12 +302,22 @@ function AdminProducts() {
         ? p.variants.map((v) => `${v.size}: ${v.stock}`).join(" | ")
         : p.stock;
 
+      const discountPercent = (price, mrp) =>
+        mrp > 0 ? Math.round(((mrp - price) / mrp) * 100) : 0;
+
+      const discountDisplay = hasVariants
+        ? p.variants
+            .map((v) => `${v.size}: ${discountPercent(v.price, v.oldPrice)}%`)
+            .join(" | ")
+        : `${discountPercent(p.price, p.oldPrice)}%`;
+
       return [
         p.name,
         p.category?.name || "",
         p.subcategory?.name || "",
         p.price,
         p.oldPrice || "",
+        discountDisplay,
         allSizes,
         stockDisplay,
         purchasePriceDisplay,
