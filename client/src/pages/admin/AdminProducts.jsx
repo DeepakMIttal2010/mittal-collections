@@ -203,6 +203,7 @@ function AdminProducts() {
       "Subcategory",
       "Price",
       "MRP",
+      "All Sizes (Price/MRP/Purchase Price)",
       "Stock",
       "Purchase Price",
       "Misc Exps",
@@ -229,12 +230,22 @@ function AdminProducts() {
       const purchasePrice = Math.round(Number(p.purchasePrice) || 0);
       const miscExpenses = Math.round(Number(p.miscExpenses) || 0);
 
+      const allSizes = p.variants?.length
+        ? p.variants
+            .map(
+              (v) =>
+                `${v.size}: ₹${v.price}${v.oldPrice ? ` (MRP ₹${v.oldPrice})` : ""}${v.purchasePrice ? ` [PP ₹${v.purchasePrice}]` : ""}`,
+            )
+            .join(" | ")
+        : "";
+
       return [
         p.name,
         p.category?.name || "",
         p.subcategory?.name || "",
         p.price,
         p.oldPrice || "",
+        allSizes,
         p.stock,
         purchasePrice,
         miscExpenses,
