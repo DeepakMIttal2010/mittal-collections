@@ -412,7 +412,6 @@ function AdminProducts() {
       ];
 
       const tail = [
-        p.restockAlertEnabled ? "Yes" : "No",
         p.willRestock === false ? "No" : "Yes",
         p.isActive ? "Active" : "Inactive",
         VISIBILITY_LABELS[p.visibility || "both"],
@@ -453,9 +452,18 @@ function AdminProducts() {
       ];
     });
 
+    // Stock is column index 4, Stock Value is index 10 (see `columns` above).
+    const totalStock = rows.reduce((sum, row) => sum + (Number(row[4]) || 0), 0);
+    const totalAmount = rows.reduce((sum, row) => sum + (Number(row[10]) || 0), 0);
+    const totalRow = [
+      "TOTAL", "", "", "", totalStock, "", "", "", "", "", totalAmount, "",
+    ];
+
     const csv =
       "﻿" +
-      [columns, ...rows].map((row) => row.map(escapeCsv).join(",")).join("\r\n");
+      [columns, ...rows, totalRow]
+        .map((row) => row.map(escapeCsv).join(","))
+        .join("\r\n");
 
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
