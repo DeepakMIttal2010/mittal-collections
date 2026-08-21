@@ -234,7 +234,7 @@ function AdminProducts() {
       "Price",
       "MRP",
       "All Sizes (Price/MRP)",
-      "Stock",
+      "Stock (size-wise)",
       "Purchase Price",
       "Misc Exps",
       "Total Cost",
@@ -296,6 +296,10 @@ function AdminProducts() {
             .join(" | ")
         : Math.round(Number(p.purchasePrice) || 0) + Math.round(Number(p.miscExpenses) || 0);
 
+      const stockDisplay = hasVariants
+        ? p.variants.map((v) => `${v.size}: ${v.stock}`).join(" | ")
+        : p.stock;
+
       return [
         p.name,
         p.category?.name || "",
@@ -303,7 +307,7 @@ function AdminProducts() {
         p.price,
         p.oldPrice || "",
         allSizes,
-        p.stock,
+        stockDisplay,
         purchasePriceDisplay,
         miscExpensesDisplay,
         totalCostDisplay,
