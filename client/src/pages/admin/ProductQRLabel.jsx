@@ -3,6 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import QRCode from "qrcode";
 
 import { getProductByIdAdmin } from "../../services/adminProductService";
+import { imgUrl } from "../../services/api";
 
 function ProductQRLabel() {
   const { id } = useParams();
@@ -64,12 +65,24 @@ function ProductQRLabel() {
       </div>
 
       <div className="border border-slate-300 rounded-lg p-6 text-center">
+        {product.image && (
+          <img
+            src={imgUrl(product.image, "w_150,q_auto,f_auto")}
+            alt={product.name}
+            className="mx-auto w-16 h-16 object-cover rounded-md border border-slate-200 mb-3"
+          />
+        )}
         <img
           src={qrDataUrl}
           alt={`QR code for ${product.name}`}
           className="mx-auto w-full max-w-[260px]"
         />
         <p className="font-semibold text-slate-800 mt-3">{product.name}</p>
+        {product.category?.name && (
+          <p className="text-xs text-slate-500 mt-0.5">
+            {product.category.name}
+          </p>
+        )}
         <p className="mt-1">
           {hasDiscount && (
             <span className="text-slate-400 line-through mr-2">

@@ -7,6 +7,7 @@ import {
 } from "../../services/adminProductService";
 import { getCategories } from "../../services/categoryService";
 import { getSubcategories } from "../../services/subcategoryService";
+import { imgUrl } from "../../services/api";
 
 // Reasonably small but still reliably scannable at close range — 130px
 // with default margin (quiet zone) and error-correction keeps a phone
@@ -77,6 +78,8 @@ function PrintLabels() {
           return {
             id: product._id,
             name: product.name,
+            image: product.image,
+            categoryName: product.category?.name || "",
             price: product.price,
             oldPrice: product.oldPrice,
             productNumber: product.productNumber,
@@ -291,6 +294,13 @@ function PrintLabels() {
                 key={label.id}
                 className="border border-slate-300 rounded-lg p-2 text-center break-inside-avoid"
               >
+                {label.image && (
+                  <img
+                    src={imgUrl(label.image, "w_80,q_auto,f_auto")}
+                    alt={label.name}
+                    className="mx-auto w-10 h-10 object-cover rounded border border-slate-200 mb-1"
+                  />
+                )}
                 <img
                   src={label.qrDataUrl}
                   alt={`QR code for ${label.name}`}
@@ -299,6 +309,11 @@ function PrintLabels() {
                 <p className="text-xs font-semibold text-slate-800 mt-1.5 truncate">
                   {label.name}
                 </p>
+                {label.categoryName && (
+                  <p className="text-[10px] text-slate-400 truncate">
+                    {label.categoryName}
+                  </p>
+                )}
                 <p className="text-[11px]">
                   {label.oldPrice > label.price && (
                     <span className="text-slate-400 line-through mr-1">
