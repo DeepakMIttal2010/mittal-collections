@@ -8,6 +8,7 @@ import {
   FaSortUp,
   FaSortDown,
   FaFileExcel,
+  FaWarehouse,
   FaWhatsapp,
 } from "react-icons/fa";
 
@@ -360,6 +361,118 @@ function AdminProducts() {
     URL.revokeObjectURL(url);
   };
 
+  const handleExportStockReport = async () => {
+    setExporting(true);
+
+    const response = await getAllProducts({
+      page: 1,
+      limit: 5000,
+      search,
+      sortBy,
+      sortOrder,
+      category: categoryFilter,
+      subcategory: subcategoryFilter,
+    });
+
+    setExporting(false);
+
+    if (!response.success || response.products.length === 0) {
+      alert("No products to export for the current filters");
+      return;
+    }
+
+    const columns = [
+      "Product Name",
+      "Category",
+      "Subcategory",
+      "Size / Variant",
+      "Stock",
+      "Restock Alert Threshold",
+      "Will Restock",
+      "Status",
+      "Show Product",
+      "Purchase Price",
+      "Stock Value",
+      "Product ID",
+    ];
+
+    // One row per size for variant products (e.g. Curtains 7x4/9x4), since
+    // stock/purchase price/value are all size-specific — a single summed
+    // row would hide which size is actually running low.
+    const rows = response.products.flatMap((p) => {
+      const hasVariants = p.variants?.length > 0;
+      const restockAlertThreshold = p.restockAlertEnabled
+        ? p.restockAlertQuantity ?? ""
+        : "";
+
+      const common = [
+        p.name,
+        p.category?.name || "",
+        p.subcategory?.name || "",
+      ];
+
+      const tail = [
+        p.restockAlertEnabled ? "Yes" : "No",
+        p.willRestock === false ? "No" : "Yes",
+        p.isActive ? "Active" : "Inactive",
+        VISIBILITY_LABELS[p.visibility || "both"],
+      ];
+
+      if (hasVariants) {
+        return p.variants.map((v) => {
+          const purchasePrice = Math.round(Number(v.purchasePrice) || 0);
+          const stock = Number(v.stock) || 0;
+
+          return [
+            ...common,
+            v.size,
+            stock,
+            restockAlertThreshold,
+            ...tail,
+            purchasePrice,
+            purchasePrice * stock,
+            p._id,
+          ];
+        });
+      }
+
+      const purchasePrice = Math.round(Number(p.purchasePrice) || 0);
+      const stock = Number(p.stock) || 0;
+
+      return [
+        [
+          ...common,
+          p.size || "",
+          stock,
+          restockAlertThreshold,
+          ...tail,
+          purchasePrice,
+          purchasePrice * stock,
+          p._id,
+        ],
+      ];
+    });
+
+    const csv =
+      "﻿" +
+      [columns, ...rows].map((row) => row.map(escapeCsv).join(",")).join("\r\n");
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const filterLabel = [
+      categories.find((c) => c._id === categoryFilter)?.name,
+      subcategories.find((s) => s._id === subcategoryFilter)?.name,
+    ]
+      .filter(Boolean)
+      .join("-");
+
+    link.href = url;
+    link.download = `Mittal_Collections_StockReport${filterLabel ? `-${filterLabel}` : ""}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   const handleLimitChange = (e) => {
     setLimit(Number(e.target.value));
     setPage(1);
@@ -545,9 +658,19 @@ function AdminProducts() {
 
         <button
           type="button"
+          onClick={handleExportStockReport}
+          disabled={exporting}
+          className="ml-auto flex items-center gap-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors disabled:opacity-60"
+        >
+          <FaWarehouse />
+          {exporting ? "Generating..." : "Stock Report"}
+        </button>
+
+        <button
+          type="button"
           onClick={handleExportExcel}
           disabled={exporting}
-          className="ml-auto flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors disabled:opacity-60"
+          className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors disabled:opacity-60"
         >
           <FaFileExcel />
           {exporting ? "Generating..." : "Export to Excel"}
