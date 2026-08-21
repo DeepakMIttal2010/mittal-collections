@@ -229,6 +229,17 @@ const productSchema = new mongoose.Schema(
       min: 0,
     },
 
+    // Miscellaneous costs on top of purchasePrice (packing, transport,
+    // etc.) — kept separate rather than folded into purchasePrice so the
+    // admin form can show/edit each piece independently. Total cost
+    // (purchasePrice + miscExpenses) is a derived display value, not
+    // stored, to avoid it drifting out of sync with its two inputs.
+    miscExpenses: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
     purchaseDate: {
       type: Date,
       default: Date.now,

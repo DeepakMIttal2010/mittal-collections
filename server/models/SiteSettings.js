@@ -51,6 +51,35 @@ const siteSettingsSchema = new mongoose.Schema(
     // Toggles the first-visit "Welcome to Mittal Collections" benefits
     // popup shown to guests (see WelcomeBenefitsPopup.jsx).
     welcomePopupEnabled: { type: Boolean, default: true },
+
+    // Per-category (optionally per-subcategory) cost/price auto-fill
+    // rules for the Add/Edit Product form — admin enters Purchase Price,
+    // and Misc Exps / MRP / Selling Price are suggested from it:
+    //   miscExpenses = purchasePrice * miscExpensesPercent / 100
+    //   MRP (oldPrice) = purchasePrice * mrpMultiplier
+    //   price = MRP * (1 - priceDiscountPercent / 100)
+    // A subcategory rule (if set) takes priority over its category's
+    // rule; a category with no rule at all falls back to a hardcoded
+    // default in the client (see AddProduct.jsx/EditProduct.jsx) rather
+    // than silently not suggesting anything.
+    pricingRules: [
+      {
+        category: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Category",
+          required: true,
+        },
+        subcategory: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Subcategory",
+          default: null,
+        },
+        miscExpensesPercent: { type: Number, required: true },
+        mrpMultiplier: { type: Number, required: true },
+        priceDiscountPercent: { type: Number, required: true },
+        isActive: { type: Boolean, default: true },
+      },
+    ],
   },
   {
     timestamps: true,

@@ -5,6 +5,7 @@ import {
   updateSiteSettings,
 } from "../../services/adminSettingsService";
 import { getCategories } from "../../services/categoryService";
+import { getSubcategories } from "../../services/subcategoryService";
 import WelcomeBenefitsPopup from "../../components/WelcomeBenefitsPopup";
 
 function AdminSettings() {
@@ -31,7 +32,9 @@ function AdminSettings() {
 
   const [shippingTiers, setShippingTiers] = useState([]);
   const [bundleRules, setBundleRules] = useState([]);
+  const [pricingRules, setPricingRules] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [subcategories, setSubcategories] = useState([]);
 
   const loadSettings = async () => {
     setLoading(true);
@@ -63,10 +66,23 @@ function AdminSettings() {
           isActive: rule.isActive,
         })),
       );
+      setPricingRules(
+        (response.settings.pricingRules || []).map((rule) => ({
+          category: rule.category?._id || rule.category || "",
+          subcategory: rule.subcategory?._id || rule.subcategory || "",
+          miscExpensesPercent: rule.miscExpensesPercent,
+          mrpMultiplier: rule.mrpMultiplier,
+          priceDiscountPercent: rule.priceDiscountPercent,
+          isActive: rule.isActive,
+        })),
+      );
     }
 
     const categoriesRes = await getCategories();
     if (categoriesRes.success) setCategories(categoriesRes.categories);
+
+    const subcategoriesRes = await getSubcategories();
+    if (subcategoriesRes.success) setSubcategories(subcategoriesRes.subcategories);
 
     setLoading(false);
   };
@@ -111,6 +127,40 @@ function AdminSettings() {
     setBundleRules((prev) => prev.filter((_, i) => i !== index));
   };
 
+  const handlePricingRuleChange = (index, field, value) => {
+    setPricingRules((prev) =>
+      prev.map((rule, i) =>
+        i === index
+          ? {
+              ...rule,
+              [field]:
+                field === "category" || field === "subcategory"
+                  ? value
+                  : Number(value),
+            }
+          : rule,
+      ),
+    );
+  };
+
+  const handleAddPricingRule = () => {
+    setPricingRules((prev) => [
+      ...prev,
+      {
+        category: "",
+        subcategory: "",
+        miscExpensesPercent: 10,
+        mrpMultiplier: 2,
+        priceDiscountPercent: 15,
+        isActive: true,
+      },
+    ]);
+  };
+
+  const handleRemovePricingRule = (index) => {
+    setPricingRules((prev) => prev.filter((_, i) => i !== index));
+  };
+
   useEffect(() => {
     loadSettings();
   }, []);
@@ -136,12 +186,23 @@ function AdminSettings() {
       return;
     }
 
+    const incompletePricingRule = pricingRules.some((rule) => !rule.category);
+
+    if (incompletePricingRule) {
+      alert("Pick a category for every pricing rule row (or remove it).");
+      return;
+    }
+
     setSaving(true);
 
     const response = await updateSiteSettings({
       ...formData,
       shippingTiers,
       bundleRules,
+      pricingRules: pricingRules.map((rule) => ({
+        ...rule,
+        subcategory: rule.subcategory || null,
+      })),
     });
 
     setSaving(false);
@@ -423,6 +484,149 @@ function AdminSettings() {
           className="text-sm text-blue-700 hover:text-blue-900 font-medium"
         >
           + Add Bundle Rule
+        </button>
+
+        <hr className="border-slate-200" />
+
+        <h3 className="font-semibold text-slate-800">Cost/Price Auto-Fill Rules</h3>
+        <p className="text-sm text-slate-500 -mt-2">
+          Controls the Add/Edit Product form's auto-fill: admin enters
+          Purchase Price, and Misc Exps / MRP / Selling Price are
+          suggested from it — Misc Exps = Purchase Price × %, MRP =
+          Purchase Price × multiplier, Price = MRP − %. A subcategory
+          rule overrides its category's rule. Admin can still edit any
+          suggested value by hand afterwards.
+        </p>
+
+        {pricingRules.length > 0 && (
+          <div className="space-y-2 mb-2">
+            {pricingRules.map((rule, index) => (
+              <div key={index} className="flex items-center gap-2 flex-wrap">
+                <select
+                  value={rule.category}
+                  onChange={(e) => {
+                    handlePricingRuleChange(index, "category", e.target.value);
+                    handlePricingRuleChange(index, "subcategory", "");
+                  }}
+                  className="border border-slate-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Category</option>
+                  {categories.map((c) => (
+                    <option key={c._id} value={c._id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+
+                <select
+                  value={rule.subcategory}
+                  onChange={(e) =>
+                    handlePricingRuleChange(index, "subcategory", e.target.value)
+                  }
+                  className="border border-slate-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">All subcategories</option>
+                  {subcategories
+                    .filter(
+                      (s) =>
+                        (s.category?._id || s.category) === rule.category,
+                    )
+                    .map((s) => (
+                      <option key={s._id} value={s._id}>
+                        {s.name}
+                      </option>
+                    ))}
+                </select>
+
+                <span className="text-xs text-slate-500 shrink-0">
+                  Misc Exps
+                </span>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={rule.miscExpensesPercent}
+                  onChange={(e) =>
+                    handlePricingRuleChange(
+                      index,
+                      "miscExpensesPercent",
+                      e.target.value,
+                    )
+                  }
+                  className="w-16 border border-slate-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <span className="text-xs text-slate-500 shrink-0">%</span>
+
+                <span className="text-xs text-slate-500 shrink-0">
+                  MRP ×
+                </span>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  value={rule.mrpMultiplier}
+                  onChange={(e) =>
+                    handlePricingRuleChange(
+                      index,
+                      "mrpMultiplier",
+                      e.target.value,
+                    )
+                  }
+                  className="w-16 border border-slate-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+
+                <span className="text-xs text-slate-500 shrink-0">
+                  Price = MRP −
+                </span>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={rule.priceDiscountPercent}
+                  onChange={(e) =>
+                    handlePricingRuleChange(
+                      index,
+                      "priceDiscountPercent",
+                      e.target.value,
+                    )
+                  }
+                  className="w-16 border border-slate-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <span className="text-xs text-slate-500 shrink-0">%</span>
+
+                <label className="flex items-center gap-1.5 text-xs text-slate-600 shrink-0">
+                  <input
+                    type="checkbox"
+                    checked={rule.isActive}
+                    onChange={(e) =>
+                      handlePricingRuleChange(
+                        index,
+                        "isActive",
+                        e.target.checked,
+                      )
+                    }
+                  />
+                  Active
+                </label>
+
+                <button
+                  type="button"
+                  onClick={() => handleRemovePricingRule(index)}
+                  className="text-red-500 hover:text-red-700 text-sm px-2"
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <button
+          type="button"
+          onClick={handleAddPricingRule}
+          className="text-sm text-blue-700 hover:text-blue-900 font-medium"
+        >
+          + Add Pricing Rule
         </button>
 
         <hr className="border-slate-200" />

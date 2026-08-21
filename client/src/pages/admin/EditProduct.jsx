@@ -8,8 +8,17 @@ import {
 } from "../../services/adminProductService";
 import { getCategories } from "../../services/categoryService";
 import { getSubcategories } from "../../services/subcategoryService";
+import { getSiteSettingsAdmin } from "../../services/adminSettingsService";
 
 import "./EditProduct.css";
+
+// Fallback when no admin-configured rule matches the selected
+// category/subcategory (see AdminSettings.jsx "Cost/Price Auto-Fill Rules").
+const DEFAULT_PRICING_RULE = {
+  miscExpensesPercent: 10,
+  mrpMultiplier: 2,
+  priceDiscountPercent: 15,
+};
 
 function EditProduct() {
   const { id } = useParams();
@@ -29,6 +38,7 @@ function EditProduct() {
 
   const [categories, setCategories] = useState([]);
   const [subcategories, setSubcategories] = useState([]);
+  const [pricingRules, setPricingRules] = useState([]);
 
   // Size variants — see AddProduct.jsx for the same pattern.
   const [hasVariants, setHasVariants] = useState(false);
@@ -82,21 +92,26 @@ function EditProduct() {
     restockAlertEnabled: false,
     restockAlertQuantity: "",
     purchasePrice: "",
+    miscExpenses: "",
     purchaseDate: "",
   });
 
   const [productNumber, setProductNumber] = useState("");
 
   const loadProduct = async () => {
-    const [productRes, categoriesRes, subcategoriesRes] = await Promise.all([
-      getProductByIdAdmin(id),
-      getCategories(),
-      getSubcategories(),
-    ]);
+    const [productRes, categoriesRes, subcategoriesRes, settingsRes] =
+      await Promise.all([
+        getProductByIdAdmin(id),
+        getCategories(),
+        getSubcategories(),
+        getSiteSettingsAdmin(),
+      ]);
 
     if (categoriesRes.success) setCategories(categoriesRes.categories);
     if (subcategoriesRes.success)
       setSubcategories(subcategoriesRes.subcategories);
+    if (settingsRes.success)
+      setPricingRules(settingsRes.settings.pricingRules || []);
 
     if (productRes.success) {
       const product = productRes.product;
@@ -137,6 +152,7 @@ function EditProduct() {
         restockAlertEnabled: product.restockAlertEnabled || false,
         restockAlertQuantity: product.restockAlertQuantity ?? "",
         purchasePrice: product.purchasePrice ?? "",
+        miscExpenses: product.miscExpenses ?? "",
         purchaseDate: product.purchaseDate
           ? product.purchaseDate.slice(0, 10)
           : "",
@@ -182,13 +198,65 @@ function EditProduct() {
     (sub) => sub.category?._id === formData.category,
   );
 
+  // Subcategory-specific rule wins over its category's rule; falls back to
+  // a hardcoded default when nothing is configured (see AdminSettings.jsx).
+  const resolvePricingRule = (categoryId, subcategoryId) => {
+    const active = pricingRules.filter((r) => r.isActive !== false);
+
+    const subMatch =
+      subcategoryId &&
+      active.find(
+        (r) =>
+          (r.category?._id || r.category) === categoryId &&
+          (r.subcategory?._id || r.subcategory) === subcategoryId,
+      );
+    if (subMatch) return subMatch;
+
+    const catMatch = active.find(
+      (r) =>
+        (r.category?._id || r.category) === categoryId && !r.subcategory,
+    );
+    if (catMatch) return catMatch;
+
+    return DEFAULT_PRICING_RULE;
+  };
+
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
 
-    setFormData({
-      ...formData,
-      [name]: type === "checkbox" ? checked : value,
-      ...(name === "category" ? { subcategory: "" } : {}),
+    setFormData((prev) => {
+      // Suggest Misc Exps / MRP / Price from Purchase Price the first time
+      // it's entered, using the category's configured rule (or the
+      // fallback default) — but only for fields the admin hasn't already
+      // filled in themselves, so this never overwrites a real value.
+      const shouldSuggestCost =
+        name === "purchasePrice" && Number(value) > 0;
+
+      let suggestions = {};
+      if (shouldSuggestCost) {
+        const rule = resolvePricingRule(prev.category, prev.subcategory);
+        const purchasePrice = Number(value);
+        const miscExpenses = Math.round(
+          (purchasePrice * rule.miscExpensesPercent) / 100,
+        );
+        const mrp = Math.round(purchasePrice * rule.mrpMultiplier);
+        const price = Math.round(
+          mrp * (1 - rule.priceDiscountPercent / 100),
+        );
+
+        suggestions = {
+          ...(!prev.miscExpenses ? { miscExpenses: String(miscExpenses) } : {}),
+          ...(!prev.oldPrice ? { oldPrice: String(mrp) } : {}),
+          ...(!prev.price ? { price: String(price) } : {}),
+        };
+      }
+
+      return {
+        ...prev,
+        [name]: type === "checkbox" ? checked : value,
+        ...(name === "category" ? { subcategory: "" } : {}),
+        ...suggestions,
+      };
     });
   };
 
@@ -897,12 +965,14 @@ function EditProduct() {
           </div>
         )}
 
+        <p className="form-section-note">
+          Cost breakdown (internal, not shown to customers)
+          {hasVariants ? " — Purchase Price auto-fills from first size above" : ""}
+        </p>
+
         <div className="form-row">
           <div className="form-group">
-            <label>
-              Purchase Price / Cost (internal, not shown to customers)
-              {hasVariants ? " (auto, from first size above)" : ""}
-            </label>
+            <label>Purchase Price</label>
 
             <input
               type="number"
@@ -912,6 +982,31 @@ function EditProduct() {
               onChange={handleChange}
               disabled={hasVariants}
               min="0"
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Misc Exps</label>
+
+            <input
+              type="number"
+              name="miscExpenses"
+              placeholder="Packing, transport, etc."
+              value={formData.miscExpenses}
+              onChange={handleChange}
+              min="0"
+            />
+          </div>
+        </div>
+
+        <div className="form-row">
+          <div className="form-group">
+            <label>Total Cost</label>
+
+            <input
+              type="text"
+              value={`₹${Math.round(Number(formData.purchasePrice) || 0) + Math.round(Number(formData.miscExpenses) || 0)}`}
+              disabled
             />
           </div>
 

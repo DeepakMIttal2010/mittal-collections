@@ -21,7 +21,8 @@ import { deleteCloudinaryAssetsByUrl } from "../utils/cloudinaryCleanup.js";
 // variants.purchasePrice needs its own dotted exclusion; a bare
 // "-purchasePrice" only strips the top-level field, not the same-named
 // field inside each variants[] subdocument.
-const COST_FIELDS = "-purchasePrice -purchaseDate -variants.purchasePrice";
+const COST_FIELDS =
+  "-purchasePrice -miscExpenses -purchaseDate -variants.purchasePrice";
 
 const generateSlug = (name) =>
   name
@@ -495,6 +496,7 @@ export const duplicateProduct = async (req, res) => {
       restockAlertQuantity: source.restockAlertQuantity,
 
       purchasePrice: source.purchasePrice,
+      miscExpenses: source.miscExpenses,
       purchaseDate: source.purchaseDate,
 
       image: "",
@@ -883,6 +885,7 @@ export const addProduct = async (req, res) => {
       restockAlertEnabled,
       restockAlertQuantity,
       purchasePrice,
+      miscExpenses,
       purchaseDate,
       visibility,
     } = req.body;
@@ -950,6 +953,7 @@ export const addProduct = async (req, res) => {
       restockAlertQuantity: restockAlertQuantity || 0,
 
       purchasePrice: hasVariants ? variants[0].purchasePrice : purchasePrice || 0,
+      miscExpenses: miscExpenses || 0,
       purchaseDate: purchaseDate || Date.now(),
 
       image: images[mainIndex],
@@ -1046,6 +1050,7 @@ export const updateProduct = async (req, res) => {
     product.purchasePrice = hasVariants
       ? variants[0].purchasePrice
       : req.body.purchasePrice || 0;
+    product.miscExpenses = req.body.miscExpenses || 0;
     if (req.body.purchaseDate) product.purchaseDate = req.body.purchaseDate;
 
     const oldImages = product.images.length
