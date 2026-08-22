@@ -26,6 +26,30 @@ export const createOrder = async (orderData) => {
 };
 
 // =======================
+// Verify Razorpay Payment
+// =======================
+
+export const verifyRazorpayPayment = async (paymentData) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/orders/verify-payment`, {
+      method: "POST",
+
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${getToken()}`,
+      },
+
+      body: JSON.stringify(paymentData),
+    });
+
+    return await response.json();
+  } catch (error) {
+    console.error(error);
+    return { success: false };
+  }
+};
+
+// =======================
 // Get My Orders
 // =======================
 

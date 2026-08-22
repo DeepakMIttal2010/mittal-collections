@@ -159,6 +159,18 @@ const orderSchema = new mongoose.Schema(
       default: false,
     },
 
+    // Only set for paymentMethod: "Razorpay" orders — used to look the
+    // order back up when verifying the payment signature.
+    razorpayOrderId: {
+      type: String,
+      default: "",
+    },
+
+    razorpayPaymentId: {
+      type: String,
+      default: "",
+    },
+
     isSeenByAdmin: {
       type: Boolean,
       default: false,

@@ -1,3 +1,5 @@
+import Razorpay from "razorpay";
+import crypto from "crypto";
 import Order from "../models/Order.js";
 import Coupon from "../models/Coupon.js";
 import SiteSettings from "../models/SiteSettings.js";
@@ -20,6 +22,19 @@ import { calculateDeliveryFee } from "../utils/shipping.js";
 import { calculateBundleDiscount } from "../utils/bundleDiscount.js";
 import { sendEmail } from "../config/mailer.js";
 import { notifyUser } from "../utils/notify.js";
+
+// Lazily constructed so a missing/blank key in dev doesn't crash the
+// whole server at import time — only Razorpay-paid checkouts need it.
+let razorpayInstance = null;
+const getRazorpay = () => {
+  if (!razorpayInstance) {
+    razorpayInstance = new Razorpay({
+      key_id: process.env.RAZORPAY_KEY_ID,
+      key_secret: process.env.RAZORPAY_KEY_SECRET,
+    });
+  }
+  return razorpayInstance;
+};
 
 // Computes per-item return eligibility (whether the product allows
 // returns at all, and whether "deliveredAt + return period" hasn't
@@ -284,12 +299,112 @@ export const createOrder = async (req, res) => {
 
     await CartSnapshot.deleteOne({ user: req.user._id });
 
+    // Razorpay order is created from the same server-computed totalPrice
+    // used above — never trust a client-supplied amount for payment.
+    let razorpayOrder = null;
+
+    if (paymentMethod === "Razorpay") {
+      try {
+        razorpayOrder = await getRazorpay().orders.create({
+          amount: Math.round(totalPrice * 100), // paise
+          currency: "INR",
+          receipt: order._id.toString(),
+        });
+
+        order.razorpayOrderId = razorpayOrder.id;
+        await order.save();
+      } catch (razorpayError) {
+        console.error("Razorpay Order Create Error:", razorpayError);
+
+        return res.status(500).json({
+          success: false,
+          message: "Unable to initiate payment. Please try again.",
+        });
+      }
+    }
+
     res.status(201).json({
       success: true,
       order,
+      razorpayOrder: razorpayOrder
+        ? {
+            id: razorpayOrder.id,
+            amount: razorpayOrder.amount,
+            currency: razorpayOrder.currency,
+          }
+        : null,
+      razorpayKeyId: razorpayOrder ? process.env.RAZORPAY_KEY_ID : null,
     });
   } catch (error) {
     console.error("Create Order Error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};
+
+// ============================
+// Verify Razorpay Payment
+// ============================
+export const verifyRazorpayPayment = async (req, res) => {
+  try {
+    const {
+      orderId,
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
+    } = req.body;
+
+    if (
+      !orderId ||
+      !razorpay_order_id ||
+      !razorpay_payment_id ||
+      !razorpay_signature
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing payment details",
+      });
+    }
+
+    const order = await Order.findOne({
+      _id: orderId,
+      user: req.user._id,
+      razorpayOrderId: razorpay_order_id,
+    });
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    const expectedSignature = crypto
+      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+      .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+      .digest("hex");
+
+    if (expectedSignature !== razorpay_signature) {
+      return res.status(400).json({
+        success: false,
+        message: "Payment verification failed",
+      });
+    }
+
+    order.isPaid = true;
+    order.paidAt = new Date();
+    order.razorpayPaymentId = razorpay_payment_id;
+    await order.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Payment verified successfully",
+    });
+  } catch (error) {
+    console.error("Verify Razorpay Payment Error:", error);
 
     res.status(500).json({
       success: false,

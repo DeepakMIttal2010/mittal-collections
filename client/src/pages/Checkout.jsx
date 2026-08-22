@@ -5,7 +5,10 @@ import { FaTag, FaTimes, FaGift, FaTags } from "react-icons/fa";
 
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
-import { createOrder } from "../services/orderService";
+import {
+  createOrder,
+  verifyRazorpayPayment,
+} from "../services/orderService";
 import { getAddresses } from "../services/addressService";
 import {
   getFirstOrderOffer,
@@ -16,9 +19,28 @@ import { getProfile } from "../services/authService";
 import { getPublicRewardsInfo } from "../services/rewardsService";
 import { calculateDeliveryFee } from "../utils/shipping";
 
+// Loaded on-demand at checkout rather than globally in index.html, so
+// pages that never reach payment don't pay for it.
+let razorpayScriptPromise = null;
+const loadRazorpayScript = () => {
+  if (window.Razorpay) return Promise.resolve(true);
+
+  if (!razorpayScriptPromise) {
+    razorpayScriptPromise = new Promise((resolve) => {
+      const script = document.createElement("script");
+      script.src = "https://checkout.razorpay.com/v1/checkout.js";
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
+  }
+
+  return razorpayScriptPromise;
+};
+
 function Checkout() {
   const navigate = useNavigate();
-  const { isLoggedIn } = useAuth();
+  const { isLoggedIn, user } = useAuth();
 
   const { cartItems, totalPrice, bundleInfo, clearCart } = useCart();
 
@@ -237,15 +259,90 @@ function Checkout() {
       redeemPoints: usePoints ? redeemPoints : undefined,
     });
 
-    setPlacing(false);
+    if (!response.success) {
+      setPlacing(false);
+      toast.error(response.message);
+      return;
+    }
 
-    if (response.success) {
+    if (paymentMethod !== "Razorpay") {
+      setPlacing(false);
       toast.success("Order placed successfully 🎉");
       clearCart();
       navigate("/my-orders");
-    } else {
-      toast.error(response.message);
+      return;
     }
+
+    const scriptLoaded = await loadRazorpayScript();
+
+    if (!scriptLoaded || !response.razorpayOrder) {
+      setPlacing(false);
+      // The order already exists (Pending, unpaid) — same state a fresh
+      // COD order starts in — so this isn't a failure, just no payment
+      // collected yet.
+      toast.error(
+        "Order placed, but we couldn't open the payment window. You can pay from My Orders.",
+      );
+      clearCart();
+      navigate("/my-orders");
+      return;
+    }
+
+    const finishRazorpayFlow = (message, isSuccess) => {
+      setPlacing(false);
+      isSuccess ? toast.success(message) : toast.error(message);
+      clearCart();
+      navigate("/my-orders");
+    };
+
+    const razorpay = new window.Razorpay({
+      key: response.razorpayKeyId,
+      amount: response.razorpayOrder.amount,
+      currency: response.razorpayOrder.currency,
+      order_id: response.razorpayOrder.id,
+      name: "Mittal Collections",
+      description: "Order Payment",
+      prefill: {
+        name: selectedAddress.fullName,
+        contact: selectedAddress.mobile,
+        email: user?.email || "",
+      },
+      theme: { color: "#1e3a8a" },
+      handler: async (razorpayResponse) => {
+        const verifyResponse = await verifyRazorpayPayment({
+          orderId: response.order._id,
+          razorpay_order_id: razorpayResponse.razorpay_order_id,
+          razorpay_payment_id: razorpayResponse.razorpay_payment_id,
+          razorpay_signature: razorpayResponse.razorpay_signature,
+        });
+
+        finishRazorpayFlow(
+          verifyResponse.success
+            ? "Payment successful — order placed 🎉"
+            : "Order placed, but payment verification failed. Please contact support.",
+          verifyResponse.success,
+        );
+      },
+      modal: {
+        ondismiss: () => {
+          finishRazorpayFlow(
+            "Order placed — payment not completed. You can pay from My Orders.",
+            false,
+          );
+        },
+      },
+    });
+
+    // Razorpay's own modal stays open after a failed attempt so the
+    // customer can retry with a different method — only show the error
+    // here, don't navigate away yet. modal.ondismiss (fired once the
+    // customer actually closes the modal) handles leaving the page.
+    razorpay.on("payment.failed", () => {
+      toast.error("Payment failed — you can try another payment method.");
+    });
+
+    setPlacing(false);
+    razorpay.open();
   };
 
   if (cartItems.length === 0) {

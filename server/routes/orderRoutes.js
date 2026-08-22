@@ -5,6 +5,7 @@ import adminMiddleware from "../middleware/adminMiddleware.js";
 
 import {
   createOrder,
+  verifyRazorpayPayment,
   getMyOrders,
   getAllOrders,
   getOrderById,
@@ -16,6 +17,9 @@ const router = express.Router();
 
 // Create Order — koi bhi logged-in user
 router.post("/", authMiddleware, createOrder);
+
+// Verify Razorpay Payment Signature — koi bhi logged-in user
+router.post("/verify-payment", authMiddleware, verifyRazorpayPayment);
 
 // Get Logged In User Orders — koi bhi logged-in user
 router.get("/myorders", authMiddleware, getMyOrders);
