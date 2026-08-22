@@ -8,6 +8,7 @@ const API_URL =
 const STATIC_ROUTES = [
   "/",
   "/trending",
+  "/clearance-sale",
   "/new-arrivals",
   "/about",
   "/contact",
@@ -42,11 +43,13 @@ const buildSitemap = async () => {
   const urls = [...STATIC_ROUTES];
 
   try {
-    const [categoriesRes, productsRes, articlesRes] = await Promise.all([
-      fetchJson(`${API_URL}/api/categories`),
-      fetchJson(`${API_URL}/api/products?limit=1000`),
-      fetchJson(`${API_URL}/api/articles`),
-    ]);
+    const [categoriesRes, subcategoriesRes, productsRes, articlesRes] =
+      await Promise.all([
+        fetchJson(`${API_URL}/api/categories`),
+        fetchJson(`${API_URL}/api/subcategories`),
+        fetchJson(`${API_URL}/api/products?limit=1000`),
+        fetchJson(`${API_URL}/api/articles`),
+      ]);
 
     // /price/:maxPrice filter pages are deliberately excluded — they're
     // near-duplicate faceted views of the same small catalog, not
@@ -55,6 +58,9 @@ const buildSitemap = async () => {
     // The pages themselves still work; they're just not advertised in
     // the sitemap.
     categoriesRes.categories.forEach((c) => urls.push(`/category/${c.slug}`));
+    (subcategoriesRes.subcategories || []).forEach((s) => {
+      if (s.category?.slug) urls.push(`/category/${s.category.slug}/${s.slug}`);
+    });
     productsRes.products.forEach((p) => urls.push(productUrl(p)));
     articlesRes.articles.forEach((a) => urls.push(`/articles/${a.slug}`));
   } catch (error) {
