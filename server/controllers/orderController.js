@@ -103,10 +103,11 @@ const ORDER_STATUS_MESSAGES = {
   },
 };
 
-// Long enough that the customer has actually used the product before
-// being asked to review it, short enough that the order is still fresh
-// in their mind.
-const REVIEW_REQUEST_DELAY_DAYS = 4;
+// Matches (and slightly exceeds) SiteSettings.defaultReturnPeriodDays —
+// by this point the return window has closed, so an order that reaches
+// this point without a return means the customer kept the product and
+// is a genuine "they liked it" signal, not just a guess at 4 days.
+const REVIEW_REQUEST_DELAY_DAYS = 8;
 
 // Atomically reserve stock for every item. If any item doesn't have enough
 // stock, roll back the items already reserved and return that item's name.

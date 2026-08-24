@@ -6,7 +6,7 @@ import app from "../app.js";
 import Order from "../models/Order.js";
 import { createUser, createProduct } from "./helpers.js";
 
-const REVIEW_REQUEST_DELAY_DAYS = 4; // must match orderController.js
+const REVIEW_REQUEST_DELAY_DAYS = 8; // must match orderController.js
 
 const daysAgo = (d) => new Date(Date.now() - d * 24 * 60 * 60 * 1000);
 
