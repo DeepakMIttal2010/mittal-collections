@@ -6,6 +6,8 @@ import SiteSettings from "../models/SiteSettings.js";
 import Product from "../models/Product.js";
 import User from "../models/User.js";
 import CartSnapshot from "../models/CartSnapshot.js";
+import ReturnRequest from "../models/ReturnRequest.js";
+import Ticket from "../models/Ticket.js";
 import { notifyStockAlertSubscribers } from "./productController.js";
 import {
   calculateDiscount,
@@ -557,6 +559,13 @@ export const updateOrderStatus = async (req, res) => {
       });
     }
 
+    if (!order.isActive) {
+      return res.status(400).json({
+        success: false,
+        message: "This order is deleted — restore it before changing its status",
+      });
+    }
+
     const wasAlreadyCancelled = order.orderStatus === "Cancelled";
     const wasAlreadyCredited = order.pointsCredited;
 
@@ -685,6 +694,136 @@ export const updateOrderStatus = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Server Error",
+    });
+  }
+};
+
+// ============================
+// Restore Order (Admin)
+// ============================
+
+export const restoreOrder = async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    order.isActive = true;
+    await order.save();
+
+    res.json({
+      success: true,
+      message: "Order restored successfully",
+      order,
+    });
+  } catch (error) {
+    console.error("Restore Order Error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Unable to restore order",
+    });
+  }
+};
+
+// ============================
+// Delete Order (Admin)
+// ============================
+
+export const deleteOrder = async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    if (order.orderStatus !== "Cancelled") {
+      return res.status(400).json({
+        success: false,
+        message: "Only cancelled orders can be deleted",
+      });
+    }
+
+    order.isActive = false;
+    await order.save();
+
+    res.json({
+      success: true,
+      message: "Order deleted successfully",
+    });
+  } catch (error) {
+    console.error("Delete Order Error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Unable to delete order",
+    });
+  }
+};
+
+// ============================
+// Permanently Delete Order (Admin)
+// ============================
+
+export const permanentlyDeleteOrder = async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    if (order.orderStatus !== "Cancelled") {
+      return res.status(400).json({
+        success: false,
+        message: "Only cancelled orders can be permanently deleted",
+      });
+    }
+
+    if (order.isActive) {
+      return res.status(400).json({
+        success: false,
+        message: "Delete this order first before removing it permanently",
+      });
+    }
+
+    const [hasReturnRequests, hasTickets] = await Promise.all([
+      ReturnRequest.exists({ order: order._id }),
+      Ticket.exists({ order: order._id }),
+    ]);
+
+    if (hasReturnRequests || hasTickets) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "This order has a linked return request or support ticket and cannot be permanently deleted",
+      });
+    }
+
+    await order.deleteOne();
+
+    res.json({
+      success: true,
+      message: "Order permanently deleted",
+    });
+  } catch (error) {
+    console.error("Permanently Delete Order Error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Unable to permanently delete order",
     });
   }
 };

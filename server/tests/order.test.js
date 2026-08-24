@@ -5,6 +5,7 @@ import "./setup.js";
 import app from "../app.js";
 import Product from "../models/Product.js";
 import Order from "../models/Order.js";
+import ReturnRequest from "../models/ReturnRequest.js";
 import { createUser, signToken, createProduct } from "./helpers.js";
 
 const shippingAddress = {
@@ -109,5 +110,145 @@ describe("POST /api/orders", () => {
 
     const orderCount = await Order.countDocuments();
     expect(orderCount).toBe(0);
+  });
+});
+
+const createTestOrder = async (overrides = {}) => {
+  const user = overrides.user || (await createUser())._id;
+  const product = overrides.product || (await createProduct());
+
+  return Order.create({
+    user,
+    orderItems: [orderItem(product)],
+    shippingAddress,
+    totalPrice: product.price,
+    orderStatus: "Pending",
+    ...overrides,
+  });
+};
+
+describe("Admin order delete / restore", () => {
+  it("refuses to delete an order that isn't Cancelled", async () => {
+    const admin = await createUser({ role: "admin" });
+    const token = signToken(admin);
+    const order = await createTestOrder({ orderStatus: "Pending" });
+
+    const res = await request(app)
+      .delete(`/api/orders/${order._id}`)
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+
+    const reloaded = await Order.findById(order._id);
+    expect(reloaded.isActive).toBe(true);
+  });
+
+  it("soft-deletes a Cancelled order and restores it", async () => {
+    const admin = await createUser({ role: "admin" });
+    const token = signToken(admin);
+    const order = await createTestOrder({ orderStatus: "Cancelled" });
+
+    const deleteRes = await request(app)
+      .delete(`/api/orders/${order._id}`)
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(deleteRes.status).toBe(200);
+    expect(deleteRes.body.success).toBe(true);
+    expect((await Order.findById(order._id)).isActive).toBe(false);
+
+    const restoreRes = await request(app)
+      .put(`/api/orders/${order._id}/restore`)
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(restoreRes.status).toBe(200);
+    expect(restoreRes.body.success).toBe(true);
+    expect((await Order.findById(order._id)).isActive).toBe(true);
+  });
+
+  it("refuses to permanently delete an order that hasn't been soft-deleted first", async () => {
+    const admin = await createUser({ role: "admin" });
+    const token = signToken(admin);
+    const order = await createTestOrder({ orderStatus: "Cancelled" });
+
+    const res = await request(app)
+      .delete(`/api/orders/${order._id}/permanent`)
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+    expect(await Order.findById(order._id)).not.toBeNull();
+  });
+
+  it("refuses to permanently delete an order with a linked return request", async () => {
+    const admin = await createUser({ role: "admin" });
+    const token = signToken(admin);
+    const product = await createProduct();
+    const order = await createTestOrder({ orderStatus: "Cancelled", product });
+    order.isActive = false;
+    await order.save();
+
+    await ReturnRequest.create({
+      order: order._id,
+      user: order.user,
+      product: product._id,
+      productName: product.name,
+      quantity: 1,
+      reason: "Damaged on arrival",
+    });
+
+    const res = await request(app)
+      .delete(`/api/orders/${order._id}/permanent`)
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+    expect(await Order.findById(order._id)).not.toBeNull();
+  });
+
+  it("permanently deletes a soft-deleted, Cancelled order with no linked records", async () => {
+    const admin = await createUser({ role: "admin" });
+    const token = signToken(admin);
+    const order = await createTestOrder({ orderStatus: "Cancelled" });
+    order.isActive = false;
+    await order.save();
+
+    const res = await request(app)
+      .delete(`/api/orders/${order._id}/permanent`)
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(await Order.findById(order._id)).toBeNull();
+  });
+
+  it("refuses to change status on a soft-deleted order", async () => {
+    const admin = await createUser({ role: "admin" });
+    const token = signToken(admin);
+    const order = await createTestOrder({ orderStatus: "Cancelled" });
+    order.isActive = false;
+    await order.save();
+
+    const res = await request(app)
+      .put(`/api/orders/${order._id}/status`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ status: "Processing" });
+
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+    expect((await Order.findById(order._id)).orderStatus).toBe("Cancelled");
+  });
+
+  it("rejects a non-admin user's attempt to delete an order", async () => {
+    const customer = await createUser();
+    const token = signToken(customer);
+    const order = await createTestOrder({ orderStatus: "Cancelled" });
+
+    const res = await request(app)
+      .delete(`/api/orders/${order._id}`)
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(res.status).toBe(403);
+    expect((await Order.findById(order._id)).isActive).toBe(true);
   });
 });

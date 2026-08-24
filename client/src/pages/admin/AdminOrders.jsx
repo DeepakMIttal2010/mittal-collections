@@ -6,6 +6,9 @@ import { FaSortAmountDown, FaSortAmountUp } from "react-icons/fa";
 import {
   getAllOrders,
   updateOrderStatus,
+  restoreOrder,
+  deleteOrder,
+  permanentlyDeleteOrder,
 } from "../../services/adminOrderService";
 
 const STATUS_OPTIONS = [
@@ -113,6 +116,43 @@ function AdminOrders() {
     setExpandedId((prev) => (prev === id ? null : id));
   };
 
+  const handleDelete = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this order?")) return;
+
+    const response = await deleteOrder(id);
+
+    if (response.success) {
+      loadOrders();
+    } else {
+      alert(response.message || "Unable to delete order");
+    }
+  };
+
+  const handleRestore = async (id) => {
+    const response = await restoreOrder(id);
+
+    if (response.success) {
+      loadOrders();
+    } else {
+      alert(response.message || "Unable to restore order");
+    }
+  };
+
+  const handlePermanentDelete = async (id) => {
+    if (
+      !window.confirm("Permanently delete this order? This cannot be undone.")
+    )
+      return;
+
+    const response = await permanentlyDeleteOrder(id);
+
+    if (response.success) {
+      loadOrders();
+    } else {
+      alert(response.message || "Unable to permanently delete order");
+    }
+  };
+
   if (loading) {
     return (
       <div className="p-8 text-center text-slate-500">Loading Orders...</div>
@@ -212,6 +252,12 @@ function AdminOrders() {
                 </div>
 
                 <div className="flex items-center gap-2">
+                  {!order.isActive && (
+                    <span className="text-xs font-semibold px-3 py-1 rounded-full w-fit bg-slate-800 text-white">
+                      Deleted
+                    </span>
+                  )}
+
                   <span
                     className={`text-xs font-semibold px-3 py-1 rounded-full w-fit ${
                       STATUS_COLORS[order.orderStatus] ||
@@ -235,7 +281,8 @@ function AdminOrders() {
 
                 <select
                   value={order.orderStatus}
-                  disabled={updatingId === order._id}
+                  disabled={updatingId === order._id || !order.isActive}
+                  title={!order.isActive ? "Restore this order to change its status" : undefined}
                   onClick={(e) => e.stopPropagation()}
                   onChange={(e) =>
                     handleStatusChange(order._id, e.target.value)
@@ -436,6 +483,53 @@ function AdminOrders() {
                         No history recorded before this order's current
                         status ({order.orderStatus}).
                       </p>
+                    )}
+                  </div>
+
+                  {/* Delete / Restore — only ever possible once the order
+                      is Cancelled, so a live order can't be removed by
+                      mistake. */}
+                  <div className="mt-6 pt-4 border-t border-slate-200 flex items-center gap-3">
+                    {order.isActive ? (
+                      order.orderStatus === "Cancelled" ? (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDelete(order._id);
+                          }}
+                          className="text-xs font-semibold text-red-600 hover:text-red-700 border border-red-200 hover:bg-red-50 rounded-lg px-3 py-1.5"
+                        >
+                          Delete Order
+                        </button>
+                      ) : (
+                        <p className="text-xs text-slate-400">
+                          Cancel this order to enable deleting it.
+                        </p>
+                      )
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRestore(order._id);
+                          }}
+                          className="text-xs font-semibold text-blue-600 hover:text-blue-700 border border-blue-200 hover:bg-blue-50 rounded-lg px-3 py-1.5"
+                        >
+                          Restore
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handlePermanentDelete(order._id);
+                          }}
+                          className="text-xs font-semibold text-red-600 hover:text-red-700 border border-red-200 hover:bg-red-50 rounded-lg px-3 py-1.5"
+                        >
+                          Delete Permanently
+                        </button>
+                      </>
                     )}
                   </div>
                 </div>

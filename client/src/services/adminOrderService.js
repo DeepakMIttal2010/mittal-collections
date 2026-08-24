@@ -79,3 +79,72 @@ export const updateOrderStatus = async (id, status) => {
     };
   }
 };
+
+// ==============================
+// RESTORE ORDER
+// ==============================
+export const restoreOrder = async (id) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/orders/${id}/restore`, {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${getToken()}`,
+      },
+    });
+
+    return await response.json();
+  } catch (error) {
+    console.error("Restore Order Error:", error);
+
+    return {
+      success: false,
+      message: "Unable to restore order",
+    };
+  }
+};
+
+// ==============================
+// DELETE ORDER (soft)
+// ==============================
+export const deleteOrder = async (id) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/orders/${id}`, {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${getToken()}`,
+      },
+    });
+
+    return await response.json();
+  } catch (error) {
+    console.error("Delete Order Error:", error);
+
+    return {
+      success: false,
+      message: "Unable to delete order",
+    };
+  }
+};
+
+// ==============================
+// PERMANENTLY DELETE ORDER
+// ==============================
+export const permanentlyDeleteOrder = async (id) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/orders/${id}/permanent`, {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${getToken()}`,
+      },
+    });
+
+    return await response.json();
+  } catch (error) {
+    console.error("Permanently Delete Order Error:", error);
+
+    return {
+      success: false,
+      message: "Unable to permanently delete order",
+    };
+  }
+};

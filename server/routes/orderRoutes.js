@@ -11,6 +11,9 @@ import {
   getOrderById,
   updateOrderStatus,
   markOrderSeen,
+  restoreOrder,
+  deleteOrder,
+  permanentlyDeleteOrder,
 } from "../controllers/orderController.js";
 
 const router = express.Router();
@@ -35,5 +38,19 @@ router.put("/:id/status", authMiddleware, adminMiddleware, updateOrderStatus);
 
 // Mark Order Seen — sirf Admin
 router.put("/:id/seen", authMiddleware, adminMiddleware, markOrderSeen);
+
+// Restore Order — sirf Admin
+router.put("/:id/restore", authMiddleware, adminMiddleware, restoreOrder);
+
+// Delete Order (soft) — sirf Admin
+router.delete("/:id", authMiddleware, adminMiddleware, deleteOrder);
+
+// Permanently Delete Order — sirf Admin
+router.delete(
+  "/:id/permanent",
+  authMiddleware,
+  adminMiddleware,
+  permanentlyDeleteOrder,
+);
 
 export default router;

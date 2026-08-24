@@ -176,6 +176,15 @@ const orderSchema = new mongoose.Schema(
       default: false,
     },
 
+    // Soft-delete flag, mirroring Product.isActive — an order can only be
+    // deleted (and only permanently deleted) once its orderStatus is
+    // "Cancelled" (enforced in orderController, not here), so this is a
+    // separate concern from orderStatus itself.
+    isActive: {
+      type: Boolean,
+      default: true,
+    },
+
     paidAt: Date,
 
     deliveredAt: Date,
