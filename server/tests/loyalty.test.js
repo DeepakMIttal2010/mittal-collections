@@ -13,6 +13,7 @@ import {
   createProduct,
   seedLoyaltySettings,
   seedReferralSettings,
+  seedSiteSettings,
 } from "./helpers.js";
 
 const shippingAddress = {
@@ -25,6 +26,13 @@ const shippingAddress = {
 };
 
 const placeOrder = async (token, product, quantity = 1, extra = {}) => {
+  // These tests are about points math, not payment method or the COD
+  // charge — zero it out so it doesn't skew the exact totalPrice/
+  // points-earned numbers asserted below. (Razorpay isn't an option here:
+  // there's no Razorpay test credentials in this environment, so a real
+  // Razorpay order attempt always fails.)
+  await seedSiteSettings({ codCharge: 0 });
+
   const res = await request(app)
     .post("/api/orders")
     .set("Authorization", `Bearer ${token}`)

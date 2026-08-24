@@ -26,6 +26,7 @@ function AdminSettings() {
     supportHours: "",
     freeShippingThreshold: 499,
     deliveryFee: 49,
+    codCharge: 50,
     defaultReturnPeriodDays: 7,
     welcomePopupEnabled: true,
   });
@@ -53,6 +54,7 @@ function AdminSettings() {
         supportHours: response.settings.supportHours || "",
         freeShippingThreshold: response.settings.freeShippingThreshold ?? 499,
         deliveryFee: response.settings.deliveryFee ?? 49,
+        codCharge: response.settings.codCharge ?? 50,
         defaultReturnPeriodDays:
           response.settings.defaultReturnPeriodDays ?? 7,
         welcomePopupEnabled: response.settings.welcomePopupEnabled ?? true,
@@ -328,6 +330,25 @@ function AdminSettings() {
               className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">
+            COD Charge (₹)
+          </label>
+          <input
+            type="number"
+            name="codCharge"
+            min="0"
+            value={formData.codCharge}
+            onChange={handleChange}
+            className="w-full sm:w-1/2 border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <p className="text-xs text-slate-500 mt-1">
+            Added on top of the order total for Cash on Delivery only — meant
+            to pass through the actual courier's COD handling fee, not a
+            markup. Never applied to Razorpay orders.
+          </p>
         </div>
 
         <div>

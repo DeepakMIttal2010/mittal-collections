@@ -201,6 +201,9 @@ export const createOrder = async (req, res) => {
 
     const settings = (await SiteSettings.findOne()) || {};
     const deliveryFee = calculateDeliveryFee(subtotal, settings);
+    // Pass-through COD handling fee — never applied to Razorpay orders.
+    const codCharge =
+      paymentMethod === "COD" ? (settings.codCharge ?? 50) : 0;
 
     let discountAmount = 0;
     let appliedCouponCode = null;
@@ -249,7 +252,8 @@ export const createOrder = async (req, res) => {
 
     const totalPrice = Math.max(
       subtotal +
-        deliveryFee -
+        deliveryFee +
+        codCharge -
         discountAmount -
         bundleDiscountAmount -
         pointsDiscount,
@@ -275,6 +279,7 @@ export const createOrder = async (req, res) => {
         paymentMethod,
         totalPrice,
         deliveryFee,
+        codCharge,
         couponCode: appliedCouponCode,
         discountAmount,
         bundleDiscountAmount,
@@ -323,6 +328,37 @@ export const createOrder = async (req, res) => {
           message: "Unable to initiate payment. Please try again.",
         });
       }
+    }
+
+    // "Order placed" confirmation — distinct from the status-change emails
+    // updateOrderStatus sends later (Processing/Shipped/Delivered/
+    // Cancelled). Fires for every payment method, including a Razorpay
+    // order not yet paid — this confirms the order was received, not that
+    // payment succeeded. Never blocks the actual order response on failure.
+    try {
+      await sendEmail({
+        to: req.user.email,
+        bcc: process.env.ADMIN_NOTIFICATION_EMAIL,
+        subject: "Your Mittal Collections order is confirmed",
+        html: `
+          <p>Hi ${req.user.name || "there"},</p>
+          <p>Thanks for your order! Here's a quick summary:</p>
+          <p>Order ID: ${order._id}</p>
+          <ul>
+            ${orderItems
+              .map(
+                (item) =>
+                  `<li>${item.name}${item.size ? ` (Size: ${item.size})` : ""} × ${item.quantity} — ₹${item.price * item.quantity}</li>`,
+              )
+              .join("")}
+          </ul>
+          <p><strong>Total: ₹${totalPrice}</strong></p>
+          <p>Payment method: ${paymentMethod}</p>
+          <p><a href="${process.env.CLIENT_URL}/my-orders/${order._id}">View your order</a></p>
+        `,
+      });
+    } catch (error) {
+      console.error("Order Confirmation Email Error:", error);
     }
 
     res.status(201).json({
@@ -669,6 +705,7 @@ export const updateOrderStatus = async (req, res) => {
 
           return sendEmail({
             to: customer.email,
+            bcc: process.env.ADMIN_NOTIFICATION_EMAIL,
             subject: statusMessage.subject,
             html: `
               <p>Hi ${customer.name || "there"},</p>

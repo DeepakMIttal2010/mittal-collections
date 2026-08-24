@@ -81,6 +81,12 @@ const orderSchema = new mongoose.Schema(
       default: 0,
     },
 
+    // Only set when paymentMethod is "COD" — see SiteSettings.codCharge.
+    codCharge: {
+      type: Number,
+      default: 0,
+    },
+
     couponCode: {
       type: String,
       default: null,

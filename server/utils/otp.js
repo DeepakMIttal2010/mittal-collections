@@ -13,7 +13,12 @@ const generateCode = () =>
 // Creates (or replaces) a pending OTP for target+purpose and emails it.
 // `payload` is whatever the caller needs to act on once the code is
 // verified — never persisted to the real collection until then.
-export const createAndSendOtp = async ({ target, purpose, payload = null }) => {
+export const createAndSendOtp = async ({
+  target,
+  purpose,
+  payload = null,
+  bcc,
+}) => {
   const code = generateCode();
   const otpHash = await bcrypt.hash(code, 10);
 
@@ -29,6 +34,7 @@ export const createAndSendOtp = async ({ target, purpose, payload = null }) => {
 
   await sendEmail({
     to: target,
+    bcc,
     subject: "Your Mittal Collections verification code",
     html: `
       <p>Your verification code is:</p>

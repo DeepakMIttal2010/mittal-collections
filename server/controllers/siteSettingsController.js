@@ -47,6 +47,7 @@ export const updateSiteSettings = async (req, res) => {
       supportHours,
       freeShippingThreshold,
       deliveryFee,
+      codCharge,
       shippingTiers,
       defaultReturnPeriodDays,
       bundleRules,
@@ -71,6 +72,7 @@ export const updateSiteSettings = async (req, res) => {
     if (freeShippingThreshold !== undefined)
       settings.freeShippingThreshold = freeShippingThreshold;
     if (deliveryFee !== undefined) settings.deliveryFee = deliveryFee;
+    if (codCharge !== undefined) settings.codCharge = codCharge;
     if (shippingTiers !== undefined) settings.shippingTiers = shippingTiers;
     if (defaultReturnPeriodDays !== undefined)
       settings.defaultReturnPeriodDays = defaultReturnPeriodDays;

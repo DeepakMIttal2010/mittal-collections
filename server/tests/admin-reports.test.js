@@ -5,7 +5,7 @@ import mongoose from "mongoose";
 import "./setup.js";
 import app from "../app.js";
 import Order from "../models/Order.js";
-import { createUser, signToken, createProduct } from "./helpers.js";
+import { createUser, signToken, createProduct, seedSiteSettings } from "./helpers.js";
 
 const shippingAddress = {
   fullName: "Test User",
@@ -16,9 +16,14 @@ const shippingAddress = {
   pincode: "201012",
 };
 
-// Places an order (subtotal >= 499 so delivery fee is 0 and totalPrice
-// equals the product price exactly), then backdates its createdAt.
+// Places a COD order with the COD charge zeroed out (subtotal >= 499 so
+// delivery fee is 0 too — totalPrice equals the product price exactly),
+// then backdates its createdAt. Stays on COD rather than Razorpay: there's
+// no Razorpay test credentials in this environment, so a real Razorpay
+// order attempt always fails.
 const placeOrderOnDate = async (token, product, daysAgo) => {
+  await seedSiteSettings({ codCharge: 0 });
+
   const res = await request(app)
     .post("/api/orders")
     .set("Authorization", `Bearer ${token}`)

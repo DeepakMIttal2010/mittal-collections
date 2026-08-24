@@ -48,7 +48,7 @@ function Checkout() {
   const [addressesLoading, setAddressesLoading] = useState(true);
   const [selectedAddressId, setSelectedAddressId] = useState("");
   const [showAddressPicker, setShowAddressPicker] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState("COD");
+  const [paymentMethod, setPaymentMethod] = useState("Razorpay");
   const [placing, setPlacing] = useState(false);
 
   const [firstOrderOffer, setFirstOrderOffer] = useState(null);
@@ -70,6 +70,7 @@ function Checkout() {
     freeShippingThreshold: 499,
     deliveryFee: 49,
     shippingTiers: [],
+    codCharge: 50,
   });
   const [showDeliveryInfo, setShowDeliveryInfo] = useState(false);
   const [showBundleInfo, setShowBundleInfo] = useState(false);
@@ -89,6 +90,7 @@ function Checkout() {
           freeShippingThreshold: response.settings.freeShippingThreshold ?? 499,
           deliveryFee: response.settings.deliveryFee ?? 49,
           shippingTiers: response.settings.shippingTiers || [],
+          codCharge: response.settings.codCharge ?? 50,
         });
       }
     };
@@ -152,6 +154,7 @@ function Checkout() {
 
   const deliveryFee =
     totalPrice === 0 ? 0 : calculateDeliveryFee(totalPrice, shipping);
+  const codCharge = paymentMethod === "COD" ? shipping.codCharge : 0;
   const discountAmount = appliedCoupon?.discountAmount || 0;
 
   const sortedShippingTiers = [...shipping.shippingTiers].sort(
@@ -174,7 +177,8 @@ function Checkout() {
 
   const orderTotal = Math.max(
     totalPrice +
-      deliveryFee -
+      deliveryFee +
+      codCharge -
       discountAmount -
       bundleInfo.discountAmount -
       pointsDiscount,
@@ -470,6 +474,9 @@ function Checkout() {
                 />
                 <span className="text-sm text-slate-700">
                   Cash on Delivery
+                  {shipping.codCharge > 0 && (
+                    <span className="text-slate-400"> (+₹{shipping.codCharge} COD charge)</span>
+                  )}
                 </span>
               </label>
 
@@ -487,6 +494,15 @@ function Checkout() {
                 </span>
               </label>
             </div>
+
+            {paymentMethod === "COD" && codCharge > 0 && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5 mt-4">
+                <p className="text-xs text-amber-800">
+                  A ₹{codCharge} COD handling charge applies to Cash on
+                  Delivery orders — pick Razorpay to avoid it.
+                </p>
+              </div>
+            )}
           </div>
         </div>
 
@@ -677,6 +693,13 @@ function Checkout() {
                     <span>Orders ₹{shipping.freeShippingThreshold} and above</span>
                     <span>FREE</span>
                   </div>
+                </div>
+              )}
+
+              {codCharge > 0 && (
+                <div className="flex justify-between text-slate-600">
+                  <span>COD charge:</span>
+                  <span>₹{codCharge}</span>
                 </div>
               )}
 

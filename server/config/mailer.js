@@ -2,7 +2,11 @@
 // tier blocks outbound SMTP ports, but HTTPS API calls go through fine.
 const BREVO_ENDPOINT = "https://api.brevo.com/v3/smtp/email";
 
-export const sendEmail = async ({ to, subject, html }) => {
+export const sendEmail = async ({ to, subject, html, bcc }) => {
+  const bccList = (Array.isArray(bcc) ? bcc : bcc ? [bcc] : []).filter(
+    Boolean,
+  );
+
   const response = await fetch(BREVO_ENDPOINT, {
     method: "POST",
     headers: {
@@ -16,6 +20,9 @@ export const sendEmail = async ({ to, subject, html }) => {
         email: process.env.MAIL_FROM_EMAIL,
       },
       to: [{ email: to }],
+      ...(bccList.length > 0 && {
+        bcc: bccList.map((email) => ({ email })),
+      }),
       subject,
       htmlContent: html,
     }),

@@ -65,6 +65,7 @@ export const register = async (req, res) => {
         hashedPassword,
         referredById: referrer?._id || null,
       },
+      bcc: process.env.ADMIN_NOTIFICATION_EMAIL,
     });
 
     res.status(200).json({
@@ -143,6 +144,11 @@ export const verifyRegisterOtp = async (req, res) => {
     try {
       await sendEmail({
         to: user.email,
+        // Lets the admin confirm registration emails are actually going
+        // out (undelivered welcome emails were otherwise invisible —
+        // no error, just a customer who never got one). Unset in
+        // dev/env by default.
+        bcc: process.env.ADMIN_NOTIFICATION_EMAIL,
         subject: "Welcome to Mittal Collections!",
         html: `
           <p>Hi ${user.name},</p>
@@ -303,6 +309,7 @@ export const googleAuth = async (req, res) => {
         try {
           await sendEmail({
             to: user.email,
+            bcc: process.env.ADMIN_NOTIFICATION_EMAIL,
             subject: "Welcome to Mittal Collections!",
             html: `
               <p>Hi ${user.name},</p>

@@ -7,7 +7,13 @@ import User from "../models/User.js";
 import Product from "../models/Product.js";
 import ReturnRequest from "../models/ReturnRequest.js";
 import LoyaltyTransaction from "../models/LoyaltyTransaction.js";
-import { createUser, signToken, createProduct, seedLoyaltySettings } from "./helpers.js";
+import {
+  createUser,
+  signToken,
+  createProduct,
+  seedLoyaltySettings,
+  seedSiteSettings,
+} from "./helpers.js";
 
 const shippingAddress = {
   fullName: "Test User",
@@ -19,6 +25,11 @@ const shippingAddress = {
 };
 
 const placeAndDeliverOrder = async (token, adminToken, product, quantity = 1) => {
+  // These tests are about return/loyalty-clawback math, not the COD
+  // charge — zero it out so it doesn't skew the exact totalPrice/points
+  // numbers asserted below.
+  await seedSiteSettings({ codCharge: 0 });
+
   const placeRes = await request(app)
     .post("/api/orders")
     .set("Authorization", `Bearer ${token}`)
@@ -149,6 +160,8 @@ describe("Return approval side effects (stock restore + loyalty clawback)", () =
     // pointsEarned = floor(1500 / 20) = 75.
     const expensiveProduct = await createProduct({ name: "Expensive", price: 1000, stock: 5 });
     const cheapProduct = await createProduct({ name: "Cheap", price: 500, stock: 5 });
+    // Not testing the COD charge here — zero it out.
+    await seedSiteSettings({ codCharge: 0 });
 
     const placeRes = await request(app)
       .post("/api/orders")

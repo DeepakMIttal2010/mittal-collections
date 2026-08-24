@@ -4,7 +4,7 @@ import request from "supertest";
 import "./setup.js";
 import app from "../app.js";
 import Coupon from "../models/Coupon.js";
-import { createUser, signToken, createProduct } from "./helpers.js";
+import { createUser, signToken, createProduct, seedSiteSettings } from "./helpers.js";
 
 const shippingAddress = {
   fullName: "Test User",
@@ -15,8 +15,15 @@ const shippingAddress = {
   pincode: "201012",
 };
 
-const placeOrder = async (token, product, extra = {}) =>
-  request(app)
+const placeOrder = async (token, product, extra = {}) => {
+  // These tests are about discount math, not payment method or the COD
+  // charge — zero it out so it doesn't skew the exact totalPrice numbers
+  // asserted below. (Razorpay isn't an option here: there's no Razorpay
+  // test credentials in this environment, so a real Razorpay order
+  // attempt always fails.)
+  await seedSiteSettings({ codCharge: 0 });
+
+  return request(app)
     .post("/api/orders")
     .set("Authorization", `Bearer ${token}`)
     .send({
@@ -33,6 +40,7 @@ const placeOrder = async (token, product, extra = {}) =>
       paymentMethod: "COD",
       ...extra,
     });
+};
 
 describe("POST /api/coupons/validate", () => {
   it("rejects an unknown or inactive code", async () => {

@@ -5,6 +5,7 @@ import Category from "../models/Category.js";
 import Product from "../models/Product.js";
 import LoyaltySettings from "../models/LoyaltySettings.js";
 import ReferralSettings from "../models/ReferralSettings.js";
+import SiteSettings from "../models/SiteSettings.js";
 
 let userCounter = 0;
 
@@ -68,3 +69,18 @@ export const seedReferralSettings = async (overrides = {}) =>
     referredPoints: 50,
     ...overrides,
   });
+
+// Most tests that place a COD order care about some other computation
+// (discounts, points, revenue) and don't want the ₹50 COD charge (see
+// SiteSettings.codCharge) skewing their expected totals — call this with
+// codCharge: 0 to keep those numbers clean, or with no args/overrides to
+// exercise the real default. Upserts rather than blind-creates so calling
+// it more than once per test (e.g. a shared placeOrder helper) doesn't
+// leave multiple SiteSettings docs behind for createOrder's
+// SiteSettings.findOne() to pick between unpredictably.
+export const seedSiteSettings = async (overrides = {}) =>
+  SiteSettings.findOneAndUpdate(
+    {},
+    { $setOnInsert: { codCharge: 50, ...overrides } },
+    { upsert: true, new: true },
+  );

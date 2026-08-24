@@ -6,7 +6,7 @@ import app from "../app.js";
 import Product from "../models/Product.js";
 import Order from "../models/Order.js";
 import ReturnRequest from "../models/ReturnRequest.js";
-import { createUser, signToken, createProduct } from "./helpers.js";
+import { createUser, signToken, createProduct, seedSiteSettings } from "./helpers.js";
 
 const shippingAddress = {
   fullName: "Test User",
@@ -51,6 +51,8 @@ describe("POST /api/orders", () => {
     const user = await createUser();
     const token = signToken(user);
     const product = await createProduct({ price: 999, stock: 10 });
+    // Not testing the COD charge here — zero it out.
+    await seedSiteSettings({ codCharge: 0 });
 
     const res = await request(app)
       .post("/api/orders")
@@ -73,6 +75,49 @@ describe("POST /api/orders", () => {
     const savedOrder = await Order.findById(res.body.order._id);
     expect(savedOrder.orderStatus).toBe("Pending");
     expect(savedOrder.user.toString()).toBe(user._id.toString());
+  });
+
+  it("adds the COD charge to a Cash on Delivery order's total but not a Razorpay order's", async () => {
+    const user = await createUser();
+    const token = signToken(user);
+    const product = await createProduct({ price: 1000, stock: 10 });
+
+    const codRes = await request(app)
+      .post("/api/orders")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        orderItems: [orderItem(product, { quantity: 1 })],
+        shippingAddress,
+        paymentMethod: "COD",
+      });
+
+    expect(codRes.status).toBe(201);
+    // 1000 subtotal (clears free-shipping threshold, so no delivery fee)
+    // + the default ₹50 COD charge.
+    expect(codRes.body.order.totalPrice).toBe(1050);
+    expect(codRes.body.order.codCharge).toBe(50);
+
+    // Razorpay order creation itself can't succeed in this environment
+    // (no real Razorpay test credentials, so Razorpay's API call always
+    // errors) — but the local Order is created and its totalPrice/
+    // codCharge already computed *before* that Razorpay step runs, so
+    // checking the DB directly still verifies the COD charge is correctly
+    // skipped for a non-COD order.
+    await request(app)
+      .post("/api/orders")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        orderItems: [orderItem(product, { quantity: 1 })],
+        shippingAddress,
+        paymentMethod: "Razorpay",
+      });
+
+    const razorpayOrder = await Order.findOne({
+      user: user._id,
+      paymentMethod: "Razorpay",
+    });
+    expect(razorpayOrder.totalPrice).toBe(1000);
+    expect(razorpayOrder.codCharge).toBe(0);
   });
 
   it("rejects the whole order and rolls back stock when one item is short", async () => {

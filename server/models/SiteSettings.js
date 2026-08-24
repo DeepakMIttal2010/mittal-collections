@@ -15,6 +15,12 @@ const siteSettingsSchema = new mongoose.Schema(
     freeShippingThreshold: { type: Number, default: 499 },
     deliveryFee: { type: Number, default: 49 }, // fallback fee below any tier and below the free threshold
 
+    // Pass-through fee added to COD orders only (Razorpay orders never get
+    // this) — meant to track whatever the courier actually charges for
+    // COD handling, not a markup, so it's admin-editable rather than a
+    // fixed constant that would need a code deploy to correct.
+    codCharge: { type: Number, default: 50 },
+
     // Graduated fee below freeShippingThreshold — e.g. order < ₹99 pays ₹49,
     // < ₹199 pays ₹39, and so on, nudging customers toward free shipping.
     shippingTiers: [

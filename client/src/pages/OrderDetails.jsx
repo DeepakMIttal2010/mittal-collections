@@ -183,6 +183,12 @@ function OrderDetails() {
                   {!order.deliveryFee ? "FREE" : `₹${order.deliveryFee}`}
                 </span>
               </div>
+              {order.codCharge > 0 && (
+                <div className="flex justify-between text-slate-600">
+                  <span>COD charge:</span>
+                  <span>₹{order.codCharge}</span>
+                </div>
+              )}
               {order.discountAmount > 0 && (
                 <div className="flex justify-between text-green-600">
                   <span>
