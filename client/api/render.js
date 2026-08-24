@@ -48,6 +48,16 @@ const buildMeta = async (path) => {
 
   if (parts.length === 0) {
     // Homepage — mirrors Home.jsx's <Seo> call and HomeGoodsStore schema.
+    // NOTE: unreachable via the real "/" URL in production — Vercel serves
+    // the static index.html straight from its filesystem/edge cache for an
+    // exact "/" match, which takes precedence over vercel.json's `rewrites`
+    // regardless of the bot user-agent `has` condition (confirmed live;
+    // /category and /articles don't have this problem since no static file
+    // exists at those paths to collide with). Fixing this needs Vercel Edge
+    // Middleware instead of a rewrite rule — left as-is for now since a
+    // bare-domain share is rare next to a product/category/article link.
+    // This branch still works correctly if hit directly via
+    // /api/render?path=/, so it's kept rather than removed.
     const settingsData = await fetch(`${API_BASE}/api/settings`).then((r) =>
       r.json(),
     );

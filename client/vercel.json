@@ -44,17 +44,6 @@
       ],
       "destination": "/api/render?path=/articles/:slug"
     },
-    {
-      "source": "/",
-      "has": [
-        {
-          "type": "header",
-          "key": "user-agent",
-          "value": ".*([bB]ot|facebookexternalhit|WhatsApp|Pinterest|embedly|Quora Link Preview|Slurp|ia_archiver|Discordbot|TelegramBot|redirectionio).*"
-        }
-      ],
-      "destination": "/api/render?path=/"
-    },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
