@@ -96,6 +96,11 @@ const MIN_VIDEO_MS = 9000;
 // past. Zooming continuously keeps the frame visibly alive from the very
 // first frame, not just once the next photo cuts in.
 const ZOOM_END_SCALE = 1.12;
+// How long the dissolve between two slides takes — a hard jump-cut
+// reads as choppy; a short crossfade feels like an intentional edit
+// instead of a slideshow. Capped relative to slideMs elsewhere so it
+// never eats a meaningful chunk of a very short slide's own screen time.
+const CROSSFADE_MS = 300;
 
 // Canvas has no built-in text wrapping — measure and break manually.
 const wrapText = (ctx, text, maxWidth) => {
@@ -137,16 +142,72 @@ const drawBackground = (ctx, img, zoom = 1) => {
   ctx.drawImage(img, (CANVAS_W - drawW) / 2, (CANVAS_H - drawH) / 2, drawW, drawH);
 };
 
+// How long (ms) the discount badge takes to pop in from small to full
+// size at the very start of the video — a static badge sitting there
+// from frame one is easy to skim past; a quick scale-in is what actually
+// catches the eye in that first instant.
+const BADGE_POP_MS = 400;
+
+// Draws the Instagram-Story-style segmented progress bar at the top —
+// tells the viewer more photos are coming (encouraging them to keep
+// watching instead of swiping away after the first), and shows how far
+// through the current one they are.
+const drawProgressBars = (ctx, totalSlides, currentIndex, slideProgress) => {
+  if (totalSlides <= 1) return;
+
+  const margin = 16;
+  const gap = 8;
+  const barH = 6;
+  const barY = 28;
+  const totalGap = gap * (totalSlides - 1);
+  const barW = (CANVAS_W - margin * 2 - totalGap) / totalSlides;
+
+  for (let i = 0; i < totalSlides; i++) {
+    const x = margin + i * (barW + gap);
+    const fill = i < currentIndex ? 1 : i === currentIndex ? slideProgress : 0;
+
+    ctx.fillStyle = "rgba(255,255,255,0.35)";
+    ctx.beginPath();
+    ctx.roundRect(x, barY, barW, barH, barH / 2);
+    ctx.fill();
+
+    if (fill > 0) {
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath();
+      ctx.roundRect(x, barY, barW * fill, barH, barH / 2);
+      ctx.fill();
+    }
+  }
+};
+
 // Draws every branding element on top of whatever background is already
 // on the canvas — brand wordmark, discount badge, name, price, CTA + QR.
 // Shared between the static image and every video frame so both look
 // identical apart from which product photo is showing underneath.
-const drawOverlay = (ctx, { product, hasDiscount, discountPct, qrImg }) => {
+// `elapsedMs`/slide-position args are only meaningful for video frames —
+// the static image call omits them, which skips the badge pop-in
+// (nothing to animate for a still image) and the progress bar (nothing
+// to show progress through).
+const drawOverlay = (
+  ctx,
+  {
+    product,
+    hasDiscount,
+    discountPct,
+    qrImg,
+    elapsedMs = Infinity,
+    totalSlides = 1,
+    currentIndex = 0,
+    slideProgress = 0,
+  },
+) => {
   const gradient = ctx.createLinearGradient(0, CANVAS_H * 0.45, 0, CANVAS_H);
   gradient.addColorStop(0, "rgba(0,0,0,0)");
   gradient.addColorStop(1, "rgba(0,0,0,0.85)");
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+
+  drawProgressBars(ctx, totalSlides, currentIndex, slideProgress);
 
   ctx.textBaseline = "alphabetic";
   ctx.font = "600 40px system-ui, sans-serif";
@@ -163,11 +224,28 @@ const drawOverlay = (ctx, { product, hasDiscount, discountPct, qrImg }) => {
     const badgeText = `${discountPct}% OFF`;
     ctx.font = "700 34px system-ui, sans-serif";
     const badgeW = ctx.measureText(badgeText).width + 48;
+
+    const popT = Math.min(elapsedMs / BADGE_POP_MS, 1);
+    // easeOutBack — overshoots slightly past 1 then settles, reads as a
+    // much punchier "pop" than a linear or ease-out scale would.
+    const c1 = 1.70158;
+    const c3 = c1 + 1;
+    const eased =
+      1 + c3 * Math.pow(popT - 1, 3) + c1 * Math.pow(popT - 1, 2);
+    const badgeScale = popT >= 1 ? 1 : Math.max(eased, 0);
+
+    const badgeCx = CANVAS_W - badgeW / 2 - 50;
+    const badgeCy = 55 + 32;
+    ctx.save();
+    ctx.translate(badgeCx, badgeCy);
+    ctx.scale(badgeScale, badgeScale);
+    ctx.translate(-badgeCx, -badgeCy);
     ctx.beginPath();
     ctx.roundRect(CANVAS_W - badgeW - 50, 55, badgeW, 64, 32);
     ctx.fill();
     ctx.fillStyle = "#ffffff";
     ctx.fillText(badgeText, CANVAS_W - badgeW - 50 + 24, 100);
+    ctx.restore();
   }
 
   ctx.shadowColor = "rgba(0,0,0,0.6)";
@@ -439,8 +517,31 @@ function ShareProductModal({ product, onClose }) {
         );
         const zoom = 1 + (ZOOM_END_SCALE - 1) * slideProgress;
 
-        drawBackground(ctx, loadedImages[index], zoom);
-        drawOverlay(ctx, { ...overlayInfo, qrImg });
+        const crossfadeMs = Math.min(CROSSFADE_MS, slideMs * 0.3);
+        const crossfadeT =
+          index > 0 ? (elapsed - index * slideMs) / crossfadeMs : 1;
+
+        if (crossfadeT < 1) {
+          // Still dissolving in from the previous slide — draw it first
+          // (already fully zoomed in, since it just finished its own
+          // zoom) then fade the new slide in on top of it.
+          drawBackground(ctx, loadedImages[index - 1], ZOOM_END_SCALE);
+          ctx.save();
+          ctx.globalAlpha = Math.max(crossfadeT, 0);
+          drawBackground(ctx, loadedImages[index], zoom);
+          ctx.restore();
+        } else {
+          drawBackground(ctx, loadedImages[index], zoom);
+        }
+
+        drawOverlay(ctx, {
+          ...overlayInfo,
+          qrImg,
+          elapsedMs: elapsed,
+          totalSlides: loadedImages.length,
+          currentIndex: index,
+          slideProgress,
+        });
 
         if (elapsed < totalMs) {
           frameHandle = requestAnimationFrame(drawFrame);
