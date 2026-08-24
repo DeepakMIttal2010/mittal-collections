@@ -43,7 +43,18 @@ const buildMeta = async (path) => {
       ? p.description.slice(0, 160)
       : `Buy ${p.name} at Mittal Collections`;
     const image = imgUrl(p.image) || DEFAULT_IMAGE;
-    const url = `${SITE_URL}${path}`;
+    // Self-heal to the product's *current* slug rather than echoing back
+    // whatever slug the request happened to use — otherwise a renamed
+    // product's stale URL (still reachable, since only the id is looked
+    // up) canonicalizes to itself instead of the real current URL, which
+    // is exactly what produced Search Console's "Duplicate without
+    // user-selected canonical" for these pages. Matches the client-side
+    // productUrl() helper's own self-healing behaviour.
+    const currentSlug = p.slug || parts[2] || "";
+    const canonicalPath = currentSlug
+      ? `/product/${p._id}/${currentSlug}`
+      : `/product/${p._id}`;
+    const url = `${SITE_URL}${canonicalPath}`;
 
     return {
       title: `${p.name} | ${SITE_NAME}`,
