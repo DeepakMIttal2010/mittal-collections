@@ -21,6 +21,26 @@ const CANVAS_W = 1080;
 const CANVAS_H = 1920;
 const MAX_SLIDES = 5;
 
+// Royalty-free (Pixabay Content License — free for commercial use, no
+// attribution required), pre-downloaded so the admin never has to hunt
+// for background music per product. Baked directly into the recorded
+// video rather than left as a manual "add sound on Instagram/Facebook"
+// step, which is easy to forget.
+const MUSIC_TRACKS = [
+  { value: "none", label: "No music" },
+  { value: "warm-acoustic-guitar", label: "Warm Acoustic Guitar" },
+  { value: "acoustic-guitar-music", label: "Acoustic Guitar" },
+  { value: "soft-background", label: "Soft Background" },
+  { value: "soft-music-1", label: "Soft Music (1)" },
+  { value: "soft-music-2", label: "Soft Music (2)" },
+];
+const DEFAULT_MUSIC = "warm-acoustic-guitar";
+// Fade the track in/out at the start/end instead of a hard cut, and cap
+// its volume well under the (silent) recording headroom so it reads as
+// background music, not the main event.
+const MUSIC_VOLUME = 0.55;
+const MUSIC_FADE_MS = 500;
+
 // Hinglish hook line + hashtag set per category, matching the style of
 // posts already being written by hand for the brand's Instagram — see
 // the "Ghar ke entrance ko dijiye naya look" doormat post this was
@@ -353,6 +373,7 @@ function ShareProductModal({ product, onClose }) {
   const [videoUrl, setVideoUrl] = useState(null);
   const [videoBlob, setVideoBlob] = useState(null);
   const [videoError, setVideoError] = useState("");
+  const [selectedMusic, setSelectedMusic] = useState(DEFAULT_MUSIC);
 
   const productLink = `${window.location.origin}${productUrl(product)}`;
   const hasDiscount = product.oldPrice && product.oldPrice > product.price;
@@ -487,9 +508,45 @@ function ShareProductModal({ product, onClose }) {
       const ctx = canvas.getContext("2d");
 
       const slideMs = Math.max(SLIDE_MS, MIN_VIDEO_MS / loadedImages.length);
+      const totalMs = slideMs * loadedImages.length;
 
-      const stream = canvas.captureStream(30);
-      const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 4_000_000 });
+      // Bake the chosen track directly into the recording rather than
+      // leaving "add music" as a manual step on Instagram/Facebook,
+      // which is easy to skip. Skipped entirely for "none" — no
+      // AudioContext, no extra permission prompt, video stays silent.
+      let audioCtx = null;
+      const videoStream = canvas.captureStream(30);
+      let combinedStream = videoStream;
+
+      if (selectedMusic !== "none") {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const audioBuffer = await fetch(`/audio/${selectedMusic}.mp3`)
+          .then((r) => r.arrayBuffer())
+          .then((buf) => audioCtx.decodeAudioData(buf));
+
+        const source = audioCtx.createBufferSource();
+        source.buffer = audioBuffer;
+        source.loop = true; // covers products whose track is shorter than the video
+
+        const gainNode = audioCtx.createGain();
+        const fadeS = MUSIC_FADE_MS / 1000;
+        const totalS = totalMs / 1000;
+        gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+        gainNode.gain.linearRampToValueAtTime(MUSIC_VOLUME, audioCtx.currentTime + fadeS);
+        gainNode.gain.setValueAtTime(MUSIC_VOLUME, audioCtx.currentTime + Math.max(totalS - fadeS, fadeS));
+        gainNode.gain.linearRampToValueAtTime(0, audioCtx.currentTime + totalS);
+
+        const audioDest = audioCtx.createMediaStreamDestination();
+        source.connect(gainNode).connect(audioDest);
+        source.start();
+
+        combinedStream = new MediaStream([
+          ...videoStream.getVideoTracks(),
+          ...audioDest.stream.getAudioTracks(),
+        ]);
+      }
+
+      const recorder = new MediaRecorder(combinedStream, { mimeType, videoBitsPerSecond: 4_000_000 });
       const chunks = [];
       recorder.ondataavailable = (e) => {
         if (e.data.size > 0) chunks.push(e.data);
@@ -503,7 +560,6 @@ function ShareProductModal({ product, onClose }) {
 
       let frameHandle;
       const startedAt = performance.now();
-      const totalMs = slideMs * loadedImages.length;
 
       const drawFrame = () => {
         const elapsed = performance.now() - startedAt;
@@ -554,6 +610,7 @@ function ShareProductModal({ product, onClose }) {
 
       await stopped;
       cancelAnimationFrame(frameHandle);
+      if (audioCtx) await audioCtx.close();
 
       const blob = new Blob(chunks, { type: mimeType.split(";")[0] });
       const url = URL.createObjectURL(blob);
@@ -777,6 +834,28 @@ function ShareProductModal({ product, onClose }) {
                 </>
               ) : (
                 <>
+                  <div className="mb-1">
+                    <label className="block text-xs font-medium text-slate-500 mb-1">
+                      Background music
+                    </label>
+                    <select
+                      value={selectedMusic}
+                      onChange={(e) => setSelectedMusic(e.target.value)}
+                      disabled={videoRecording}
+                      className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm disabled:opacity-50"
+                    >
+                      {MUSIC_TRACKS.map((track) => (
+                        <option key={track.value} value={track.value}>
+                          {track.label}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-[11px] text-slate-400 mt-1">
+                      Change this, then Regenerate below to re-record with
+                      the new track.
+                    </p>
+                  </div>
+
                   {canShareVideoFiles && (
                     <button
                       onClick={handleShareVideo}
