@@ -561,7 +561,7 @@ function ProductDetails() {
 
                   <img
                     key={activeMedia?.url}
-                    src={`${imgUrl(activeMedia?.url, "w_1000,q_auto,f_auto")}`}
+                    src={`${imgUrl(activeMedia?.url, "w_1600,q_auto,f_auto")}`}
                     alt={t(product.name, product.nameHi)}
                     style={zoomStyle}
                     onLoad={() => setMainImageLoaded(true)}
