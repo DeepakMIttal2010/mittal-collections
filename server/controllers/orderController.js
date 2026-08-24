@@ -103,6 +103,11 @@ const ORDER_STATUS_MESSAGES = {
   },
 };
 
+// Long enough that the customer has actually used the product before
+// being asked to review it, short enough that the order is still fresh
+// in their mind.
+const REVIEW_REQUEST_DELAY_DAYS = 4;
+
 // Atomically reserve stock for every item. If any item doesn't have enough
 // stock, roll back the items already reserved and return that item's name.
 // For a variant item (item.size set), both the specific variant's stock
@@ -861,6 +866,90 @@ export const permanentlyDeleteOrder = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Unable to permanently delete order",
+    });
+  }
+};
+
+// ============================
+// Send Review Request Emails
+// Called by an external scheduler (not a logged-in admin session),
+// protected by a shared secret rather than JWT auth — same pattern as
+// cartController.js's sendAbandonedCartReminders.
+// ============================
+
+export const sendReviewRequestEmails = async (req, res) => {
+  try {
+    if (req.query.secret !== process.env.CRON_SECRET) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
+    const cutoff = new Date(
+      Date.now() - REVIEW_REQUEST_DELAY_DAYS * 24 * 60 * 60 * 1000,
+    );
+
+    const orders = await Order.find({
+      orderStatus: "Delivered",
+      deliveredAt: { $lte: cutoff },
+      reviewRequestSent: { $ne: true },
+    })
+      .populate("user", "name email")
+      .populate("orderItems.product", "slug");
+
+    let sent = 0;
+
+    for (const order of orders) {
+      if (!order.user?.email) continue;
+
+      const itemsHtml = order.orderItems
+        .map((item) => {
+          const product = item.product;
+          const isPopulated = product && typeof product === "object";
+          const productId = isPopulated ? product._id : product;
+
+          if (!productId) return `<li>${item.name}</li>`;
+
+          const url = `${process.env.CLIENT_URL}/product/${productId}${
+            isPopulated && product.slug ? `/${product.slug}` : ""
+          }`;
+
+          return `<li>${item.name} — <a href="${url}">Leave a review</a></li>`;
+        })
+        .join("");
+
+      try {
+        await sendEmail({
+          to: order.user.email,
+          bcc: process.env.ADMIN_NOTIFICATION_EMAIL,
+          subject: "How was your order? Leave a review",
+          html: `
+            <p>Hi ${order.user.name || "there"},</p>
+            <p>Hope you're enjoying your order from Mittal Collections! Got a
+            minute to share what you think? It really helps other shoppers.</p>
+            <ul>${itemsHtml}</ul>
+            <p>Order ID: ${order._id}</p>
+          `,
+        });
+
+        order.reviewRequestSent = true;
+        await order.save();
+        sent += 1;
+      } catch (error) {
+        console.error(`Review request email failed for ${order.user.email}:`, error);
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Sent ${sent} of ${orders.length} review requests`,
+      sent,
+      total: orders.length,
+    });
+  } catch (error) {
+    console.error("Send Review Request Emails Error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
     });
   }
 };

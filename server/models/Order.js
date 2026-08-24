@@ -194,6 +194,13 @@ const orderSchema = new mongoose.Schema(
     paidAt: Date,
 
     deliveredAt: Date,
+
+    // Guards the review-request cron (see sendReviewRequestEmails) against
+    // emailing the same order twice.
+    reviewRequestSent: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
     timestamps: true,

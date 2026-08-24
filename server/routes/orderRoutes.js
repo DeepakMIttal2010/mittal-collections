@@ -14,6 +14,7 @@ import {
   restoreOrder,
   deleteOrder,
   permanentlyDeleteOrder,
+  sendReviewRequestEmails,
 } from "../controllers/orderController.js";
 
 const router = express.Router();
@@ -29,6 +30,11 @@ router.get("/myorders", authMiddleware, getMyOrders);
 
 // Get All Orders — sirf Admin
 router.get("/", authMiddleware, adminMiddleware, getAllOrders);
+
+// Send Review Request Emails — called by an external scheduler (cron
+// secret, not JWT), registered before "/:id" so it isn't shadowed by it.
+router.post("/send-review-requests", sendReviewRequestEmails);
+router.get("/send-review-requests", sendReviewRequestEmails);
 
 // Get Single Order — logged-in user (owner ya admin)
 router.get("/:id", authMiddleware, getOrderById);
