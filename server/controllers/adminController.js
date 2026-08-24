@@ -614,10 +614,14 @@ export const getReportsData = async (req, res) => {
 
       SearchLog.countDocuments({ createdAt: dateRange }),
 
+      // Net of clawback — a delivered order's points that get reversed
+      // when it's later cancelled (see updateOrderStatus) shouldn't stay
+      // counted as "earned"; clawback's points are already stored
+      // negative, so summing it alongside nets it out correctly.
       LoyaltyTransaction.aggregate([
         {
           $match: {
-            type: { $in: ["earned", "referral_bonus"] },
+            type: { $in: ["earned", "referral_bonus", "clawback"] },
             createdAt: dateRange,
           },
         },

@@ -5,7 +5,13 @@ import mongoose from "mongoose";
 import "./setup.js";
 import app from "../app.js";
 import Order from "../models/Order.js";
-import { createUser, signToken, createProduct, seedSiteSettings } from "./helpers.js";
+import {
+  createUser,
+  signToken,
+  createProduct,
+  seedSiteSettings,
+  seedLoyaltySettings,
+} from "./helpers.js";
 
 const shippingAddress = {
   fullName: "Test User",
@@ -132,5 +138,36 @@ describe("GET /api/admin/reports — date-range scoping", () => {
     // 3 customers created above, plus the admin doesn't count (role: admin).
     expect(narrow.body.summary.totalCustomers).toBe(3);
     expect(wide.body.summary.totalCustomers).toBe(3);
+  });
+
+  it("nets out clawback so a delivered-then-cancelled order doesn't inflate Points Earned", async () => {
+    await seedLoyaltySettings({ earnRate: 20 });
+
+    const admin = await createUser({ role: "admin" });
+    const adminToken = signToken(admin);
+    const customer = await createUser();
+    const customerToken = signToken(customer);
+    const product = await createProduct({ price: 500, stock: 5 });
+
+    const order = await placeOrderOnDate(customerToken, product, 2);
+
+    // pointsEarnedFor(500, 20) = 25 — credited on Delivered, then reversed
+    // via a clawback transaction when the same order is later Cancelled.
+    await request(app)
+      .put(`/api/orders/${order._id}/status`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ status: "Delivered" });
+
+    await request(app)
+      .put(`/api/orders/${order._id}/status`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ status: "Cancelled" });
+
+    const res = await request(app)
+      .get("/api/admin/reports?days=30")
+      .set("Authorization", `Bearer ${adminToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.loyalty.pointsEarned).toBe(0);
   });
 });
