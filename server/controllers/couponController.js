@@ -14,7 +14,13 @@ const calculateDiscount = (coupon, subtotal) => {
 };
 
 const isEligibleForFirstOrderCoupon = async (userId) => {
-  const priorOrders = await Order.countDocuments({ user: userId });
+  // A Cancelled order was never a completed purchase — most commonly an
+  // admin cancelling a customer's very first order — so it shouldn't
+  // permanently burn their one-time welcome-coupon eligibility.
+  const priorOrders = await Order.countDocuments({
+    user: userId,
+    orderStatus: { $ne: "Cancelled" },
+  });
   return priorOrders === 0;
 };
 

@@ -142,6 +142,37 @@ describe("POST /api/coupons/validate", () => {
     expect(res.status).toBe(200);
     expect(res.body.discountAmount).toBe(100);
   });
+
+  it("stays eligible for a first-order-only coupon if their only prior order was Cancelled", async () => {
+    await Coupon.create({
+      code: "WELCOME10",
+      discountType: "percentage",
+      discountValue: 10,
+      firstOrderOnly: true,
+      isActive: true,
+    });
+
+    const user = await createUser();
+    const admin = await createUser({ role: "admin" });
+    const token = signToken(user);
+    const adminToken = signToken(admin);
+    const product = await createProduct({ price: 1000, stock: 5 });
+
+    const placeRes = await placeOrder(token, product);
+
+    await request(app)
+      .put(`/api/orders/${placeRes.body.order._id}/status`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ status: "Cancelled" });
+
+    const res = await request(app)
+      .post("/api/coupons/validate")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ code: "WELCOME10", subtotal: 1000 });
+
+    expect(res.status).toBe(200);
+    expect(res.body.discountAmount).toBe(100);
+  });
 });
 
 describe("Coupon application during order placement", () => {
