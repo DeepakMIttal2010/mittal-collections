@@ -226,16 +226,26 @@ const drawOverlay = (ctx, { product, hasDiscount, discountPct, qrImg }) => {
   ctx.textAlign = "left";
 };
 
+// Real Safari only — Chrome/Edge/Android WebView all also contain
+// "Safari" in their UA string for legacy compatibility, so a plain
+// substring check would misidentify them.
+const isRealSafari = () =>
+  /^((?!chrome|android|crios|fxios|edg).)*safari/i.test(navigator.userAgent);
+
 // Picks the best video mimeType this browser's MediaRecorder actually
-// supports — Safari can record straight to mp4, Chrome/Firefox/Edge
-// only do webm.
+// supports. Safari is the only browser with a solid native mp4 muxer —
+// recent Chrome versions report isTypeSupported("video/mp4") as true too,
+// but Chrome's mp4 recording is still incomplete and can produce a file
+// with corrupted/missing track dimension metadata (Facebook rejected one
+// such file with "height too short, minimum 120" even though the canvas
+// itself was a correct 1080x1920 — the container was the problem, not
+// the drawing). So mp4 is only attempted on genuine Safari; everywhere
+// else goes straight to webm, which every other browser records reliably.
 const pickVideoMimeType = () => {
-  const candidates = [
-    "video/mp4",
-    "video/webm;codecs=vp9",
-    "video/webm;codecs=vp8",
-    "video/webm",
-  ];
+  const candidates = isRealSafari()
+    ? ["video/mp4", "video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm"]
+    : ["video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm"];
+
   return candidates.find((type) => MediaRecorder.isTypeSupported?.(type)) || "";
 };
 
