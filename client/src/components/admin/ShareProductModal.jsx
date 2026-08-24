@@ -84,7 +84,18 @@ const buildCaption = (product, productLink) => {
   return lines.join("\n");
 };
 const SLIDE_MS = 1600;
-const MIN_VIDEO_MS = 5000;
+// 5s felt rushed for a product Reel — barely enough time to register the
+// photo, let alone read the price/CTA overlay on top of it. ~9s matches
+// the low end of what actually performs well for a simple product
+// carousel (most guidance is 7-15s), while still keeping the per-slide
+// share generation fast.
+const MIN_VIDEO_MS = 9000;
+// How far a slide zooms in over its own duration (Ken Burns effect) — a
+// completely static frame for 1.5-4.5s (see slideMs below) reads as
+// "frozen" and is exactly the kind of opening that gets a Reel scrolled
+// past. Zooming continuously keeps the frame visibly alive from the very
+// first frame, not just once the next photo cuts in.
+const ZOOM_END_SCALE = 1.12;
 
 // Canvas has no built-in text wrapping — measure and break manually.
 const wrapText = (ctx, text, maxWidth) => {
@@ -115,9 +126,12 @@ const loadImage = (src) =>
     img.src = src;
   });
 
-// Draws the product photo, cover-fit, filling the whole canvas.
-const drawBackground = (ctx, img) => {
-  const scale = Math.max(CANVAS_W / img.width, CANVAS_H / img.height);
+// Draws the product photo, cover-fit, filling the whole canvas. `zoom`
+// (1 = plain cover-fit, >1 = zoomed in further) drives the Ken Burns
+// effect in the video — always centered, so the same call also works
+// unchanged for the static image/preview canvas (zoom defaults to 1).
+const drawBackground = (ctx, img, zoom = 1) => {
+  const scale = Math.max(CANVAS_W / img.width, CANVAS_H / img.height) * zoom;
   const drawW = img.width * scale;
   const drawH = img.height * scale;
   ctx.drawImage(img, (CANVAS_W - drawW) / 2, (CANVAS_H - drawH) / 2, drawW, drawH);
@@ -419,8 +433,13 @@ function ShareProductModal({ product, onClose }) {
           Math.floor(elapsed / slideMs),
           loadedImages.length - 1,
         );
+        const slideProgress = Math.min(
+          (elapsed - index * slideMs) / slideMs,
+          1,
+        );
+        const zoom = 1 + (ZOOM_END_SCALE - 1) * slideProgress;
 
-        drawBackground(ctx, loadedImages[index]);
+        drawBackground(ctx, loadedImages[index], zoom);
         drawOverlay(ctx, { ...overlayInfo, qrImg });
 
         if (elapsed < totalMs) {
