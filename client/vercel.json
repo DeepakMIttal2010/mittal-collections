@@ -5,6 +5,11 @@
     { "source": "/curtains", "destination": "/category/curtains", "permanent": true },
     { "source": "/offers", "destination": "/trending", "permanent": true },
     {
+      "source": "/category/hotel",
+      "destination": "/category/hotel-linen",
+      "permanent": true
+    },
+    {
       "source": "/articles/bedsheet-size-guide",
       "destination": "/articles/bedsheet-size-guide-which-size-fits-single-double-queen-king-beds",
       "permanent": true
