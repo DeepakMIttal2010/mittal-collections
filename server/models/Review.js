@@ -43,6 +43,13 @@ const reviewSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+
+    // Guards the review-bonus loyalty points (see approveReview) against
+    // being credited twice if a review is approved more than once.
+    reviewPointsAwarded: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
     timestamps: true,

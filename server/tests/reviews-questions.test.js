@@ -3,7 +3,9 @@ import request from "supertest";
 
 import "./setup.js";
 import app from "../app.js";
+import User from "../models/User.js";
 import { createUser, signToken, createProduct } from "./helpers.js";
+import { REVIEW_BONUS_POINTS } from "../controllers/reviewController.js";
 
 describe("Reviews", () => {
   it("blocks a second review from the same user on the same product", async () => {
@@ -52,6 +54,49 @@ describe("Reviews", () => {
     publicRes = await request(app).get(`/api/reviews/product/${product._id}`);
     expect(publicRes.body.totalReviews).toBe(1);
     expect(publicRes.body.averageRating).toBe(5); // the 1-star unapproved review must not drag this down
+  });
+
+  it("credits the review bonus once a review is approved", async () => {
+    const user = await createUser();
+    const admin = await createUser({ role: "admin" });
+    const product = await createProduct();
+
+    const submitted = await request(app)
+      .post("/api/reviews")
+      .set("Authorization", `Bearer ${signToken(user)}`)
+      .send({ productId: product._id.toString(), rating: 5, title: "Great", content: "Loved it" });
+
+    const beforeApproval = await User.findById(user._id);
+    expect(beforeApproval.loyaltyPoints).toBe(0);
+
+    await request(app)
+      .put(`/api/reviews/${submitted.body.review._id}/approve`)
+      .set("Authorization", `Bearer ${signToken(admin)}`);
+
+    const afterApproval = await User.findById(user._id);
+    expect(afterApproval.loyaltyPoints).toBe(REVIEW_BONUS_POINTS);
+  });
+
+  it("does not double-credit the review bonus if the same review is approved twice", async () => {
+    const user = await createUser();
+    const admin = await createUser({ role: "admin" });
+    const adminToken = signToken(admin);
+    const product = await createProduct();
+
+    const submitted = await request(app)
+      .post("/api/reviews")
+      .set("Authorization", `Bearer ${signToken(user)}`)
+      .send({ productId: product._id.toString(), rating: 5, title: "Great", content: "Loved it" });
+
+    await request(app)
+      .put(`/api/reviews/${submitted.body.review._id}/approve`)
+      .set("Authorization", `Bearer ${adminToken}`);
+    await request(app)
+      .put(`/api/reviews/${submitted.body.review._id}/approve`)
+      .set("Authorization", `Bearer ${adminToken}`);
+
+    const user2 = await User.findById(user._id);
+    expect(user2.loyaltyPoints).toBe(REVIEW_BONUS_POINTS);
   });
 });
 

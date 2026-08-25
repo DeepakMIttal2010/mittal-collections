@@ -24,6 +24,7 @@ import { calculateDeliveryFee } from "../utils/shipping.js";
 import { calculateBundleDiscount } from "../utils/bundleDiscount.js";
 import { sendEmail } from "../config/mailer.js";
 import { notifyUser } from "../utils/notify.js";
+import { REVIEW_BONUS_POINTS } from "./reviewController.js";
 
 // Lazily constructed so a missing/blank key in dev doesn't crash the
 // whole server at import time — only Razorpay-paid checkouts need it.
@@ -909,9 +910,12 @@ export const sendReviewRequestEmails = async (req, res) => {
 
           if (!productId) return `<li>${item.name}</li>`;
 
+          // #reviews scrolls straight to (and auto-opens) the review form
+          // — see ProductReviews.jsx — instead of leaving the customer to
+          // find it themselves on a page they otherwise land on at the top.
           const url = `${process.env.CLIENT_URL}/product/${productId}${
             isPopulated && product.slug ? `/${product.slug}` : ""
-          }`;
+          }#reviews`;
 
           return `<li>${item.name} — <a href="${url}">Leave a review</a></li>`;
         })
@@ -926,6 +930,16 @@ export const sendReviewRequestEmails = async (req, res) => {
             <p>Hi ${order.user.name || "there"},</p>
             <p>Hope you're enjoying your order from Mittal Collections! Got a
             minute to share what you think? It really helps other shoppers.</p>
+            <div style="background:#fffbeb;border:1px solid #f59e0b;border-radius:8px;padding:16px;margin:16px 0;">
+              <p style="margin:0;font-weight:bold;color:#92400e;">
+                🎁 Mittal Collections is rewarding you — leave a review and get
+                ${REVIEW_BONUS_POINTS} bonus loyalty points!
+              </p>
+              <p style="margin:6px 0 0;font-size:12px;color:#92400e;">
+                *Points are credited once your review is approved. Terms and
+                conditions apply.
+              </p>
+            </div>
             <ul>${itemsHtml}</ul>
             <p>Order ID: ${order._id}</p>
           `,

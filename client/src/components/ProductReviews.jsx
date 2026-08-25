@@ -46,6 +46,17 @@ function ProductReviews({ productId }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [productId]);
 
+  // The review-request email links straight to /product/:id#reviews so a
+  // customer doesn't have to scroll and hunt for this section themselves
+  // — open the form immediately too, since the whole point of that link
+  // is "write a review right now", not just "look at this section".
+  useEffect(() => {
+    if (isLoggedIn && window.location.hash === "#reviews") {
+      setShowForm(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoggedIn]);
+
   const breakdown = [5, 4, 3, 2, 1].map((star) => ({
     star,
     count: reviews.filter((r) => r.rating === star).length,
@@ -73,7 +84,7 @@ function ProductReviews({ productId }) {
   if (loading) return null;
 
   return (
-    <div className="mt-16 border-t border-slate-200 pt-10">
+    <div id="reviews" className="mt-16 border-t border-slate-200 pt-10 scroll-mt-20">
       <h2 className="text-2xl font-bold text-slate-900 mb-6">
         Customer Reviews
       </h2>

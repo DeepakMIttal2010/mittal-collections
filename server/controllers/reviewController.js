@@ -1,4 +1,12 @@
 import Review from "../models/Review.js";
+import { applyLoyaltyPointsChange } from "../utils/loyaltyPoints.js";
+import { notifyUser } from "../utils/notify.js";
+
+// Flat bonus for a review the admin actually approves — deliberately not
+// randomized/"win up to X" (that reads as a chance-based contest, which
+// carries real regulatory risk in several Indian states); a guaranteed
+// amount is simpler and carries none of that risk.
+export const REVIEW_BONUS_POINTS = 50;
 
 // ============================
 // GET APPROVED REVIEWS FOR A PRODUCT (Public)
@@ -123,6 +131,29 @@ export const approveReview = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Review not found",
+      });
+    }
+
+    // Awarded on approval (not at submission) so a spam/low-effort review
+    // never earns points — approval is already the moderation checkpoint
+    // admins go through anyway, so this rides along with no extra step.
+    if (!review.reviewPointsAwarded) {
+      await applyLoyaltyPointsChange({
+        userId: review.user,
+        type: "earned",
+        points: REVIEW_BONUS_POINTS,
+        description: "Bonus for an approved product review",
+      });
+
+      review.reviewPointsAwarded = true;
+      await review.save();
+
+      notifyUser({
+        userId: review.user,
+        type: "loyalty_points",
+        title: "You earned bonus loyalty points!",
+        message: `Your review was approved — ${REVIEW_BONUS_POINTS} bonus points added to your account.`,
+        link: "/account",
       });
     }
 
