@@ -52,6 +52,10 @@ const processFile = async (file, shouldOptimize) => {
   if (isVideo(file.mimetype)) {
     const result = await uploadBufferToCloudinary(file.buffer, "video");
     file.path = result.secure_url;
+    // Exposed so callers can validate/act on Cloudinary-reported metadata
+    // (e.g. review videos rejecting clips over the allowed duration) —
+    // the URL alone doesn't carry that.
+    file.cloudinaryResult = result;
     return;
   }
 
@@ -59,6 +63,7 @@ const processFile = async (file, shouldOptimize) => {
   const result = await uploadBufferToCloudinary(buffer, "image");
 
   file.path = result.secure_url;
+  file.cloudinaryResult = result;
 };
 
 // Uploads req.file / req.files to Cloudinary, optionally resizing + re-encoding

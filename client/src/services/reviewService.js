@@ -15,15 +15,14 @@ export const getProductReviews = async (productId) => {
   }
 };
 
-export const submitReview = async (payload) => {
+export const submitReview = async (formData) => {
   try {
     const response = await fetch(`${API_BASE_URL}/reviews`, {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
         Authorization: `Bearer ${getToken()}`,
       },
-      body: JSON.stringify(payload),
+      body: formData,
     });
 
     return await response.json();

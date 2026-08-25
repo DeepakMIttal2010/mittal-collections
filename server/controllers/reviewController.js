@@ -1,4 +1,6 @@
 import Review from "../models/Review.js";
+import Order from "../models/Order.js";
+import cloudinary from "../config/cloudinary.js";
 import { applyLoyaltyPointsChange } from "../utils/loyaltyPoints.js";
 import { notifyUser } from "../utils/notify.js";
 
@@ -7,6 +9,15 @@ import { notifyUser } from "../utils/notify.js";
 // carries real regulatory risk in several Indian states); a guaranteed
 // amount is simpler and carries none of that risk.
 export const REVIEW_BONUS_POINTS = 50;
+
+// One order can contain several products, and a customer can review each
+// one — but the combined bonus across all reviews tied to the same order
+// is capped here, not per review.
+export const ORDER_REVIEW_BONUS_CAP = 50;
+
+// Hard ceiling on review-video length — the UI asks for ~10-15s, this just
+// guards against someone uploading something far longer.
+const MAX_REVIEW_VIDEO_SECONDS = 20;
 
 // ============================
 // GET APPROVED REVIEWS FOR A PRODUCT (Public)
@@ -48,10 +59,10 @@ export const submitReview = async (req, res) => {
   try {
     const { productId, rating, title, content } = req.body;
 
-    if (!productId || !rating || !title || !content) {
+    if (!productId || !rating || !content) {
       return res.status(400).json({
         success: false,
-        message: "Product, rating, title and content are required",
+        message: "Product, rating and content are required",
       });
     }
 
@@ -67,12 +78,43 @@ export const submitReview = async (req, res) => {
       });
     }
 
+    const videoFile = req.files?.video?.[0];
+
+    if (videoFile) {
+      const duration = videoFile.cloudinaryResult?.duration;
+
+      if (duration && duration > MAX_REVIEW_VIDEO_SECONDS) {
+        await cloudinary.uploader.destroy(videoFile.cloudinaryResult.public_id, {
+          resource_type: "video",
+        });
+
+        return res.status(400).json({
+          success: false,
+          message: `Video must be ${MAX_REVIEW_VIDEO_SECONDS} seconds or shorter`,
+        });
+      }
+    }
+
+    const images = (req.files?.images || []).map((file) => file.path);
+
+    // Only reviews tied to a Delivered order count toward the per-order
+    // bonus cap — a review with no matching order just gets the flat
+    // amount uncapped (e.g. seeded/legacy data).
+    const order = await Order.findOne({
+      user: req.user._id,
+      orderStatus: "Delivered",
+      "orderItems.product": productId,
+    }).sort({ createdAt: -1 });
+
     const review = await Review.create({
       product: productId,
       user: req.user._id,
+      order: order?._id || null,
       rating,
-      title,
+      title: title || "",
       content,
+      images,
+      video: videoFile?.path || "",
     });
 
     res.status(201).json({
@@ -137,24 +179,44 @@ export const approveReview = async (req, res) => {
     // Awarded on approval (not at submission) so a spam/low-effort review
     // never earns points — approval is already the moderation checkpoint
     // admins go through anyway, so this rides along with no extra step.
-    if (!review.reviewPointsAwarded) {
-      await applyLoyaltyPointsChange({
-        userId: review.user,
-        type: "earned",
-        points: REVIEW_BONUS_POINTS,
-        description: "Bonus for an approved product review",
-      });
+    if (!review.reviewPointsProcessed) {
+      let award = REVIEW_BONUS_POINTS;
 
-      review.reviewPointsAwarded = true;
+      if (review.order) {
+        // Other already-approved reviews from the same order eat into the
+        // shared cap — this one gets whatever headroom is left, which can
+        // be less than the flat amount, or zero.
+        const otherReviews = await Review.find({
+          order: review.order,
+          _id: { $ne: review._id },
+          reviewPointsProcessed: true,
+        });
+
+        const alreadyAwarded = otherReviews.reduce((sum, r) => sum + r.pointsAwarded, 0);
+
+        award = Math.max(0, Math.min(REVIEW_BONUS_POINTS, ORDER_REVIEW_BONUS_CAP - alreadyAwarded));
+      }
+
+      if (award > 0) {
+        await applyLoyaltyPointsChange({
+          userId: review.user,
+          type: "earned",
+          points: award,
+          description: "Bonus for an approved product review",
+        });
+
+        notifyUser({
+          userId: review.user,
+          type: "loyalty_points",
+          title: "You earned bonus loyalty points!",
+          message: `Your review was approved — ${award} bonus points added to your account.`,
+          link: "/account",
+        });
+      }
+
+      review.pointsAwarded = award;
+      review.reviewPointsProcessed = true;
       await review.save();
-
-      notifyUser({
-        userId: review.user,
-        type: "loyalty_points",
-        title: "You earned bonus loyalty points!",
-        message: `Your review was approved — ${REVIEW_BONUS_POINTS} bonus points added to your account.`,
-        link: "/account",
-      });
     }
 
     res.status(200).json({

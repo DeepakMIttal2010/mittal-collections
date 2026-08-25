@@ -15,6 +15,8 @@ function Stars({ value, size = "text-sm" }) {
   );
 }
 
+const MAX_REVIEW_IMAGES = 3;
+
 function ProductReviews({ productId }) {
   const { isLoggedIn } = useAuth();
 
@@ -24,8 +26,12 @@ function ProductReviews({ productId }) {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [formData, setFormData] = useState({ rating: 5, title: "", content: "" });
+  const [formData, setFormData] = useState({ rating: 5, content: "" });
   const [formMessage, setFormMessage] = useState("");
+  const [images, setImages] = useState([]);
+  const [imagePreviews, setImagePreviews] = useState([]);
+  const [video, setVideo] = useState(null);
+  const [videoPreview, setVideoPreview] = useState("");
 
   const loadReviews = async () => {
     setLoading(true);
@@ -54,13 +60,45 @@ function ProductReviews({ productId }) {
     if (isLoggedIn && window.location.hash === "#reviews") {
       setShowForm(true);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoggedIn]);
+
+  // Object URLs for the picked-but-not-yet-uploaded files — revoked whenever
+  // the selection changes so we don't leak them across re-renders.
+  useEffect(() => {
+    const urls = images.map((file) => URL.createObjectURL(file));
+    setImagePreviews(urls);
+    return () => urls.forEach((url) => URL.revokeObjectURL(url));
+  }, [images]);
+
+  useEffect(() => {
+    if (!video) {
+      setVideoPreview("");
+      return undefined;
+    }
+    const url = URL.createObjectURL(video);
+    setVideoPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [video]);
 
   const breakdown = [5, 4, 3, 2, 1].map((star) => ({
     star,
     count: reviews.filter((r) => r.rating === star).length,
   }));
+
+  const handleImagesChange = (e) => {
+    const files = Array.from(e.target.files || []);
+    setImages((prev) => [...prev, ...files].slice(0, MAX_REVIEW_IMAGES));
+    e.target.value = "";
+  };
+
+  const removeImage = (index) => {
+    setImages((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleVideoChange = (e) => {
+    setVideo(e.target.files?.[0] || null);
+    e.target.value = "";
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -68,13 +106,22 @@ function ProductReviews({ productId }) {
     setSubmitting(true);
     setFormMessage("");
 
-    const response = await submitReview({ productId, ...formData });
+    const payload = new FormData();
+    payload.append("productId", productId);
+    payload.append("rating", formData.rating);
+    payload.append("content", formData.content);
+    images.forEach((file) => payload.append("images", file));
+    if (video) payload.append("video", video);
+
+    const response = await submitReview(payload);
 
     setSubmitting(false);
 
     if (response.success) {
       setFormMessage(response.message);
-      setFormData({ rating: 5, title: "", content: "" });
+      setFormData({ rating: 5, content: "" });
+      setImages([]);
+      setVideo(null);
       setShowForm(false);
     } else {
       setFormMessage(response.message || "Unable to submit review");
@@ -167,19 +214,6 @@ function ProductReviews({ productId }) {
           </div>
 
           <label className="block text-sm font-medium text-slate-700 mb-1">
-            Review Title
-          </label>
-          <input
-            type="text"
-            required
-            value={formData.title}
-            onChange={(e) =>
-              setFormData((f) => ({ ...f, title: e.target.value }))
-            }
-            className="w-full border border-slate-300 rounded-lg px-3 py-2 mb-4 focus:outline-none focus:ring-2 focus:ring-amber-500"
-          />
-
-          <label className="block text-sm font-medium text-slate-700 mb-1">
             Review
           </label>
           <textarea
@@ -191,6 +225,83 @@ function ProductReviews({ productId }) {
             }
             className="w-full border border-slate-300 rounded-lg px-3 py-2 mb-4 focus:outline-none focus:ring-2 focus:ring-amber-500"
           />
+
+          <label className="block text-sm font-medium text-slate-700 mb-1">
+            Photos{" "}
+            <span className="text-slate-400 font-normal">
+              (optional, up to {MAX_REVIEW_IMAGES})
+            </span>
+          </label>
+          <div className="flex flex-wrap gap-2 mb-1">
+            {images.map((file, index) => (
+              <div key={file.name + index} className="relative w-16 h-16">
+                <img
+                  src={imagePreviews[index]}
+                  alt=""
+                  className="w-16 h-16 object-cover rounded-lg border border-slate-200"
+                />
+                <button
+                  type="button"
+                  onClick={() => removeImage(index)}
+                  aria-label="Remove photo"
+                  className="absolute -top-1.5 -right-1.5 bg-slate-900 text-white rounded-full w-5 h-5 text-xs leading-none flex items-center justify-center"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+            {images.length < MAX_REVIEW_IMAGES && (
+              <label className="w-16 h-16 flex items-center justify-center border border-dashed border-slate-300 rounded-lg text-slate-400 text-xs cursor-pointer hover:border-amber-400 hover:text-amber-500">
+                + Add
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  multiple
+                  hidden
+                  onChange={handleImagesChange}
+                />
+              </label>
+            )}
+          </div>
+          <p className="text-xs text-slate-400 mb-4">
+            JPG, PNG or WEBP, up to 5MB each
+          </p>
+
+          <label className="block text-sm font-medium text-slate-700 mb-1">
+            Video{" "}
+            <span className="text-slate-400 font-normal">
+              (optional, one short clip)
+            </span>
+          </label>
+          {video ? (
+            <div className="flex items-center gap-2 mb-1">
+              <video
+                src={videoPreview}
+                muted
+                className="w-24 h-16 object-cover rounded-lg border border-slate-200"
+              />
+              <button
+                type="button"
+                onClick={() => setVideo(null)}
+                className="text-xs text-red-600 hover:underline"
+              >
+                Remove
+              </button>
+            </div>
+          ) : (
+            <label className="inline-block border border-dashed border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-500 cursor-pointer hover:border-amber-400 hover:text-amber-500 mb-1">
+              + Add a short video
+              <input
+                type="file"
+                accept="video/mp4,video/webm,video/quicktime"
+                hidden
+                onChange={handleVideoChange}
+              />
+            </label>
+          )}
+          <p className="text-xs text-slate-400 mb-4">
+            10-15 seconds, MP4/WEBM/MOV, up to 15MB
+          </p>
 
           <button
             type="submit"
@@ -215,13 +326,34 @@ function ProductReviews({ productId }) {
             >
               <div className="flex items-center gap-3 mb-1.5">
                 <Stars value={review.rating} />
-                <span className="font-semibold text-slate-800">
-                  {review.title}
-                </span>
+                {review.title && (
+                  <span className="font-semibold text-slate-800">
+                    {review.title}
+                  </span>
+                )}
               </div>
               <p className="text-sm text-slate-600 mb-1.5">
                 {review.content}
               </p>
+              {(review.images?.length > 0 || review.video) && (
+                <div className="flex flex-wrap gap-2 mb-1.5">
+                  {review.images?.map((url) => (
+                    <img
+                      key={url}
+                      src={url}
+                      alt="Customer photo"
+                      className="w-16 h-16 object-cover rounded-lg border border-slate-200"
+                    />
+                  ))}
+                  {review.video && (
+                    <video
+                      src={review.video}
+                      controls
+                      className="w-24 h-16 object-cover rounded-lg border border-slate-200"
+                    />
+                  )}
+                </div>
+              )}
               <p className="text-xs text-slate-400">
                 {review.user?.name || "Anonymous"} ·{" "}
                 {new Date(review.createdAt).toLocaleDateString("en-IN", {

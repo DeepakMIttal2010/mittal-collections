@@ -3,6 +3,7 @@ import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 import Category from "../models/Category.js";
 import Product from "../models/Product.js";
+import Order from "../models/Order.js";
 import LoyaltySettings from "../models/LoyaltySettings.js";
 import ReferralSettings from "../models/ReferralSettings.js";
 import SiteSettings from "../models/SiteSettings.js";
@@ -78,6 +79,32 @@ export const seedReferralSettings = async (overrides = {}) =>
 // it more than once per test (e.g. a shared placeOrder helper) doesn't
 // leave multiple SiteSettings docs behind for createOrder's
 // SiteSettings.findOne() to pick between unpredictably.
+// A Delivered order for the given user/products — used by review tests
+// that need submitReview to be able to link a review back to an order
+// (e.g. the per-order loyalty-bonus cap).
+export const createOrder = async ({ user, products, overrides = {} }) =>
+  Order.create({
+    user: user._id,
+    orderItems: products.map((product) => ({
+      product: product._id,
+      name: product.name,
+      image: product.image,
+      price: product.price,
+      quantity: 1,
+    })),
+    shippingAddress: {
+      fullName: "Test User",
+      mobile: "9000000000",
+      address: "123 Test Street",
+      city: "Ghaziabad",
+      state: "Uttar Pradesh",
+      pincode: "201001",
+    },
+    totalPrice: products.reduce((sum, p) => sum + p.price, 0),
+    orderStatus: "Delivered",
+    ...overrides,
+  });
+
 export const seedSiteSettings = async (overrides = {}) =>
   SiteSettings.findOneAndUpdate(
     {},

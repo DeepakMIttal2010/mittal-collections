@@ -10,11 +10,22 @@ import {
 } from "../controllers/reviewController.js";
 import authMiddleware from "../middleware/authMiddleware.js";
 import adminMiddleware from "../middleware/adminMiddleware.js";
+import { uploadReviewMedia } from "../middleware/uploadMiddleware.js";
+import imageOptimizer from "../middleware/imageOptimizer.js";
 
 const router = express.Router();
 
 router.get("/product/:productId", getProductReviews);
-router.post("/", authMiddleware, submitReview);
+router.post(
+  "/",
+  authMiddleware,
+  uploadReviewMedia.fields([
+    { name: "images", maxCount: 3 },
+    { name: "video", maxCount: 1 },
+  ]),
+  imageOptimizer,
+  submitReview,
+);
 
 router.get("/admin", authMiddleware, adminMiddleware, getAllReviewsAdmin);
 router.put(

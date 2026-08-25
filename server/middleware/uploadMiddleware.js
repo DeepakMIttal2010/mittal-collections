@@ -45,4 +45,16 @@ export const uploadProductMedia = multer({
   },
 });
 
+// Customer review photos/video — same allowed types as product media, but a
+// tighter per-file cap since these are user uploads, not curated product
+// assets. A 10-15s clip fits comfortably under this.
+export const uploadReviewMedia = multer({
+  storage,
+  fileFilter: productMediaFileFilter,
+
+  limits: {
+    fileSize: 15 * 1024 * 1024, // 15MB
+  },
+});
+
 export default upload;

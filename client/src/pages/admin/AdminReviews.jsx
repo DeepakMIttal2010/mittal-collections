@@ -123,9 +123,11 @@ function AdminReviews() {
                           />
                         ))}
                       </span>
-                      <h4 className="font-semibold text-slate-800">
-                        {review.title}
-                      </h4>
+                      {review.title && (
+                        <h4 className="font-semibold text-slate-800">
+                          {review.title}
+                        </h4>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -142,6 +144,27 @@ function AdminReviews() {
               </div>
 
               <p className="text-sm text-slate-600 mb-2">{review.content}</p>
+
+              {(review.images?.length > 0 || review.video) && (
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {review.images?.map((url) => (
+                    <a key={url} href={url} target="_blank" rel="noreferrer">
+                      <img
+                        src={url}
+                        alt="Customer photo"
+                        className="w-16 h-16 object-cover rounded-lg border border-slate-200"
+                      />
+                    </a>
+                  ))}
+                  {review.video && (
+                    <video
+                      src={review.video}
+                      controls
+                      className="w-24 h-16 object-cover rounded-lg border border-slate-200"
+                    />
+                  )}
+                </div>
+              )}
 
               <p className="text-xs text-slate-400 mb-3">
                 {review.user?.name} ({review.user?.email}) ·{" "}

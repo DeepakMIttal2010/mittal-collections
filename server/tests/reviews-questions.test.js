@@ -4,8 +4,8 @@ import request from "supertest";
 import "./setup.js";
 import app from "../app.js";
 import User from "../models/User.js";
-import { createUser, signToken, createProduct } from "./helpers.js";
-import { REVIEW_BONUS_POINTS } from "../controllers/reviewController.js";
+import { createUser, signToken, createProduct, createOrder } from "./helpers.js";
+import { REVIEW_BONUS_POINTS, ORDER_REVIEW_BONUS_CAP } from "../controllers/reviewController.js";
 
 describe("Reviews", () => {
   it("blocks a second review from the same user on the same product", async () => {
@@ -97,6 +97,50 @@ describe("Reviews", () => {
 
     const user2 = await User.findById(user._id);
     expect(user2.loyaltyPoints).toBe(REVIEW_BONUS_POINTS);
+  });
+
+  it("caps the combined review bonus at the per-order limit across multiple products from the same order", async () => {
+    const user = await createUser();
+    const admin = await createUser({ role: "admin" });
+    const productA = await createProduct({ name: "Product A" });
+    const productB = await createProduct({ name: "Product B" });
+
+    await createOrder({ user, products: [productA, productB] });
+
+    const reviewA = await request(app)
+      .post("/api/reviews")
+      .set("Authorization", `Bearer ${signToken(user)}`)
+      .send({ productId: productA._id.toString(), rating: 5, content: "Loved it" });
+    const reviewB = await request(app)
+      .post("/api/reviews")
+      .set("Authorization", `Bearer ${signToken(user)}`)
+      .send({ productId: productB._id.toString(), rating: 4, content: "Pretty good" });
+
+    expect(reviewA.body.review.order).toBeTruthy();
+    expect(reviewB.body.review.order).toBe(reviewA.body.review.order);
+
+    await request(app)
+      .put(`/api/reviews/${reviewA.body.review._id}/approve`)
+      .set("Authorization", `Bearer ${signToken(admin)}`);
+    await request(app)
+      .put(`/api/reviews/${reviewB.body.review._id}/approve`)
+      .set("Authorization", `Bearer ${signToken(admin)}`);
+
+    const afterBoth = await User.findById(user._id);
+    expect(afterBoth.loyaltyPoints).toBe(ORDER_REVIEW_BONUS_CAP);
+  });
+
+  it("does not require a review title", async () => {
+    const user = await createUser();
+    const product = await createProduct();
+
+    const submitted = await request(app)
+      .post("/api/reviews")
+      .set("Authorization", `Bearer ${signToken(user)}`)
+      .send({ productId: product._id.toString(), rating: 5, content: "Loved it" });
+
+    expect(submitted.status).toBe(201);
+    expect(submitted.body.review.title).toBe("");
   });
 });
 
