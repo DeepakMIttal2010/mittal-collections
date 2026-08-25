@@ -571,17 +571,23 @@ function ShareProductModal({ product, onClose }) {
           (elapsed - index * slideMs) / slideMs,
           1,
         );
-        const zoom = 1 + (ZOOM_END_SCALE - 1) * slideProgress;
+        // Zoom is one continuous motion across the *whole* video, not
+        // reset to 1x at the start of every photo — a per-slide zoom
+        // that snaps back down at each transition read as the movement
+        // stopping instead of a slideshow of several photos still inside
+        // one smooth cinematic zoom.
+        const overallProgress = Math.min(elapsed / totalMs, 1);
+        const zoom = 1 + (ZOOM_END_SCALE - 1) * overallProgress;
 
         const crossfadeMs = Math.min(CROSSFADE_MS, slideMs * 0.3);
         const crossfadeT =
           index > 0 ? (elapsed - index * slideMs) / crossfadeMs : 1;
 
         if (crossfadeT < 1) {
-          // Still dissolving in from the previous slide — draw it first
-          // (already fully zoomed in, since it just finished its own
-          // zoom) then fade the new slide in on top of it.
-          drawBackground(ctx, loadedImages[index - 1], ZOOM_END_SCALE);
+          // Still dissolving in from the previous slide — both images
+          // share the same current zoom level, since the zoom belongs to
+          // the video's timeline, not to either individual photo.
+          drawBackground(ctx, loadedImages[index - 1], zoom);
           ctx.save();
           ctx.globalAlpha = Math.max(crossfadeT, 0);
           drawBackground(ctx, loadedImages[index], zoom);
