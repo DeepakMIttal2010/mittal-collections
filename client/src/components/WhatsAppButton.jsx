@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { FaWhatsapp } from "react-icons/fa6";
 
 import { getSiteSettings } from "../services/settingsService";
@@ -6,6 +7,7 @@ import { toWhatsAppNumber } from "../utils/whatsapp";
 
 function WhatsAppButton() {
   const [phone, setPhone] = useState("");
+  const location = useLocation();
 
   useEffect(() => {
     const load = async () => {
@@ -21,9 +23,17 @@ function WhatsAppButton() {
 
   if (!phone) return null;
 
-  const waLink = `https://wa.me/${toWhatsAppNumber(phone)}?text=${encodeURIComponent(
-    "Hi, I have a question about a product on Mittal Collections.",
-  )}`;
+  // This button floats on every page (not just product pages), so it
+  // can't name a specific product — but including the page the customer
+  // was actually looking at gives whoever answers a real starting point
+  // instead of a bare "I have a question" with nothing to go on.
+  const pageUrl = `${window.location.origin}${location.pathname}${location.search}`;
+  const message =
+    location.pathname === "/"
+      ? "Hi, I have a question about a product on Mittal Collections."
+      : `Hi, I have a question about this: ${pageUrl}`;
+
+  const waLink = `https://wa.me/${toWhatsAppNumber(phone)}?text=${encodeURIComponent(message)}`;
 
   return (
     <div className="fixed bottom-20 md:bottom-6 left-4 sm:left-6 z-50 flex flex-col items-start gap-2">
