@@ -1,8 +1,8 @@
 # Database Schema
 
 **Database:** MongoDB (Mongoose ODM)
-**Document version:** 1.1
-**Last updated:** 2026-08-08
+**Document version:** 1.2
+**Last updated:** 2026-08-25
 
 All models live in `server/models/`, one file per collection. All use
 Mongoose's `{ timestamps: true }` (adds `createdAt`/`updatedAt`) unless
@@ -30,6 +30,8 @@ required fields marked **(required)**.
 | trendingRank | Number | manual sort order within "Trending" |
 | isReturnable | Boolean | default `true` |
 | returnPeriodDays | Number | default `0` = "use `SiteSettings.defaultReturnPeriodDays`"; a positive value overrides the site-wide window for this product only |
+| variants | [{ size, price, oldPrice, stock, purchasePrice }] | optional (added 2026-08-20) — per-size pricing/stock for products sold in multiple sizes at different prices (e.g. Curtains 7x4/9x4). When set, the top-level `price`/`oldPrice` mirror the first variant and top-level `stock` is the sum across variants — both recomputed server-side on every write, never trusted from the client |
+| colorVariesNote | String | optional (added 2026-08-19) — when set, shown as a highlighted product-page notice directing customers who want a specific colour to Contact Us first |
 
 **Indexes:** `{isActive, category}`, `{isActive, subcategory}`, `{isActive, createdAt:-1}`.
 
@@ -41,6 +43,21 @@ featured, displayOrder, isActive. Subcategory additionally has
 ### `PriceRange`
 label, `maxPrice`, `displayOrder`, `isActive` — powers the "Shop by
 Price" homepage shortcuts and `/price/:maxPrice`.
+
+### `NewArrivalsSection` (added 2026-08-19)
+`{category: ObjectId → Category, displayOrder, isActive}` — admin-CRUD
+collection mirroring the `PriceRange` pattern above; controls which
+categories get a homepage/`/new-arrivals` New Arrivals section and in
+what order. Replaced the earlier `Category.showInHomeNewArrivals`
+boolean-flag approach. Per-product inclusion within a section is
+separately controlled by `Product.showInNewArrivals`.
+
+### `TrendingSection` (added 2026-08-19)
+`{category: ObjectId → Category, displayOrder, isActive}` — same
+admin-CRUD pattern, controls which categories get a homepage/`/trending`
+Top Trending carousel and in what order. Products within a section are
+still selected via the existing `Product.isTrending`/`trendingRank`
+fields.
 
 ## Users & Access
 
@@ -67,16 +84,21 @@ unit, city, state, pincode, country (default `"India"`), isDefault.
 | Field | Type | Notes |
 |---|---|---|
 | user | ObjectId → User | **(required)** |
-| orderItems | [{ product, name, image, price, quantity }] | denormalized snapshot at order time |
+| orderItems | [{ product, name, image, price, quantity, size }] | denormalized snapshot at order time; `size` (String, default `""`, added 2026-08-20) records which `Product.variants` entry was purchased, if the product has size variants |
 | shippingAddress | { fullName, mobile, address, city, state, pincode } | all required |
 | paymentMethod | String enum | `COD` \| `Razorpay` |
 | totalPrice | Number | **(required)** — final amount actually charged |
 | couponCode, discountAmount | String, Number | |
+| deliveryFee, codCharge | Number, Number | both **snapshotted at order time**, not re-derived later. `codCharge` (added 2026-08-24) is only set when `paymentMethod === "COD"`, sourced from `SiteSettings.codCharge` (default ₹50 — a placeholder pending real courier COD-handling-fee data from Shiprocket onboarding) |
+| bundleDiscountAmount, bundleDiscountPercent, bundleDiscountCategories | Number, Number, [String] | "Complete the Look" bundle-discount snapshot (added 2026-08-20) — rupee amount/percent applied and which category pair qualified, so a later change to `SiteSettings.bundleRules` never rewrites past order totals |
 | pointsRedeemed, pointsDiscount, pointsEarned, pointsCredited | Number, Number, Number, Boolean | loyalty accounting for this order |
+| razorpayOrderId, razorpayPaymentId | String, String | set only for `paymentMethod: "Razorpay"` orders once `POST /api/orders/verify-payment` confirms the HMAC-SHA256 signature (added 2026-08-22; see `ARCHITECTURE.md` §4.6 — integration currently verified in Razorpay **test mode** only) |
 | orderStatus | String enum | `Pending`→`Processing`→`Shipped`→`Delivered`, or `Cancelled` |
 | statusHistory | [{ status, changedAt }] | full timeline |
 | isPaid, isSeenByAdmin | Boolean | |
 | paidAt, deliveredAt | Date | |
+| isActive | Boolean | default `true` — soft-delete flag (added 2026-08-24), mirroring `Product`'s existing soft-delete pattern (see `ARCHITECTURE.md` §4.8). Settable `false` only once `orderStatus === "Cancelled"`; a `PUT /api/orders/:id/restore` reverses it, and `updateOrderStatus` refuses to run against a soft-deleted order |
+| reviewRequestSent | Boolean | default `false` (added 2026-08-24) — guards the daily review-request cron job (`GET/POST /api/orders/send-review-requests`) so a Delivered order (8+ days old) is never emailed a review request twice |
 
 `Review` and `Question` also carry an `isSeenByAdmin: Boolean` (default
 `false`), feeding the same admin notification pattern as `Order`.
@@ -212,6 +234,10 @@ supportHours, freeShippingThreshold (default 499), deliveryFee
 threshold, fully admin-editable (add/remove rows in the admin UI).
 defaultReturnPeriodDays (default 7) — the site-wide return window used
 whenever a product doesn't set its own `returnPeriodDays` override.
+codCharge (Number, default 50, added 2026-08-24) — flat fee added to an
+order's total when `paymentMethod === "COD"` is selected at checkout;
+snapshotted onto `Order.codCharge` at order time (see Orders section
+above) rather than re-read from here later.
 
 ## Reviews, Questions, Support
 

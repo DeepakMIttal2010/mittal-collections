@@ -1,8 +1,8 @@
 # Admin Manual
 
 **Admin login:** https://www.mittalcollections.com/admin/login
-**Document version:** 1.2
-**Last updated:** 2026-08-08
+**Document version:** 1.3
+**Last updated:** 2026-08-25
 
 This guide covers every section of the admin panel
 (`/admin/*`). All admin routes require an admin-role login and are
@@ -43,15 +43,129 @@ or **Mark all as read** to clear the rest; the stock alert isn't a
   specific number of days to override it for just this product, or
   switch Returnable off to show "Non-returnable" on the product page
   instead of a return badge.
+- **Sizes / Variants**: for products sold in more than one size at
+  different prices (e.g. Curtains as 7x4 or 9x4), add size variants
+  instead of a single price/stock. Each size gets its own price, old
+  price, stock, and purchase price; the product page shows an
+  Amazon-style size picker and each size adds to the cart as its own
+  line. Leave this off for products that only come one way.
+- **Purchase Price**: enter this and Misc. Expenses / MRP / Price
+  auto-suggest based on category (and subcategory, if a rule exists
+  for it) — see **Pricing Rules** under Site Settings. It only fills
+  in fields you haven't already typed a value into by hand, so
+  overriding a suggestion is safe.
+- **What's Included**: a short line (e.g. "Set of 5 Cushion Covers")
+  shown as the first row of the specs table — use it whenever the
+  product is sold as a set so customers don't have to guess the count
+  from photos.
+- **Colour Varies Note**: optional; when filled in, shows a highlighted
+  notice on the product page telling customers who want a specific
+  colour to contact you first before ordering.
+- **Show in New Arrivals**: on by default; switch off to keep a
+  specific product out of the homepage/`/new-arrivals` New Arrivals
+  sections even while the category itself is featured there.
+- **Will Restock**: on by default. Switch off for a discontinued item
+  that's sold out — instead of showing "Notify Me" it disappears from
+  the storefront (listings, search, New Arrivals, Best Sellers)
+  entirely once stock hits zero.
+- **Restock Alert**: leave off to use the site-wide low-stock
+  threshold (5 units), or switch on and set your own quantity for
+  products you want an earlier or later warning on.
+- **Visibility**: **Both** (default), **Online only**, or **Offline
+  only**. Set a product to Offline to sell it only through in-store QR
+  sales (see §2b) while hiding it from the public website entirely —
+  listings, search, Trending, Best Sellers, the product page, and the
+  Google/Meta product feed all skip it. An offline-only product also
+  can't be shared via the Share button (§2a).
 - **Edit / Delete** from the product list. Delete is a soft delete
   (recoverable) unless you use permanent delete.
+- **Duplicate**: copies a product's name, price, category, stock,
+  specs, and cost fields into a new (inactive, imageless) product and
+  jumps straight to its Edit page — a quick starting point for a
+  near-identical product instead of filling the form from scratch.
+- **Show columns**: on the product list, check which extra columns you
+  want visible (Featured, Returnable, Trending, Restock Alert, Will
+  Restock) — most are also sortable by clicking the column header.
+  Category and Subcategory filters, once set, are remembered for the
+  rest of your session until you click **Reset Filters**.
 - **Bulk Import** (`/admin/products/bulk-import`): upload a CSV to
   create many products at once.
+- **Export to Excel**: downloads the current (filtered) product list,
+  including size-wise Price/MRP/Discount%/Stock columns for products
+  with variants, plus cost columns (Purchase Price, Misc. Expenses,
+  Total Cost).
+- **Stock Report**: a separate export, one row per size, with Stock,
+  Restock Alert Threshold, Will Restock, Status, Show Product,
+  Purchase Price, and Stock Value per row, plus a TOTAL row at the
+  bottom — the quickest way to get a stock-valuation snapshot.
+- **Print QR Labels** (`/admin/products/print-labels`): generate and
+  print a QR/price label per product (or in bulk, filtered by
+  category/subcategory/stock/purchase date/name) — thumbnail, name
+  (wraps to 2 lines), MRP struck through, price, and product ID.
+  Scanning the QR code opens that product's in-store sale screen (see
+  §2b). Each label also carries a small printed "product number" that
+  only decodes back to purchase month/year/price from inside the admin
+  panel — customers scanning or reading the label can't see cost data.
 
 > **Tip:** filling in specs matters more than it looks — it's what
 > populates the "Specifications" table and makes the automatic
 > "Compare with similar products" table on each product page actually
 > useful. Right now most existing products have these left blank.
+
+## 2a. Share Product (video, image & captions)
+
+Every product's Edit/list view has a **Share** button that opens a
+share modal with three things:
+
+- **Caption**: a ready-to-post Instagram-style caption (hook line,
+  size/fabric/what's-included, delivery line, price vs. MRP, call to
+  action, hashtags) with a **Copy Caption** button — paste it wherever
+  you're posting, since Instagram/Facebook don't accept a pre-filled
+  caption through the share sheet.
+- **Image**: a branded 1080×1920 image (photo, name, discounted price,
+  "Click Here to Buy" CTA, and a QR code) — shares via your device's
+  native share sheet on mobile, or downloads on desktop.
+- **Video**: a short branded slideshow (about 9 seconds, longer with
+  more photos) built from the product's photos, with:
+  - **Ken Burns zoom** — a subtle continuous zoom across the whole
+    video rather than per photo.
+  - **Crossfade transitions** between photos, plus a bounce-in pop for
+    the discount badge.
+  - **Segmented progress bars** across the top, Instagram-Story style.
+  - **Background music** — pick from a dropdown of 5 royalty-free
+    tracks (or None); the chosen track is baked directly into the
+    downloaded/shared video file, looped and faded to length.
+  - A progress bar shows while the video is being generated (this can
+    take a few seconds on longer videos).
+
+A product marked **Visibility: Offline only** (§2) can't be shared —
+the modal explains why instead of generating a broken link, since an
+offline-only product has no live page for the link/QR code to point
+to.
+
+## 2b. In-Store / QR Sale (POS)
+
+For selling in person (shop counter) while keeping everything in one
+system:
+
+1. Print a product's QR label from **Print QR Labels** (§2).
+2. Scan it (any phone camera) to open that product's sale screen in
+   the admin panel.
+3. Add it to the sale — you can keep scanning/adding more products
+   into the same transaction before completing it.
+4. Adjust quantity or remove an item as needed.
+5. Optionally enter a discount and/or upload a photo of payment proof
+   (UPI screenshot, etc.), and pick the payment method (Cash / UPI /
+   Card).
+6. **Complete Sale.** If the customer's mobile number matches a
+   registered account, loyalty points are awarded automatically, same
+   as an online order. A receipt is available to print or send via
+   WhatsApp.
+
+In-store sales are recorded separately from online Orders (so they
+don't show up in `/admin/orders`), but do count toward that
+customer's loyalty points. A list of past in-store sales is available
+from the same section.
 
 ## 3. Categories & Subcategories
 
@@ -71,7 +185,37 @@ View every order, mark it seen, and update its status:
 - Moving an order to **Cancelled** refunds any points they redeemed on
   it, and — if it had already been marked Delivered — claws back the
   points they'd earned from it.
-- Every status change emails the customer automatically.
+- Every status change emails the customer automatically, and the
+  customer now also gets a confirmation email the moment they place
+  the order — not just when you first change its status.
+- Each order's **Price Breakdown** shows exactly what the customer was
+  charged: items, delivery fee, COD charge (if COD), any coupon and
+  bundle discount applied, and loyalty points redeemed — all locked in
+  at the time the order was placed, so it won't shift later even if
+  you change a setting like the delivery fee or COD charge afterwards.
+- Paid-online orders (Razorpay) show the Razorpay order/payment
+  reference on the order; COD orders don't.
+
+### Send on WhatsApp
+
+Each order has a **Send on WhatsApp** button that opens a `wa.me` chat
+link (in a new tab) with a message already filled in for you,
+matching that order's current status (placed / shipped / delivered /
+etc.) — you review it and hit send yourself from your own WhatsApp.
+This is manual for now because automated WhatsApp order messages are
+blocked until the store's Meta Business Verification goes through
+(pending a document tied to an in-progress Udyam re-registration); the
+button is a stand-in so customers can still get a WhatsApp update in
+the meantime.
+
+### Delete / Restore
+
+An order can only be deleted once it's **Cancelled** — this prevents
+accidentally losing an active order. Delete is a soft delete: the
+order disappears from the main list but isn't gone. Use **Restore**
+to bring it back, or **Permanent Delete** to remove it for good (this
+is blocked if the order still has a linked return request or support
+ticket attached to it, so unlink or resolve those first).
 
 ## 4a. Returns (`/admin/returns`)
 
@@ -92,9 +236,10 @@ notification.
   change the status back and forth.
 
 > The actual **payment refund** (giving the customer their money back)
-> is still manual — there's no Razorpay integration yet to automate
-> against (COD is the only payment method that's actually wired up
-> end-to-end today).
+> is still manual — for both COD and Razorpay orders, there's no
+> automatic refund-to-source. For a Razorpay order, process the refund
+> from your Razorpay dashboard yourself; for COD, refund by whatever
+> means you've agreed with the customer.
 
 ## 4b. Support Tickets (`/admin/tickets`)
 
@@ -122,6 +267,8 @@ of that product's FAQ rich-result data for Google.
 | **Testimonials** (`/admin/testimonials`) | Customer quotes shown on the homepage. |
 | **Footer Links** (`/admin/footer-links`) | Manage the footer's link sections. |
 | **Price Ranges** (`/admin/price-ranges`) | "Shop by Price" homepage shortcuts. |
+| **New Arrivals Sections** | Pick which categories get a "New Arrivals" section on the homepage and `/new-arrivals`, and in what order. A category not listed here (or switched inactive) simply doesn't get a section — individual products can still opt out via **Show in New Arrivals** on the product itself (§2). |
+| **Trending Sections** | Pick which categories get a "Top Trending" carousel on the homepage and `/trending`, and in what order. Which products appear within each carousel is still controlled by each product's own **Show in Trending** / rank (§2). |
 | **Pages** (`/admin/pages`) | Edit the Shipping Policy, Returns & Refunds, Privacy Policy, Terms & Conditions content. |
 | **Messages** (`/admin/messages`) | Submissions from the public Contact form. |
 
@@ -149,11 +296,42 @@ for any of this:
   ₹99 pay ₹49, under ₹199 pay ₹39" and so on down to free). This is
   what actually gets charged at checkout — the Shipping Policy page
   text should be kept in sync with whatever you set here.
+- **COD Charge**: a flat rupee amount (default ₹50) added to the order
+  total whenever a customer chooses Cash on Delivery, meant to offset
+  the courier's real COD handling fee. It never applies to Razorpay
+  (online payment) orders. Shown to the customer at checkout and on
+  their order, and in this order's own Price Breakdown for you.
+- **Complete the Look (bundle discount rules)**: pair up two
+  categories (e.g. Bedsheets + Cushion Covers) with a discount
+  percentage and an active toggle — no deploy needed. When a
+  customer's cart qualifies for more than one active rule, the rule
+  that gives the bigger rupee discount is the one applied. Add as many
+  rule pairs as you like; switch a rule inactive to pause it without
+  deleting it.
+- **Pricing Rules**: per-category (optionally per-subcategory) formula
+  used to auto-suggest Misc. Expenses %, MRP multiplier, and Price
+  discount % when an admin enters a Purchase Price on Add/Edit Product
+  (§2). Products in a category with no rule fall back to a default
+  formula (10% misc., MRP = 2× cost, price 15% below MRP).
+- **Welcome Popup**: on/off switch for the popup shown to new/guest
+  visitors (and the "Registration Successful" variant shown right
+  after signing up) — turn it off if you want the storefront quieter
+  for a while. A **Preview Popup** button next to it (and a second one
+  for the registration-success variant) lets you check how it looks
+  without waiting for it to trigger naturally.
 
 ## 9. Customers (`/admin/customers`)
 
 List and search customers, view their order history, block/unblock an
 account.
+
+## 9a. Product Walkthrough (`/admin/walkthrough`)
+
+A self-contained, screenshots-and-copy reference covering both the
+storefront and the admin panel — useful for training a new team member
+or refreshing your own memory on a section you don't touch often.
+Linked from the sidebar; has a print/download button. It updates as
+the product does, so it's generally more current than a printed guide.
 
 ## 10. Reports (`/admin/reports`)
 
@@ -164,7 +342,8 @@ range, except **Total Customers** which is always shown all-time.
 
 - **Revenue & Orders** — with growth % against the equal-length prior
   period (shows "—" instead of a misleading 0%/∞ when there's nothing
-  to compare against).
+  to compare against). Total Sales/revenue figures exclude Cancelled
+  orders throughout, on this page and the Dashboard.
 - **Cart Abandonment** — a live snapshot (carts inactive 3+ hours),
   intentionally **not** tied to the date range — an abandoned cart
   disappears from tracking the moment it turns into an order, so
@@ -180,7 +359,10 @@ range, except **Total Customers** which is always shown all-time.
   Selling Products**, **Revenue by Category**, **Visitor Locations**.
 - **Loyalty & Referral Performance** — points earned/redeemed/expired
   with a rough redemption rate, plus referral signups, conversions,
-  and total bonus points paid out.
+  and total bonus points paid out. **Points Earned** nets out any
+  clawback (points reversed when a delivered order is later
+  cancelled), so it reflects points customers actually still hold, not
+  the raw total ever credited.
 - **Export CSV** — downloads the entire report (every section above)
   as one multi-section CSV file for the selected range.
 - **Google Analytics & Search Console** — live data pulled directly
@@ -196,12 +378,23 @@ range, except **Total Customers** which is always shown all-time.
 - **Abandoned cart emails** — hourly, automatic.
 - **Points expiry** — daily, automatic (you can also trigger it
   manually if needed — ask a developer, it's not exposed in the UI).
+- **Order confirmation email** — sent the moment a customer places an
+  order, before you've touched it.
 - **Order status emails**, **welcome emails**, **back-in-stock
   alerts** — automatic on the relevant trigger.
+- **Review-request email** — sent automatically about 8 days after an
+  order is marked Delivered, asking the customer to review what they
+  bought (timed to land after the return window, so it only reaches
+  customers who genuinely kept the item). Each order is only emailed
+  once.
 - **In-app notifications** — fire alongside the emails above (order
   status, ticket replies, return status, back-in-stock, points
   expiry) so a customer sees them in the site bell too, no separate
   action needed.
+- **Force sign-out** — if an account is deleted or blocked (or a login
+  session expires), that browser is automatically signed out and sent
+  to the login page on its next action — nothing you need to do beyond
+  blocking/deleting the account itself.
 - **Sitemap** — regenerated automatically every time the site is
   deployed, so new products/articles/categories are always included
   for Google.

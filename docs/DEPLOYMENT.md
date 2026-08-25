@@ -1,7 +1,7 @@
 # Deployment Guide
 
-**Document version:** 1.2
-**Last updated:** 2026-08-08
+**Document version:** 1.3
+**Last updated:** 2026-08-25
 
 ## 1. Hosting Summary
 
@@ -50,8 +50,15 @@ network blip, not a real failure; simply retry the same command.
 | `BREVO_API_KEY` | Transactional email HTTP API |
 | `MAIL_FROM_EMAIL` / `MAIL_FROM_NAME` | Sender identity for outgoing email |
 | `CLIENT_URL` | Used to build links inside emails (e.g. "View your order") |
-| `CRON_SECRET` | Shared secret checked by the two scheduler-only endpoints |
+| `CRON_SECRET` | Shared secret checked by the scheduler-only endpoints. **Usage expanded 2026-08-24**: now guards three endpoints, not two — `/api/cart/send-abandoned-reminders`, `/api/rewards/expire-points`, and `/api/orders/send-review-requests` — see §4.4. |
 | `GOOGLE_SERVICE_ACCOUNT_KEY` | Single-line JSON service-account key, powers `/api/admin/reports/google` (GA4 + Search Console data in Admin Reports). Optional — the endpoint degrades to a quiet "unavailable" message if unset. See §4.6. |
+| `GOOGLE_OAUTH_CLIENT_ID` | Verifies Google ID tokens server-side for `POST /api/auth/google` (Google Sign-In / Sign-Up). **Required** for Google Sign-In to work; added 2026-08-08. |
+| `RAZORPAY_KEY_ID` | Razorpay Standard Checkout — creates the Razorpay order server-side and is served to the frontend at order-creation time to open the checkout modal (not baked into the client build). **Required** for online payments. Added 2026-08-22. See §4.7 — confirmed working in **test mode** only as of that date; verify live-mode credentials before relying on this in production. |
+| `RAZORPAY_KEY_SECRET` | Verifies the Razorpay payment signature (HMAC-SHA256) on `POST /api/orders/verify-payment`. Server-side only, never exposed to the client. **Required** for online payments. Added 2026-08-22. |
+| `WHATSAPP_VERIFY_TOKEN` | Gates `GET /api/whatsapp/webhook` — must match the Verify Token entered in Meta's dashboard Callback URL setup. **Required** once the Meta webhook is configured (live and verified as of 2026-08-25). See §4.8. |
+| `ADMIN_NOTIFICATION_EMAIL` | BCC destination on the registration OTP email, the post-verification welcome email, and every order-status-change email; also implicitly the audience for review-request send activity. Optional — emails still send fine without it, the admin just loses BCC visibility into what customers are receiving. Added 2026-08-24. |
+
+**Not yet used by any code in this repo** (reserved for a future WhatsApp *sending* integration, not required today — see §4.8): `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_BUSINESS_ACCOUNT_ID`. Do not set these expecting current behavior to change; only `WHATSAPP_VERIFY_TOKEN` is actually read by the server as of 2026-08-25.
 
 `.env` is gitignored — set the same keys/values in Render's dashboard
 environment variable settings for production. Never commit real
@@ -85,13 +92,19 @@ which works fine since it's a normal HTTPS request. The sending domain
 the domain registrar.
 
 ### 4.4 cron-job.org (Scheduled Jobs)
-Two jobs, both **must be set to HTTP method POST** (cron-job.org
-defaults new jobs to GET, which the endpoints reject):
+Three jobs. **Method no longer matters** — all three endpoints accept
+both GET and POST as of 2026-08-13. (History: the first two were
+originally POST-only, and cron-job.org defaults every new job to GET
+with no reliable way to change it, so both jobs had likely 404'd on
+every single scheduled run since inception without anyone noticing.
+Fixed by making the endpoints accept either method, so this class of
+bug can't recur — new jobs can be left on cron-job.org's GET default.)
 
-| Job name | URL | Schedule |
-|---|---|---|
-| Abandoned Cart Reminders | `POST https://mittal-collections-api.onrender.com/api/cart/send-abandoned-reminders?secret=<CRON_SECRET>` | Hourly |
-| Rewards Expire Points | `POST https://mittal-collections-api.onrender.com/api/rewards/expire-points?secret=<CRON_SECRET>` | Daily |
+| Job name | URL | Schedule | Notes |
+|---|---|---|---|
+| Abandoned Cart Reminders | `https://mittal-collections-api.onrender.com/api/cart/send-abandoned-reminders?secret=<CRON_SECRET>` | Hourly | |
+| Rewards Expire Points | `https://mittal-collections-api.onrender.com/api/rewards/expire-points?secret=<CRON_SECRET>` | Daily | |
+| Post-Delivery Review Request | `https://mittal-collections-api.onrender.com/api/orders/send-review-requests?secret=<CRON_SECRET>` | Daily | **New 2026-08-24, confirmed set up on cron-job.org 2026-08-25.** Emails a review request for each Delivered order 8+ days past delivery that hasn't been emailed yet. |
 
 If a run shows "Failed (output too large)" in cron-job.org's execution
 history, check the endpoint directly with `curl` first — both
@@ -129,6 +142,60 @@ account (project `mittal-collections-reporting`):
    GA4 Property ID and Search Console site URL are hardcoded as
    constants in `server/config/googleReporting.js` — update them there
    if the property/site ever changes.
+
+### 4.7 Razorpay (Online Payments)
+Integrated 2026-08-22; made the default payment method at checkout
+2026-08-24 (previously COD was default).
+
+1. Create/log into a Razorpay account and generate API keys
+   (Dashboard → Settings → API Keys).
+2. Set `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` in `server/.env`
+   (local) and Render's dashboard (production).
+3. No client-side env var is needed — the backend serves
+   `RAZORPAY_KEY_ID` to the frontend at order-creation time rather
+   than baking it into the client build.
+4. **Current status: verified only in Razorpay test mode.** The
+   integrating commit's own message states order creation was
+   confirmed end-to-end to return a real Razorpay *test* order; no
+   later commit confirms a switch to live-mode keys or a completed
+   live transaction. Before treating this as production-ready:
+   check the Razorpay dashboard for whether the configured keys are
+   test (`rzp_test_...`) or live (`rzp_live_...`), and run one real
+   low-value transaction end-to-end.
+5. COD orders separately carry a `codCharge` (from
+   `SiteSettings.codCharge`, admin-editable, default ₹50, meant to
+   offset real courier COD-handling fees — the default is a
+   placeholder pending Shiprocket onboarding). Razorpay orders never
+   carry this charge.
+
+### 4.8 WhatsApp Cloud API (Webhook Only)
+Added 2026-08-25. Current scope is **receiving only** — there is no
+message-*sending* integration in the codebase yet.
+
+1. In the Meta Business dashboard (WhatsApp → Configuration), set the
+   Callback URL to
+   `https://mittal-collections-api.onrender.com/api/whatsapp/webhook`
+   and choose a Verify Token.
+2. Set that same value as `WHATSAPP_VERIFY_TOKEN` in `server/.env` /
+   Render. Meta calls `GET /api/whatsapp/webhook` during setup; the
+   endpoint echoes back `hub.challenge` only if the request's
+   `hub.verify_token` matches.
+3. `POST /api/whatsapp/webhook` receives message-status/incoming-message
+   events and acknowledges immediately regardless of payload content
+   (Meta disables webhooks that respond too slowly). Payload signature
+   verification is not yet implemented.
+4. Webhook is live and verified with Meta as of 2026-08-25. **Automated
+   outbound messaging (order confirmations, status updates) is
+   blocked** pending Meta Business Verification, which requires a
+   business-name-matching document not yet available (Udyam
+   re-registration pending with the government as of 2026-08-25).
+5. Until that clears, `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`,
+   and `WHATSAPP_BUSINESS_ACCOUNT_ID` are **not read by any code in
+   this repo** — do not set them expecting current functionality to
+   change. As an interim stand-in, the admin panel has a manual
+   `wa.me` deep-link button per order (pre-fills a status-based
+   message for the admin to review and send from their own WhatsApp)
+   — see `docs/API.md`.
 
 ## 5. Local Development Setup
 
@@ -205,6 +272,26 @@ runs a weekly `mongodump` and stores it as a GitHub Actions artifact
 (90-day rolling retention) instead. Requires a `MONGODB_URI` repository
 secret (Settings → Secrets and variables → Actions) to actually run —
 see `BACKUP_RECOVERY.md` for full setup and restore instructions.
+
+**Known incident (2026-08-15, resolved):** this workflow showed green
+in GitHub Actions for a week while actually producing empty
+(~112–288 byte) archives. Root causes: `mongodump` without `--db`
+needs `listDatabases` privilege, and — the real culprit — the
+`MONGODB_URI` secret had a trailing newline baked in, corrupting the
+database name inside the URI. Fixed by trimming trailing
+whitespace/CR/LF before use; a real restore was rehearsed afterward
+(2,123 documents, 0 failures). Takeaway documented in
+`BACKUP_RECOVERY.md`: a green checkmark on this workflow is not proof
+of a usable backup — periodically verify by actually attempting a
+restore.
+
+**Weekly Cloudinary asset backup** (`.github/workflows/cloudinary-backup.yml`,
+added 2026-08-15, Sunday 04:00 UTC) mirrors the same pattern for media
+assets via the Cloudinary Admin API. Requires `CLOUDINARY_CLOUD_NAME`,
+`CLOUDINARY_API_KEY`, and `CLOUDINARY_API_SECRET` as **GitHub repo
+secrets** (same values as `server/.env`) — this is a separate,
+manual, one-time step from setting them as the app's own runtime env
+vars in Render.
 
 ## 7. Rollback
 

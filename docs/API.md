@@ -2,21 +2,25 @@
 
 **Base URL (production):** `https://mittal-collections-api.onrender.com/api`
 **Base URL (local):** `http://localhost:5000/api`
-**Document version:** 1.1
-**Last updated:** 2026-08-08
+**Document version:** 1.2
+**Last updated:** 2026-08-25
 
 ## Conventions
 
 - All requests/responses are JSON unless uploading files (`multipart/form-data`).
 - Every response has at least `{ "success": boolean }`.
-- **Auth** column: `Public` = no auth · `User` = requires `Authorization: Bearer <JWT>` of any logged-in user · `Admin` = requires a JWT belonging to a `role: "admin"` user · `Secret` = requires a `?secret=<CRON_SECRET>` query param (used only by the external scheduler, not by the frontend).
+- **Auth** column: `Public` = no auth · `User` = requires `Authorization: Bearer <JWT>` of any logged-in user · `Admin` = requires a JWT belonging to a `role: "admin"` user · `Secret` = requires a `?secret=<CRON_SECRET>` query param (used only by the external scheduler, not by the frontend). The WhatsApp webhook routes are a fourth, one-off case — see that section.
 - `/api/auth/*` is rate-limited to 20 requests / 15 minutes / IP.
 
 ## Auth — `/api/auth`
 
+Registration is a **2-step OTP flow** (changed 2026-08-08) — `POST /register` no longer creates the account by itself.
+
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| POST | `/register` | Public | Create account. Accepts optional `?ref=<referralCode>` handling for referral signups. Sends a welcome email. |
+| POST | `/register` | Public | Step 1 of 2: validates registration details and emails a 6-digit OTP (10-minute expiry, 5 attempts). Does **not** create the User document yet — pending state is held in a TTL-backed `Otp` document. Accepts optional `?ref=<referralCode>` for referral signups. |
+| POST | `/register/verify-otp` | Public | Step 2 of 2: confirms the OTP, creates the User document (`emailVerified: true`), sends the welcome email, returns `{ user, token }`. |
+| POST | `/google` | Public | Verifies a Google ID token server-side (`google-auth-library`, needs `GOOGLE_OAUTH_CLIENT_ID` — see `DEPLOYMENT.md`). Signs in an existing account, links Google to an existing email/password account by matching email, or creates a new account. Returns `{ user, token }`. |
 | POST | `/login` | Public | Returns `{ user, token }`. |
 | POST | `/forgot-password` | Public | Emails a password-reset link (real email via Brevo, not returned in the API response). |
 | POST | `/reset-password` | Public | Consumes the reset token, sets a new password. |
@@ -28,40 +32,62 @@
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| GET | `/` | Public | List products. Query params: `search`, `category`, `subcategory`, `minPrice`, `maxPrice`, `sortBy` (`price_asc`/`price_desc`/`newest`). Defaults to `isActive:true`, newest-first. |
+| GET | `/` | Public | List products. Query params: `search`, `category`, `subcategory`, `minPrice`, `maxPrice`, `sortBy` (`price_asc`/`price_desc`/`newest`), `limit`. Defaults to `isActive:true`, newest-first. `limit` now actually caps the result count (fixed 2026-08-20 — was previously accepted but silently ignored). |
 | GET | `/trending` | Public | Admin-curated "Trending" list (`?limit=`). |
+| GET | `/trending-by-category` | Public | Category-grouped Top Trending carousels for the homepage and `/trending` page — one carousel per category enabled via the admin-managed `TrendingSection` ordering (see `/api/trending-sections`); per-product inclusion within a category still comes from `isTrending`/`trendingRank`. New 2026-08-19. |
 | GET | `/best-sellers` | Public | Top products ranked by actual units sold from order history, excluding cancelled orders (`?limit=`). |
+| GET | `/new-arrivals-by-category` | Public | Category-grouped New Arrivals for the homepage sections and the `/new-arrivals` page, driven by the admin-managed `NewArrivalsSection` ordering (see `/api/new-arrivals-sections`); replaces the earlier `Category.showInHomeNewArrivals` flag approach. Products can opt out individually via `Product.showInNewArrivals`. New 2026-08-19. |
 | GET | `/suggestions` | Public | Autocomplete suggestions (`?q=`). |
-| GET | `/:id` | Public | Single product (populated category/subcategory). |
+| GET | `/:id` | Public | Single product (populated category/subcategory). Response may include `variants[]` (size/price/oldPrice/stock) for products sold in multiple sizes — see note below. |
 | POST | `/:id/notify` | Public | Subscribe an email for back-in-stock alert on an out-of-stock product. |
 | GET | `/admin` | Admin | All products incl. inactive/soft-deleted. |
-| POST | `/` | Admin | Create product (`multipart/form-data`: images[], videos[], fields incl. optional specs, `isReturnable`, `returnPeriodDays`). |
+| GET | `/decode-number` | Admin | Decodes a printed price-label's internal cost-cipher "product number" back to purchase month/year/price — used by the QR/print-label workflow. New 2026-08-10. |
+| POST | `/` | Admin | Create product (`multipart/form-data`: images[], videos[], fields incl. optional specs, `isReturnable`, `returnPeriodDays`, optional `variants[]`). `image` is no longer schema-required (supports the transient state created by Duplicate below). |
+| POST | `/:id/duplicate` | Admin | Duplicates a product — copies name/price/category/stock/specs/cost fields into a new **inactive** product with no images — and returns its id so the admin can jump straight to its Edit page. New 2026-08-11. |
 | PUT | `/:id` | Admin | Update product. |
 | PUT | `/:id/restore` | Admin | Restore a soft-deleted product. |
 | DELETE | `/:id` | Admin | Soft delete. |
-| DELETE | `/:id/permanent` | Admin | Hard delete. |
+| DELETE | `/:id/permanent` | Admin | Hard delete. Now also cleans up the Cloudinary asset (best-effort) and dangling `Wishlist`/`StockAlert`/`Review` references, in addition to the pre-existing `Order` reference guard, and is blocked by an `OfflineSale` reference too. |
+
+**Size variants (added 2026-08-20):** `Product.variants` is an optional array of `{ size, price, oldPrice, stock, purchasePrice }` for products sold at multiple sizes/prices (e.g. Curtains at 7x4 vs 9x4). When present, the top-level `price`/`oldPrice` mirror the first variant and top-level `stock` is the sum across variants — both recomputed server-side and never trusted from the client. Each size becomes its own cart line and is carried through to the order as `orderItems[].size`. `purchasePrice`/`miscExpenses`/`purchaseDate` (top-level and inside `variants[]`) are internal cost fields and are always stripped from public API responses.
 
 ## Categories — `/api/categories` · Subcategories — `/api/subcategories`
 
 Same CRUD shape as Products (list/admin-list/get/create/update/restore/soft-delete), scoped to `isActive`. Subcategories additionally filter by `?category=<id>`.
+
+## POS / In-Store Sales — `/api/admin/pos`
+
+New 2026-08-10, admin-only (`authMiddleware` + `adminMiddleware`) on every route. Powers the QR-code-triggered in-store sale flow: printed product labels link to `/admin/pos/:id`, which opens a persistent (localStorage-backed) POS cart that can hold multiple different products in one transaction before "Complete Sale". Records are stored separately from `Order` in a new `OfflineSale` collection — see `docs/DATABASE.md`.
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | `/product/:id` | Admin | Fetch a product for the POS sale screen. |
+| GET | `/customer` | Admin | Look up a customer by mobile number, so loyalty points can be awarded if it matches a registered account. |
+| POST | `/sale` | Admin | Record an offline sale (`multipart/form-data`, optional `paymentProof` file). Body includes `items[]` (multi-product cart: product, quantity, unit price), `discountAmount`, `paymentMethod` (`Cash`/`UPI`/`Card`), `customerMobile`, `customerName`. Awards loyalty points when the mobile matches a registered account and snapshots `soldByMobile`. |
+| GET | `/sales` | Admin | List offline sales. |
 
 ## Cart — `/api/cart`
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
 | POST | `/sync` | User | Upserts the logged-in user's server-side cart snapshot (debounced client-side call; used only for abandoned-cart detection, never read back into the cart UI). |
-| POST | `/send-abandoned-reminders` | Secret | Scheduled job entry point (hourly). Emails users with a stale, non-empty cart snapshot. |
+| POST | `/send-abandoned-reminders` | Secret | Scheduled job entry point (hourly). Emails users with a stale, non-empty cart snapshot. Accepts `GET` too as of 2026-08-13 (cron-job.org defaults new jobs to GET; this endpoint was POST-only and had likely 404'd on every scheduled run since inception until fixed). |
 
 ## Orders — `/api/orders`
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| POST | `/` | User | Place an order. Body: `orderItems`, `shippingAddress`, `paymentMethod`, optional `couponCode`, `redeemPoints`. Reserves stock atomically; computes delivery fee server-side (never trusts a client-supplied amount). |
+| POST | `/` | User | Place an order. Body: `orderItems` (each optionally carrying `size` for variant products), `shippingAddress`, `paymentMethod` (`"COD"` or `"Razorpay"` — **defaults to Razorpay in the checkout UI** as of 2026-08-24, previously COD), optional `couponCode`, `redeemPoints`. Reserves stock atomically; computes delivery fee, `codCharge` (COD orders only, from `SiteSettings.codCharge`), and bundle-discount amount server-side — all snapshotted onto the order at creation time, never trusted from the client and never re-derived later. For `paymentMethod: "Razorpay"`, also creates a Razorpay order server-side from the computed total and returns the Razorpay order id for the frontend to open the checkout modal. Sends an order-confirmation email immediately on placement (added 2026-08-24 — previously customers heard nothing until an admin changed the status). |
+| POST | `/verify-payment` | User | Verifies a Razorpay payment signature (HMAC-SHA256) and marks the order paid. Body: `razorpay_order_id`, `razorpay_payment_id`, `razorpay_signature`. New 2026-08-22. |
+| POST / GET | `/send-review-requests` | Secret | Scheduled job entry point. Finds Delivered orders 8+ days past delivery (past the 7-day return window, signalling genuine "kept it" intent — tuned from an initial 4 days) that haven't been emailed yet, sends one review-request email per order, and sets `reviewRequestSent` so it's never re-sent. Registered before `/:id` so it isn't shadowed by it. New 2026-08-24. |
 | GET | `/myorders` | User | Current user's order history. |
-| GET | `/:id` | User | Single order (owner or admin only). |
+| GET | `/:id` | User | Single order (owner or admin only). Response now includes the full snapshotted price breakdown (delivery fee, coupon discount, bundle discount + which categories triggered it, loyalty points redeemed, `codCharge`) and `statusHistory` timestamps, surfaced on the customer Order Details page as a status stepper since 2026-08-20. |
 | GET | `/` | Admin | All orders. |
-| PUT | `/:id/status` | Admin | Update status; triggers customer email and loyalty-point crediting/clawback/referral payout side effects. |
+| PUT | `/:id/status` | Admin | Update status; triggers customer email and loyalty-point crediting/clawback/referral payout side effects. Refuses to run on a soft-deleted order (`isActive: false`) as of 2026-08-24. |
 | PUT | `/:id/seen` | Admin | Mark as seen in the admin order list. |
+| PUT | `/:id/restore` | Admin | Restores a soft-deleted order. New 2026-08-24. |
+| DELETE | `/:id` | Admin | Soft delete (`isActive: false`) — only allowed once `orderStatus === "Cancelled"`. New 2026-08-24. |
+| DELETE | `/:id/permanent` | Admin | Hard delete — blocked if a `ReturnRequest` or `Ticket` still references the order. New 2026-08-24. |
 
 ## Returns — `/api/returns`
 
@@ -98,7 +124,7 @@ Same CRUD shape as Products (list/admin-list/get/create/update/restore/soft-dele
 | Method | Path | Auth | Description |
 |---|---|---|---|
 | GET | `/public` | Public | Current loyalty (`earnRate`, `redeemValue`, `maxRedeemPercent`, `minRedeemPoints`, `expiryMonths`) and referral (`referrerPoints`, `referredPoints`) settings — what every "you'll earn N points" preview is computed from. |
-| POST | `/expire-points` | Secret | Scheduled job entry point (daily). Expires the full balance of any user inactive past `expiryMonths`, emails them. |
+| POST | `/expire-points` | Secret | Scheduled job entry point (daily). Expires the full balance of any user inactive past `expiryMonths`, emails them. Accepts `GET` too as of 2026-08-13 (same fix as the abandoned-cart-reminders endpoint — see Cart section above). |
 | GET | `/my-transactions` | User | Paginated loyalty ledger for the current user. |
 | GET | `/admin` | Admin | Loyalty + referral settings plus the audit-trail change log. |
 | PUT | `/admin/loyalty` | Admin | Update loyalty settings (logs each changed field). |
@@ -177,6 +203,8 @@ All of the following follow the same pattern — `GET /` (public list where rele
 | Static Pages | `/api/pages` | Shipping/Returns/Privacy/Terms — CMS content by `slug`. |
 | Newsletter | `/api/newsletter` | `POST /subscribe` (public), `GET /admin` (subscriber list), `POST /send` (campaign to all subscribers). |
 | Contact | `/api/contact` | `POST /` (public submit), admin list/read/delete. |
+| New Arrivals Sections *(new 2026-08-19)* | `/api/new-arrivals-sections` | `{category, displayOrder, isActive}` — admin-only ordering of which categories get a homepage New Arrivals section. **No public list route** — the storefront reads sections indirectly via `GET /api/products/new-arrivals-by-category`. |
+| Trending Sections *(new 2026-08-19)* | `/api/trending-sections` | `{category, displayOrder, isActive}` — admin-only ordering of which categories get a Top Trending carousel. Same no-public-route note as above; storefront reads via `GET /api/products/trending-by-category`. |
 
 ## States — `/api/states`
 
@@ -206,9 +234,26 @@ All of the following follow the same pattern — `GET /` (public list where rele
 | GET | `/product-views/:id` | Public | "N people viewed this today" counter shown on product pages. |
 | GET | `/my-location` | Public | IP-based city/region/country guess for the requesting visitor — the fallback source for the header's "Deliver to" block when a customer isn't logged in or has no saved address. |
 
+## Product Feed — `/api/feed`
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | `/google.xml` | Public | RSS 2.0 + Google Shopping namespace XML feed of every active, publicly-visible product (`visibility` other than `"offline"`), for Google Merchant Center / Meta Commerce Manager to fetch directly. Includes `g:sale_price` when a product is discounted and `ships_from_country=IN`. New 2026-08-12. |
+
+## WhatsApp — `/api/whatsapp`
+
+New 2026-08-25. Currently **receive-only** — there is no message-*sending* endpoint in this codebase yet (blocked on Meta Business Verification; see `DEPLOYMENT.md` §4.8). Neither route uses JWT auth or the `CRON_SECRET` pattern — they're gated by Meta's own verify-token/webhook mechanism instead, since the caller is Meta's servers, not a logged-in session or the scheduler.
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | `/webhook` | Public, verify-token gated | Meta dashboard Callback URL verification step. Echoes back `hub.challenge` only when the request's `hub.verify_token` matches the `WHATSAPP_VERIFY_TOKEN` env var. |
+| POST | `/webhook` | Public, no signature check yet | Receives message-status/incoming-message events from Meta. Acknowledges immediately regardless of payload content (Meta disables webhooks that respond slowly). Payload signature verification is **not yet implemented**. |
+
+Two manual `wa.me` deep-link stand-ins exist elsewhere in the app (not API endpoints — client-side only): a per-order "Send WhatsApp Update" button in the admin Orders list (pre-fills a status-based message for the admin to send manually, added 2026-08-25) and a "Send Bill on WhatsApp" button on POS receipts.
+
 ## Static Files
 
 | Path | Description |
 |---|---|
-| `GET /uploads/*` | Legacy (pre-Cloudinary) images, served directly by Express. |
+| `GET /uploads/*` | Legacy (pre-Cloudinary) images, served directly by Express. 30-day immutable cache headers added 2026-08-20. |
 | `GET /api/health` | Uptime check — `{ success: true, message: "..." }`. |

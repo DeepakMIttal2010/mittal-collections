@@ -2,8 +2,8 @@
 
 **Project:** Mittal Collections — Home Furnishing E-commerce Platform
 **Live site:** https://www.mittalcollections.com
-**Document version:** 1.2
-**Last updated:** 2026-08-08
+**Document version:** 1.3
+**Last updated:** 2026-08-25
 
 ## 1. Purpose
 
@@ -37,12 +37,19 @@ tools) for SEO-driven organic traffic.
 - FR-1.4: Product detail page shows: image gallery + zoom, video playback, price/discount, stock status, description, optional specs (Fabric, Size, GSM, Wash Care, Brand, Country of Origin — shown only when filled in), loyalty points preview, delivery fee context, reviews, Q&A, related products, and an auto-generated comparison table against similar same-category products.
 - FR-1.6: An Amazon-style trust badge row (Pay on Delivery, Return window, Secure Payment, 100% Genuine) sits below the price. The return badge is per-product and real: it reads that product's own `isReturnable`/`returnPeriodDays` (falling back to the site-wide default window), showing "Non-returnable" instead of a fake universal return promise when a product truly isn't returnable.
 - FR-1.5: "Recently Viewed" products are tracked client-side and shown on the homepage and product pages.
+- FR-1.7: Products may offer multiple size variants (e.g. Curtains sold as 7x4/9x4), each with its own price, old price, and stock. The product page shows an Amazon-style size selector; each size is added to the cart as its own line item (two sizes of the same product can coexist in the cart) and carries through to the order.
+- FR-1.8: Homepage sections and a dedicated `/new-arrivals` page group New Arrivals per category (admin-ordered), each with "Show More" pagination; a product can be opted out of New Arrivals individually.
+- FR-1.9: Homepage and `/trending` show one Top Trending carousel per admin-selected category (admin controls which categories appear and in what order; per-product inclusion is still via the existing trending flag/rank).
+- FR-1.10: A "Clearance Sale" homepage carousel and dedicated `/clearance-sale` page auto-surface any category containing a product discounted 35%+ off MRP, grouped by category and ordered by discount-item count — not admin-curated, so it stays current automatically without maintenance.
+- FR-1.11: An optional colour-variation notice may be shown on a product page directing customers who want a specific colour to Contact Us first.
+- FR-1.12: An optional "What's Included" line (e.g. "Set of 5 Cushion Covers") is shown as the first row of the specs table when set.
 
 ### 4.2 Search
 - FR-2.1: Header search bar with live autocomplete suggestions (debounced, min 2 characters).
 - FR-2.2: Fuzzy/typo-tolerant search (custom Levenshtein-based ranking, no external search service) with category/price filters and sorting on the results page.
 - FR-2.3: "No results" fallback suggests categories to browse instead.
 - FR-2.4: Voice search input (browser SpeechRecognition API) on the header search bar.
+- FR-2.5: An "All ▾" dropdown on the search bar lets a customer scope search to one category before typing; the chosen category carries through the `/search` URL and pre-fills the results-page category filter.
 
 ### 4.3 Cart & Checkout
 - FR-3.1: Client-side cart (localStorage), usable while logged out; a debounced snapshot syncs to the server for logged-in users (used only for abandoned-cart detection, never read back into the UI).
@@ -51,8 +58,11 @@ tools) for SEO-driven organic traffic.
 - FR-3.4: Checkout requires login (redirects with a `?redirect=` return path). Requires a saved delivery address.
 - FR-3.5: Coupon code entry with validation (percentage/flat discount, max discount cap, optional "first order only" restriction); a first-order coupon is auto-suggested if the customer is eligible.
 - FR-3.6: Loyalty points redemption slider at checkout (capped at an admin-configured % of order value and a minimum redeemable amount).
-- FR-3.7: Payment method: Cash on Delivery or Razorpay (online).
+- FR-3.7: Payment method: Cash on Delivery or Razorpay (online), selectable via radio button; **Razorpay is the default selection**. Choosing Razorpay opens the Razorpay Standard Checkout modal; the order amount is always computed server-side (never trusted from the client) and the payment signature is verified server-side (HMAC-SHA256) before the order is marked paid. If the customer dismisses or fails the Razorpay payment, the order still exists (Pending/unpaid) and can be paid later from My Orders.
+- FR-3.7a: Selecting Cash on Delivery adds an admin-configurable COD handling charge (default ₹50) to the order total, shown as its own line item in the Checkout summary, the customer's Order Details page, and the admin Price Breakdown. The charge is computed server-side only and never applied to Razorpay orders.
 - FR-3.8: Placing an order atomically reserves stock per line item; if any item is out of stock the whole order is rejected with the specific item named, and any already-reserved stock is rolled back.
+- FR-3.9: "Complete the Look" bundle discount: buying products from two admin-paired categories (e.g. Bedsheets + Cushion Covers) in the same cart automatically unlocks a discount at checkout, no coupon required. Rules (category pair, discount %, active toggle) are admin-editable with no deploy needed. When a cart qualifies for more than one rule, the rule giving the highest rupee discount is applied, and the discount is scoped only to the qualifying items. Cart/Checkout show a click-to-expand breakdown of which items qualified. The same qualifying-category banner also appears on relevant category pages, not just the product detail page.
+- FR-3.10: An order confirmation email is sent to the customer immediately on successful order placement (previously the customer heard nothing until an admin changed the order status).
 
 ### 4.4 Orders & Account
 - FR-4.1: Customer can view order history ("My Orders" — Amazon-style order cards with status headline and per-item actions), order detail, and status timeline (Pending → Processing → Shipped → Delivered, or Cancelled).
@@ -61,7 +71,8 @@ tools) for SEO-driven organic traffic.
 - FR-4.4: Account page shows profile summary, loyalty point balance, and referral code/link.
 - FR-4.5: Customer can manage saved addresses (add/edit/delete/set default), edit profile, and change password.
 - FR-4.6: All account pages (orders, order detail, addresses, loyalty history, profile, change password) redirect a logged-out visitor to `/login?redirect=<page>` instead of showing broken/empty state.
-- FR-4.7: Header shows a "Deliver to [Name] / [City] [Pincode]" block, sourced from the customer's default saved address when logged in, falling back to an IP-based city guess (and the customer's real name, not "Guest") when logged in without a saved address, or a full IP-based guess for guests.
+- FR-4.7: Header shows a "Deliver to [Name] / [City] [Pincode]" block, sourced from the customer's default saved address when logged in, falling back to an IP-based city guess (and the customer's real name, not "Guest") when logged in without a saved address, or a full IP-based guess for guests. A dropdown of the customer's saved addresses opens directly from this header element for instant switching, not just a link to the full addresses page.
+- FR-4.8: Order Details shows a full price breakdown — items, delivery fee, COD charge (if applicable), coupon discount, bundle discount (and which categories triggered it), and loyalty points redeemed — down to the final total. These figures are snapshotted on the order at placement time, so a later change to settings/rules never rewrites the displayed breakdown of a past order.
 
 ### 4.4a Returns
 - FR-4a.1: From "My Orders", a customer can request a return on an eligible delivered item within its return window (per-product `isReturnable` + `returnPeriodDays`, or the site-wide default), giving a quantity and reason.
@@ -100,6 +111,7 @@ tools) for SEO-driven organic traffic.
 - FR-9.5: Top banner strip for delivery/service messaging and an active coupon promotion, each independently dismissible for the session.
 - FR-9.6: Site-wide floating "WhatsApp Now" button (uses the admin-configured support phone number); product pages additionally get a product-specific "Order on WhatsApp" button (pre-filled with product name/price/link, disabled when out of stock).
 - FR-9.7: Newsletter signup + admin-authored campaign emails to all subscribers.
+- FR-9.8: A scheduled job emails a customer a post-delivery review request, per item, approximately 8 days after delivery (deliberately past the 7-day return window, so it targets orders the customer has genuinely kept). Each order is only ever emailed once for this, tracked on the order itself.
 
 ### 4.10 Content Hub (SEO)
 - FR-10.1: "Guides & Ideas" articles section (`/articles`) — admin-authored, rich-text, with cover images.
@@ -124,9 +136,17 @@ tools) for SEO-driven organic traffic.
 - FR-A1.1: CRUD for Products (images incl. main-image selection, up to 2 videos, price/old price, stock, category/subcategory, featured/trending/active flags, optional specs, per-product `isReturnable`/`returnPeriodDays` override), Categories, and Subcategories.
 - FR-A1.2: Bulk product import via CSV.
 - FR-A1.3: Product Q&A moderation (answer/publish) and review moderation (approve).
+- FR-A1.4: Products may be defined with multiple size variants (size, price, old price, stock, purchase price); the top-level price/old-price mirror the first variant and top-level stock is the sum across variants, both recomputed server-side.
+- FR-A1.5: "Duplicate Product" action copies name/price/category/stock/specs/cost fields into a new inactive product with no images, then opens its Edit page for the admin to complete.
+- FR-A1.6: Products list can be exported to Excel/CSV (with category/subcategory filters, purchase price/misc expenses/total cost, size-wise price/MRP/discount-% and stock for variant products), and a separate "Stock Report" export lists one row per size (stock, restock threshold, will-restock flag, status, stock value) plus a total row.
+- FR-A1.7: Purchase-price entry on Add/Edit Product auto-suggests Misc Expenses, MRP, and Price from admin-configured per-category/subcategory pricing rules (falling back to a default 10%/×2/−15% formula); auto-fill never overwrites a field the admin already filled in by hand.
+- FR-A1.8: Per-product and bulk QR/print labels (thumbnail, category, MRP struck through, product ID, an internal cost-cipher "product number" decodable only by admin) support an in-store QR/POS sale flow: scanning a label opens a persistent multi-item cart for that sale, and "Complete Sale" records an offline sale, optionally awarding loyalty points if the customer's mobile matches a registered account, and can generate a printed/WhatsApp receipt with an optional discount and payment-proof photo.
+- FR-A1.9: A "Share" feature on each product generates a branded 1080x1920 image (photo, name, discounted price, CTA, QR code) or a short branded video (Ken Burns zoom, crossfade transitions, optional background music, discount-badge animation) with an Instagram-style caption, for sharing to WhatsApp/Instagram/Facebook via the native share sheet or clipboard-copy. Sharing is blocked (with an explanation) for offline-only products, since they have no public product link to share.
 
 ### 5.2 Orders, Returns & Support
-- FR-A2.1: View all orders, mark seen, update status (triggers customer email + loyalty point crediting/clawback/referral payout as applicable).
+- FR-A2.1: View all orders, mark seen, update status (triggers customer email + loyalty point crediting/clawback/referral payout as applicable). Status can no longer be changed on a deleted (soft-deleted) order.
+- FR-A2.1a: An order can be deleted (soft-delete, `isActive: false`) only once it is Cancelled; a deleted order can be restored; a permanent delete is available after that, blocked if a return request or support ticket still references the order.
+- FR-A2.1b: Each order has a manual "Send via WhatsApp" button that opens a `wa.me` deep link pre-filled with a message reflecting the order's current status, in a new tab, for the admin to review and send from their own WhatsApp — an interim stand-in while automated WhatsApp order messaging is blocked on Meta Business Verification (see `SRS.md` §1.3).
 - FR-A2.2: Manage return requests (`/admin/returns`) — view all, update status through `Requested → Approved/Rejected → Picked Up → Refunded`, with an optional note to the customer on each change. Reaching **Picked Up** (or jumping straight to **Refunded**) automatically restores the returned quantity to that product's stock; reaching **Refunded** automatically claws back the loyalty points earned on that specific item's share of the order (proportional to its price within the order, not the whole order's points), but only if the order was ever delivered/credited in the first place. Both side effects are idempotent — flipping the status back and forth doesn't double-apply them. Actual payment refund is still manual — see §6.
 - FR-A2.3: Manage support tickets (`/admin/tickets`) — view all, reply in the message thread, change status (Open/In Progress/Resolved/Closed).
 
@@ -147,7 +167,7 @@ tools) for SEO-driven organic traffic.
 ### 5.6 Customers & Reporting
 - FR-A6.1: Customer list/detail, block/unblock.
 - FR-A6.2: Dashboard summary (recent orders, revenue, traffic).
-- FR-A6.3: Reports page (`/admin/reports`) — date range selectable via 7/30/90-day presets or a custom start/end date; every metric is scoped consistently to the selected range (with one deliberate exception: "Total Customers" is shown all-time). Includes: revenue/orders with period-over-period growth %, sales & visits trend charts, a conversion funnel (Visitors → Product Viewers → Cart Viewers → Checkout Viewers → Orders Placed, explicitly labeled as approximate since visits are tracked by an anonymous ID not linked to accounts), top/zero-result search queries, a live (not date-scoped) cart-abandonment snapshot, orders by status, top pages, device breakdown, top-selling products, revenue by category, visitor locations, and loyalty/referral performance (points earned/redeemed/expired with redemption rate, referral signups/conversions/bonus paid out). The whole report exports to a single multi-section CSV.
+- FR-A6.3: Reports page (`/admin/reports`) — date range selectable via 7/30/90-day presets or a custom start/end date; every metric is scoped consistently to the selected range (with one deliberate exception: "Total Customers" is shown all-time). Includes: revenue/orders with period-over-period growth %, sales & visits trend charts, a conversion funnel (Visitors → Product Viewers → Cart Viewers → Checkout Viewers → Orders Placed, explicitly labeled as approximate since visits are tracked by an anonymous ID not linked to accounts), top/zero-result search queries, a live (not date-scoped) cart-abandonment snapshot, orders by status, top pages, device breakdown, top-selling products, revenue by category, visitor locations, and loyalty/referral performance (points earned/redeemed/expired with redemption rate, referral signups/conversions/bonus paid out — "Points Earned" nets out clawback, i.e. points reversed when a delivered order is later cancelled, so it reflects genuinely retained points rather than gross issuance). The whole report exports to a single multi-section CSV. Total Sales/Revenue figures site-wide (dashboard and Reports) exclude Cancelled orders.
 - FR-A6.4: A "Google Analytics & Search Console" section on the same Reports page, showing live data pulled server-side via a Google service account: Active Users, Sessions, Page Views, Engagement Rate, and Top Pages from GA4; Clicks, Impressions, CTR, Average Position, and Top Search Queries from Search Console. Only supports the 7/30/90-day presets (not the custom date picker); shows a quiet "unavailable" message rather than an error if the service account isn't configured.
 
 ### 5.7 Notification Bell (Admin)
@@ -159,11 +179,10 @@ tools) for SEO-driven organic traffic.
 
 ## 6. Out of Scope (explicitly deferred)
 
-- WhatsApp Business API order notifications (requires Meta business verification — external, multi-day process; email + in-app notifications were built instead).
+- Automated WhatsApp Business API order notifications (e.g. order confirmation/status updates sent automatically) — blocked on Meta Business Verification, which requires a business-name-matching document not yet available. The Cloud API **webhook** (receiving) is live and verified; there is no message-**sending** integration yet. A manual per-order `wa.me` deep-link button (FR-A2.1b) and the pre-existing POS-receipt/product-share WhatsApp links stand in for this in the meantime.
 - Automated/AI product recommendations (only rule-based "same category" related products and the auto-compare table exist).
 - "Frequently Bought Together" and "Delivery Date Estimator" widgets.
 - Product logo/brand redesign work.
-- Cloudinary SDK v1 → v2 upgrade (known vulnerability, deliberately held pending a full upload-flow retest).
-- Razorpay refund automation — and, more fundamentally, real Razorpay payment capture at all. "Razorpay" currently exists only as a `paymentMethod` enum value on `Order`; there is no Razorpay SDK, no checkout-side payment capture, and no `paymentId` stored anywhere, so there is no captured payment to programmatically refund yet. This is a payment-gateway integration project in its own right, not a small add-on to the return flow.
+- Razorpay refund automation — a refund still has to be issued manually via the Razorpay dashboard; only payment capture (order creation + signature verification) is automated.
 - Push notifications (web push/FCM) and SMS/WhatsApp-API notifications — only email + the in-app Notification Center exist.
-- Per-variant stock (by size/color) — `Product.stock` is a single number for the whole product. No stock-change audit log, no supplier/reorder/purchase-order concept.
+- Per-variant stock is now supported for products explicitly modeled with size variants (FR-A1.4); products without variants still track a single `stock` number for the whole product. No stock-change audit log, no supplier/reorder/purchase-order concept.
