@@ -1,7 +1,7 @@
 import { imgUrl } from "../../services/api";
 import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { FaSortAmountDown, FaSortAmountUp } from "react-icons/fa";
+import { FaSortAmountDown, FaSortAmountUp, FaWhatsapp } from "react-icons/fa";
 
 import {
   getAllOrders,
@@ -25,6 +25,46 @@ const STATUS_COLORS = {
   Shipped: "bg-amber-100 text-amber-700",
   Delivered: "bg-green-100 text-green-700",
   Cancelled: "bg-red-100 text-red-700",
+};
+
+// Manual stand-in for the automated WhatsApp notifications planned
+// eventually (blocked on Meta Business Verification, which needs a
+// business-name-matching document we don't have yet) — a plain wa.me
+// deep link needs no API access or verification at all, just opens
+// WhatsApp with the message pre-filled for the admin to review and send.
+const buildWhatsAppMessage = (order) => {
+  const name = order.shippingAddress?.fullName || "there";
+  const id = order._id;
+
+  switch (order.orderStatus) {
+    case "Processing":
+      return `Hi ${name}, your order (ID: ${id}) at Mittal Collections is now being processed and will be shipped soon.`;
+    case "Shipped":
+      return `Hi ${name}, good news! Your order (ID: ${id}) has shipped and is on its way.`;
+    case "Delivered":
+      return `Hi ${name}, your order (ID: ${id}) has been delivered! We hope you love it. If you have a moment, we'd really appreciate a review.`;
+    case "Cancelled":
+      return `Hi ${name}, your order (ID: ${id}) has been cancelled. If a coupon or loyalty points were used, they've been refunded to your account.`;
+    default: {
+      const itemsList = order.orderItems
+        .map((item) => `${item.name} x${item.quantity}`)
+        .join(", ");
+
+      return `Hi ${name}, thanks for your order at Mittal Collections!\n\nOrder ID: ${id}\nItems: ${itemsList}\nTotal: ₹${order.totalPrice}\n\nWe'll keep you updated as it's processed.`;
+    }
+  }
+};
+
+// Indian mobile numbers are stored as plain 10-digit strings — wa.me
+// needs the country code prefixed with no other formatting.
+const buildWhatsAppLink = (order) => {
+  const digits = (order.shippingAddress?.mobile || "").replace(/\D/g, "");
+  if (!digits) return null;
+
+  const withCountryCode = digits.length === 10 ? `91${digits}` : digits;
+  const text = encodeURIComponent(buildWhatsAppMessage(order));
+
+  return `https://wa.me/${withCountryCode}?text=${text}`;
 };
 
 function AdminOrders() {
@@ -277,6 +317,19 @@ function AdminOrders() {
                   >
                     View History
                   </button>
+
+                  {buildWhatsAppLink(order) && (
+                    <a
+                      href={buildWhatsAppLink(order)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      title="Send WhatsApp update to customer"
+                      className="w-7 h-7 shrink-0 rounded-full bg-[#25D366] text-white flex items-center justify-center hover:opacity-90"
+                    >
+                      <FaWhatsapp className="text-sm" />
+                    </a>
+                  )}
                 </div>
 
                 <select
