@@ -12,9 +12,12 @@ function Navbar() {
   // starting around ~1450px; a 14" laptop's *effective* CSS width is
   // commonly 1280-1366px after Windows display scaling, which sat in a
   // gap this component never accounted for and wrapped into a broken
-  // second line. flex-nowrap + overflow-x-auto is also a deliberate
-  // safety net — if it ever doesn't fit even at the smallest padding,
-  // it scrolls horizontally instead of silently wrapping again.
+  // second line. (A horizontal-scroll fallback was tried too, but any
+  // overflow value other than visible on this row clips the category
+  // dropdowns — they render via top-full below it, and an ancestor's
+  // overflow clips absolutely-positioned descendants regardless of
+  // which nearer element establishes their own positioning context. The
+  // padding fix alone is enough, so overflow stays at its default.)
   const linkClass = ({ isActive }) =>
     `text-sm font-medium px-2 lg:px-3 xl:px-4 py-3 whitespace-nowrap transition-colors ${
       isActive ? "text-amber-600" : "text-slate-700 hover:text-amber-600"
@@ -22,7 +25,7 @@ function Navbar() {
 
   return (
     <nav className="hidden md:block bg-white border-b border-slate-200">
-      <div className="max-w-7xl mx-auto px-4 flex items-center flex-nowrap overflow-x-auto">
+      <div className="max-w-7xl mx-auto px-4 flex items-center">
         <div className="flex items-center">
           <NavLink to="/" className={linkClass}>
             Home
