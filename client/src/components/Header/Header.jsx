@@ -515,7 +515,7 @@ function Header() {
         </form>
 
         {/* Right Icons */}
-        <div className="flex items-center gap-1 sm:gap-6 ml-auto shrink-0">
+        <div className="flex items-center gap-1 lg:gap-2 min-[1440px]:gap-6 ml-auto shrink-0">
           {/* Language toggle */}
           <div className="flex items-center rounded-full border border-slate-200 text-xs font-medium overflow-hidden shrink-0">
             <button
@@ -555,7 +555,7 @@ function Header() {
                 className="flex flex-col items-center text-slate-600 hover:text-blue-700 transition-colors"
               >
                 <FaDownload className="text-lg" />
-                <span className="hidden sm:block text-xs mt-0.5">
+                <span className="hidden min-[1440px]:block text-xs mt-0.5">
                   Install
                 </span>
               </button>
@@ -590,7 +590,7 @@ function Header() {
                 <span className="w-7 h-7 rounded-full bg-amber-600 text-white text-sm font-semibold flex items-center justify-center">
                   {user?.name?.charAt(0).toUpperCase()}
                 </span>
-                <span className="hidden sm:block text-xs mt-0.5">Account</span>
+                <span className="hidden min-[1440px]:block text-xs mt-0.5">Account</span>
               </button>
 
               {accountOpen && (
@@ -643,7 +643,7 @@ function Header() {
               className="hidden md:flex flex-col items-center text-slate-600 hover:text-blue-700 transition-colors"
             >
               <FaUser className="text-lg" />
-              <span className="hidden sm:block text-xs mt-0.5">Account</span>
+              <span className="hidden min-[1440px]:block text-xs mt-0.5">Account</span>
             </Link>
           )}
 
@@ -652,7 +652,7 @@ function Header() {
             className="relative flex flex-col items-center text-slate-600 hover:text-blue-700 transition-colors"
           >
             <FaHeart className="text-lg" />
-            <span className="hidden sm:block text-xs mt-0.5">Wishlist</span>
+            <span className="hidden min-[1440px]:block text-xs mt-0.5">Wishlist</span>
             {totalWishlistItems > 0 && (
               <span className="absolute -top-1.5 -right-2 bg-red-500 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
                 {totalWishlistItems}
@@ -666,7 +666,7 @@ function Header() {
             className="relative flex flex-col items-center text-slate-600 hover:text-blue-700 transition-colors"
           >
             <FaShoppingCart className="text-lg" />
-            <span className="hidden sm:block text-xs mt-0.5">Cart</span>
+            <span className="hidden min-[1440px]:block text-xs mt-0.5">Cart</span>
             {totalItems > 0 && (
               <span className="absolute -top-1.5 -right-2 bg-red-500 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
                 {totalItems}
