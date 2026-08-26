@@ -674,6 +674,32 @@ export const markOrderSeen = async (req, res) => {
   }
 };
 
+// Non-terminal statuses have a real progression — Pending < Processing <
+// Shipped < Delivered. A transition is only valid if it either moves
+// forward through that order (skipping ahead is fine, e.g. Pending
+// straight to Delivered for a quick local order) or moves to Cancelled
+// from any of them (the supported return/cancellation flow). Cancelled
+// itself is terminal — nothing moves out of it.
+//
+// UAT found a live exploit chain that relied on both of these being
+// unenforced: Cancelled -> Delivered (an illegal "un-cancel" that
+// re-credits loyalty points without ever re-reserving stock) -> Pending
+// (a backward jump) -> Cancelled again -> restoreStock fires a second
+// time for stock that was never re-reserved, permanently inflating the
+// product's stock count by the order quantity.
+const ORDER_STATUS_RANK = { Pending: 0, Processing: 1, Shipped: 2, Delivered: 3 };
+
+const isValidStatusTransition = (from, to) => {
+  if (from === "Cancelled") return false;
+  if (to === "Cancelled") return true;
+  if (!(from in ORDER_STATUS_RANK) || !(to in ORDER_STATUS_RANK)) return false;
+
+  // >= (not just >) so re-applying the same status is a harmless no-op —
+  // existing handlers (e.g. loyalty crediting) already guard against
+  // double-processing an unchanged status.
+  return ORDER_STATUS_RANK[to] >= ORDER_STATUS_RANK[from];
+};
+
 // ============================
 // Update Order Status (Admin)
 // ============================
@@ -695,6 +721,13 @@ export const updateOrderStatus = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "This order is deleted — restore it before changing its status",
+      });
+    }
+
+    if (!isValidStatusTransition(order.orderStatus, status)) {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot change status from "${order.orderStatus}" to "${status}".`,
       });
     }
 

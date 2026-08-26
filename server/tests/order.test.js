@@ -457,3 +457,84 @@ describe("Admin order delete / restore", () => {
     expect((await Order.findById(order._id)).isActive).toBe(true);
   });
 });
+
+describe("Order status transition validation", () => {
+  const setStatus = (token, orderId, status) =>
+    request(app)
+      .put(`/api/orders/${orderId}/status`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ status });
+
+  it("blocks a backward jump from a later status to an earlier one", async () => {
+    const admin = await createUser({ role: "admin" });
+    const token = signToken(admin);
+    const order = await createTestOrder({ orderStatus: "Shipped" });
+
+    const res = await setStatus(token, order._id, "Processing");
+
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+    expect((await Order.findById(order._id)).orderStatus).toBe("Shipped");
+  });
+
+  it("blocks moving out of Cancelled back into the active pipeline", async () => {
+    const admin = await createUser({ role: "admin" });
+    const token = signToken(admin);
+    const order = await createTestOrder({ orderStatus: "Cancelled" });
+
+    const res = await setStatus(token, order._id, "Pending");
+
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+    expect((await Order.findById(order._id)).orderStatus).toBe("Cancelled");
+  });
+
+  it("closes the phantom-stock exploit: Cancelled -> Delivered -> Pending -> Cancelled is blocked after the first illegal hop", async () => {
+    const admin = await createUser({ role: "admin" });
+    const token = signToken(admin);
+    const product = await createProduct({ stock: 9 });
+    const order = await createTestOrder({ orderStatus: "Cancelled", product });
+
+    const toDelivered = await setStatus(token, order._id, "Delivered");
+    expect(toDelivered.status).toBe(400);
+
+    const toPending = await setStatus(token, order._id, "Pending");
+    expect(toPending.status).toBe(400);
+
+    expect((await Order.findById(order._id)).orderStatus).toBe("Cancelled");
+    expect((await Product.findById(product._id)).stock).toBe(9);
+  });
+
+  it("allows a forward skip (Pending straight to Delivered)", async () => {
+    const admin = await createUser({ role: "admin" });
+    const token = signToken(admin);
+    const order = await createTestOrder({ orderStatus: "Pending" });
+
+    const res = await setStatus(token, order._id, "Delivered");
+
+    expect(res.status).toBe(200);
+    expect((await Order.findById(order._id)).orderStatus).toBe("Delivered");
+  });
+
+  it("allows Cancelled from any active stage", async () => {
+    const admin = await createUser({ role: "admin" });
+    const token = signToken(admin);
+    const order = await createTestOrder({ orderStatus: "Processing" });
+
+    const res = await setStatus(token, order._id, "Cancelled");
+
+    expect(res.status).toBe(200);
+    expect((await Order.findById(order._id)).orderStatus).toBe("Cancelled");
+  });
+
+  it("allows re-applying the same status as a no-op", async () => {
+    const admin = await createUser({ role: "admin" });
+    const token = signToken(admin);
+    const order = await createTestOrder({ orderStatus: "Shipped" });
+
+    const res = await setStatus(token, order._id, "Shipped");
+
+    expect(res.status).toBe(200);
+    expect((await Order.findById(order._id)).orderStatus).toBe("Shipped");
+  });
+});
