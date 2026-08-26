@@ -71,11 +71,12 @@ function MobileMenu({ isOpen, onClose }) {
         }`}
       />
 
-      {/* Full width on mobile (no max-w cap) — matches CartDrawer's
-          effective full-screen coverage, so BottomNav's icons never
-          peek through a dimmed gap on the right while this is open. */}
+      {/* Standard ~88% partial-width drawer, not full-screen — the dim
+          overlay above (z-[100], covers the full viewport) already sits
+          above BottomNav (z-40), so BottomNav shows through dimmed in the
+          remaining gap rather than peeking through undimmed. */}
       <div
-        className={`fixed top-0 left-0 h-full w-full bg-white z-[101] shadow-xl flex flex-col transition-transform duration-300 md:hidden ${
+        className={`fixed top-0 left-0 h-full w-[88%] max-w-sm bg-white z-[101] shadow-xl flex flex-col transition-transform duration-300 md:hidden ${
           isOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >

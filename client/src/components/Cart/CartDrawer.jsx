@@ -62,7 +62,7 @@ function CartDrawer() {
       />
 
       <div
-        className={`fixed top-0 right-0 h-full w-full max-w-md bg-white z-[101] shadow-xl flex flex-col transition-transform duration-300 ${
+        className={`fixed top-0 right-0 h-full w-[88%] max-w-sm bg-white z-[101] shadow-xl flex flex-col transition-transform duration-300 ${
           isCartOpen ? "translate-x-0" : "translate-x-full"
         }`}
       >
