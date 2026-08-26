@@ -7,6 +7,7 @@ import Review from "../models/Review.js";
 import Question from "../models/Question.js";
 import SearchLog from "../models/SearchLog.js";
 import CartSnapshot from "../models/CartSnapshot.js";
+import Wishlist from "../models/Wishlist.js";
 import LoyaltyTransaction from "../models/LoyaltyTransaction.js";
 import Ticket from "../models/Ticket.js";
 import ReturnRequest from "../models/ReturnRequest.js";
@@ -843,6 +844,155 @@ export const getVisitLog = async (req, res) => {
     });
   } catch (error) {
     console.error("Get Visit Log Error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};
+
+// ============================
+// Get Product Engagement — per-product view count (all-time, unique
+// visitors), current wishlist count, and current in-cart count. All three
+// are live/current-state numbers, not a historical "ever happened" tally —
+// e.g. cartCount drops back to 0 once a customer empties their cart, it
+// doesn't keep counting past adds. cartCount only covers logged-in users:
+// CartSnapshot is a server-side mirror kept solely for abandoned-cart
+// detection (see its own file comment), synced only while logged in — a
+// guest's cart, which never syncs, isn't reflected here.
+// ============================
+export const getProductEngagement = async (req, res) => {
+  try {
+    const [products, viewsAgg, wishlistAgg, cartAgg] = await Promise.all([
+      Product.find().select("name image price stock").lean(),
+
+      // path is "/product/:id" or "/product/:id/:slug" — split on "/" to
+      // pull the id out (index 2: "", "product", id, [slug]) rather than
+      // grouping by the raw path, which would fragment counts across a
+      // product's old and current slug after a rename.
+      PageVisit.aggregate([
+        { $match: { path: /^\/product\// } },
+        {
+          $project: {
+            productId: { $arrayElemAt: [{ $split: ["$path", "/"] }, 2] },
+            visitorId: 1,
+          },
+        },
+        {
+          $group: {
+            _id: "$productId",
+            views: { $sum: 1 },
+            uniqueVisitors: { $addToSet: "$visitorId" },
+          },
+        },
+        { $project: { views: 1, uniqueViewers: { $size: "$uniqueVisitors" } } },
+      ]),
+
+      Wishlist.aggregate([{ $group: { _id: "$product", count: { $sum: 1 } } }]),
+
+      CartSnapshot.aggregate([
+        { $unwind: "$items" },
+        { $group: { _id: "$items.product", count: { $sum: 1 } } },
+      ]),
+    ]);
+
+    const viewsMap = new Map(viewsAgg.map((v) => [String(v._id), v]));
+    const wishlistMap = new Map(wishlistAgg.map((w) => [String(w._id), w.count]));
+    const cartMap = new Map(cartAgg.map((c) => [String(c._id), c.count]));
+
+    const engagement = products
+      .map((p) => {
+        const idStr = String(p._id);
+        const viewData = viewsMap.get(idStr);
+
+        return {
+          productId: p._id,
+          name: p.name,
+          image: p.image,
+          views: viewData?.views || 0,
+          uniqueViewers: viewData?.uniqueViewers || 0,
+          wishlistCount: wishlistMap.get(idStr) || 0,
+          cartCount: cartMap.get(idStr) || 0,
+        };
+      })
+      .sort((a, b) => b.views - a.views);
+
+    res.status(200).json({
+      success: true,
+      engagement,
+    });
+  } catch (error) {
+    console.error("Get Product Engagement Error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};
+
+// ============================
+// Who has a given product wishlisted right now — name/email/mobile +
+// exactly when (Wishlist is one doc per user+product, created once and
+// deleted on remove, so this date is precise).
+// ============================
+export const getProductWishlistUsers = async (req, res) => {
+  try {
+    const items = await Wishlist.find({ product: req.params.productId })
+      .populate("user", "name email mobile")
+      .sort({ createdAt: -1 });
+
+    const users = items
+      .filter((item) => item.user)
+      .map((item) => ({
+        name: item.user.name,
+        email: item.user.email,
+        mobile: item.user.mobile,
+        addedAt: item.createdAt,
+      }));
+
+    res.status(200).json({ success: true, users });
+  } catch (error) {
+    console.error("Get Product Wishlist Users Error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};
+
+// ============================
+// Who currently has a given product in their cart — name/email/mobile +
+// when their cart was last synced with this item present. Not a precise
+// "added on" date: CartSnapshot has one updatedAt per user's whole cart,
+// not per line item, so this reflects the most recent sync that included
+// this product, which could be later than when it was first added if the
+// cart was touched again since.
+// ============================
+export const getProductCartUsers = async (req, res) => {
+  try {
+    const snapshots = await CartSnapshot.find({
+      "items.product": req.params.productId,
+    })
+      .populate("user", "name email mobile")
+      .sort({ updatedAt: -1 });
+
+    // Guest snapshots (no account, tracked by anonymous visitorId — see
+    // CartSnapshot.js) are kept in the list rather than dropped, so the
+    // count here always matches getProductEngagement's cartCount. They
+    // just have no contact details to show, since there's no account.
+    const users = snapshots.map((snapshot) => ({
+      name: snapshot.user?.name || "Guest (not logged in)",
+      email: snapshot.user?.email || null,
+      mobile: snapshot.user?.mobile || null,
+      lastSyncedAt: snapshot.updatedAt,
+    }));
+
+    res.status(200).json({ success: true, users });
+  } catch (error) {
+    console.error("Get Product Cart Users Error:", error);
 
     res.status(500).json({
       success: false,

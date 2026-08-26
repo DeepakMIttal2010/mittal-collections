@@ -13,6 +13,18 @@ const pageVisitSchema = new mongoose.Schema(
       index: true,
     },
 
+    // Set only when the visitor was logged in at the time — lets the
+    // admin see a specific customer's own browsing history (which
+    // products they've actually looked at), not just anonymous
+    // aggregate traffic. Visits recorded before this field existed, and
+    // any from a visitor who wasn't logged in, have no user here.
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+      index: true,
+    },
+
     device: {
       type: String,
       enum: ["Mobile", "Tablet", "Desktop"],

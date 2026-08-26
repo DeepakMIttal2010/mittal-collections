@@ -47,6 +47,68 @@ export const getReportsData = async ({ days, startDate, endDate } = {}) => {
   }
 };
 
+export const getProductEngagement = async () => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/admin/product-engagement`, {
+      headers: {
+        Authorization: `Bearer ${getToken()}`,
+      },
+    });
+
+    const data = await response.json();
+
+    return data;
+  } catch (error) {
+    console.error("Product Engagement Error:", error);
+
+    return {
+      success: false,
+    };
+  }
+};
+
+export const getProductWishlistUsers = async (productId) => {
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/admin/product-engagement/${productId}/wishlist-users`,
+      {
+        headers: {
+          Authorization: `Bearer ${getToken()}`,
+        },
+      },
+    );
+
+    return await response.json();
+  } catch (error) {
+    console.error("Product Wishlist Users Error:", error);
+
+    return {
+      success: false,
+    };
+  }
+};
+
+export const getProductCartUsers = async (productId) => {
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/admin/product-engagement/${productId}/cart-users`,
+      {
+        headers: {
+          Authorization: `Bearer ${getToken()}`,
+        },
+      },
+    );
+
+    return await response.json();
+  } catch (error) {
+    console.error("Product Cart Users Error:", error);
+
+    return {
+      success: false,
+    };
+  }
+};
+
 export const getGoogleReportsData = async (days = 28) => {
   try {
     const response = await fetch(

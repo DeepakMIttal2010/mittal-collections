@@ -1,6 +1,7 @@
 import express from "express";
 import {
   syncCart,
+  syncGuestCart,
   sendAbandonedCartReminders,
 } from "../controllers/cartController.js";
 import authMiddleware from "../middleware/authMiddleware.js";
@@ -8,6 +9,7 @@ import authMiddleware from "../middleware/authMiddleware.js";
 const router = express.Router();
 
 router.post("/sync", authMiddleware, syncCart);
+router.post("/sync-guest", syncGuestCart);
 // GET as well as POST — most external cron pingers (cron-job.org
 // included) default to GET and don't reliably offer a way to change
 // it, so both are accepted for this secret-protected trigger endpoint.

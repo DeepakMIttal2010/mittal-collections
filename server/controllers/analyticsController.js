@@ -85,8 +85,11 @@ export const getProductViewCount = async (req, res) => {
     const { id } = req.params;
     const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
+    // Prefix match, not exact — a real product URL is /product/:id/:slug
+    // (see productUrl.js), so an exact "/product/:id" match was missing
+    // almost every visit and undercounting this badge.
     const visitorIds = await PageVisit.distinct("visitorId", {
-      path: `/product/${id}`,
+      path: new RegExp(`^/product/${id}(/|$)`),
       createdAt: { $gte: since },
     });
 
@@ -130,7 +133,7 @@ export const getMyLocation = async (req, res) => {
 // ============================
 export const recordVisit = async (req, res) => {
   try {
-    const { path, visitorId } = req.body;
+    const { path, visitorId, userId } = req.body;
 
     if (!path || !visitorId) {
       return res.status(400).json({
@@ -142,7 +145,21 @@ export const recordVisit = async (req, res) => {
     const device = getDeviceType(req.headers["user-agent"]);
     const { country, region, city } = getLocation(req.ip);
 
-    await PageVisit.create({ path, visitorId, device, country, region, city });
+    // userId comes straight from the request body, not decoded from a
+    // token — this endpoint stays public/unauthenticated (every visitor,
+    // logged in or not, hits it), the frontend just includes its own
+    // AuthContext user id when one exists. Not treated as a trusted
+    // identity claim anywhere sensitive, only used to show an admin a
+    // customer's own browsing history.
+    await PageVisit.create({
+      path,
+      visitorId,
+      user: userId || null,
+      device,
+      country,
+      region,
+      city,
+    });
 
     res.status(201).json({ success: true });
   } catch (error) {

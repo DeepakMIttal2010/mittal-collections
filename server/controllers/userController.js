@@ -1,8 +1,16 @@
 import User from "../models/User.js";
 import Order from "../models/Order.js";
 import LoyaltyTransaction from "../models/LoyaltyTransaction.js";
+import Wishlist from "../models/Wishlist.js";
+import CartSnapshot from "../models/CartSnapshot.js";
+import PageVisit from "../models/PageVisit.js";
 import { applyLoyaltyPointsChange } from "../utils/loyaltyPoints.js";
 import { notifyUser } from "../utils/notify.js";
+
+// How many of a customer's most recent page visits to show on their admin
+// details page — enough to see a real browsing session, not their entire
+// history.
+const RECENT_VISITS_LIMIT = 30;
 
 // ============================
 // Get All Customers (Admin)
@@ -80,6 +88,23 @@ export const getCustomerById = async (req, res) => {
       user: customer._id,
     }).sort({ createdAt: -1 });
 
+    const [wishlistItems, cartSnapshot, recentVisits] = await Promise.all([
+      Wishlist.find({ user: customer._id })
+        .populate("product", "name image price")
+        .sort({ createdAt: -1 }),
+
+      CartSnapshot.findOne({ user: customer._id }),
+
+      // Only visits recorded while this customer was logged in have a
+      // user set — see PageVisit.js's comment. Anything from before that
+      // tracking existed, or from a session where they weren't logged
+      // in, won't appear here even if it really was them.
+      PageVisit.find({ user: customer._id })
+        .sort({ createdAt: -1 })
+        .limit(RECENT_VISITS_LIMIT)
+        .select("path device createdAt"),
+    ]);
+
     res.status(200).json({
       success: true,
       customer,
@@ -87,6 +112,10 @@ export const getCustomerById = async (req, res) => {
       totalOrders: orders.length,
       totalSpent,
       loyaltyTransactions,
+      wishlistItems,
+      cartItems: cartSnapshot?.items || [],
+      recentVisits,
+      viewedAnyProduct: recentVisits.some((v) => v.path.startsWith("/product/")),
     });
   } catch (error) {
     console.error("Get Customer Error:", error);

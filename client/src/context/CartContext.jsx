@@ -2,9 +2,10 @@ import { createContext, useContext, useEffect, useState } from "react";
 
 import { toast } from "react-toastify";
 
-import { syncCart } from "../services/cartService";
+import { syncCart, syncGuestCart } from "../services/cartService";
 import { getSiteSettings } from "../services/settingsService";
 import { useAuth } from "./AuthContext";
+import { getVisitorId } from "../utils/visitorId";
 
 const CartContext = createContext();
 
@@ -40,14 +41,18 @@ export function CartProvider({ children }) {
     localStorage.setItem("cartItems", JSON.stringify(cartItems));
   }, [cartItems]);
 
-  // Mirror the cart to the backend (debounced) so an abandoned-cart
-  // reminder can be sent later — purely a background sync, not used
-  // to render anything here.
+  // Mirror the cart to the backend (debounced) — logged-in customers sync
+  // by account (also used for the abandoned-cart reminder), guests sync
+  // by the same anonymous visitorId page-view tracking uses, so
+  // product-wise cart counts aren't blind to whichever one applies.
+  // Purely a background sync, not used to render anything here.
   useEffect(() => {
-    if (!isLoggedIn) return;
-
     const timeout = setTimeout(() => {
-      syncCart(cartItems);
+      if (isLoggedIn) {
+        syncCart(cartItems);
+      } else {
+        syncGuestCart(getVisitorId(), cartItems);
+      }
     }, 2000);
 
     return () => clearTimeout(timeout);

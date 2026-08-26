@@ -19,7 +19,13 @@ import {
   FaGift,
 } from "react-icons/fa";
 
-import { getReportsData, getGoogleReportsData } from "../../services/adminService";
+import {
+  getReportsData,
+  getGoogleReportsData,
+  getProductEngagement,
+  getProductWishlistUsers,
+  getProductCartUsers,
+} from "../../services/adminService";
 
 const RANGE_OPTIONS = [7, 30, 90];
 
@@ -253,6 +259,207 @@ function RankedBarList({ items, labelKey, valueKey, formatValue, emptyText }) {
   );
 }
 
+// Views/wishlist/cart are all-time and current-state respectively, not
+// scoped to the page's date-range picker — see the loadEngagement effect
+// in AdminReports. Sorted by views (already sorted server-side); a search
+// box lets the admin jump straight to one product instead of scrolling a
+// full catalog.
+function ProductUsersModal({ productId, productName, type, onClose }) {
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+
+      const response =
+        type === "wishlist"
+          ? await getProductWishlistUsers(productId)
+          : await getProductCartUsers(productId);
+
+      if (response.success) setUsers(response.users);
+
+      setLoading(false);
+    };
+
+    load();
+  }, [productId, type]);
+
+  const title = type === "wishlist" ? "Wishlisted by" : "Currently in cart of";
+  // Wishlist has a precise per-item add date; a cart snapshot only tracks
+  // one updatedAt for the whole cart, not per line item — see the
+  // getProductCartUsers comment for why this is "last synced", not
+  // "added on".
+  const dateLabel = type === "wishlist" ? "Added on" : "Last synced";
+  const dateKey = type === "wishlist" ? "addedAt" : "lastSyncedAt";
+
+  return (
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-[1000] bg-black/50 flex items-center justify-center p-4"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[80vh] overflow-hidden flex flex-col"
+      >
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 shrink-0">
+          <div className="min-w-0">
+            <h3 className="font-bold text-slate-900">{title}</h3>
+            <p className="text-xs text-slate-500 truncate">{productName}</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center shrink-0 ml-3"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="p-5 overflow-y-auto">
+          {loading ? (
+            <p className="text-sm text-slate-400 text-center py-8">Loading...</p>
+          ) : users.length === 0 ? (
+            <p className="text-sm text-slate-400 text-center py-8">
+              No one right now.
+            </p>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-slate-500 border-b border-slate-200">
+                  <th className="py-2 pr-2 font-medium">Name</th>
+                  <th className="py-2 px-2 font-medium">Mobile</th>
+                  <th className="py-2 px-2 font-medium">Email</th>
+                  <th className="py-2 pl-2 font-medium">{dateLabel}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {users.map((u, i) => (
+                  <tr key={i} className="border-b border-slate-100 last:border-b-0">
+                    <td className="py-2 pr-2 text-slate-700 whitespace-nowrap">
+                      {u.name || "—"}
+                    </td>
+                    <td className="py-2 px-2 text-slate-600 whitespace-nowrap">
+                      {u.mobile || "—"}
+                    </td>
+                    <td className="py-2 px-2 text-slate-600 truncate max-w-[140px]">
+                      {u.email || "—"}
+                    </td>
+                    <td className="py-2 pl-2 text-slate-600 whitespace-nowrap">
+                      {u[dateKey]
+                        ? new Date(u[dateKey]).toLocaleDateString("en-IN", {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          })
+                        : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ProductEngagementTable({ items, loading, onSelectUsers }) {
+  const [query, setQuery] = useState("");
+
+  const filtered = query.trim()
+    ? items.filter((item) =>
+        item.name.toLowerCase().includes(query.trim().toLowerCase()),
+      )
+    : items;
+
+  return (
+    <div>
+      <input
+        type="text"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder="Search a product..."
+        className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+      />
+
+      {loading ? (
+        <p className="text-sm text-slate-400 py-8 text-center">Loading...</p>
+      ) : filtered.length === 0 ? (
+        <p className="text-sm text-slate-400 py-8 text-center">
+          {items.length === 0 ? "No product activity recorded yet." : "No matching product."}
+        </p>
+      ) : (
+        <div className="max-h-96 overflow-y-auto">
+          <table className="w-full text-sm">
+            <thead className="sticky top-0 bg-white">
+              <tr className="text-left text-slate-500 border-b border-slate-200">
+                <th className="py-2 pr-2 font-medium">Product</th>
+                <th className="py-2 px-2 font-medium text-right">Views</th>
+                <th className="py-2 px-2 font-medium text-right">Wishlisted</th>
+                <th className="py-2 pl-2 font-medium text-right">In Cart</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((item) => (
+                <tr
+                  key={item.productId}
+                  className="border-b border-slate-100 last:border-b-0"
+                >
+                  <td className="py-2 pr-2 text-slate-700 truncate max-w-xs">
+                    {item.name}
+                  </td>
+                  <td className="py-2 px-2 text-right text-slate-600">
+                    {formatNumber(item.views)}
+                    {item.uniqueViewers > 0 && (
+                      <span className="text-slate-400">
+                        {" "}
+                        ({formatNumber(item.uniqueViewers)} people)
+                      </span>
+                    )}
+                  </td>
+                  <td className="py-2 px-2 text-right">
+                    {item.wishlistCount > 0 ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          onSelectUsers(item.productId, item.name, "wishlist")
+                        }
+                        className="text-blue-700 hover:underline"
+                      >
+                        {formatNumber(item.wishlistCount)}
+                      </button>
+                    ) : (
+                      <span className="text-slate-600">0</span>
+                    )}
+                  </td>
+                  <td className="py-2 pl-2 text-right">
+                    {item.cartCount > 0 ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          onSelectUsers(item.productId, item.name, "cart")
+                        }
+                        className="text-blue-700 hover:underline"
+                      >
+                        {formatNumber(item.cartCount)}
+                      </button>
+                    ) : (
+                      <span className="text-slate-600">0</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 const todayISO = () => new Date().toISOString().slice(0, 10);
 
 function AdminReports() {
@@ -312,6 +519,14 @@ function AdminReports() {
     useState(false);
   const [googleLoading, setGoogleLoading] = useState(true);
 
+  // Current-state numbers (how many people have this in their wishlist /
+  // cart right now, all-time view count) — not scoped to the days/custom
+  // date range the rest of this page filters by, so loaded once rather
+  // than re-fetched on every range change.
+  const [engagement, setEngagement] = useState([]);
+  const [engagementLoading, setEngagementLoading] = useState(true);
+  const [usersModal, setUsersModal] = useState(null); // { productId, productName, type } | null
+
   const loadReport = async () => {
     setLoading(true);
 
@@ -353,6 +568,20 @@ function AdminReports() {
     loadGoogleReport();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [days, customRange]);
+
+  useEffect(() => {
+    const loadEngagement = async () => {
+      setEngagementLoading(true);
+
+      const response = await getProductEngagement();
+
+      if (response.success) setEngagement(response.engagement);
+
+      setEngagementLoading(false);
+    };
+
+    loadEngagement();
+  }, []);
 
   const rangeLabel = customRange
     ? `${new Date(customRange.startDate).toLocaleDateString("en-IN", { day: "numeric", month: "short" })} – ${new Date(customRange.endDate).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}`
@@ -949,6 +1178,24 @@ function AdminReports() {
 
       <div className="bg-white border border-slate-200 rounded-xl p-5 mb-6">
         <h3 className="font-semibold text-slate-800 mb-1">
+          Product Engagement — current status
+        </h3>
+        <p className="text-xs text-slate-400 mb-4">
+          Views are all-time; wishlist/cart counts are how many people have
+          it right now, not a historical total. Cart count only covers
+          logged-in customers.
+        </p>
+        <ProductEngagementTable
+          items={engagement}
+          loading={engagementLoading}
+          onSelectUsers={(productId, productName, type) =>
+            setUsersModal({ productId, productName, type })
+          }
+        />
+      </div>
+
+      <div className="bg-white border border-slate-200 rounded-xl p-5 mb-6">
+        <h3 className="font-semibold text-slate-800 mb-1">
           Loyalty & Referral Performance — {rangeLabel}
         </h3>
         <p className="text-xs text-slate-400 mb-4">
@@ -1050,6 +1297,15 @@ function AdminReports() {
           </div>
         )}
       </div>
+
+      {usersModal && (
+        <ProductUsersModal
+          productId={usersModal.productId}
+          productName={usersModal.productName}
+          type={usersModal.type}
+          onClose={() => setUsersModal(null)}
+        />
+      )}
     </div>
   );
 }

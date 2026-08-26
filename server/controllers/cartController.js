@@ -21,12 +21,54 @@ export const syncCart = async (req, res) => {
     await CartSnapshot.findOneAndUpdate(
       { user: req.user._id },
       { items, reminderSentAt: null },
-      { upsert: true, new: true, setDefaultsOnInsert: true },
+      { upsert: true, new: true },
     );
 
     res.status(200).json({ success: true });
   } catch (error) {
     console.error("Sync Cart Error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};
+
+// ============================
+// Sync Cart Snapshot (guests — anonymous localStorage visitorId)
+// Same purpose as syncCart above, keyed by visitorId instead of a user
+// account so product-wise cart-engagement counts (see
+// adminController.js's getProductEngagement) aren't blind to the many
+// customers who never log in. Guests have no email, so this never
+// factors into the abandoned-cart reminder — that stays user-only.
+// ============================
+export const syncGuestCart = async (req, res) => {
+  try {
+    const { visitorId, items } = req.body;
+
+    if (!visitorId) {
+      return res.status(400).json({
+        success: false,
+        message: "visitorId is required",
+      });
+    }
+
+    if (!items || items.length === 0) {
+      await CartSnapshot.deleteOne({ visitorId });
+
+      return res.status(200).json({ success: true });
+    }
+
+    await CartSnapshot.findOneAndUpdate(
+      { visitorId },
+      { items },
+      { upsert: true, new: true },
+    );
+
+    res.status(200).json({ success: true });
+  } catch (error) {
+    console.error("Sync Guest Cart Error:", error);
 
     res.status(500).json({
       success: false,
@@ -48,7 +90,11 @@ export const sendAbandonedCartReminders = async (req, res) => {
 
     const cutoff = new Date(Date.now() - REMINDER_DELAY_HOURS * 60 * 60 * 1000);
 
+    // user: not null — a guest snapshot has no email to remind, so it's
+    // excluded up front rather than fetched and populated only to be
+    // skipped below.
     const abandoned = await CartSnapshot.find({
+      user: { $ne: null },
       updatedAt: { $lte: cutoff },
       reminderSentAt: null,
     }).populate("user", "name email");

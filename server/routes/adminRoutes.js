@@ -6,6 +6,9 @@ import {
   markAllNotificationsRead,
   getReportsData,
   getVisitLog,
+  getProductEngagement,
+  getProductWishlistUsers,
+  getProductCartUsers,
 } from "../controllers/adminController.js";
 import { getGoogleReportsData } from "../controllers/googleReportsController.js";
 import authMiddleware from "../middleware/authMiddleware.js";
@@ -40,5 +43,26 @@ router.get(
 );
 
 router.get("/visits", authMiddleware, adminMiddleware, getVisitLog);
+
+router.get(
+  "/product-engagement",
+  authMiddleware,
+  adminMiddleware,
+  getProductEngagement,
+);
+
+router.get(
+  "/product-engagement/:productId/wishlist-users",
+  authMiddleware,
+  adminMiddleware,
+  getProductWishlistUsers,
+);
+
+router.get(
+  "/product-engagement/:productId/cart-users",
+  authMiddleware,
+  adminMiddleware,
+  getProductCartUsers,
+);
 
 export default router;

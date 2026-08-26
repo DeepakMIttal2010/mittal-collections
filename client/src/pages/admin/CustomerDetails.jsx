@@ -34,6 +34,10 @@ function CustomerDetails() {
   const [totalOrders, setTotalOrders] = useState(0);
   const [totalSpent, setTotalSpent] = useState(0);
   const [loyaltyTransactions, setLoyaltyTransactions] = useState([]);
+  const [wishlistItems, setWishlistItems] = useState([]);
+  const [cartItems, setCartItems] = useState([]);
+  const [recentVisits, setRecentVisits] = useState([]);
+  const [viewedAnyProduct, setViewedAnyProduct] = useState(false);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
 
@@ -53,6 +57,10 @@ function CustomerDetails() {
       setTotalOrders(response.totalOrders);
       setTotalSpent(response.totalSpent);
       setLoyaltyTransactions(response.loyaltyTransactions || []);
+      setWishlistItems(response.wishlistItems || []);
+      setCartItems(response.cartItems || []);
+      setRecentVisits(response.recentVisits || []);
+      setViewedAnyProduct(response.viewedAnyProduct || false);
     } else {
       alert(response.message || "Unable to load customer");
       navigate("/admin/customers");
@@ -290,6 +298,126 @@ function CustomerDetails() {
                 </tbody>
               </table>
             </div>
+          )}
+        </div>
+      </div>
+
+      {/* Browsing Activity */}
+      <div className="bg-white border border-slate-200 rounded-xl p-6 mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-slate-800">
+            Browsing Activity
+          </h3>
+          <span
+            className={`text-xs font-semibold px-3 py-1 rounded-full ${
+              viewedAnyProduct
+                ? "bg-green-100 text-green-700"
+                : "bg-slate-100 text-slate-500"
+            }`}
+          >
+            {viewedAnyProduct ? "Viewed a product page" : "No product views recorded"}
+          </span>
+        </div>
+
+        <p className="text-xs text-slate-400 mb-3">
+          Only visits made while logged in are shown here — anything from
+          before this tracking existed, or from a session while logged out,
+          won't appear.
+        </p>
+
+        {recentVisits.length === 0 ? (
+          <p className="text-sm text-slate-400 py-4 text-center">
+            No visits recorded yet.
+          </p>
+        ) : (
+          <div className="max-h-64 overflow-y-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-slate-400 border-b border-slate-100">
+                  <th className="py-2 pr-4 font-medium">Page</th>
+                  <th className="py-2 pr-4 font-medium">Device</th>
+                  <th className="py-2 font-medium">When</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentVisits.map((visit, i) => (
+                  <tr key={i} className="border-b border-slate-50">
+                    <td className="py-2 pr-4 text-slate-600 font-mono text-xs truncate max-w-xs">
+                      {visit.path}
+                    </td>
+                    <td className="py-2 pr-4 text-slate-500">{visit.device}</td>
+                    <td className="py-2 text-slate-500 whitespace-nowrap">
+                      {new Date(visit.createdAt).toLocaleString("en-IN", {
+                        day: "2-digit",
+                        month: "short",
+                        hour: "numeric",
+                        minute: "2-digit",
+                      })}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Wishlist & Cart */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
+        <div className="bg-white border border-slate-200 rounded-xl p-6">
+          <h3 className="text-lg font-semibold text-slate-800 mb-4">
+            Wishlist ({wishlistItems.length})
+          </h3>
+          {wishlistItems.length === 0 ? (
+            <p className="text-sm text-slate-400 py-4 text-center">
+              Nothing wishlisted right now.
+            </p>
+          ) : (
+            <ul className="space-y-2 max-h-56 overflow-y-auto">
+              {wishlistItems.map((item) => (
+                <li
+                  key={item._id}
+                  className="flex items-center justify-between text-sm border-b border-slate-50 pb-2 last:border-b-0"
+                >
+                  <span className="text-slate-700 truncate pr-2">
+                    {item.product?.name || "Deleted product"}
+                  </span>
+                  <span className="text-xs text-slate-400 whitespace-nowrap">
+                    {new Date(item.createdAt).toLocaleDateString("en-IN", {
+                      day: "2-digit",
+                      month: "short",
+                    })}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div className="bg-white border border-slate-200 rounded-xl p-6">
+          <h3 className="text-lg font-semibold text-slate-800 mb-4">
+            In Cart ({cartItems.length})
+          </h3>
+          {cartItems.length === 0 ? (
+            <p className="text-sm text-slate-400 py-4 text-center">
+              Cart is empty.
+            </p>
+          ) : (
+            <ul className="space-y-2 max-h-56 overflow-y-auto">
+              {cartItems.map((item, i) => (
+                <li
+                  key={i}
+                  className="flex items-center justify-between text-sm border-b border-slate-50 pb-2 last:border-b-0"
+                >
+                  <span className="text-slate-700 truncate pr-2">
+                    {item.name} × {item.quantity}
+                  </span>
+                  <span className="text-xs text-slate-400 whitespace-nowrap">
+                    ₹{item.price}
+                  </span>
+                </li>
+              ))}
+            </ul>
           )}
         </div>
       </div>
