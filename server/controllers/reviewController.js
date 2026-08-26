@@ -226,7 +226,11 @@ export const approveReview = async (req, res) => {
     // null means another concurrent request already claimed (or a prior
     // approval already processed) this exact review — nothing more to do.
     if (claimedReview) {
-      let award = REVIEW_BONUS_POINTS;
+      // No matching Delivered order means no verified purchase — this is
+      // a "reward for buying" scheme, not a reward for reviewing, so an
+      // unverified review earns nothing (it can still be approved and
+      // shown publicly; it just carries no bonus).
+      let award = 0;
 
       if (review.order) {
         // Atomically reserve headroom against the order's shared cap.

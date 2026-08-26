@@ -61,6 +61,7 @@ describe("Reviews", () => {
     const user = await createUser();
     const admin = await createUser({ role: "admin" });
     const product = await createProduct();
+    await createOrder({ user, products: [product] });
 
     const submitted = await request(app)
       .post("/api/reviews")
@@ -83,6 +84,7 @@ describe("Reviews", () => {
     const admin = await createUser({ role: "admin" });
     const adminToken = signToken(admin);
     const product = await createProduct();
+    await createOrder({ user, products: [product] });
 
     const submitted = await request(app)
       .post("/api/reviews")
@@ -98,6 +100,29 @@ describe("Reviews", () => {
 
     const user2 = await User.findById(user._id);
     expect(user2.loyaltyPoints).toBe(REVIEW_BONUS_POINTS);
+  });
+
+  it("awards no bonus for a review with no matching Delivered order (no verified purchase)", async () => {
+    const user = await createUser();
+    const admin = await createUser({ role: "admin" });
+    const product = await createProduct();
+
+    const submitted = await request(app)
+      .post("/api/reviews")
+      .set("Authorization", `Bearer ${signToken(user)}`)
+      .send({ productId: product._id.toString(), rating: 5, content: "Looks nice in photos" });
+
+    expect(submitted.body.review.order).toBeFalsy();
+
+    const res = await request(app)
+      .put(`/api/reviews/${submitted.body.review._id}/approve`)
+      .set("Authorization", `Bearer ${signToken(admin)}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.review.isApproved).toBe(true); // still approved/shown, just no bonus
+
+    const afterApproval = await User.findById(user._id);
+    expect(afterApproval.loyaltyPoints).toBe(0);
   });
 
   it("caps the combined review bonus at the per-order limit across multiple products from the same order", async () => {
@@ -176,6 +201,7 @@ describe("Reviews", () => {
     const admin = await createUser({ role: "admin" });
     const adminToken = signToken(admin);
     const product = await createProduct();
+    await createOrder({ user, products: [product] });
 
     const submitted = await request(app)
       .post("/api/reviews")
