@@ -342,6 +342,27 @@ export const deleteReview = async (req, res) => {
       });
     }
 
+    // Claw back any bonus already paid for this review, and free up its
+    // share of the order's cap. Without this, deleting a review (e.g. an
+    // admin rejecting it as spam after approving it) let the user keep
+    // the points while a resubmitted review for the same product/order
+    // wrongly saw the cap as still fully used — the combination let a
+    // user end up over the per-order cap by deleting and resubmitting.
+    if (review.pointsAwarded > 0) {
+      await applyLoyaltyPointsChange({
+        userId: review.user,
+        type: "clawback",
+        points: -review.pointsAwarded,
+        description: "Reversed bonus for a deleted review",
+      });
+
+      if (review.order) {
+        await Order.findByIdAndUpdate(review.order, {
+          $inc: { reviewBonusAwarded: -review.pointsAwarded },
+        });
+      }
+    }
+
     res.status(200).json({
       success: true,
       message: "Review deleted",

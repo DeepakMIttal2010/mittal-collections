@@ -171,6 +171,81 @@ describe("Reviews", () => {
     expect(savedA.pointsAwarded + savedB.pointsAwarded).toBe(ORDER_REVIEW_BONUS_CAP);
   });
 
+  it("claws back points and frees cap headroom when an approved review is deleted", async () => {
+    const user = await createUser();
+    const admin = await createUser({ role: "admin" });
+    const adminToken = signToken(admin);
+    const product = await createProduct();
+
+    const submitted = await request(app)
+      .post("/api/reviews")
+      .set("Authorization", `Bearer ${signToken(user)}`)
+      .send({ productId: product._id.toString(), rating: 5, content: "Loved it" });
+
+    await request(app)
+      .put(`/api/reviews/${submitted.body.review._id}/approve`)
+      .set("Authorization", `Bearer ${adminToken}`);
+
+    const afterApproval = await User.findById(user._id);
+    expect(afterApproval.loyaltyPoints).toBe(REVIEW_BONUS_POINTS);
+
+    await request(app)
+      .delete(`/api/reviews/${submitted.body.review._id}`)
+      .set("Authorization", `Bearer ${adminToken}`);
+
+    const afterDelete = await User.findById(user._id);
+    expect(afterDelete.loyaltyPoints).toBe(0);
+  });
+
+  it("doesn't let delete-then-resubmit push a user over the per-order cap", async () => {
+    const user = await createUser();
+    const admin = await createUser({ role: "admin" });
+    const adminToken = signToken(admin);
+    const productA = await createProduct({ name: "Product A" });
+    const productB = await createProduct({ name: "Product B" });
+
+    await createOrder({ user, products: [productA, productB] });
+
+    const reviewA = await request(app)
+      .post("/api/reviews")
+      .set("Authorization", `Bearer ${signToken(user)}`)
+      .send({ productId: productA._id.toString(), rating: 5, content: "Loved it" });
+    const reviewB = await request(app)
+      .post("/api/reviews")
+      .set("Authorization", `Bearer ${signToken(user)}`)
+      .send({ productId: productB._id.toString(), rating: 4, content: "Pretty good" });
+
+    await request(app)
+      .put(`/api/reviews/${reviewA.body.review._id}/approve`)
+      .set("Authorization", `Bearer ${adminToken}`);
+    await request(app)
+      .put(`/api/reviews/${reviewB.body.review._id}/approve`)
+      .set("Authorization", `Bearer ${adminToken}`);
+
+    const afterBoth = await User.findById(user._id);
+    expect(afterBoth.loyaltyPoints).toBe(ORDER_REVIEW_BONUS_CAP);
+
+    // Reject/delete reviewA as spam, then the user resubmits and it gets
+    // approved again — the resubmission should get its fair share of the
+    // now-freed cap headroom, and the total must never exceed the cap.
+    await request(app)
+      .delete(`/api/reviews/${reviewA.body.review._id}`)
+      .set("Authorization", `Bearer ${adminToken}`);
+
+    const resubmitted = await request(app)
+      .post("/api/reviews")
+      .set("Authorization", `Bearer ${signToken(user)}`)
+      .send({ productId: productA._id.toString(), rating: 5, content: "Still loved it" });
+
+    await request(app)
+      .put(`/api/reviews/${resubmitted.body.review._id}/approve`)
+      .set("Authorization", `Bearer ${adminToken}`);
+
+    const final = await User.findById(user._id);
+    expect(final.loyaltyPoints).toBeLessThanOrEqual(ORDER_REVIEW_BONUS_CAP);
+    expect(final.loyaltyPoints).toBe(ORDER_REVIEW_BONUS_CAP);
+  });
+
   it("showcase endpoint only returns approved reviews that have photos", async () => {
     const user = await createUser();
     const product = await createProduct();
