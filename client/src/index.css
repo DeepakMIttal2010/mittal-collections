@@ -36,6 +36,20 @@ body {
   margin: 0;
 }
 
+/*
+  Safety net: nothing anywhere in the app should ever need page-wide
+  horizontal scroll, but with no guard here, any single component's
+  sub-pixel rounding or scrollbar-gutter difference (classic Windows
+  scrollbars reserve ~17px that headless/overlay-scrollbar browsers
+  don't, so a bug invisible in one environment can still overflow in
+  the other) turns into a real, hard-to-trace horizontal scrollbar.
+  overflow-x only, so it doesn't touch vertical layout/scrolling.
+*/
+html,
+body {
+  overflow-x: hidden;
+}
+
 @keyframes skeleton-shimmer {
   0% {
     background-position: -400px 0;
