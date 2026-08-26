@@ -130,6 +130,15 @@ const orderSchema = new mongoose.Schema(
       default: 0,
     },
 
+    // Running total of review-bonus points already awarded against this
+    // order's shared cap (see ORDER_REVIEW_BONUS_CAP in reviewController).
+    // Updated via an atomic increment so concurrent review approvals on
+    // the same order can't both read a stale "0 awarded so far".
+    reviewBonusAwarded: {
+      type: Number,
+      default: 0,
+    },
+
     pointsCredited: {
       type: Boolean,
       default: false,

@@ -131,6 +131,46 @@ describe("Reviews", () => {
     expect(afterBoth.loyaltyPoints).toBe(ORDER_REVIEW_BONUS_CAP);
   });
 
+  it("still respects the per-order cap when two reviews on the same order are approved concurrently", async () => {
+    const user = await createUser();
+    const admin = await createUser({ role: "admin" });
+    const adminToken = signToken(admin);
+    const productA = await createProduct({ name: "Product A" });
+    const productB = await createProduct({ name: "Product B" });
+
+    await createOrder({ user, products: [productA, productB] });
+
+    const reviewA = await request(app)
+      .post("/api/reviews")
+      .set("Authorization", `Bearer ${signToken(user)}`)
+      .send({ productId: productA._id.toString(), rating: 5, content: "Loved it" });
+    const reviewB = await request(app)
+      .post("/api/reviews")
+      .set("Authorization", `Bearer ${signToken(user)}`)
+      .send({ productId: productB._id.toString(), rating: 4, content: "Pretty good" });
+
+    // Fire both approvals at once instead of awaiting one before the
+    // other, to actually exercise the race instead of just testing the
+    // already-sequential-safe path.
+    await Promise.all([
+      request(app)
+        .put(`/api/reviews/${reviewA.body.review._id}/approve`)
+        .set("Authorization", `Bearer ${adminToken}`),
+      request(app)
+        .put(`/api/reviews/${reviewB.body.review._id}/approve`)
+        .set("Authorization", `Bearer ${adminToken}`),
+    ]);
+
+    const afterBoth = await User.findById(user._id);
+    expect(afterBoth.loyaltyPoints).toBe(ORDER_REVIEW_BONUS_CAP);
+
+    const [savedA, savedB] = await Promise.all([
+      Review.findById(reviewA.body.review._id),
+      Review.findById(reviewB.body.review._id),
+    ]);
+    expect(savedA.pointsAwarded + savedB.pointsAwarded).toBe(ORDER_REVIEW_BONUS_CAP);
+  });
+
   it("showcase endpoint only returns approved reviews that have photos", async () => {
     const user = await createUser();
     const product = await createProduct();

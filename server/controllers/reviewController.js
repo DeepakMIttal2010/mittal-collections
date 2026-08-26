@@ -209,20 +209,53 @@ export const approveReview = async (req, res) => {
     // Awarded on approval (not at submission) so a spam/low-effort review
     // never earns points — approval is already the moderation checkpoint
     // admins go through anyway, so this rides along with no extra step.
-    if (!review.reviewPointsProcessed) {
+    //
+    // Two races used to be possible here: (a) the same review approved
+    // twice concurrently, and (b) two different reviews on the same order
+    // approved concurrently, both reading "0 awarded so far" and both
+    // granting the full bonus, blowing past ORDER_REVIEW_BONUS_CAP. Both
+    // are closed below with single-document atomic updates (MongoDB
+    // serializes writes to one document on its own, so no transaction is
+    // needed) instead of the previous read-then-decide-then-write.
+    const claimedReview = await Review.findOneAndUpdate(
+      { _id: review._id, reviewPointsProcessed: { $ne: true } },
+      { $set: { reviewPointsProcessed: true } },
+      { new: false },
+    );
+
+    // null means another concurrent request already claimed (or a prior
+    // approval already processed) this exact review — nothing more to do.
+    if (claimedReview) {
       let award = REVIEW_BONUS_POINTS;
 
       if (review.order) {
-        // Other already-approved reviews from the same order eat into the
-        // shared cap — this one gets whatever headroom is left, which can
-        // be less than the flat amount, or zero.
-        const otherReviews = await Review.find({
-          order: review.order,
-          _id: { $ne: review._id },
-          reviewPointsProcessed: true,
-        });
+        // Atomically reserve headroom against the order's shared cap.
+        // {new: false} returns the pre-update document, so alreadyAwarded
+        // is the true prior total — the read and the write are one atomic
+        // step, so a concurrent sibling approval can't see a stale value.
+        const orderBefore = await Order.findByIdAndUpdate(
+          review.order,
+          [
+            {
+              $set: {
+                reviewBonusAwarded: {
+                  $min: [
+                    ORDER_REVIEW_BONUS_CAP,
+                    {
+                      $add: [
+                        { $ifNull: ["$reviewBonusAwarded", 0] },
+                        REVIEW_BONUS_POINTS,
+                      ],
+                    },
+                  ],
+                },
+              },
+            },
+          ],
+          { new: false, updatePipeline: true },
+        );
 
-        const alreadyAwarded = otherReviews.reduce((sum, r) => sum + r.pointsAwarded, 0);
+        const alreadyAwarded = orderBefore?.reviewBonusAwarded || 0;
 
         award = Math.max(0, Math.min(REVIEW_BONUS_POINTS, ORDER_REVIEW_BONUS_CAP - alreadyAwarded));
       }
@@ -245,7 +278,6 @@ export const approveReview = async (req, res) => {
       }
 
       review.pointsAwarded = award;
-      review.reviewPointsProcessed = true;
       await review.save();
     }
 
