@@ -36,7 +36,7 @@ function WhatsAppButton() {
   const waLink = `https://wa.me/${toWhatsAppNumber(phone)}?text=${encodeURIComponent(message)}`;
 
   return (
-    <div className="fixed bottom-20 md:bottom-28 left-4 sm:left-6 z-50 flex flex-col items-start gap-2">
+    <div className="fixed bottom-20 md:bottom-6 left-4 sm:left-6 z-50 flex flex-col items-start gap-2">
       <span className="bg-white text-slate-700 text-xs font-medium px-3 py-1.5 rounded-lg shadow-md">
         Need Help?
       </span>
