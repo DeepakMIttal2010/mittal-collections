@@ -5,6 +5,11 @@ import {
   addToWishlist,
   removeFromWishlist,
   clearWishlist,
+  getGuestWishlist,
+  addToGuestWishlist,
+  removeFromGuestWishlist,
+  clearGuestWishlist,
+  mergeGuestWishlist,
   sendPriceDropAlerts,
 } from "../controllers/wishlistController.js";
 
@@ -17,6 +22,16 @@ const router = express.Router();
 // so both are accepted for this secret-protected trigger endpoint.
 router.post("/send-price-drop-alerts", sendPriceDropAlerts);
 router.get("/send-price-drop-alerts", sendPriceDropAlerts);
+
+// Guest wishlist — no auth, keyed by visitorId instead of a logged-in user.
+router.get("/guest/:visitorId", getGuestWishlist);
+router.post("/guest", addToGuestWishlist);
+router.delete("/guest/:visitorId", clearGuestWishlist);
+router.delete("/guest/:visitorId/:productId", removeFromGuestWishlist);
+
+// Called once right after login to fold a just-logged-in customer's
+// guest wishlist into their account.
+router.post("/merge-guest", authMiddleware, mergeGuestWishlist);
 
 // GET wishlist
 router.get("/", authMiddleware, getWishlist);

@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 
 import CartSnapshot from "../models/CartSnapshot.js";
+import Wishlist from "../models/Wishlist.js";
 
 const connectDB = async () => {
   try {
@@ -20,6 +21,11 @@ const connectDB = async () => {
     // (dropping stale ones, creating missing ones) — cheap and safe to
     // run on every boot once already converged, so it just stays here.
     await CartSnapshot.syncIndexes();
+    // Same story as CartSnapshot above — Wishlist.user went from
+    // required+plain-unique(with product) to optional+sparse-unique, to
+    // let a guest's wishlist item (keyed by visitorId instead) exist
+    // alongside others without colliding on an absent user.
+    await Wishlist.syncIndexes();
   } catch (error) {
     console.error("❌ MongoDB Connection Failed");
     console.error(error.message);

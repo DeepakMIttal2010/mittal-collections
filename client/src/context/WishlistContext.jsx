@@ -6,9 +6,15 @@ import {
   addToWishlist as addWishlistAPI,
   removeFromWishlist as removeWishlistAPI,
   clearWishlist as clearWishlistAPI,
+  getGuestWishlist,
+  addToGuestWishlist,
+  removeFromGuestWishlist,
+  clearGuestWishlist,
+  mergeGuestWishlist,
 } from "../services/wishlistService";
 
 import { useAuth } from "./AuthContext";
+import { getVisitorId } from "../utils/visitorId";
 
 const WishlistContext = createContext();
 
@@ -18,31 +24,25 @@ export function WishlistProvider({ children }) {
 
   useEffect(() => {
     const loadWishlist = async () => {
-      if (!isLoggedIn) {
-        setWishlistItems([]);
+      if (isLoggedIn) {
+        // Idempotent — a guest wishlist only exists the first time this
+        // runs after logging in; once folded into the account it's gone,
+        // so every later call here is just a harmless no-op.
+        await mergeGuestWishlist(getVisitorId());
+
+        const data = await getWishlist();
+        setWishlistItems(data.map((item) => item.product).filter(Boolean));
         return;
       }
 
-      const data = await getWishlist();
-
-      console.log("Wishlist API:", data);
-
-      const products = data.map((item) => item.product).filter(Boolean);
-
-      console.log("Products:", products);
-
-      setWishlistItems(products);
+      const data = await getGuestWishlist(getVisitorId());
+      setWishlistItems(data.map((item) => item.product).filter(Boolean));
     };
 
     loadWishlist();
   }, [isLoggedIn]);
 
   const addToWishlist = async (product) => {
-    if (!isLoggedIn) {
-      toast.error("Please login first");
-      return;
-    }
-
     const exists = wishlistItems.find((item) => item._id === product._id);
 
     if (exists) {
@@ -50,7 +50,9 @@ export function WishlistProvider({ children }) {
       return;
     }
 
-    const response = await addWishlistAPI(product._id);
+    const response = isLoggedIn
+      ? await addWishlistAPI(product._id)
+      : await addToGuestWishlist(getVisitorId(), product._id);
 
     if (response.success) {
       setWishlistItems([...wishlistItems, product]);
@@ -62,7 +64,9 @@ export function WishlistProvider({ children }) {
   };
 
   const removeFromWishlist = async (productId) => {
-    const response = await removeWishlistAPI(productId);
+    const response = isLoggedIn
+      ? await removeWishlistAPI(productId)
+      : await removeFromGuestWishlist(getVisitorId(), productId);
 
     if (response.success) {
       setWishlistItems(wishlistItems.filter((item) => item._id !== productId));
@@ -74,7 +78,9 @@ export function WishlistProvider({ children }) {
   };
 
   const clearWishlist = async () => {
-    const response = await clearWishlistAPI();
+    const response = isLoggedIn
+      ? await clearWishlistAPI()
+      : await clearGuestWishlist(getVisitorId());
 
     if (response.success) {
       setWishlistItems([]);

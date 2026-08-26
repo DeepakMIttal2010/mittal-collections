@@ -99,6 +99,180 @@ export const removeFromWishlist = async (req, res) => {
 };
 
 // ============================
+// Guest wishlist (no login) — same shape as the logged-in endpoints
+// above, keyed by the anonymous visitorId Cart/VisitTracker already use,
+// instead of req.user. No price-drop emails for these (no account, no
+// email) — sendPriceDropAlerts below already skips anything without a
+// populated user.
+// ============================
+
+// GET /api/wishlist/guest/:visitorId
+export const getGuestWishlist = async (req, res) => {
+  try {
+    const wishlist = await Wishlist.find({
+      visitorId: req.params.visitorId,
+    }).populate({
+      path: "product",
+      populate: {
+        path: "category",
+        select: "name slug",
+      },
+    });
+
+    res.status(200).json({
+      success: true,
+      wishlist,
+    });
+  } catch (error) {
+    console.error("Get Guest Wishlist Error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};
+
+// POST /api/wishlist/guest
+export const addToGuestWishlist = async (req, res) => {
+  try {
+    const { visitorId, productId } = req.body;
+
+    if (!visitorId) {
+      return res.status(400).json({
+        success: false,
+        message: "visitorId is required",
+      });
+    }
+
+    const exists = await Wishlist.findOne({ visitorId, product: productId });
+
+    if (exists) {
+      return res.status(400).json({
+        success: false,
+        message: "Product already in wishlist",
+      });
+    }
+
+    const product = await Product.findById(productId).select("price");
+
+    const wishlistItem = await Wishlist.create({
+      visitorId,
+      product: productId,
+      priceWhenAdded: product?.price ?? null,
+    });
+
+    res.status(201).json({
+      success: true,
+      wishlistItem,
+    });
+  } catch (error) {
+    console.error("Add Guest Wishlist Error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};
+
+// DELETE /api/wishlist/guest/:visitorId/:productId
+export const removeFromGuestWishlist = async (req, res) => {
+  try {
+    const item = await Wishlist.findOneAndDelete({
+      visitorId: req.params.visitorId,
+      product: req.params.productId,
+    });
+
+    if (!item) {
+      return res.status(404).json({
+        success: false,
+        message: "Wishlist item not found",
+      });
+    }
+
+    res.set("Cache-Control", "no-store");
+
+    res.status(200).json({
+      success: true,
+      message: "Removed from wishlist",
+    });
+  } catch (error) {
+    console.error("Remove Guest Wishlist Error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};
+
+// DELETE /api/wishlist/guest/:visitorId
+export const clearGuestWishlist = async (req, res) => {
+  try {
+    await Wishlist.deleteMany({ visitorId: req.params.visitorId });
+
+    res.status(200).json({
+      success: true,
+      message: "Wishlist cleared successfully",
+    });
+  } catch (error) {
+    console.error("Clear Guest Wishlist Error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};
+
+// ============================
+// Merge a just-logged-in customer's guest wishlist (built up while they
+// were browsing logged out) into their account — called once right after
+// login, not on every page load. A product already on the account's own
+// wishlist is left alone (the guest copy is just dropped) rather than
+// erroring on the duplicate.
+// ============================
+export const mergeGuestWishlist = async (req, res) => {
+  try {
+    const { visitorId } = req.body;
+
+    if (!visitorId) {
+      return res.status(200).json({ success: true, merged: 0 });
+    }
+
+    const guestItems = await Wishlist.find({ visitorId });
+    let merged = 0;
+
+    for (const item of guestItems) {
+      const alreadyOwned = await Wishlist.findOne({
+        user: req.user._id,
+        product: item.product,
+      });
+
+      if (alreadyOwned) {
+        await item.deleteOne();
+        continue;
+      }
+
+      item.user = req.user._id;
+      item.visitorId = undefined;
+      await item.save();
+      merged += 1;
+    }
+
+    res.status(200).json({ success: true, merged });
+  } catch (error) {
+    console.error("Merge Guest Wishlist Error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};
+
+// ============================
 // Price Drop Alerts — called by an external scheduler (cron-job.org),
 // same secret-protected trigger pattern as sendAbandonedCartReminders and
 // sendReviewRequestEmails.

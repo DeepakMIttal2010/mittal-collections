@@ -293,6 +293,29 @@ function ProductUsersModal({ productId, productName, type, onClose }) {
   const dateLabel = type === "wishlist" ? "Added on" : "Last synced";
   const dateKey = type === "wishlist" ? "addedAt" : "lastSyncedAt";
 
+  const exportUsersCSV = () => {
+    const csv = Papa.unparse(
+      users.map((u) => ({
+        Name: u.name || "",
+        Mobile: u.mobile || "",
+        Email: u.email || "",
+        [dateLabel]: u[dateKey]
+          ? new Date(u[dateKey]).toLocaleDateString("en-IN")
+          : "",
+      })),
+    );
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${productName.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}-${type}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div
       onClick={onClose}
@@ -307,14 +330,25 @@ function ProductUsersModal({ productId, productName, type, onClose }) {
             <h3 className="font-bold text-slate-900">{title}</h3>
             <p className="text-xs text-slate-500 truncate">{productName}</p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center shrink-0 ml-3"
-          >
-            ✕
-          </button>
+          <div className="flex items-center gap-2 shrink-0 ml-3">
+            {users.length > 0 && (
+              <button
+                type="button"
+                onClick={exportUsersCSV}
+                className="text-xs font-medium text-blue-700 hover:underline whitespace-nowrap"
+              >
+                Export CSV
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close"
+              className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center"
+            >
+              ✕
+            </button>
+          </div>
         </div>
 
         <div className="p-5 overflow-y-auto">
@@ -366,14 +400,58 @@ function ProductUsersModal({ productId, productName, type, onClose }) {
   );
 }
 
+const ENGAGEMENT_SORT_KEYS = {
+  name: (item) => item.name.toLowerCase(),
+  views: (item) => item.views,
+  wishlistCount: (item) => item.wishlistCount,
+  cartCount: (item) => item.cartCount,
+};
+
+function SortHeader({ label, sortKey, activeKey, dir, onSort, align = "right" }) {
+  const isActive = sortKey === activeKey;
+
+  return (
+    <th
+      className={`py-2 px-2 font-medium select-none cursor-pointer hover:text-slate-700 ${
+        align === "right" ? "text-right" : "text-left"
+      }`}
+      onClick={() => onSort(sortKey)}
+    >
+      {label}
+      <span className={`inline-block w-3 ${isActive ? "text-slate-700" : "text-slate-300"}`}>
+        {isActive ? (dir === "asc" ? "▲" : "▼") : "▼"}
+      </span>
+    </th>
+  );
+}
+
 function ProductEngagementTable({ items, loading, onSelectUsers }) {
   const [query, setQuery] = useState("");
+  const [sortKey, setSortKey] = useState("views");
+  const [sortDir, setSortDir] = useState("desc");
+
+  const handleSort = (key) => {
+    if (key === sortKey) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir(key === "name" ? "asc" : "desc");
+    }
+  };
 
   const filtered = query.trim()
     ? items.filter((item) =>
         item.name.toLowerCase().includes(query.trim().toLowerCase()),
       )
     : items;
+
+  const getSortValue = ENGAGEMENT_SORT_KEYS[sortKey] || ENGAGEMENT_SORT_KEYS.views;
+  const sorted = [...filtered].sort((a, b) => {
+    const av = getSortValue(a);
+    const bv = getSortValue(b);
+    const cmp = av < bv ? -1 : av > bv ? 1 : 0;
+    return sortDir === "asc" ? cmp : -cmp;
+  });
 
   return (
     <div>
@@ -387,7 +465,7 @@ function ProductEngagementTable({ items, loading, onSelectUsers }) {
 
       {loading ? (
         <p className="text-sm text-slate-400 py-8 text-center">Loading...</p>
-      ) : filtered.length === 0 ? (
+      ) : sorted.length === 0 ? (
         <p className="text-sm text-slate-400 py-8 text-center">
           {items.length === 0 ? "No product activity recorded yet." : "No matching product."}
         </p>
@@ -396,14 +474,39 @@ function ProductEngagementTable({ items, loading, onSelectUsers }) {
           <table className="w-full text-sm">
             <thead className="sticky top-0 bg-white">
               <tr className="text-left text-slate-500 border-b border-slate-200">
-                <th className="py-2 pr-2 font-medium">Product</th>
-                <th className="py-2 px-2 font-medium text-right">Views</th>
-                <th className="py-2 px-2 font-medium text-right">Wishlisted</th>
-                <th className="py-2 pl-2 font-medium text-right">In Cart</th>
+                <SortHeader
+                  label="Product"
+                  sortKey="name"
+                  activeKey={sortKey}
+                  dir={sortDir}
+                  onSort={handleSort}
+                  align="left"
+                />
+                <SortHeader
+                  label="Views"
+                  sortKey="views"
+                  activeKey={sortKey}
+                  dir={sortDir}
+                  onSort={handleSort}
+                />
+                <SortHeader
+                  label="Wishlisted"
+                  sortKey="wishlistCount"
+                  activeKey={sortKey}
+                  dir={sortDir}
+                  onSort={handleSort}
+                />
+                <SortHeader
+                  label="In Cart"
+                  sortKey="cartCount"
+                  activeKey={sortKey}
+                  dir={sortDir}
+                  onSort={handleSort}
+                />
               </tr>
             </thead>
             <tbody>
-              {filtered.map((item) => (
+              {sorted.map((item) => (
                 <tr
                   key={item.productId}
                   className="border-b border-slate-100 last:border-b-0"
@@ -682,6 +785,17 @@ function AdminReports() {
       Product: p.name,
       "Units Sold": p.unitsSold,
       Revenue: p.revenue,
+    }));
+    // Product Engagement isn't scoped to the days/custom range the rest
+    // of this export is (see loadEngagement's own comment) — included
+    // here anyway since this is the one export button on the page, and
+    // "current status, not just this range" is noted right in the row.
+    section("Product Engagement (current status, all-time views)", engagement, (e) => ({
+      Product: e.name,
+      Views: e.views,
+      "Unique Viewers": e.uniqueViewers,
+      Wishlisted: e.wishlistCount,
+      "In Cart": e.cartCount,
     }));
     section("Revenue by Category", report.revenueByCategory, (c) => ({
       Category: c.name,
