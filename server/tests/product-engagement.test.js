@@ -382,3 +382,98 @@ describe("GET /api/admin/product-engagement/details", () => {
     expect(cartRow.name).toBe("Guest (not logged in)");
   });
 });
+
+describe("GET /api/admin/abandoned-carts", () => {
+  const hoursAgo = (h) => new Date(Date.now() - h * 60 * 60 * 1000);
+  const ABANDON_CUTOFF_HOURS = 3; // must match adminController.js
+
+  it("requires an admin token", async () => {
+    const res = await request(app).get("/api/admin/abandoned-carts");
+    expect(res.status).toBe(401);
+  });
+
+  it("only lists carts past the 3-hour cutoff, with items/value/reminder status, guests included", async () => {
+    const admin = await createUser({ role: "admin" });
+    const product = await createProduct({ name: "Abandoned Item", price: 500 });
+    const cartItem = {
+      product: product._id,
+      name: product.name,
+      image: product.image,
+      price: product.price,
+      quantity: 2,
+    };
+
+    const staleUser = await createUser({ name: "Neha Joshi" });
+    const staleCart = await CartSnapshot.create({
+      user: staleUser._id,
+      items: [cartItem],
+    });
+    await CartSnapshot.collection.updateOne(
+      { _id: staleCart._id },
+      { $set: { updatedAt: hoursAgo(ABANDON_CUTOFF_HOURS + 1) } },
+    );
+
+    // A guest cart, also stale — must show as a placeholder, not dropped.
+    const guestCart = await CartSnapshot.create({
+      visitorId: "guest-abandoned-test",
+      items: [cartItem],
+    });
+    await CartSnapshot.collection.updateOne(
+      { _id: guestCart._id },
+      { $set: { updatedAt: hoursAgo(ABANDON_CUTOFF_HOURS + 1) } },
+    );
+
+    // Too recent — must not appear.
+    const freshUser = await createUser();
+    await CartSnapshot.create({ user: freshUser._id, items: [cartItem] });
+
+    const res = await request(app)
+      .get("/api/admin/abandoned-carts")
+      .set("Authorization", `Bearer ${signToken(admin)}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.carts).toHaveLength(2);
+
+    const userRow = res.body.carts.find((c) => c.name === "Neha Joshi");
+    expect(userRow.value).toBe(1000); // 500 x 2
+    expect(userRow.items).toEqual([
+      { name: "Abandoned Item", quantity: 2, price: 500 },
+    ]);
+    expect(userRow.reminderSent).toBe(false);
+
+    const guestRow = res.body.carts.find(
+      (c) => c.name === "Guest (not logged in)",
+    );
+    expect(guestRow.value).toBe(1000);
+  });
+
+  it("reflects reminderSent once a reminder has actually gone out", async () => {
+    const admin = await createUser({ role: "admin" });
+    const product = await createProduct();
+    const user = await createUser();
+
+    const cart = await CartSnapshot.create({
+      user: user._id,
+      items: [
+        {
+          product: product._id,
+          name: product.name,
+          image: product.image,
+          price: product.price,
+          quantity: 1,
+        },
+      ],
+      reminderSentAt: new Date(),
+    });
+    await CartSnapshot.collection.updateOne(
+      { _id: cart._id },
+      { $set: { updatedAt: hoursAgo(ABANDON_CUTOFF_HOURS + 1) } },
+    );
+
+    const res = await request(app)
+      .get("/api/admin/abandoned-carts")
+      .set("Authorization", `Bearer ${signToken(admin)}`);
+
+    expect(res.body.carts[0].reminderSent).toBe(true);
+  });
+});

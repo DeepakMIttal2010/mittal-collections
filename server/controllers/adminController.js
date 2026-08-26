@@ -1101,3 +1101,52 @@ export const getEngagementDetails = async (req, res) => {
     });
   }
 };
+
+// ============================
+// Who has an abandoned cart right now — drill-down for the "Cart
+// Abandonment" stat on the reports page. Same 3-hour cutoff and
+// current-state (not date-range-scoped) nature as that stat — see its
+// own comment above for why. Includes guest carts (no account, tracked
+// by visitorId) as a placeholder row, same convention as the wishlist/
+// cart-users drill-downs on Product Engagement.
+// ============================
+export const getAbandonedCartDetails = async (req, res) => {
+  try {
+    const ABANDON_CUTOFF_HOURS = 3;
+    const abandonCutoff = new Date(
+      Date.now() - ABANDON_CUTOFF_HOURS * 60 * 60 * 1000,
+    );
+
+    const snapshots = await CartSnapshot.find({
+      updatedAt: { $lte: abandonCutoff },
+    })
+      .populate("user", "name email mobile")
+      .sort({ updatedAt: 1 }); // longest-abandoned first
+
+    const carts = snapshots.map((cart) => ({
+      name: cart.user?.name || "Guest (not logged in)",
+      email: cart.user?.email || null,
+      mobile: cart.user?.mobile || null,
+      items: cart.items.map((item) => ({
+        name: item.name,
+        quantity: item.quantity,
+        price: item.price,
+      })),
+      value: cart.items.reduce(
+        (sum, item) => sum + item.price * item.quantity,
+        0,
+      ),
+      abandonedSince: cart.updatedAt,
+      reminderSent: Boolean(cart.reminderSentAt),
+    }));
+
+    res.status(200).json({ success: true, carts });
+  } catch (error) {
+    console.error("Get Abandoned Cart Details Error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};

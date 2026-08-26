@@ -27,6 +27,7 @@ import {
   getProductCartUsers,
   getProductViewUsers,
   getEngagementDetails,
+  getAbandonedCartDetails,
 } from "../../services/adminService";
 
 const RANGE_OPTIONS = [7, 30, 90];
@@ -292,6 +293,141 @@ const USER_MODAL_CONFIG = {
     fetch: getProductViewUsers,
   },
 };
+
+// Drill-down for the "Cart Abandonment" stat — every currently-abandoned
+// cart (same 3-hour cutoff, live-snapshot nature as the stat itself),
+// what's in it, and whether a reminder's already gone out.
+function AbandonedCartsModal({ onClose }) {
+  const [carts, setCarts] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+
+      const response = await getAbandonedCartDetails();
+
+      if (response.success) setCarts(response.carts);
+
+      setLoading(false);
+    };
+
+    load();
+  }, []);
+
+  const exportCartsCSV = () => {
+    const csv = Papa.unparse(
+      carts.map((c) => ({
+        Name: c.name || "",
+        Mobile: c.mobile || "",
+        Email: c.email || "",
+        Items: c.items.map((i) => `${i.name} x${i.quantity}`).join("; "),
+        "Value (₹)": c.value,
+        "Abandoned Since": c.abandonedSince
+          ? new Date(c.abandonedSince).toLocaleString("en-IN")
+          : "",
+        "Reminder Sent": c.reminderSent ? "Yes" : "No",
+      })),
+    );
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "abandoned-carts.csv";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-[1000] bg-black/50 flex items-center justify-center p-4"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col"
+      >
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 shrink-0">
+          <h3 className="font-bold text-slate-900">Abandoned Carts</h3>
+          <div className="flex items-center gap-2 shrink-0 ml-3">
+            {carts.length > 0 && (
+              <button
+                type="button"
+                onClick={exportCartsCSV}
+                className="text-xs font-medium text-blue-700 hover:underline whitespace-nowrap"
+              >
+                Export CSV
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close"
+              className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+
+        <div className="p-5 overflow-y-auto">
+          {loading ? (
+            <p className="text-sm text-slate-400 text-center py-8">Loading...</p>
+          ) : carts.length === 0 ? (
+            <p className="text-sm text-slate-400 text-center py-8">
+              No abandoned carts right now.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {carts.map((cart, i) => (
+                <div
+                  key={i}
+                  className="border border-slate-200 rounded-lg p-3"
+                >
+                  <div className="flex items-start justify-between gap-2 mb-1.5">
+                    <div className="min-w-0">
+                      <p className="font-medium text-slate-800 truncate">
+                        {cart.name}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        {[cart.mobile, cart.email].filter(Boolean).join(" · ")}
+                      </p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="font-semibold text-slate-800">
+                        {formatCurrency(cart.value)}
+                      </p>
+                      {cart.reminderSent && (
+                        <span className="text-[10px] font-semibold text-green-700 bg-green-100 px-1.5 py-0.5 rounded-full">
+                          Reminder sent
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    {cart.items.map((i) => `${i.name} ×${i.quantity}`).join(", ")}
+                  </p>
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Abandoned since{" "}
+                    {new Date(cart.abandonedSince).toLocaleString("en-IN", {
+                      day: "numeric",
+                      month: "short",
+                      hour: "numeric",
+                      minute: "2-digit",
+                    })}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function ProductUsersModal({ productId, productName, type, totalUniqueViewers, onClose }) {
   const [users, setUsers] = useState([]);
@@ -676,6 +812,7 @@ function AdminReports() {
   const [engagement, setEngagement] = useState([]);
   const [engagementLoading, setEngagementLoading] = useState(true);
   const [usersModal, setUsersModal] = useState(null); // { productId, productName, type } | null
+  const [showAbandonedCarts, setShowAbandonedCarts] = useState(false);
 
   const loadReport = async () => {
     setLoading(true);
@@ -753,7 +890,10 @@ function AdminReports() {
 
   const exportCSV = async () => {
     setExporting(true);
-    const detailsResponse = await getEngagementDetails();
+    const [detailsResponse, abandonedCartsResponse] = await Promise.all([
+      getEngagementDetails(),
+      getAbandonedCartDetails(),
+    ]);
     setExporting(false);
 
     const { summary } = report;
@@ -862,6 +1002,21 @@ function AdminReports() {
         Mobile: r.mobile,
         Email: r.email,
         Date: r.date ? new Date(r.date).toLocaleDateString("en-IN") : "",
+      }),
+    );
+    section(
+      "Abandoned Carts (current status)",
+      abandonedCartsResponse.success ? abandonedCartsResponse.carts : [],
+      (c) => ({
+        Name: c.name,
+        Mobile: c.mobile,
+        Email: c.email,
+        Items: c.items.map((i) => `${i.name} x${i.quantity}`).join("; "),
+        "Value (₹)": c.value,
+        "Abandoned Since": c.abandonedSince
+          ? new Date(c.abandonedSince).toLocaleString("en-IN")
+          : "",
+        "Reminder Sent": c.reminderSent ? "Yes" : "No",
       }),
     );
     section("Revenue by Category", report.revenueByCategory, (c) => ({
@@ -1050,10 +1205,21 @@ function AdminReports() {
       </div>
 
       <div className="bg-white border border-amber-200 bg-amber-50/40 rounded-xl p-5 mb-6">
-        <h3 className="font-semibold text-slate-800 mb-1 flex items-center gap-2">
-          <FaExclamationTriangle className="text-amber-500" />
-          Cart Abandonment — right now
-        </h3>
+        <div className="flex items-center justify-between mb-1">
+          <h3 className="font-semibold text-slate-800 flex items-center gap-2">
+            <FaExclamationTriangle className="text-amber-500" />
+            Cart Abandonment — right now
+          </h3>
+          {report.cartAbandonment.abandonedCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowAbandonedCarts(true)}
+              className="text-xs font-medium text-blue-700 hover:underline whitespace-nowrap"
+            >
+              View Details
+            </button>
+          )}
+        </div>
         <p className="text-xs text-slate-400 mb-4">
           A live snapshot, not scoped to the date range above — an
           abandoned cart is cleared the moment it turns into an order, so
@@ -1488,6 +1654,10 @@ function AdminReports() {
           totalUniqueViewers={usersModal.totalUniqueViewers}
           onClose={() => setUsersModal(null)}
         />
+      )}
+
+      {showAbandonedCarts && (
+        <AbandonedCartsModal onClose={() => setShowAbandonedCarts(false)} />
       )}
     </div>
   );

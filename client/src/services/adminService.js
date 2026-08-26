@@ -151,6 +151,24 @@ export const getEngagementDetails = async () => {
   }
 };
 
+export const getAbandonedCartDetails = async () => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/admin/abandoned-carts`, {
+      headers: {
+        Authorization: `Bearer ${getToken()}`,
+      },
+    });
+
+    return await response.json();
+  } catch (error) {
+    console.error("Abandoned Cart Details Error:", error);
+
+    return {
+      success: false,
+    };
+  }
+};
+
 export const getGoogleReportsData = async (days = 28) => {
   try {
     const response = await fetch(
