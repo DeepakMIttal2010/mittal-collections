@@ -1,14 +1,19 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import request from "supertest";
 
 import "./setup.js";
 import app from "../app.js";
 import User from "../models/User.js";
 import Review from "../models/Review.js";
+import cloudinary from "../config/cloudinary.js";
 import { createUser, signToken, createProduct, createOrder } from "./helpers.js";
 import { REVIEW_BONUS_POINTS, ORDER_REVIEW_BONUS_CAP } from "../controllers/reviewController.js";
 
 describe("Reviews", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("blocks a second review from the same user on the same product", async () => {
     const user = await createUser();
     const token = signToken(user);
@@ -221,6 +226,34 @@ describe("Reviews", () => {
 
     const afterDelete = await User.findById(user._id);
     expect(afterDelete.loyaltyPoints).toBe(0);
+  });
+
+  it("cleans up the review's Cloudinary photos/video when it's deleted", async () => {
+    const user = await createUser();
+    const admin = await createUser({ role: "admin" });
+    const product = await createProduct();
+
+    const review = await Review.create({
+      product: product._id,
+      user: user._id,
+      rating: 5,
+      content: "Loved it",
+      images: [
+        "https://res.cloudinary.com/demo/image/upload/v1/reviews/photo1.jpg",
+        "https://res.cloudinary.com/demo/image/upload/v1/reviews/photo2.jpg",
+      ],
+      video: "https://res.cloudinary.com/demo/video/upload/v1/reviews/clip.mp4",
+    });
+
+    const destroySpy = vi.spyOn(cloudinary.uploader, "destroy").mockResolvedValue({ result: "ok" });
+
+    await request(app)
+      .delete(`/api/reviews/${review._id}`)
+      .set("Authorization", `Bearer ${signToken(admin)}`);
+
+    expect(destroySpy).toHaveBeenCalledWith("reviews/photo1", { resource_type: "image" });
+    expect(destroySpy).toHaveBeenCalledWith("reviews/photo2", { resource_type: "image" });
+    expect(destroySpy).toHaveBeenCalledWith("reviews/clip", { resource_type: "video" });
   });
 
   it("doesn't let delete-then-resubmit push a user over the per-order cap", async () => {

@@ -3,6 +3,7 @@ import Order from "../models/Order.js";
 import cloudinary from "../config/cloudinary.js";
 import { applyLoyaltyPointsChange } from "../utils/loyaltyPoints.js";
 import { notifyUser } from "../utils/notify.js";
+import { deleteCloudinaryAssetsByUrl } from "../utils/cloudinaryCleanup.js";
 
 // Flat bonus for a review the admin actually approves — deliberately not
 // randomized/"win up to X" (that reads as a chance-based contest, which
@@ -366,6 +367,8 @@ export const deleteReview = async (req, res) => {
         });
       }
     }
+
+    await deleteCloudinaryAssetsByUrl([...review.images, review.video]);
 
     res.status(200).json({
       success: true,
