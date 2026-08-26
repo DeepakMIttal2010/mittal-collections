@@ -110,6 +110,81 @@ const ORDER_STATUS_MESSAGES = {
 // is a genuine "they liked it" signal, not just a guess at 4 days.
 const REVIEW_REQUEST_DELAY_DAYS = 8;
 
+// Re-derives price/name/image from the database and validates quantity —
+// req.body.orderItems is never trusted for anything that affects money or
+// inventory. Without this, a client could submit an arbitrary price (get
+// any product for ₹1) or a negative quantity (reserveStock's `$inc:
+// {stock: -item.quantity}` would then *increase* stock while totalPrice
+// gets clamped to 0 by the Math.max below — a free order that also
+// inflates inventory). `product` and `size` (which item/variant they
+// want) still come from the client; everything else that matters is
+// re-derived here.
+const verifyOrderItems = async (rawItems) => {
+  const productIds = rawItems.map((item) => item.product);
+  const products = await Product.find({ _id: { $in: productIds } });
+  const productById = new Map(products.map((p) => [p._id.toString(), p]));
+
+  const verified = [];
+
+  for (const item of rawItems) {
+    const quantity = Number(item.quantity);
+
+    if (!Number.isInteger(quantity) || quantity <= 0) {
+      return {
+        success: false,
+        message: `Invalid quantity for "${item.name || "an item"}".`,
+      };
+    }
+
+    const product = productById.get(String(item.product));
+
+    if (!product) {
+      return {
+        success: false,
+        message: `"${item.name || "An item"}" is no longer available.`,
+      };
+    }
+
+    let price;
+    let stock;
+
+    if (item.size) {
+      const variant = product.variants.find((v) => v.size === item.size);
+
+      if (!variant) {
+        return {
+          success: false,
+          message: `"${product.name}" is no longer available in size "${item.size}".`,
+        };
+      }
+
+      price = variant.price;
+      stock = variant.stock;
+    } else {
+      price = product.price;
+      stock = product.stock;
+    }
+
+    if (stock < quantity) {
+      return {
+        success: false,
+        message: `Sorry, "${product.name}" doesn't have enough stock available.`,
+      };
+    }
+
+    verified.push({
+      product: product._id,
+      name: product.name,
+      image: product.image,
+      price,
+      quantity,
+      size: item.size || "",
+    });
+  }
+
+  return { success: true, items: verified };
+};
+
 // Atomically reserve stock for every item. If any item doesn't have enough
 // stock, roll back the items already reserved and return that item's name.
 // For a variant item (item.size set), both the specific variant's stock
@@ -201,7 +276,21 @@ export const createOrder = async (req, res) => {
       });
     }
 
-    const subtotal = orderItems.reduce(
+    const verifyResult = await verifyOrderItems(orderItems);
+
+    if (!verifyResult.success) {
+      return res.status(400).json({
+        success: false,
+        message: verifyResult.message,
+      });
+    }
+
+    // From here on, only ever use verifiedItems — req.body's orderItems
+    // may carry a tampered price/quantity and must not be used for
+    // anything that affects money or inventory.
+    const verifiedItems = verifyResult.items;
+
+    const subtotal = verifiedItems.reduce(
       (sum, item) => sum + item.price * item.quantity,
       0,
     );
@@ -233,7 +322,7 @@ export const createOrder = async (req, res) => {
       }
     }
 
-    const bundleResult = await calculateBundleDiscount(orderItems);
+    const bundleResult = await calculateBundleDiscount(verifiedItems);
     const bundleDiscountAmount = bundleResult.discountAmount;
 
     // Loyalty points redemption — capped to what the user actually holds
@@ -267,7 +356,7 @@ export const createOrder = async (req, res) => {
       0,
     );
 
-    const stockResult = await reserveStock(orderItems);
+    const stockResult = await reserveStock(verifiedItems);
 
     if (!stockResult.success) {
       return res.status(400).json({
@@ -281,7 +370,7 @@ export const createOrder = async (req, res) => {
     try {
       order = await Order.create({
         user: req.user._id,
-        orderItems,
+        orderItems: verifiedItems,
         shippingAddress,
         paymentMethod,
         totalPrice,
@@ -297,7 +386,7 @@ export const createOrder = async (req, res) => {
         statusHistory: [{ status: "Pending", changedAt: new Date() }],
       });
     } catch (orderError) {
-      await restoreStock(orderItems);
+      await restoreStock(verifiedItems);
       throw orderError;
     }
 
@@ -352,7 +441,7 @@ export const createOrder = async (req, res) => {
           <p>Thanks for your order! Here's a quick summary:</p>
           <p>Order ID: ${order._id}</p>
           <ul>
-            ${orderItems
+            ${verifiedItems
               .map(
                 (item) =>
                   `<li>${item.name}${item.size ? ` (Size: ${item.size})` : ""} × ${item.quantity} — ₹${item.price * item.quantity}</li>`,

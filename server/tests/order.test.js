@@ -156,6 +156,166 @@ describe("POST /api/orders", () => {
     const orderCount = await Order.countDocuments();
     expect(orderCount).toBe(0);
   });
+
+  // Regression tests for a UAT-confirmed exploit: the server used to trust
+  // req.body.orderItems' price/quantity verbatim, so a client could get a
+  // real product for ₹1, or submit a negative quantity to both zero the
+  // total *and* increase stock via reserveStock's `$inc: {stock:
+  // -item.quantity}`. createOrder now re-derives price/quantity from the
+  // database (verifyOrderItems) instead of trusting the request body.
+  describe("price and quantity tampering", () => {
+    it("ignores a tampered price and charges the product's real price", async () => {
+      const user = await createUser();
+      const token = signToken(user);
+      const product = await createProduct({ price: 999, stock: 10 });
+      await seedSiteSettings({ codCharge: 0 });
+
+      const res = await request(app)
+        .post("/api/orders")
+        .set("Authorization", `Bearer ${token}`)
+        .send({
+          orderItems: [orderItem(product, { price: 1, quantity: 1 })],
+          shippingAddress,
+          paymentMethod: "COD",
+        });
+
+      expect(res.status).toBe(201);
+      expect(res.body.order.totalPrice).toBe(999); // real price, not the tampered ₹1
+      expect(res.body.order.orderItems[0].price).toBe(999);
+    });
+
+    it("rejects a negative quantity instead of inflating stock and zeroing the total", async () => {
+      const user = await createUser();
+      const token = signToken(user);
+      const product = await createProduct({ price: 200, stock: 10 });
+
+      const res = await request(app)
+        .post("/api/orders")
+        .set("Authorization", `Bearer ${token}`)
+        .send({
+          orderItems: [orderItem(product, { quantity: -5 })],
+          shippingAddress,
+          paymentMethod: "COD",
+        });
+
+      expect(res.status).toBe(400);
+      expect(await Order.countDocuments()).toBe(0);
+
+      const reloaded = await Product.findById(product._id);
+      expect(reloaded.stock).toBe(10); // unchanged, not inflated to 15
+    });
+
+    it("rejects a zero or non-integer quantity", async () => {
+      const user = await createUser();
+      const token = signToken(user);
+      const product = await createProduct({ stock: 10 });
+
+      const zeroRes = await request(app)
+        .post("/api/orders")
+        .set("Authorization", `Bearer ${token}`)
+        .send({
+          orderItems: [orderItem(product, { quantity: 0 })],
+          shippingAddress,
+          paymentMethod: "COD",
+        });
+      expect(zeroRes.status).toBe(400);
+
+      const fractionalRes = await request(app)
+        .post("/api/orders")
+        .set("Authorization", `Bearer ${token}`)
+        .send({
+          orderItems: [orderItem(product, { quantity: 1.5 })],
+          shippingAddress,
+          paymentMethod: "COD",
+        });
+      expect(fractionalRes.status).toBe(400);
+
+      expect(await Order.countDocuments()).toBe(0);
+    });
+
+    it("blocks the combined exploit: a real item can't ride along with a fabricated negative-quantity line to zero the whole order", async () => {
+      const user = await createUser();
+      const token = signToken(user);
+      const realProduct = await createProduct({ name: "Real Item", price: 390, stock: 5 });
+      const otherProduct = await createProduct({ name: "Other Item", price: 200, stock: 5 });
+
+      const res = await request(app)
+        .post("/api/orders")
+        .set("Authorization", `Bearer ${token}`)
+        .send({
+          orderItems: [
+            orderItem(realProduct, { quantity: 1 }),
+            orderItem(otherProduct, { quantity: -3 }),
+          ],
+          shippingAddress,
+          paymentMethod: "COD",
+        });
+
+      expect(res.status).toBe(400);
+      expect(await Order.countDocuments()).toBe(0);
+
+      // Neither product's stock should have moved — the whole order is
+      // rejected before any reservation happens, not partially applied.
+      expect((await Product.findById(realProduct._id)).stock).toBe(5);
+      expect((await Product.findById(otherProduct._id)).stock).toBe(5);
+    });
+
+    it("rejects an order item for a product that doesn't exist", async () => {
+      const user = await createUser();
+      const token = signToken(user);
+      const product = await createProduct();
+      const fakeId = product._id.toString().replace(/.$/, "0");
+
+      const res = await request(app)
+        .post("/api/orders")
+        .set("Authorization", `Bearer ${token}`)
+        .send({
+          orderItems: [
+            { product: fakeId, name: "Ghost Product", image: "x.jpg", price: 100, quantity: 1 },
+          ],
+          shippingAddress,
+          paymentMethod: "COD",
+        });
+
+      expect(res.status).toBe(400);
+      expect(await Order.countDocuments()).toBe(0);
+    });
+
+    it("charges a size variant's real DB price, not a tampered one, and decrements only that variant's stock", async () => {
+      const user = await createUser();
+      const token = signToken(user);
+      const product = await createProduct({
+        price: 500,
+        stock: 20,
+        variants: [
+          { size: "Small", price: 300, stock: 10 },
+          { size: "Large", price: 700, stock: 10 },
+        ],
+      });
+      await seedSiteSettings({ codCharge: 0 });
+
+      const res = await request(app)
+        .post("/api/orders")
+        .set("Authorization", `Bearer ${token}`)
+        .send({
+          orderItems: [
+            orderItem(product, { price: 1, quantity: 1, size: "Large" }),
+          ],
+          shippingAddress,
+          paymentMethod: "COD",
+        });
+
+      expect(res.status).toBe(201);
+      expect(res.body.order.totalPrice).toBe(700); // the Large variant's real price
+      expect(res.body.order.orderItems[0].price).toBe(700);
+
+      const reloaded = await Product.findById(product._id);
+      const large = reloaded.variants.find((v) => v.size === "Large");
+      const small = reloaded.variants.find((v) => v.size === "Small");
+      expect(large.stock).toBe(9);
+      expect(small.stock).toBe(10); // untouched
+    });
+  });
 });
 
 const createTestOrder = async (overrides = {}) => {
