@@ -9,6 +9,8 @@ import {
   getProductEngagement,
   getProductWishlistUsers,
   getProductCartUsers,
+  getProductViewUsers,
+  getEngagementDetails,
 } from "../controllers/adminController.js";
 import { getGoogleReportsData } from "../controllers/googleReportsController.js";
 import authMiddleware from "../middleware/authMiddleware.js";
@@ -63,6 +65,20 @@ router.get(
   authMiddleware,
   adminMiddleware,
   getProductCartUsers,
+);
+
+router.get(
+  "/product-engagement/:productId/view-users",
+  authMiddleware,
+  adminMiddleware,
+  getProductViewUsers,
+);
+
+router.get(
+  "/product-engagement/details",
+  authMiddleware,
+  adminMiddleware,
+  getEngagementDetails,
 );
 
 export default router;

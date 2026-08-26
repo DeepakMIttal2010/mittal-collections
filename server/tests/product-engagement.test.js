@@ -267,4 +267,118 @@ describe("GET /api/admin/product-engagement/:productId/cart-users", () => {
     expect(usersRes.body.users[0].name).toBe("Guest (not logged in)");
     expect(usersRes.body.users[0].email).toBeNull();
   });
+
+  it("counts a guest's wishlist item and lists them as a placeholder, not dropped", async () => {
+    const admin = await createUser({ role: "admin" });
+    const product = await createProduct();
+
+    await Wishlist.create({
+      visitorId: "guest-engagement-wishlist-test",
+      product: product._id,
+      priceWhenAdded: product.price,
+    });
+
+    const engagementRes = await request(app)
+      .get("/api/admin/product-engagement")
+      .set("Authorization", `Bearer ${signToken(admin)}`);
+    const row = engagementRes.body.engagement.find(
+      (e) => e.productId === product._id.toString(),
+    );
+    expect(row.wishlistCount).toBe(1);
+
+    const usersRes = await request(app)
+      .get(`/api/admin/product-engagement/${product._id}/wishlist-users`)
+      .set("Authorization", `Bearer ${signToken(admin)}`);
+    expect(usersRes.body.users).toHaveLength(1);
+    expect(usersRes.body.users[0].name).toBe("Guest (not logged in)");
+    expect(usersRes.body.users[0].email).toBeNull();
+  });
+});
+
+describe("GET /api/admin/product-engagement/:productId/view-users", () => {
+  it("requires an admin token", async () => {
+    const product = await createProduct();
+    const res = await request(app).get(
+      `/api/admin/product-engagement/${product._id}/view-users`,
+    );
+    expect(res.status).toBe(401);
+  });
+
+  it("lists only visits made while logged in, not anonymous ones, deduped per person", async () => {
+    const admin = await createUser({ role: "admin" });
+    const product = await createProduct();
+    const loggedInViewer = await createUser({ name: "Anjali Gupta" });
+
+    // Same logged-in person, two visits — should collapse to one row.
+    await PageVisit.create({
+      path: `/product/${product._id}/some-slug`,
+      visitorId: "visitor-1",
+      user: loggedInViewer._id,
+    });
+    await PageVisit.create({
+      path: `/product/${product._id}`,
+      visitorId: "visitor-1",
+      user: loggedInViewer._id,
+    });
+    // An anonymous visit to the same product — must not appear here.
+    await PageVisit.create({
+      path: `/product/${product._id}/some-slug`,
+      visitorId: "visitor-2",
+    });
+
+    const res = await request(app)
+      .get(`/api/admin/product-engagement/${product._id}/view-users`)
+      .set("Authorization", `Bearer ${signToken(admin)}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.users).toHaveLength(1);
+    expect(res.body.users[0].name).toBe("Anjali Gupta");
+  });
+});
+
+describe("GET /api/admin/product-engagement/details", () => {
+  it("requires an admin token", async () => {
+    const res = await request(app).get("/api/admin/product-engagement/details");
+    expect(res.status).toBe(401);
+  });
+
+  it("flattens every wishlist and cart row across every product, including guests", async () => {
+    const admin = await createUser({ role: "admin" });
+    const product = await createProduct({ name: "Detail Export Product" });
+    const wisher = await createUser({ name: "Kavita Rao" });
+
+    await Wishlist.create({
+      user: wisher._id,
+      product: product._id,
+      priceWhenAdded: product.price,
+    });
+    await CartSnapshot.create({
+      visitorId: "guest-details-export",
+      items: [
+        {
+          product: product._id,
+          name: product.name,
+          image: product.image,
+          price: product.price,
+          quantity: 1,
+        },
+      ],
+    });
+
+    const res = await request(app)
+      .get("/api/admin/product-engagement/details")
+      .set("Authorization", `Bearer ${signToken(admin)}`);
+
+    expect(res.status).toBe(200);
+
+    const wishlistRow = res.body.rows.find(
+      (r) => r.type === "Wishlist" && r.product === "Detail Export Product",
+    );
+    expect(wishlistRow.name).toBe("Kavita Rao");
+
+    const cartRow = res.body.rows.find(
+      (r) => r.type === "In Cart" && r.product === "Detail Export Product",
+    );
+    expect(cartRow.name).toBe("Guest (not logged in)");
+  });
 });

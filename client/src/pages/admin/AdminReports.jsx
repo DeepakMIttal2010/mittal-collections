@@ -25,6 +25,8 @@ import {
   getProductEngagement,
   getProductWishlistUsers,
   getProductCartUsers,
+  getProductViewUsers,
+  getEngagementDetails,
 } from "../../services/adminService";
 
 const RANGE_OPTIONS = [7, 30, 90];
@@ -264,18 +266,44 @@ function RankedBarList({ items, labelKey, valueKey, formatValue, emptyText }) {
 // in AdminReports. Sorted by views (already sorted server-side); a search
 // box lets the admin jump straight to one product instead of scrolling a
 // full catalog.
-function ProductUsersModal({ productId, productName, type, onClose }) {
+// Wishlist has a precise per-item add date; a cart snapshot only tracks one
+// updatedAt for the whole cart, not per line item (see
+// getProductCartUsers), so that one is "last synced" not "added on"; a
+// product view has no per-user record at all unless they were logged in
+// (see getProductViewUsers) — the modal for that type shows a note
+// explaining the gap rather than implying it's the full viewer list.
+const USER_MODAL_CONFIG = {
+  wishlist: {
+    title: "Wishlisted by",
+    dateLabel: "Added on",
+    dateKey: "addedAt",
+    fetch: getProductWishlistUsers,
+  },
+  cart: {
+    title: "Currently in cart of",
+    dateLabel: "Last synced",
+    dateKey: "lastSyncedAt",
+    fetch: getProductCartUsers,
+  },
+  views: {
+    title: "Viewed by (logged-in only)",
+    dateLabel: "Last viewed",
+    dateKey: "lastViewedAt",
+    fetch: getProductViewUsers,
+  },
+};
+
+function ProductUsersModal({ productId, productName, type, totalUniqueViewers, onClose }) {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  const { title, dateLabel, dateKey, fetch: fetchUsers } = USER_MODAL_CONFIG[type];
 
   useEffect(() => {
     const load = async () => {
       setLoading(true);
 
-      const response =
-        type === "wishlist"
-          ? await getProductWishlistUsers(productId)
-          : await getProductCartUsers(productId);
+      const response = await fetchUsers(productId);
 
       if (response.success) setUsers(response.users);
 
@@ -283,15 +311,8 @@ function ProductUsersModal({ productId, productName, type, onClose }) {
     };
 
     load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [productId, type]);
-
-  const title = type === "wishlist" ? "Wishlisted by" : "Currently in cart of";
-  // Wishlist has a precise per-item add date; a cart snapshot only tracks
-  // one updatedAt for the whole cart, not per line item — see the
-  // getProductCartUsers comment for why this is "last synced", not
-  // "added on".
-  const dateLabel = type === "wishlist" ? "Added on" : "Last synced";
-  const dateKey = type === "wishlist" ? "addedAt" : "lastSyncedAt";
 
   const exportUsersCSV = () => {
     const csv = Papa.unparse(
@@ -352,6 +373,15 @@ function ProductUsersModal({ productId, productName, type, onClose }) {
         </div>
 
         <div className="p-5 overflow-y-auto">
+          {type === "views" && (
+            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">
+              Only shows viewers who were logged in at the time — most
+              visits are anonymous.{" "}
+              {typeof totalUniqueViewers === "number" && (
+                <>Total unique viewers (including guests): {totalUniqueViewers}.</>
+              )}
+            </p>
+          )}
           {loading ? (
             <p className="text-sm text-slate-400 text-center py-8">Loading...</p>
           ) : users.length === 0 ? (
@@ -515,7 +545,24 @@ function ProductEngagementTable({ items, loading, onSelectUsers }) {
                     {item.name}
                   </td>
                   <td className="py-2 px-2 text-right text-slate-600">
-                    {formatNumber(item.views)}
+                    {item.views > 0 ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          onSelectUsers(
+                            item.productId,
+                            item.name,
+                            "views",
+                            item.uniqueViewers,
+                          )
+                        }
+                        className="text-blue-700 hover:underline"
+                      >
+                        {formatNumber(item.views)}
+                      </button>
+                    ) : (
+                      "0"
+                    )}
                     {item.uniqueViewers > 0 && (
                       <span className="text-slate-400">
                         {" "}
@@ -702,7 +749,13 @@ function AdminReports() {
     setShowCustomPicker(false);
   };
 
-  const exportCSV = () => {
+  const [exporting, setExporting] = useState(false);
+
+  const exportCSV = async () => {
+    setExporting(true);
+    const detailsResponse = await getEngagementDetails();
+    setExporting(false);
+
     const { summary } = report;
     const blocks = [];
 
@@ -797,6 +850,20 @@ function AdminReports() {
       Wishlisted: e.wishlistCount,
       "In Cart": e.cartCount,
     }));
+    // Every wishlist/cart row, not just counts — matches what each
+    // product's own drill-down modal shows, just all in one place.
+    section(
+      "Wishlist & Cart Details",
+      detailsResponse.success ? detailsResponse.rows : [],
+      (r) => ({
+        Product: r.product,
+        Type: r.type,
+        Name: r.name,
+        Mobile: r.mobile,
+        Email: r.email,
+        Date: r.date ? new Date(r.date).toLocaleDateString("en-IN") : "",
+      }),
+    );
     section("Revenue by Category", report.revenueByCategory, (c) => ({
       Category: c.name,
       Revenue: c.revenue,
@@ -925,10 +992,11 @@ function AdminReports() {
           <button
             type="button"
             onClick={exportCSV}
-            className="flex items-center gap-1.5 bg-white border border-slate-300 text-slate-600 hover:bg-slate-100 text-sm font-medium px-3 py-1.5 rounded-lg transition-colors"
+            disabled={exporting}
+            className="flex items-center gap-1.5 bg-white border border-slate-300 text-slate-600 hover:bg-slate-100 text-sm font-medium px-3 py-1.5 rounded-lg transition-colors disabled:opacity-60"
           >
             <FaDownload className="text-xs" />
-            Export CSV
+            {exporting ? "Preparing..." : "Export CSV"}
           </button>
         </div>
       </div>
@@ -1302,8 +1370,8 @@ function AdminReports() {
         <ProductEngagementTable
           items={engagement}
           loading={engagementLoading}
-          onSelectUsers={(productId, productName, type) =>
-            setUsersModal({ productId, productName, type })
+          onSelectUsers={(productId, productName, type, totalUniqueViewers) =>
+            setUsersModal({ productId, productName, type, totalUniqueViewers })
           }
         />
       </div>
@@ -1417,6 +1485,7 @@ function AdminReports() {
           productId={usersModal.productId}
           productName={usersModal.productName}
           type={usersModal.type}
+          totalUniqueViewers={usersModal.totalUniqueViewers}
           onClose={() => setUsersModal(null)}
         />
       )}

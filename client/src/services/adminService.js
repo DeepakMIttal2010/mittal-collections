@@ -109,6 +109,48 @@ export const getProductCartUsers = async (productId) => {
   }
 };
 
+export const getProductViewUsers = async (productId) => {
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/admin/product-engagement/${productId}/view-users`,
+      {
+        headers: {
+          Authorization: `Bearer ${getToken()}`,
+        },
+      },
+    );
+
+    return await response.json();
+  } catch (error) {
+    console.error("Product View Users Error:", error);
+
+    return {
+      success: false,
+    };
+  }
+};
+
+export const getEngagementDetails = async () => {
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/admin/product-engagement/details`,
+      {
+        headers: {
+          Authorization: `Bearer ${getToken()}`,
+        },
+      },
+    );
+
+    return await response.json();
+  } catch (error) {
+    console.error("Engagement Details Error:", error);
+
+    return {
+      success: false,
+    };
+  }
+};
+
 export const getGoogleReportsData = async (days = 28) => {
   try {
     const response = await fetch(

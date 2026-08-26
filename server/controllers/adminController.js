@@ -943,14 +943,16 @@ export const getProductWishlistUsers = async (req, res) => {
       .populate("user", "name email mobile")
       .sort({ createdAt: -1 });
 
-    const users = items
-      .filter((item) => item.user)
-      .map((item) => ({
-        name: item.user.name,
-        email: item.user.email,
-        mobile: item.user.mobile,
-        addedAt: item.createdAt,
-      }));
+    // Guest wishlist items (no account, tracked by anonymous visitorId —
+    // see Wishlist.js) are kept rather than dropped, same as
+    // getProductCartUsers below, so this count always matches
+    // getProductEngagement's wishlistCount.
+    const users = items.map((item) => ({
+      name: item.user?.name || "Guest (not logged in)",
+      email: item.user?.email || null,
+      mobile: item.user?.mobile || null,
+      addedAt: item.createdAt,
+    }));
 
     res.status(200).json({ success: true, users });
   } catch (error) {
@@ -993,6 +995,105 @@ export const getProductCartUsers = async (req, res) => {
     res.status(200).json({ success: true, users });
   } catch (error) {
     console.error("Get Product Cart Users Error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};
+
+// ============================
+// Who viewed a given product — logged-in viewers only. Most traffic is
+// anonymous (PageVisit.user is only ever set for a visit made while
+// logged in — see PageVisit.js), so this list is expected to be far
+// shorter than getProductEngagement's own views/uniqueViewers count;
+// the frontend surfaces that gap explicitly rather than implying this
+// is the complete viewer list.
+// ============================
+export const getProductViewUsers = async (req, res) => {
+  try {
+    const visits = await PageVisit.aggregate([
+      {
+        $match: {
+          path: new RegExp(`^/product/${req.params.productId}(/|$)`),
+          user: { $ne: null },
+        },
+      },
+      { $group: { _id: "$user", lastViewedAt: { $max: "$createdAt" } } },
+      { $sort: { lastViewedAt: -1 } },
+    ]);
+
+    const accounts = await User.find({
+      _id: { $in: visits.map((v) => v._id) },
+    }).select("name email mobile");
+    const accountMap = new Map(accounts.map((a) => [a._id.toString(), a]));
+
+    const users = visits.map((v) => {
+      const account = accountMap.get(v._id.toString());
+      return {
+        name: account?.name || "Deleted account",
+        email: account?.email || null,
+        mobile: account?.mobile || null,
+        lastViewedAt: v.lastViewedAt,
+      };
+    });
+
+    res.status(200).json({ success: true, users });
+  } catch (error) {
+    console.error("Get Product View Users Error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};
+
+// ============================
+// Every wishlist/cart row across every product, flattened for the main
+// Reports CSV export — the per-product drill-down modals only ever load
+// one product's list at a time, so the export needed its own query
+// rather than reusing state already in the browser.
+// ============================
+export const getEngagementDetails = async (req, res) => {
+  try {
+    const [wishlistItems, cartSnapshots] = await Promise.all([
+      Wishlist.find()
+        .populate("user", "name email mobile")
+        .populate("product", "name"),
+      CartSnapshot.find().populate("user", "name email mobile"),
+    ]);
+
+    const rows = [];
+
+    wishlistItems.forEach((item) => {
+      rows.push({
+        product: item.product?.name || "Deleted product",
+        type: "Wishlist",
+        name: item.user?.name || "Guest (not logged in)",
+        mobile: item.user?.mobile || "",
+        email: item.user?.email || "",
+        date: item.createdAt,
+      });
+    });
+
+    cartSnapshots.forEach((snapshot) => {
+      snapshot.items.forEach((cartItem) => {
+        rows.push({
+          product: cartItem.name,
+          type: "In Cart",
+          name: snapshot.user?.name || "Guest (not logged in)",
+          mobile: snapshot.user?.mobile || "",
+          email: snapshot.user?.email || "",
+          date: snapshot.updatedAt,
+        });
+      });
+    });
+
+    res.status(200).json({ success: true, rows });
+  } catch (error) {
+    console.error("Get Engagement Details Error:", error);
 
     res.status(500).json({
       success: false,
