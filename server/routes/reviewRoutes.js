@@ -2,6 +2,7 @@ import express from "express";
 
 import {
   getProductReviews,
+  getShowcaseReviews,
   submitReview,
   getAllReviewsAdmin,
   approveReview,
@@ -15,6 +16,7 @@ import imageOptimizer from "../middleware/imageOptimizer.js";
 
 const router = express.Router();
 
+router.get("/showcase", getShowcaseReviews);
 router.get("/product/:productId", getProductReviews);
 router.post(
   "/",

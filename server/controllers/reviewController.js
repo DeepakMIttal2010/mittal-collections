@@ -133,6 +133,36 @@ export const submitReview = async (req, res) => {
 };
 
 // ============================
+// GET REVIEWS WITH PHOTOS FOR THE HOMEPAGE GALLERY (Public)
+// ============================
+const SHOWCASE_LIMIT = 12;
+
+export const getShowcaseReviews = async (req, res) => {
+  try {
+    const reviews = await Review.find({
+      isApproved: true,
+      images: { $exists: true, $not: { $size: 0 } },
+    })
+      .populate("user", "name")
+      .populate("product", "name slug image")
+      .sort({ createdAt: -1 })
+      .limit(SHOWCASE_LIMIT);
+
+    res.status(200).json({
+      success: true,
+      reviews,
+    });
+  } catch (error) {
+    console.error("Get Showcase Reviews Error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};
+
+// ============================
 // GET ALL REVIEWS (Admin)
 // ============================
 export const getAllReviewsAdmin = async (req, res) => {

@@ -12,6 +12,7 @@ import SizeShowcase from "../components/SubcategoryShowcase/SizeShowcase";
 import PriceShowcase from "../components/PriceShowcase/PriceShowcase";
 import WhyChooseUs from "../components/WhyChooseUs/WhyChooseUs";
 import Testimonials from "../components/Testimonials/Testimonials";
+import CustomerGallery from "../components/CustomerGallery";
 import Newsletter from "../components/Newsletter/Newsletter";
 import CategoryNewArrivals from "../components/NewArrivals/CategoryNewArrivals";
 import Faq from "../components/Faq/Faq";
@@ -80,6 +81,7 @@ function Home() {
       <CategoryNewArrivals />
       <WhyChooseUs />
       <Testimonials />
+      <CustomerGallery />
       <Faq />
       <Newsletter />
     </>

@@ -4,6 +4,7 @@ import request from "supertest";
 import "./setup.js";
 import app from "../app.js";
 import User from "../models/User.js";
+import Review from "../models/Review.js";
 import { createUser, signToken, createProduct, createOrder } from "./helpers.js";
 import { REVIEW_BONUS_POINTS, ORDER_REVIEW_BONUS_CAP } from "../controllers/reviewController.js";
 
@@ -128,6 +129,41 @@ describe("Reviews", () => {
 
     const afterBoth = await User.findById(user._id);
     expect(afterBoth.loyaltyPoints).toBe(ORDER_REVIEW_BONUS_CAP);
+  });
+
+  it("showcase endpoint only returns approved reviews that have photos", async () => {
+    const user = await createUser();
+    const product = await createProduct();
+
+    const approvedWithPhoto = await Review.create({
+      product: product._id,
+      user: user._id,
+      rating: 5,
+      content: "Beautiful in person",
+      images: ["https://res.cloudinary.com/demo/image/upload/photo1.jpg"],
+      isApproved: true,
+    });
+    await Review.create({
+      product: product._id,
+      user: user._id,
+      rating: 4,
+      content: "No photo attached",
+      isApproved: true,
+    });
+    await Review.create({
+      product: product._id,
+      user: user._id,
+      rating: 5,
+      content: "Great but not approved yet",
+      images: ["https://res.cloudinary.com/demo/image/upload/photo2.jpg"],
+      isApproved: false,
+    });
+
+    const res = await request(app).get("/api/reviews/showcase");
+
+    expect(res.status).toBe(200);
+    expect(res.body.reviews).toHaveLength(1);
+    expect(res.body.reviews[0]._id).toBe(approvedWithPhoto._id.toString());
   });
 
   it("does not require a review title", async () => {

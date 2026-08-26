@@ -19,6 +19,7 @@ const notificationSchema = new mongoose.Schema(
         "return_status",
         "back_in_stock",
         "loyalty_points",
+        "price_drop",
       ],
       required: true,
     },

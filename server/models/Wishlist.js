@@ -13,6 +13,21 @@ const wishlistSchema = new mongoose.Schema(
       ref: "Product",
       required: true,
     },
+
+    // Snapshotted when added — compared against the product's current
+    // price to detect a drop worth alerting the customer about.
+    priceWhenAdded: {
+      type: Number,
+      default: null,
+    },
+
+    // The price we last actually sent an alert for, so the price-drop
+    // cron doesn't re-notify every run for the same still-lower price —
+    // only when it drops again below whatever we last alerted at.
+    lastAlertedPrice: {
+      type: Number,
+      default: null,
+    },
   },
   {
     timestamps: true,

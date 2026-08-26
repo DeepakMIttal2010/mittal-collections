@@ -15,6 +15,17 @@ export const getProductReviews = async (productId) => {
   }
 };
 
+export const getShowcaseReviews = async () => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/reviews/showcase`);
+
+    return await response.json();
+  } catch (error) {
+    console.error("Get Showcase Reviews Error:", error);
+    return { success: false, reviews: [] };
+  }
+};
+
 export const submitReview = async (formData) => {
   try {
     const response = await fetch(`${API_BASE_URL}/reviews`, {
