@@ -12,7 +12,9 @@ dist
 dist-ssr
 *.local
 
-# generated at build time by scripts/generate-sitemap.js
+# sitemap.xml is served dynamically by api/sitemap.js (see vercel.json's
+# rewrite) — nothing generates a static copy here anymore, this just
+# guards against a stray local one shadowing the rewrite (see api/sitemap.js)
 public/sitemap.xml
 
 # Editor directories and files
