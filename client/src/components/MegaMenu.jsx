@@ -76,7 +76,7 @@ function CategoryNavItem({ category, groups, linkClassName }) {
         to={`/category/${category.slug}`}
         className={
           linkClassName ||
-          "text-sm font-medium px-2 lg:px-3 xl:px-4 py-3 whitespace-nowrap text-slate-700 hover:text-amber-600"
+          "text-sm font-medium px-2 lg:px-3 min-[1440px]:px-4 py-3 whitespace-nowrap text-slate-700 hover:text-amber-600"
         }
       >
         {category.name}
@@ -116,7 +116,7 @@ function MoreCategoriesMenu({ categories, getGroupedSubcategories, linkClassName
         className={
           linkClassName
             ? `flex items-center gap-1.5 ${linkClassName({ isActive: false })}`
-            : "flex items-center gap-1.5 text-sm font-medium px-2 lg:px-3 xl:px-4 py-3 whitespace-nowrap text-slate-700 hover:text-amber-600"
+            : "flex items-center gap-1.5 text-sm font-medium px-2 lg:px-3 min-[1440px]:px-4 py-3 whitespace-nowrap text-slate-700 hover:text-amber-600"
         }
       >
         More
