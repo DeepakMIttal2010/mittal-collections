@@ -95,7 +95,13 @@ const buildCaption = (product, productLink) => {
       : `💰 ₹${product.price}`,
   );
 
-  lines.push("Order karein — niche link se 👇");
+  // Instagram/Facebook never make a caption URL tappable, no matter how
+  // it's formatted — pointing to the bio link is the only CTA that
+  // actually works there. The raw link is still included below so
+  // whoever's posting can manually copy it into the bio-link tool, and
+  // so a determined viewer can still long-press-copy it themselves.
+  lines.push("Order karein — bio link se 👆");
+  lines.push("(ya neeche wala link copy karke browser mein paste karein)");
   lines.push("");
   lines.push(productLink);
   lines.push(".");
@@ -916,6 +922,13 @@ function ShareProductModal({ product, onClose }) {
                 Same caption-copy behavior as the image on share.
               </p>
             )}
+
+            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-2">
+              ⚠️ Instagram/Facebook never make a caption link tappable — before
+              posting, update your bio link (or Linktree) to point at{" "}
+              <strong>this product</strong>, or the caption's "bio link" CTA
+              won't actually lead anywhere useful.
+            </p>
 
             <div className="mt-4 pt-4 border-t border-slate-200">
               <div className="flex items-center justify-between mb-2">
