@@ -71,12 +71,17 @@ const COMMON_HASHTAGS = [
   "#mittalcollections",
 ];
 
+// Shared by the caption text and the video's opening hook overlay, so the
+// two always say the same thing rather than drifting apart.
+const getCategoryContent = (product) =>
+  CATEGORY_CONTENT[product.category?.name] || DEFAULT_CATEGORY_CONTENT;
+
 // Builds an Instagram-ready caption: Hinglish hook, a description
 // highlight, size/fabric/what's-included when the product has them, the
 // local-delivery message, price, a CTA, the link, then hashtags — not
 // just a bare "name — price" line.
 const buildCaption = (product, productLink) => {
-  const content = CATEGORY_CONTENT[product.category?.name] || DEFAULT_CATEGORY_CONTENT;
+  const content = getCategoryContent(product);
   const hasDiscount = product.oldPrice && product.oldPrice > product.price;
 
   const lines = [content.hook];
@@ -127,6 +132,17 @@ const ZOOM_END_SCALE = 1.12;
 // instead of a slideshow. Capped relative to slideMs elsewhere so it
 // never eats a meaningful chunk of a very short slide's own screen time.
 const CROSSFADE_MS = 300;
+
+// The opening beat is a big Hinglish hook line and nothing else — every
+// frame showing price/CTA/QR from the very first instant read as a
+// static ad card rather than something worth watching. The hook then
+// fades out just as the product info fades in, so there's no dead gap.
+const HOOK_SHOW_MS = 1600;
+const HOOK_FADE_MS = 400;
+const INFO_FADE_IN_START_MS = 1300;
+const INFO_FADE_MS = 500;
+
+const clamp01 = (v) => Math.max(0, Math.min(1, v));
 
 // Canvas has no built-in text wrapping — measure and break manually.
 const wrapText = (ctx, text, maxWidth) => {
@@ -221,6 +237,7 @@ const drawOverlay = (
     hasDiscount,
     discountPct,
     qrImg,
+    hookText,
     elapsedMs = Infinity,
     totalSlides = 1,
     currentIndex = 0,
@@ -235,6 +252,8 @@ const drawOverlay = (
 
   drawProgressBars(ctx, totalSlides, currentIndex, slideProgress);
 
+  // Brand wordmark stays up throughout — it's small enough not to read as
+  // clutter and gives even a half-second glance something to identify.
   ctx.textBaseline = "alphabetic";
   ctx.font = "600 40px system-ui, sans-serif";
   ctx.fillStyle = "#ffffff";
@@ -244,6 +263,53 @@ const drawOverlay = (
   ctx.fillStyle = "#f59e0b";
   ctx.fillText("COLLECTIONS", 60 + ctx.measureText("MITTAL ").width, 100);
 
+  // Opening beat: just the hook line, nothing else — every frame showing
+  // price/CTA/QR from the very first instant read as a static ad card.
+  // The hook fades out right as the product info fades in below, so
+  // there's no dead gap in the middle.
+  const hookOpacity =
+    elapsedMs < HOOK_SHOW_MS
+      ? 1
+      : clamp01(1 - (elapsedMs - HOOK_SHOW_MS) / HOOK_FADE_MS);
+
+  if (hookText && hookOpacity > 0) {
+    ctx.save();
+    ctx.globalAlpha = hookOpacity;
+    ctx.textAlign = "center";
+    ctx.shadowColor = "rgba(0,0,0,0.6)";
+    ctx.shadowBlur = 16;
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "800 64px system-ui, sans-serif";
+    const hookLines = wrapText(ctx, hookText, CANVAS_W - 140);
+    const lineH = 74;
+    let hookY = CANVAS_H * 0.44 - ((hookLines.length - 1) * lineH) / 2;
+    // Rises in slightly rather than sitting still while it fades, so the
+    // opening beat still reads as motion even before the next photo cuts.
+    const riseOffset = (1 - hookOpacity) * 16;
+    hookLines.forEach((line) => {
+      ctx.fillText(line, CANVAS_W / 2, hookY + riseOffset);
+      hookY += lineH;
+    });
+    ctx.restore();
+    ctx.textAlign = "left";
+  }
+
+  // Everything below (discount badge, name, price, QR, CTA) fades in as a
+  // block once the hook clears, instead of being static from frame one.
+  const infoOpacity = clamp01(
+    (elapsedMs - INFO_FADE_IN_START_MS) / INFO_FADE_MS,
+  );
+  if (infoOpacity <= 0) return;
+
+  // The badge's own pop-in is timed relative to when the info block itself
+  // starts appearing, not the video's absolute start — otherwise it would
+  // finish popping while still fully transparent and never actually be
+  // seen animating.
+  const infoElapsedMs = Math.max(elapsedMs - INFO_FADE_IN_START_MS, 0);
+
+  ctx.save();
+  ctx.globalAlpha = infoOpacity;
+
   if (hasDiscount) {
     ctx.shadowBlur = 0;
     ctx.fillStyle = "#dc2626";
@@ -251,7 +317,7 @@ const drawOverlay = (
     ctx.font = "700 34px system-ui, sans-serif";
     const badgeW = ctx.measureText(badgeText).width + 48;
 
-    const popT = Math.min(elapsedMs / BADGE_POP_MS, 1);
+    const popT = Math.min(infoElapsedMs / BADGE_POP_MS, 1);
     // easeOutBack — overshoots slightly past 1 then settles, reads as a
     // much punchier "pop" than a linear or ease-out scale would.
     const c1 = 1.70158;
@@ -306,12 +372,6 @@ const drawOverlay = (
     ctx.stroke();
   }
 
-  y += 60;
-  ctx.shadowBlur = 0;
-  ctx.font = "500 34px system-ui, sans-serif";
-  ctx.fillStyle = "rgba(255,255,255,0.85)";
-  ctx.fillText("Shop now at mittalcollections.com", 60, y);
-
   const qrSize = 220;
   const qrX = CANVAS_W - qrSize - 60;
   const qrY = CANVAS_H - qrSize - 70;
@@ -322,9 +382,12 @@ const drawOverlay = (
   ctx.fill();
   ctx.drawImage(qrImg, qrX, qrY, qrSize, qrSize);
 
+  // "Scan to Shop", not "Click Here" — nothing in a photo or video is
+  // actually tappable; the QR code is the one part of this overlay a
+  // viewer can really act on.
   ctx.textAlign = "center";
   ctx.font = "700 30px system-ui, sans-serif";
-  const ctaText = "👉 Click Here to Buy";
+  const ctaText = "📷 Scan to Shop";
   const ctaW = ctx.measureText(ctaText).width + 56;
   const ctaX = qrX + qrSize / 2;
   const ctaY = qrY - 46;
@@ -340,8 +403,10 @@ const drawOverlay = (
   ctx.fillStyle = "rgba(255,255,255,0.85)";
   ctx.shadowColor = "rgba(0,0,0,0.6)";
   ctx.shadowBlur = 8;
-  ctx.fillText("(or scan below)", ctaX, ctaY + 30);
+  ctx.fillText("or bio link", ctaX, ctaY + 30);
   ctx.textAlign = "left";
+
+  ctx.restore();
 };
 
 // Real Safari only — Chrome/Edge/Android WebView all also contain
@@ -389,7 +454,8 @@ function ShareProductModal({ product, onClose }) {
       )
     : 0;
 
-  const overlayInfo = { product, hasDiscount, discountPct };
+  const hookText = getCategoryContent(product).hook;
+  const overlayInfo = { product, hasDiscount, discountPct, hookText };
 
   useEffect(() => {
     if (isOffline) {
