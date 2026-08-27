@@ -173,6 +173,30 @@ const loadImage = (src) =>
     img.src = src;
   });
 
+// An image loaded without a proper CORS response (older, pre-Cloudinary
+// products can still have such URLs in their images[] array) loads and
+// draws to canvas just fine, but silently "taints" the canvas — any
+// later attempt to read its pixels (which is exactly what
+// captureStream()+MediaRecorder does every frame) then fails, and the
+// recorded video just freezes on whatever frame was drawn right before
+// the tainting image, for the rest of its length, while the separately
+// recorded audio track keeps playing to the end. Probing each image
+// against a throwaway canvas before using it in the slideshow catches
+// this ahead of time instead of silently breaking the recording.
+const isCanvasSafeImage = (img) => {
+  try {
+    const probe = document.createElement("canvas");
+    probe.width = 1;
+    probe.height = 1;
+    const probeCtx = probe.getContext("2d");
+    probeCtx.drawImage(img, 0, 0, 1, 1);
+    probeCtx.getImageData(0, 0, 1, 1);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 // Draws the product photo, cover-fit, filling the whole canvas. `zoom`
 // (1 = plain cover-fit, >1 = zoomed in further) drives the Ken Burns
 // effect in the video — always centered, so the same call also works
@@ -446,6 +470,34 @@ function ShareProductModal({ product, onClose }) {
   const [videoError, setVideoError] = useState("");
   const [selectedMusic, setSelectedMusic] = useState(DEFAULT_MUSIC);
 
+  const allImages = (
+    product.images?.length ? product.images : [product.image]
+  ).filter(Boolean);
+
+  // Which photos go into the video — chosen up front instead of always
+  // silently using the first MAX_SLIDES, so the admin can drop a bad/
+  // irrelevant photo themselves. All photos start selected (up to the
+  // cap) since that matches what auto-generation used to do.
+  const [selectedImages, setSelectedImages] = useState(() =>
+    allImages.slice(0, MAX_SLIDES),
+  );
+
+  useEffect(() => {
+    setSelectedImages(allImages.slice(0, MAX_SLIDES));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [product._id]);
+
+  const toggleImageSelection = (src) => {
+    setSelectedImages((prev) => {
+      if (prev.includes(src)) return prev.filter((s) => s !== src);
+      if (prev.length >= MAX_SLIDES) {
+        toast.info(`Video mein zyada se zyada ${MAX_SLIDES} photos ja sakti hain`);
+        return prev;
+      }
+      return [...prev, src];
+    });
+  };
+
   const productLink = `${window.location.origin}${productUrl(product)}`;
   const hasDiscount = product.oldPrice && product.oldPrice > product.price;
   const discountPct = hasDiscount
@@ -565,11 +617,31 @@ function ShareProductModal({ product, onClose }) {
         throw new Error("This browser can't record video. Try a different browser.");
       }
 
-      const images = (product.images?.length ? product.images : [product.image]).slice(
-        0,
-        MAX_SLIDES,
+      const images = selectedImages.length ? selectedImages : allImages.slice(0, 1);
+
+      // Promise.allSettled (not all) plus the taint probe below — one bad
+      // photo (a network hiccup, or an older non-CORS image URL) should
+      // drop itself from the slideshow, not take the whole video down or
+      // freeze the recording partway through.
+      const loadResults = await Promise.allSettled(
+        images.map((src) => loadImage(imgUrl(src))),
       );
-      const loadedImages = await Promise.all(images.map((src) => loadImage(imgUrl(src))));
+
+      const loadedImages = loadResults
+        .filter((r) => r.status === "fulfilled")
+        .map((r) => r.value)
+        .filter(isCanvasSafeImage);
+
+      if (loadedImages.length === 0) {
+        throw new Error(
+          "None of the selected photos could be used for the video. Try selecting different photos.",
+        );
+      }
+      if (loadedImages.length < images.length) {
+        toast.warn(
+          "Kuch selected photos video mein use nahi ho payi — baaki se video ban gaya",
+        );
+      }
 
       const qrDataUrl = await QRCode.toDataURL(productLink, { width: 260, margin: 1 });
       const qrImg = await loadImage(qrDataUrl);
@@ -623,6 +695,11 @@ function ShareProductModal({ product, onClose }) {
       recorder.ondataavailable = (e) => {
         if (e.data.size > 0) chunks.push(e.data);
       };
+      recorder.onerror = (event) => {
+        console.error("MediaRecorder error:", event.error || event);
+        cancelAnimationFrame(frameHandle);
+        if (recorder.state !== "inactive") recorder.stop();
+      };
 
       const stopped = new Promise((resolve) => {
         recorder.onstop = resolve;
@@ -634,52 +711,61 @@ function ShareProductModal({ product, onClose }) {
       const startedAt = performance.now();
 
       const drawFrame = () => {
-        const elapsed = performance.now() - startedAt;
-        const index = Math.min(
-          Math.floor(elapsed / slideMs),
-          loadedImages.length - 1,
-        );
-        const slideProgress = Math.min(
-          (elapsed - index * slideMs) / slideMs,
-          1,
-        );
-        // Zoom is one continuous motion across the *whole* video, not
-        // reset to 1x at the start of every photo — a per-slide zoom
-        // that snaps back down at each transition read as the movement
-        // stopping instead of a slideshow of several photos still inside
-        // one smooth cinematic zoom.
-        const overallProgress = Math.min(elapsed / totalMs, 1);
-        const zoom = 1 + (ZOOM_END_SCALE - 1) * overallProgress;
+        try {
+          const elapsed = performance.now() - startedAt;
+          const index = Math.min(
+            Math.floor(elapsed / slideMs),
+            loadedImages.length - 1,
+          );
+          const slideProgress = Math.min(
+            (elapsed - index * slideMs) / slideMs,
+            1,
+          );
+          // Zoom is one continuous motion across the *whole* video, not
+          // reset to 1x at the start of every photo — a per-slide zoom
+          // that snaps back down at each transition read as the movement
+          // stopping instead of a slideshow of several photos still inside
+          // one smooth cinematic zoom.
+          const overallProgress = Math.min(elapsed / totalMs, 1);
+          const zoom = 1 + (ZOOM_END_SCALE - 1) * overallProgress;
 
-        const crossfadeMs = Math.min(CROSSFADE_MS, slideMs * 0.3);
-        const crossfadeT =
-          index > 0 ? (elapsed - index * slideMs) / crossfadeMs : 1;
+          const crossfadeMs = Math.min(CROSSFADE_MS, slideMs * 0.3);
+          const crossfadeT =
+            index > 0 ? (elapsed - index * slideMs) / crossfadeMs : 1;
 
-        if (crossfadeT < 1) {
-          // Still dissolving in from the previous slide — both images
-          // share the same current zoom level, since the zoom belongs to
-          // the video's timeline, not to either individual photo.
-          drawBackground(ctx, loadedImages[index - 1], zoom);
-          ctx.save();
-          ctx.globalAlpha = Math.max(crossfadeT, 0);
-          drawBackground(ctx, loadedImages[index], zoom);
-          ctx.restore();
-        } else {
-          drawBackground(ctx, loadedImages[index], zoom);
-        }
+          if (crossfadeT < 1) {
+            // Still dissolving in from the previous slide — both images
+            // share the same current zoom level, since the zoom belongs to
+            // the video's timeline, not to either individual photo.
+            drawBackground(ctx, loadedImages[index - 1], zoom);
+            ctx.save();
+            ctx.globalAlpha = Math.max(crossfadeT, 0);
+            drawBackground(ctx, loadedImages[index], zoom);
+            ctx.restore();
+          } else {
+            drawBackground(ctx, loadedImages[index], zoom);
+          }
 
-        drawOverlay(ctx, {
-          ...overlayInfo,
-          qrImg,
-          elapsedMs: elapsed,
-          totalSlides: loadedImages.length,
-          currentIndex: index,
-          slideProgress,
-        });
+          drawOverlay(ctx, {
+            ...overlayInfo,
+            qrImg,
+            elapsedMs: elapsed,
+            totalSlides: loadedImages.length,
+            currentIndex: index,
+            slideProgress,
+          });
 
-        if (elapsed < totalMs) {
-          frameHandle = requestAnimationFrame(drawFrame);
-        } else {
+          if (elapsed < totalMs) {
+            frameHandle = requestAnimationFrame(drawFrame);
+          } else {
+            recorder.stop();
+          }
+        } catch (frameError) {
+          // Whatever went wrong, don't leave the recorder running forever
+          // with a frozen canvas while the audio track plays on — stop it
+          // now so this at least ends with a (short) video instead of
+          // hanging with "Recording video..." shown indefinitely.
+          console.error("Video frame draw error:", frameError);
           recorder.stop();
         }
       };
@@ -704,9 +790,6 @@ function ShareProductModal({ product, onClose }) {
 
   const handleModeChange = (next) => {
     setMode(next);
-    if (next === "video" && !videoUrl && !videoRecording) {
-      generateVideo();
-    }
   };
 
   const videoExt = videoBlob?.type.includes("mp4") ? "mp4" : "webm";
@@ -829,8 +912,8 @@ function ShareProductModal({ product, onClose }) {
                   />
                 )}
                 {!videoRecording && !videoUrl && !videoError && (
-                  <div className="absolute inset-0 flex items-center justify-center text-sm text-slate-400">
-                    —
+                  <div className="absolute inset-0 flex items-center justify-center text-sm text-slate-400 text-center px-4">
+                    Select photos and hit Generate Video
                   </div>
                 )}
               </>
@@ -913,6 +996,41 @@ function ShareProductModal({ product, onClose }) {
               ) : (
                 <>
                   <div className="mb-1">
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-medium text-slate-500">
+                        Photos to include ({selectedImages.length}/{Math.min(allImages.length, MAX_SLIDES)})
+                      </label>
+                    </div>
+                    <div className="grid grid-cols-5 gap-2">
+                      {allImages.slice(0, MAX_SLIDES).map((src) => {
+                        const checked = selectedImages.includes(src);
+                        return (
+                          <button
+                            key={src}
+                            type="button"
+                            onClick={() => toggleImageSelection(src)}
+                            disabled={videoRecording}
+                            className={`relative aspect-square rounded-lg overflow-hidden border-2 disabled:opacity-50 ${
+                              checked ? "border-slate-900" : "border-transparent opacity-50"
+                            }`}
+                          >
+                            <img
+                              src={imgUrl(src, "w_120,h_120,c_fill")}
+                              alt=""
+                              className="w-full h-full object-cover"
+                            />
+                            {checked && (
+                              <span className="absolute top-1 right-1 w-4 h-4 rounded-full bg-slate-900 text-white text-[10px] flex items-center justify-center">
+                                ✓
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="mb-1">
                     <label className="block text-xs font-medium text-slate-500 mb-1">
                       Background music
                     </label>
@@ -928,11 +1046,16 @@ function ShareProductModal({ product, onClose }) {
                         </option>
                       ))}
                     </select>
-                    <p className="text-[11px] text-slate-400 mt-1">
-                      Change this, then Regenerate below to re-record with
-                      the new track.
-                    </p>
                   </div>
+
+                  <button
+                    onClick={generateVideo}
+                    disabled={videoRecording || selectedImages.length === 0}
+                    className="w-full flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 text-white font-semibold py-3 rounded-full transition-colors disabled:opacity-50"
+                  >
+                    <FaVideo />
+                    {videoUrl ? "Regenerate Video" : "Generate Video"}
+                  </button>
 
                   {canShareVideoFiles && (
                     <button
@@ -953,15 +1076,6 @@ function ShareProductModal({ product, onClose }) {
                     <FaDownload />
                     Download Video
                   </button>
-
-                  {!videoRecording && (
-                    <button
-                      onClick={generateVideo}
-                      className="w-full text-sm text-slate-500 hover:text-slate-700 py-1"
-                    >
-                      Regenerate
-                    </button>
-                  )}
                 </>
               )}
             </div>
@@ -983,9 +1097,9 @@ function ShareProductModal({ product, onClose }) {
               )
             ) : (
               <p className="text-xs text-slate-500 mt-3">
-                Silent slideshow video cycling through the product's photos —
-                add trending audio yourself when posting to Reels/Stories.
-                Same caption-copy behavior as the image on share.
+                Slideshow video cycling through the selected photos, with the
+                chosen background music baked in. Same caption-copy behavior
+                as the image on share.
               </p>
             )}
 
