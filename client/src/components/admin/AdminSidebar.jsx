@@ -29,6 +29,8 @@ import {
   FaChevronDown,
   FaLayerGroup,
   FaFire,
+  FaAngleDoubleLeft,
+  FaAngleDoubleRight,
 } from "react-icons/fa";
 
 import { logoutAdmin, getCurrentAdminUser } from "../../services/authService";
@@ -119,6 +121,22 @@ function AdminSidebar() {
     () => groupContainingPath(location.pathname) || NAV_GROUPS[0].label,
   );
 
+  // Persisted so it stays collapsed/expanded across page loads, not just
+  // for this one session — an admin who prefers the icon-only view
+  // (more room for tables/reports) shouldn't have to re-collapse it
+  // every time they navigate.
+  const [collapsed, setCollapsed] = useState(
+    () => localStorage.getItem("adminSidebarCollapsed") === "true",
+  );
+
+  const toggleCollapsed = () => {
+    setCollapsed((prev) => {
+      const next = !prev;
+      localStorage.setItem("adminSidebarCollapsed", String(next));
+      return next;
+    });
+  };
+
   const handleLogout = () => {
     const confirmLogout = window.confirm("Are you sure you want to logout?");
 
@@ -130,47 +148,73 @@ function AdminSidebar() {
   };
 
   return (
-    <aside className="admin-sidebar">
+    <aside className={`admin-sidebar ${collapsed ? "collapsed" : ""}`}>
       <div className="sidebar-logo">
-        <h2>Mittal Collections</h2>
+        {!collapsed && (
+          <div className="sidebar-logo-text">
+            <h2>Mittal Collections</h2>
+            <span>Admin Panel</span>
+          </div>
+        )}
 
-        <span>Admin Panel</span>
+        <button
+          type="button"
+          className="sidebar-collapse-btn"
+          onClick={toggleCollapsed}
+          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+        >
+          {collapsed ? <FaAngleDoubleRight /> : <FaAngleDoubleLeft />}
+        </button>
       </div>
 
       <div className="admin-user">
         <div className="avatar">{user?.name?.charAt(0).toUpperCase()}</div>
 
-        <div>
-          <h4>{user?.name}</h4>
+        {!collapsed && (
+          <div>
+            <h4>{user?.name}</h4>
 
-          <p>{user?.role}</p>
-        </div>
+            <p>{user?.role}</p>
+          </div>
+        )}
       </div>
 
       <nav>
         {NAV_GROUPS.map((group) => {
-          const isOpen = openGroup === group.label;
+          const isOpen = !collapsed && openGroup === group.label;
 
           return (
             <div key={group.label} className="sidebar-group">
-              <button
-                type="button"
-                className="sidebar-group-label"
-                aria-expanded={isOpen}
-                onClick={() => setOpenGroup(isOpen ? null : group.label)}
-              >
-                <span>{group.label}</span>
-                <FaChevronDown
-                  className={`sidebar-group-chevron ${isOpen ? "open" : ""}`}
-                />
-              </button>
+              {!collapsed && (
+                <button
+                  type="button"
+                  className="sidebar-group-label"
+                  aria-expanded={isOpen}
+                  onClick={() => setOpenGroup(isOpen ? null : group.label)}
+                >
+                  <span>{group.label}</span>
+                  <FaChevronDown
+                    className={`sidebar-group-chevron ${isOpen ? "open" : ""}`}
+                  />
+                </button>
+              )}
 
-              {isOpen && (
+              {/* Collapsed: every item shows as a bare icon (no group
+                  header, no accordion — there's no room for the label
+                  that would explain the grouping), with the label still
+                  reachable via the native title-attribute tooltip. */}
+              {(isOpen || collapsed) && (
                 <div className="sidebar-group-items">
                   {group.items.map(({ to, end, icon: Icon, label }) => (
-                    <NavLink key={to} end={end} to={to}>
+                    <NavLink
+                      key={to}
+                      end={end}
+                      to={to}
+                      title={collapsed ? label : undefined}
+                    >
                       <Icon />
-                      <span>{label}</span>
+                      {!collapsed && <span>{label}</span>}
                     </NavLink>
                   ))}
                 </div>
@@ -180,9 +224,13 @@ function AdminSidebar() {
         })}
       </nav>
 
-      <button className="logout-btn" onClick={handleLogout}>
+      <button
+        className="logout-btn"
+        onClick={handleLogout}
+        title={collapsed ? "Logout" : undefined}
+      >
         <FaSignOutAlt />
-        Logout
+        {!collapsed && "Logout"}
       </button>
     </aside>
   );
