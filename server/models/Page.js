@@ -21,6 +21,17 @@ const pageSchema = new mongoose.Schema(
       required: [true, "Content is required"],
     },
 
+    titleHi: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+
+    contentHi: {
+      type: String,
+      default: "",
+    },
+
     isActive: {
       type: Boolean,
       default: true,

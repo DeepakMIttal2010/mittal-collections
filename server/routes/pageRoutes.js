@@ -8,6 +8,7 @@ import {
   restorePage,
   deletePage,
   permanentlyDeletePage,
+  hindiPageSync,
 } from "../controllers/pageController.js";
 
 import authMiddleware from "../middleware/authMiddleware.js";
@@ -27,6 +28,9 @@ router.delete(
   adminMiddleware,
   permanentlyDeletePage,
 );
+
+// Temporary migration endpoint (see hindiPageSync)
+router.post("/hindi-sync", hindiPageSync);
 
 // Public
 router.get("/:slug", getPageBySlug);

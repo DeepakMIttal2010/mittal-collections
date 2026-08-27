@@ -6,7 +6,7 @@ import { useLanguage } from "../context/LanguageContext";
 
 function PolicyPage() {
   const { slug } = useParams();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   const [page, setPage] = useState(null);
   const [status, setStatus] = useState("loading");
@@ -52,6 +52,10 @@ function PolicyPage() {
     );
   }
 
+  const showHindi = language === "hi" && page.titleHi && page.contentHi;
+  const displayTitle = showHindi ? page.titleHi : page.title;
+  const displayContent = showHindi ? page.contentHi : page.content;
+
   return (
     <div className="max-w-3xl mx-auto px-4 py-16">
       <Seo
@@ -61,11 +65,11 @@ function PolicyPage() {
       />
 
       <h1 className="text-3xl font-bold text-slate-900 mb-6">
-        {page.title}
+        {displayTitle}
       </h1>
 
       <div className="space-y-4 text-slate-600 leading-relaxed">
-        {page.content.split("\n\n").map((paragraph, index) => (
+        {displayContent.split("\n\n").map((paragraph, index) => (
           <p key={index}>{paragraph}</p>
         ))}
       </div>

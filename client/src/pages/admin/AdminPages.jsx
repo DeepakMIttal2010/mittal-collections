@@ -31,7 +31,12 @@ function AdminPages() {
   const [editingSlug, setEditingSlug] = useState(null);
   const [isCreating, setIsCreating] = useState(false);
 
-  const [formData, setFormData] = useState({ title: "", content: "" });
+  const [formData, setFormData] = useState({
+    title: "",
+    content: "",
+    titleHi: "",
+    contentHi: "",
+  });
 
   const [sortBy, setSortBy] = useState("title");
   const [sortOrder, setSortOrder] = useState("asc");
@@ -73,19 +78,24 @@ function AdminPages() {
   const handleEdit = (page) => {
     setIsCreating(false);
     setEditingSlug(page.slug);
-    setFormData({ title: page.title, content: page.content });
+    setFormData({
+      title: page.title,
+      content: page.content,
+      titleHi: page.titleHi || "",
+      contentHi: page.contentHi || "",
+    });
   };
 
   const handleAddNew = () => {
     setIsCreating(true);
     setEditingSlug(null);
-    setFormData({ title: "", content: "" });
+    setFormData({ title: "", content: "", titleHi: "", contentHi: "" });
   };
 
   const handleCancel = () => {
     setIsCreating(false);
     setEditingSlug(null);
-    setFormData({ title: "", content: "" });
+    setFormData({ title: "", content: "", titleHi: "", contentHi: "" });
   };
 
   const handleChange = (e) => {
@@ -215,6 +225,38 @@ function AdminPages() {
             </p>
           </div>
 
+          <div className="border-t border-slate-200 pt-4">
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Title (Hindi)
+              <span className="text-slate-400 font-normal"> — optional</span>
+            </label>
+            <input
+              type="text"
+              name="titleHi"
+              value={formData.titleHi}
+              onChange={handleChange}
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Content (Hindi)
+              <span className="text-slate-400 font-normal"> — optional</span>
+            </label>
+            <textarea
+              name="contentHi"
+              rows={10}
+              value={formData.contentHi}
+              onChange={handleChange}
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <p className="text-xs text-slate-400 mt-1">
+              Leave both Hindi fields blank to show the English version when
+              a customer has Hindi selected.
+            </p>
+          </div>
+
           <div className="flex gap-2">
             <button
               type="submit"
@@ -261,6 +303,9 @@ function AdminPages() {
                   {renderSortIcon("updatedAt")}
                 </th>
                 <th className="text-center px-4 py-3 font-semibold">
+                  Hindi
+                </th>
+                <th className="text-center px-4 py-3 font-semibold">
                   Status
                 </th>
                 <th className="text-center px-4 py-3 font-semibold">
@@ -298,6 +343,13 @@ function AdminPages() {
                       hour: "numeric",
                       minute: "2-digit",
                     })}
+                  </td>
+                  <td className="px-4 py-3 text-center text-slate-400">
+                    {page.titleHi ? (
+                      <span className="text-green-600">✓</span>
+                    ) : (
+                      "—"
+                    )}
                   </td>
                   <td className="px-4 py-3 text-center">
                     <span

@@ -63,7 +63,7 @@ export const getAllPagesAdmin = async (req, res) => {
 // ============================
 export const createPage = async (req, res) => {
   try {
-    const { title, content } = req.body;
+    const { title, content, titleHi, contentHi } = req.body;
 
     if (!title || !content) {
       return res.status(400).json({
@@ -97,6 +97,8 @@ export const createPage = async (req, res) => {
 
       existingPage.title = title;
       existingPage.content = content;
+      existingPage.titleHi = titleHi || "";
+      existingPage.contentHi = contentHi || "";
       existingPage.isActive = true;
 
       await existingPage.save();
@@ -108,7 +110,13 @@ export const createPage = async (req, res) => {
       });
     }
 
-    const page = await Page.create({ slug, title, content });
+    const page = await Page.create({
+      slug,
+      title,
+      content,
+      titleHi: titleHi || "",
+      contentHi: contentHi || "",
+    });
 
     res.status(201).json({
       success: true,
@@ -139,10 +147,12 @@ export const updatePage = async (req, res) => {
       });
     }
 
-    const { title, content } = req.body;
+    const { title, content, titleHi, contentHi } = req.body;
 
     if (title) page.title = title;
     if (content) page.content = content;
+    if (titleHi !== undefined) page.titleHi = titleHi;
+    if (contentHi !== undefined) page.contentHi = contentHi;
 
     await page.save();
 
@@ -218,6 +228,45 @@ export const deletePage = async (req, res) => {
     });
   } catch (error) {
     console.error("Delete Page Error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};
+
+// ============================
+// TEMPORARY: BULK SYNC HINDI CONTENT (one-off migration)
+// Called by hand with a shared secret rather than JWT auth — same
+// pattern as sendAbandonedCartReminders — since there's no local admin
+// session against production. Remove once the one-time sync has run.
+// ============================
+export const hindiPageSync = async (req, res) => {
+  try {
+    if (req.query.secret !== process.env.CRON_SECRET) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
+    const { updates = [] } = req.body;
+    const notFound = [];
+
+    for (const update of updates) {
+      const result = await Page.updateOne(
+        { slug: update.slug },
+        { $set: { titleHi: update.titleHi, contentHi: update.contentHi } },
+      );
+
+      if (result.matchedCount === 0) notFound.push(update.slug);
+    }
+
+    res.status(200).json({
+      success: true,
+      updated: updates.length - notFound.length,
+      notFound,
+    });
+  } catch (error) {
+    console.error("Hindi Page Sync Error:", error);
 
     res.status(500).json({
       success: false,
