@@ -8,6 +8,18 @@
   flex: 1;
   display: flex;
   flex-direction: column;
+  /*
+    Flex items default to min-width:auto, refusing to shrink below their
+    content's intrinsic width — so on a narrow phone, .admin-main (this
+    element) was growing wider than "viewport minus the 260px sidebar"
+    to fit whatever's inside .admin-content (stat cards, tables...),
+    pushing the whole admin-layout past the viewport. .admin-content's
+    own overflow:auto below never got a chance to activate, because its
+    parent had already grown to fit everything instead of being
+    constrained to the actual available space. Same fix as #root's own
+    min-width:0 in index.css, one level deeper.
+  */
+  min-width: 0;
 }
 
 .admin-content {

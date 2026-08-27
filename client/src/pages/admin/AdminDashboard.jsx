@@ -75,7 +75,7 @@ function AdminDashboard() {
   }
 
   return (
-    <div className="admin-content">
+    <>
       <div className="dashboard-header">
         <h1>Dashboard</h1>
         <p>Welcome to Mittal Collections Admin Panel</p>
@@ -146,7 +146,7 @@ function AdminDashboard() {
           </table>
         </div>
       </div>
-    </div>
+    </>
   );
 }
 
