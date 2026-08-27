@@ -2,10 +2,12 @@ import { useEffect, useState } from "react";
 import { FaTimes } from "react-icons/fa";
 
 import { getBannerCoupon } from "../services/couponService";
+import { useLanguage } from "../context/LanguageContext";
 
 const DISMISS_KEY = "mc_banner_dismissed_code";
 
 function CouponBanner() {
+  const { t } = useLanguage();
   const [coupon, setCoupon] = useState(null);
   const [dismissed, setDismissed] = useState(false);
 
@@ -34,8 +36,8 @@ function CouponBanner() {
 
   const discountLabel =
     coupon.discountType === "flat"
-      ? `₹${coupon.discountValue} OFF`
-      : `${coupon.discountValue}% OFF`;
+      ? t(`₹${coupon.discountValue} OFF`, `₹${coupon.discountValue} की छूट`)
+      : t(`${coupon.discountValue}% OFF`, `${coupon.discountValue}% छूट`);
 
   return (
     <div className="relative bg-teal-700 text-white text-sm">
@@ -43,16 +45,19 @@ function CouponBanner() {
         <span className="shrink-0">🎁</span>
         <span>
           <strong>
-            {discountLabel} on {coupon.firstOrderOnly ? "First Order" : "Your Order"}
+            {t(
+              `${discountLabel} on ${coupon.firstOrderOnly ? "First Order" : "Your Order"}`,
+              `${coupon.firstOrderOnly ? "पहले ऑर्डर" : "आपके ऑर्डर"} पर ${discountLabel}`,
+            )}
           </strong>{" "}
-          — Use <strong className="tracking-wide">{coupon.code}</strong>
-          {coupon.maxDiscount ? ` | Up to ₹${coupon.maxDiscount}` : ""}
+          — {t("Use ", "इस्तेमाल करें ")}<strong className="tracking-wide">{coupon.code}</strong>
+          {coupon.maxDiscount ? t(` | Up to ₹${coupon.maxDiscount}`, ` | ₹${coupon.maxDiscount} तक`) : ""}
         </span>
       </div>
       <button
         type="button"
         onClick={handleDismiss}
-        aria-label="Dismiss"
+        aria-label={t("Dismiss", "बंद करें")}
         className="absolute right-3 top-1/2 -translate-y-1/2 text-white/80 hover:text-white"
       >
         <FaTimes />

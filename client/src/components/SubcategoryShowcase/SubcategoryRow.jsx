@@ -2,6 +2,7 @@ import { imgUrl } from "../../services/api";
 import { useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
+import { useLanguage } from "../../context/LanguageContext";
 
 const titleCase = (str) =>
   str.replace(/\w\S*/g, (word) => word[0].toUpperCase() + word.slice(1));
@@ -9,6 +10,7 @@ const titleCase = (str) =>
 function SubcategoryRow({ category, groupLabel, items, activeSubcategory }) {
   const scrollRef = useRef(null);
   const navigate = useNavigate();
+  const { t } = useLanguage();
 
   const scroll = (direction) => {
     if (!scrollRef.current) return;
@@ -23,14 +25,14 @@ function SubcategoryRow({ category, groupLabel, items, activeSubcategory }) {
     <div>
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-2xl font-bold text-slate-900">
-          {category.name} by {titleCase(groupLabel)}
+          {t(`${category.name} by ${titleCase(groupLabel)}`, `${category.name}, ${titleCase(groupLabel)} के अनुसार`)}
         </h3>
 
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={() => scroll("prev")}
-            aria-label="Previous"
+            aria-label={t("Previous", "पिछला")}
             className="w-8 h-8 rounded-full border border-slate-300 text-slate-500 hover:bg-slate-50 flex items-center justify-center"
           >
             <FaChevronLeft className="text-xs" />
@@ -38,7 +40,7 @@ function SubcategoryRow({ category, groupLabel, items, activeSubcategory }) {
           <button
             type="button"
             onClick={() => scroll("next")}
-            aria-label="Next"
+            aria-label={t("Next", "अगला")}
             className="w-8 h-8 rounded-full border border-slate-300 text-slate-500 hover:bg-slate-50 flex items-center justify-center"
           >
             <FaChevronRight className="text-xs" />

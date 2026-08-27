@@ -3,6 +3,7 @@ import { FaHome, FaTh, FaShoppingCart, FaUser } from "react-icons/fa";
 
 import { useCart } from "../../context/CartContext";
 import { useAuth } from "../../context/AuthContext";
+import { useLanguage } from "../../context/LanguageContext";
 
 // Persistent mobile bottom tab bar (Flipkart/Amazon-style) — replaces the
 // old "☰ Menu" row that used to sit inside Navbar. Thumb-reachable nav
@@ -10,6 +11,7 @@ import { useAuth } from "../../context/AuthContext";
 function BottomNav({ onOpenCategories, categoriesOpen }) {
   const { totalItems, openCart } = useCart();
   const { isLoggedIn } = useAuth();
+  const { t } = useLanguage();
 
   const tabClass = (active) =>
     `flex flex-col items-center justify-center gap-0.5 text-[11px] font-medium transition-colors ${
@@ -23,7 +25,7 @@ function BottomNav({ onOpenCategories, categoriesOpen }) {
     >
       <NavLink to="/" end className={({ isActive }) => tabClass(isActive) + " py-2"}>
         <FaHome className="text-lg" />
-        Home
+        {t("Home", "होम")}
       </NavLink>
 
       <button
@@ -32,7 +34,7 @@ function BottomNav({ onOpenCategories, categoriesOpen }) {
         className={tabClass(categoriesOpen) + " py-2"}
       >
         <FaTh className="text-lg" />
-        Categories
+        {t("Categories", "श्रेणियां")}
       </button>
 
       <button
@@ -48,7 +50,7 @@ function BottomNav({ onOpenCategories, categoriesOpen }) {
             </span>
           )}
         </span>
-        Cart
+        {t("Cart", "कार्ट")}
       </button>
 
       <NavLink
@@ -56,7 +58,7 @@ function BottomNav({ onOpenCategories, categoriesOpen }) {
         className={({ isActive }) => tabClass(isActive) + " py-2"}
       >
         <FaUser className="text-lg" />
-        Account
+        {t("Account", "खाता")}
       </NavLink>
     </nav>
   );

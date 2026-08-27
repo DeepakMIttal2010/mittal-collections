@@ -4,6 +4,7 @@ import { FaChevronDown } from "react-icons/fa";
 
 import { getCategories } from "../services/categoryService";
 import { getSubcategories } from "../services/subcategoryService";
+import { useLanguage } from "../context/LanguageContext";
 
 // How many categories show as their own top-level nav link (in the
 // admin-set displayOrder/priority the categories API already returns)
@@ -88,6 +89,7 @@ function CategoryNavItem({ category, groups, linkClassName }) {
 }
 
 function MoreCategoriesMenu({ categories, getGroupedSubcategories, linkClassName }) {
+  const { t } = useLanguage();
   const [isOpen, setIsOpen] = useState(false);
   const [activeCategoryId, setActiveCategoryId] = useState(null);
 
@@ -119,7 +121,7 @@ function MoreCategoriesMenu({ categories, getGroupedSubcategories, linkClassName
             : "flex items-center gap-1.5 text-sm font-medium px-4 py-3 text-slate-700 hover:text-amber-600"
         }
       >
-        More
+        {t("More", "और")}
         <FaChevronDown className="text-[10px]" />
       </button>
 

@@ -14,6 +14,7 @@ import { getSubcategories } from "../../services/subcategoryService";
 import { getSiteSettings } from "../../services/settingsService";
 import { getFooterLinks } from "../../services/footerLinkService";
 import { useIsGhaziabadVisitor } from "../../hooks/useIsGhaziabadVisitor";
+import { useLanguage } from "../../context/LanguageContext";
 
 const SOCIAL_ICONS = [
   { key: "facebook", icon: FaFacebookF, label: "Facebook" },
@@ -41,6 +42,7 @@ const DELIVERY_AREAS = [
 
 function Footer() {
   const isGhaziabad = useIsGhaziabadVisitor();
+  const { t } = useLanguage();
   const [categories, setCategories] = useState([]);
   const [subcategories, setSubcategories] = useState([]);
   const [settings, setSettings] = useState({});
@@ -101,7 +103,7 @@ function Footer() {
                         to={`/category/${category.slug}`}
                         className="text-slate-600 hover:text-amber-600 transition-colors"
                       >
-                        Shop All
+                        {t("Shop All", "सभी खरीदें")}
                       </Link>
                     </li>
                   )}
@@ -120,8 +122,10 @@ function Footer() {
                 Mittal Collections
               </h3>
               <p className="text-sm leading-relaxed mb-4">
-                Premium bedsheets, curtains, towels and home furnishing —
-                serving Vasundhara, Indirapuram, Vaishali and Ghaziabad.
+                {t(
+                  "Premium bedsheets, curtains, towels and home furnishing — serving Vasundhara, Indirapuram, Vaishali and Ghaziabad.",
+                  "प्रीमियम बेडशीट, कर्टन, टॉवल और होम फर्निशिंग — वसुंधरा, इंदिरापुरम, वैशाली और गाज़ियाबाद में सेवा।",
+                )}
               </p>
 
               {settings.address && (
@@ -143,7 +147,7 @@ function Footer() {
             </div>
 
             <div>
-              <h3 className="text-amber-500 font-semibold mb-4">Company</h3>
+              <h3 className="text-amber-500 font-semibold mb-4">{t("Company", "कंपनी")}</h3>
               <ul className="space-y-2 text-sm">
                 {footerLinks.map((item) =>
                   item.url.startsWith("http") ? (
@@ -173,7 +177,7 @@ function Footer() {
 
             <div>
               <h3 className="text-amber-500 font-semibold mb-4">
-                Follow Us
+                {t("Follow Us", "हमें फॉलो करें")}
               </h3>
               {activeSocialLinks.length > 0 ? (
                 <div className="flex gap-3">
@@ -192,7 +196,7 @@ function Footer() {
                 </div>
               ) : (
                 <p className="text-sm text-slate-500">
-                  Follow links coming soon.
+                  {t("Follow links coming soon.", "फॉलो लिंक जल्द आएंगे।")}
                 </p>
               )}
             </div>
@@ -204,14 +208,16 @@ function Footer() {
             {isGhaziabad ? (
               <>
                 <h3 className="text-amber-500 font-semibold mb-1">
-                  We Deliver To (Ghaziabad)
+                  {t("We Deliver To (Ghaziabad)", "हम यहां डिलीवर करते हैं (गाज़ियाबाद)")}
                 </h3>
                 <p className="text-sm text-slate-400 mb-1">
-                  🚚 FAST DELIVERY within 24 Hours*
+                  {t("🚚 FAST DELIVERY within 24 Hours*", "🚚 24 घंटे में तेज़ डिलीवरी*")}
                 </p>
                 <p className="text-xs text-slate-500 mb-4">
-                  *Subject to order cutoff time, product availability and
-                  exact delivery address within these areas.
+                  {t(
+                    "*Subject to order cutoff time, product availability and exact delivery address within these areas.",
+                    "*ऑर्डर कटऑफ समय, प्रोडक्ट उपलब्धता और इन क्षेत्रों में सटीक डिलीवरी पते के अधीन।",
+                  )}
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {DELIVERY_AREAS.map((area) => (
@@ -227,12 +233,13 @@ function Footer() {
             ) : (
               <>
                 <h3 className="text-amber-500 font-semibold mb-1">
-                  We Deliver Pan-India
+                  {t("We Deliver Pan-India", "हम पूरे भारत में डिलीवर करते हैं")}
                 </h3>
                 <p className="text-sm text-slate-400">
-                  🚚 Usually delivered in 3-7 business days — same-day
-                  delivery within 24 Hours in Ghaziabad (Vasundhara, Vaishali,
-                  Indirapuram & nearby).
+                  {t(
+                    "🚚 Usually delivered in 3-7 business days — same-day delivery within 24 Hours in Ghaziabad (Vasundhara, Vaishali, Indirapuram & nearby).",
+                    "🚚 आमतौर पर 3-7 कार्य दिवस में डिलीवर — गाज़ियाबाद (वसुंधरा, वैशाली, इंदिरापुरम और आसपास) में 24 घंटे में सेम-डे डिलीवरी।",
+                  )}
                 </p>
               </>
             )}
@@ -241,8 +248,10 @@ function Footer() {
           <hr className="border-slate-700 my-10" />
 
           <p className="text-center text-sm text-slate-500">
-            © {new Date().getFullYear()} Mittal Collections. All Rights
-            Reserved.
+            {t(
+              `© ${new Date().getFullYear()} Mittal Collections. All Rights Reserved.`,
+              `© ${new Date().getFullYear()} मित्तल कलेक्शंस। सर्वाधिकार सुरक्षित।`,
+            )}
           </p>
         </div>
       </footer>

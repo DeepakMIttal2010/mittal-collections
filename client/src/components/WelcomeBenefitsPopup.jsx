@@ -11,6 +11,7 @@ import {
 } from "react-icons/fa";
 
 import { useAuth } from "../context/AuthContext";
+import { useLanguage } from "../context/LanguageContext";
 import { getPublicRewardsInfo } from "../services/rewardsService";
 import { getSiteSettings } from "../services/settingsService";
 import { getBannerCoupon } from "../services/couponService";
@@ -37,6 +38,7 @@ function WelcomeBenefitsPopup({
     justRegistered,
     clearJustRegistered,
   } = useAuth();
+  const { t } = useLanguage();
   const [rewards, setRewards] = useState(null);
   const [coupon, setCoupon] = useState(null);
   const [enabled, setEnabled] = useState(true);
@@ -136,8 +138,8 @@ function WelcomeBenefitsPopup({
 
   const discountLabel = coupon
     ? coupon.discountType === "flat"
-      ? `₹${coupon.discountValue} OFF`
-      : `${coupon.discountValue}% OFF`
+      ? t(`₹${coupon.discountValue} OFF`, `₹${coupon.discountValue} की छूट`)
+      : t(`${coupon.discountValue}% OFF`, `${coupon.discountValue}% छूट`)
     : null;
 
   const benefits = [
@@ -147,27 +149,41 @@ function WelcomeBenefitsPopup({
       ? [
           {
             icon: <FaGift />,
-            text: `${discountLabel} on ${coupon.firstOrderOnly ? "Your First Order" : "Your Order"} — Use code ${coupon.code}${coupon.maxDiscount ? ` (up to ₹${coupon.maxDiscount})` : ""}`,
+            text: t(
+              `${discountLabel} on ${coupon.firstOrderOnly ? "Your First Order" : "Your Order"} — Use code ${coupon.code}${coupon.maxDiscount ? ` (up to ₹${coupon.maxDiscount})` : ""}`,
+              `${coupon.firstOrderOnly ? "आपके पहले ऑर्डर" : "आपके ऑर्डर"} पर ${discountLabel} — कोड ${coupon.code} इस्तेमाल करें${coupon.maxDiscount ? ` (₹${coupon.maxDiscount} तक)` : ""}`,
+            ),
           },
         ]
       : []),
-    { icon: <FaCheckCircle />, text: "100% Genuine Products" },
+    { icon: <FaCheckCircle />, text: t("100% Genuine Products", "100% असली प्रोडक्ट") },
     {
       icon: <FaTruck />,
-      text: "Free Delivery Within 24 Hours — Vasundhara & nearby 10 km",
+      text: t(
+        "Free Delivery Within 24 Hours — Vasundhara & nearby 10 km",
+        "24 घंटे में मुफ़्त डिलीवरी — वसुंधरा और आसपास 10 किमी",
+      ),
     },
     {
       icon: <FaGift />,
-      text: `Earn 1 Point for every ₹${rewards.loyalty.earnRate} you spend${
-        rewards.loyalty.redeemValue === 1 ? " — ₹1 = 1 Reward Point" : ""
-      }`,
+      text: t(
+        `Earn 1 Point for every ₹${rewards.loyalty.earnRate} you spend${
+          rewards.loyalty.redeemValue === 1 ? " — ₹1 = 1 Reward Point" : ""
+        }`,
+        `हर ₹${rewards.loyalty.earnRate} खर्च पर 1 पॉइंट कमाएं${
+          rewards.loyalty.redeemValue === 1 ? " — ₹1 = 1 रिवॉर्ड पॉइंट" : ""
+        }`,
+      ),
     },
     {
       icon: <FaUserFriends />,
-      text: `Refer a Friend — get ${rewards.referral.referrerPoints} points, they get ${rewards.referral.referredPoints}`,
+      text: t(
+        `Refer a Friend — get ${rewards.referral.referrerPoints} points, they get ${rewards.referral.referredPoints}`,
+        `दोस्त को रेफर करें — ${rewards.referral.referrerPoints} पॉइंट्स पाएं, उन्हें ${rewards.referral.referredPoints} मिलेंगे`,
+      ),
     },
-    { icon: <FaLock />, text: "Secure Payments" },
-    { icon: <FaUndoAlt />, text: "Easy Returns" },
+    { icon: <FaLock />, text: t("Secure Payments", "सुरक्षित भुगतान") },
+    { icon: <FaUndoAlt />, text: t("Easy Returns", "आसान रिटर्न") },
   ];
 
   return (
@@ -194,7 +210,7 @@ function WelcomeBenefitsPopup({
           <button
             type="button"
             onClick={handleClose}
-            aria-label="Close"
+            aria-label={t("Close", "बंद करें")}
             className="absolute top-3 right-3 w-7 h-7 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center transition-colors"
           >
             <FaTimes className="text-sm" />
@@ -206,13 +222,19 @@ function WelcomeBenefitsPopup({
 
           <h2 className="relative text-lg font-bold text-white mb-0.5">
             {celebrateMode
-              ? `🎉 Registration Successful!`
-              : "Welcome to Mittal Collections!"}
+              ? t("🎉 Registration Successful!", "🎉 रजिस्ट्रेशन सफल हुआ!")
+              : t("Welcome to Mittal Collections!", "मित्तल कलेक्शंस में आपका स्वागत है!")}
           </h2>
           <p className="relative text-xs text-amber-50">
             {celebrateMode
-              ? `Thanks for joining us${user?.name ? `, ${user.name}` : ""}! Here's what you get:`
-              : "Here's what you get when you shop with us:"}
+              ? t(
+                  `Thanks for joining us${user?.name ? `, ${user.name}` : ""}! Here's what you get:`,
+                  `हमसे जुड़ने के लिए धन्यवाद${user?.name ? `, ${user.name}` : ""}! ये मिलेगा आपको:`,
+                )
+              : t(
+                  "Here's what you get when you shop with us:",
+                  "हमसे शॉपिंग करने पर आपको ये मिलता है:",
+                )}
           </p>
         </div>
 
@@ -234,10 +256,10 @@ function WelcomeBenefitsPopup({
             className="block text-center bg-gradient-to-r from-orange-600 to-amber-500 hover:from-orange-700 hover:to-amber-600 text-white text-sm font-semibold rounded-full py-2.5 transition-colors"
           >
             {celebrateMode
-              ? "Start Shopping"
+              ? t("Start Shopping", "शॉपिंग शुरू करें")
               : isLoggedIn
-                ? "See My Rewards"
-                : "Sign Up & Start Earning"}
+                ? t("See My Rewards", "मेरे रिवॉर्ड देखें")
+                : t("Sign Up & Start Earning", "साइन अप करें और कमाना शुरू करें")}
           </Link>
         </div>
       </div>

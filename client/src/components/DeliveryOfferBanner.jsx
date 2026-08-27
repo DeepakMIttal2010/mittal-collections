@@ -2,11 +2,13 @@ import { useState } from "react";
 import { FaTimes } from "react-icons/fa";
 
 import { useIsGhaziabadVisitor } from "../hooks/useIsGhaziabadVisitor";
+import { useLanguage } from "../context/LanguageContext";
 
 const DISMISS_KEY = "mc_delivery_banner_dismissed";
 
 function DeliveryOfferBanner() {
   const isGhaziabad = useIsGhaziabadVisitor();
+  const { t } = useLanguage();
   const [dismissed, setDismissed] = useState(
     () => sessionStorage.getItem(DISMISS_KEY) === "1",
   );
@@ -32,28 +34,34 @@ function DeliveryOfferBanner() {
         {isGhaziabad ? (
           <>
             <span>
-              <strong>FAST DELIVERY within 24 Hours</strong> — Ghaziabad*:
-              Vasundhara, Vaishali, Indirapuram & आसपास
+              <strong>{t("FAST DELIVERY within 24 Hours", "24 घंटे में तेज़ डिलीवरी")}</strong>{" "}
+              {t(
+                "— Ghaziabad*: Vasundhara, Vaishali, Indirapuram & आसपास",
+                "— गाज़ियाबाद*: वसुंधरा, वैशाली, इंदिरापुरम & आसपास",
+              )}
             </span>
             <a
               href="#delivery-areas"
               onClick={handleCheckArea}
               className="underline underline-offset-2 whitespace-nowrap hover:text-amber-100 transition-colors"
             >
-              Check your area →
+              {t("Check your area →", "अपना क्षेत्र जांचें →")}
             </a>
           </>
         ) : (
           <span>
-            <strong>PAN-INDIA DELIVERY</strong> — usually 3-7 business days
-            (same-day within 24 Hours in Ghaziabad)
+            <strong>{t("PAN-INDIA DELIVERY", "पूरे भारत में डिलीवरी")}</strong>{" "}
+            {t(
+              "— usually 3-7 business days (same-day within 24 Hours in Ghaziabad)",
+              "— आमतौर पर 3-7 कार्य दिवस (गाज़ियाबाद में 24 घंटे में सेम-डे)",
+            )}
           </span>
         )}
       </div>
       <button
         type="button"
         onClick={handleDismiss}
-        aria-label="Dismiss"
+        aria-label={t("Dismiss", "बंद करें")}
         className="absolute right-3 top-1/2 -translate-y-1/2 text-white/80 hover:text-white"
       >
         <FaTimes />
