@@ -4,35 +4,43 @@ import { Link, useNavigate } from "react-router-dom";
 import { getMyOrders } from "../services/orderService";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
+import { useLanguage } from "../context/LanguageContext";
 import ReturnRequestModal from "../components/ReturnRequestModal";
 
-const TABS = [
-  { key: "orders", label: "Orders" },
-  { key: "buyAgain", label: "Buy Again" },
-];
+function getTabs(t) {
+  return [
+    { key: "orders", label: t("Orders", "ऑर्डर") },
+    { key: "buyAgain", label: t("Buy Again", "फिर से खरीदें") },
+  ];
+}
 
-const STATUS_TEXT = {
-  Pending: {
-    headline: "Order Placed",
-    subtext: "We've received your order and will process it shortly.",
-  },
-  Processing: {
-    headline: "Processing",
-    subtext: "Your order is being packed.",
-  },
-  Shipped: {
-    headline: "Shipped",
-    subtext: "Your order is on its way.",
-  },
-  Delivered: {
-    headline: "Delivered",
-    subtext: "Your package has been delivered.",
-  },
-  Cancelled: {
-    headline: "Order Cancelled",
-    subtext: "This order was cancelled.",
-  },
-};
+function getStatusText(t) {
+  return {
+    Pending: {
+      headline: t("Order Placed", "ऑर्डर दिया गया"),
+      subtext: t(
+        "We've received your order and will process it shortly.",
+        "हमें आपका ऑर्डर मिल गया है और हम जल्द ही इसे प्रोसेस करेंगे।",
+      ),
+    },
+    Processing: {
+      headline: t("Processing", "प्रोसेसिंग"),
+      subtext: t("Your order is being packed.", "आपका ऑर्डर पैक किया जा रहा है।"),
+    },
+    Shipped: {
+      headline: t("Shipped", "शिप किया गया"),
+      subtext: t("Your order is on its way.", "आपका ऑर्डर रास्ते में है।"),
+    },
+    Delivered: {
+      headline: t("Delivered", "डिलीवर हो गया"),
+      subtext: t("Your package has been delivered.", "आपका पैकेज डिलीवर हो गया है।"),
+    },
+    Cancelled: {
+      headline: t("Order Cancelled", "ऑर्डर रद्द हुआ"),
+      subtext: t("This order was cancelled.", "यह ऑर्डर रद्द कर दिया गया था।"),
+    },
+  };
+}
 
 const STATUS_DOT = {
   Pending: "text-slate-500",
@@ -42,11 +50,23 @@ const STATUS_DOT = {
   Cancelled: "text-red-600",
 };
 
+function getStatusLabel(t, status) {
+  return {
+    Pending: t("Pending", "लंबित"),
+    Processing: t("Processing", "प्रोसेसिंग"),
+    Shipped: t("Shipped", "शिप किया गया"),
+    Delivered: t("Delivered", "डिलीवर हो गया"),
+    Cancelled: t("Cancelled", "रद्द"),
+  }[status] || status;
+}
+
 function OrderCard({ order, onBuyAgain }) {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const [returnModalItem, setReturnModalItem] = useState(null);
   const [returnedProductIds, setReturnedProductIds] = useState(new Set());
-  const statusInfo = STATUS_TEXT[order.orderStatus] || STATUS_TEXT.Pending;
+  const statusText = getStatusText(t);
+  const statusInfo = statusText[order.orderStatus] || statusText.Pending;
   const isDelivered = order.orderStatus === "Delivered";
   const isCancelled = order.orderStatus === "Cancelled";
   const deliveredDate = order.deliveredAt
@@ -68,7 +88,7 @@ function OrderCard({ order, onBuyAgain }) {
         <div className="flex flex-wrap gap-x-8 gap-y-1">
           <div>
             <p className="text-slate-500 uppercase tracking-wide">
-              Order Placed
+              {t("Order Placed", "ऑर्डर दिया गया")}
             </p>
             <p className="font-medium text-slate-800">
               {new Date(order.createdAt).toLocaleDateString("en-IN", {
@@ -79,13 +99,13 @@ function OrderCard({ order, onBuyAgain }) {
             </p>
           </div>
           <div>
-            <p className="text-slate-500 uppercase tracking-wide">Total</p>
+            <p className="text-slate-500 uppercase tracking-wide">{t("Total", "कुल")}</p>
             <p className="font-medium text-slate-800">
               ₹{order.totalPrice.toLocaleString("en-IN")}
             </p>
           </div>
           <div>
-            <p className="text-slate-500 uppercase tracking-wide">Ship To</p>
+            <p className="text-slate-500 uppercase tracking-wide">{t("Ship To", "शिप टू")}</p>
             <p className="font-medium text-slate-800">
               {order.shippingAddress?.fullName || "—"}
             </p>
@@ -94,13 +114,13 @@ function OrderCard({ order, onBuyAgain }) {
 
         <div className="text-right">
           <p className="text-slate-500">
-            ORDER # {order._id.slice(-12).toUpperCase()}
+            {t("ORDER # ", "ऑर्डर # ")}{order._id.slice(-12).toUpperCase()}
           </p>
           <Link
             to={`/my-orders/${order._id}`}
             className="text-blue-700 hover:underline font-medium"
           >
-            View order details
+            {t("View order details", "ऑर्डर विवरण देखें")}
           </Link>
         </div>
       </div>
@@ -129,17 +149,17 @@ function OrderCard({ order, onBuyAgain }) {
                 <div className="min-w-0">
                   <p className="text-sm text-slate-800 line-clamp-2">
                     {item.name}
-                    {item.size ? ` (Size: ${item.size})` : ""}
+                    {item.size ? ` (${t("Size", "साइज़")}: ${item.size})` : ""}
                   </p>
                   <p className="text-xs text-slate-500 mb-1">
-                    Qty {item.quantity} · ₹{item.price}
+                    {t(`Qty ${item.quantity} · ₹${item.price}`, `मात्रा ${item.quantity} · ₹${item.price}`)}
                   </p>
 
                   {isDelivered && item.returnInfo && (
                     <>
                       {returnedProductIds.has(item.product) ? (
                         <p className="text-xs font-medium text-green-700">
-                          Return requested
+                          {t("Return requested", "रिटर्न का अनुरोध किया गया")}
                         </p>
                       ) : item.returnInfo.eligible ? (
                         <button
@@ -147,12 +167,12 @@ function OrderCard({ order, onBuyAgain }) {
                           onClick={() => setReturnModalItem(item)}
                           className="text-xs font-medium text-blue-700 hover:underline"
                         >
-                          Return this item
+                          {t("Return this item", "यह आइटम रिटर्न करें")}
                         </button>
                       ) : item.returnInfo.isReturnable &&
                         item.returnInfo.deadline ? (
                         <p className="text-xs text-slate-400">
-                          Return window closed on{" "}
+                          {t("Return window closed on ", "रिटर्न विंडो बंद हो गई ")}
                           {new Date(
                             item.returnInfo.deadline,
                           ).toLocaleDateString("en-IN", {
@@ -162,7 +182,7 @@ function OrderCard({ order, onBuyAgain }) {
                         </p>
                       ) : !item.returnInfo.isReturnable ? (
                         <p className="text-xs text-slate-400">
-                          Non-returnable item
+                          {t("Non-returnable item", "गैर-वापसी योग्य आइटम")}
                         </p>
                       ) : null}
                     </>
@@ -194,7 +214,7 @@ function OrderCard({ order, onBuyAgain }) {
               onClick={handleGetSupport}
               className="bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold rounded-full py-2.5 transition-colors"
             >
-              Get Product Support
+              {t("Get Product Support", "प्रोडक्ट सपोर्ट पाएं")}
             </button>
           )}
 
@@ -203,7 +223,7 @@ function OrderCard({ order, onBuyAgain }) {
               to={`/my-orders/${order._id}`}
               className="text-center bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold rounded-full py-2.5 transition-colors"
             >
-              Track Order
+              {t("Track Order", "ऑर्डर ट्रैक करें")}
             </Link>
           )}
 
@@ -211,7 +231,7 @@ function OrderCard({ order, onBuyAgain }) {
             to={`/my-orders/${order._id}`}
             className="text-center border border-slate-300 hover:bg-slate-50 text-slate-700 text-sm font-medium rounded-full py-2.5 transition-colors"
           >
-            View Order Details
+            {t("View Order Details", "ऑर्डर विवरण देखें")}
           </Link>
 
           {(isDelivered || isCancelled) && (
@@ -220,7 +240,7 @@ function OrderCard({ order, onBuyAgain }) {
               onClick={() => onBuyAgain(order.orderItems)}
               className="border border-slate-300 hover:bg-slate-50 text-slate-700 text-sm font-medium rounded-full py-2.5 transition-colors"
             >
-              Buy It Again
+              {t("Buy It Again", "फिर से खरीदें")}
             </button>
           )}
 
@@ -228,7 +248,7 @@ function OrderCard({ order, onBuyAgain }) {
             <span
               className={`text-xs font-medium text-center ${STATUS_DOT[order.orderStatus]}`}
             >
-              ● {order.orderStatus}
+              ● {getStatusLabel(t, order.orderStatus)}
             </span>
           )}
         </div>
@@ -243,6 +263,7 @@ function MyOrders() {
   const [activeTab, setActiveTab] = useState("orders");
   const { addToCart } = useCart();
   const { isLoggedIn } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -296,20 +317,22 @@ function MyOrders() {
         : "border-transparent text-slate-500 hover:text-slate-700"
     }`;
 
+  const tabs = getTabs(t);
+
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
       <div className="text-sm mb-2">
         <Link to="/account" className="text-blue-700 hover:underline">
-          Your Account
+          {t("Your Account", "आपका खाता")}
         </Link>
         <span className="text-slate-400 mx-2">›</span>
-        <span className="text-amber-600 font-medium">Your Orders</span>
+        <span className="text-amber-600 font-medium">{t("Your Orders", "आपके ऑर्डर")}</span>
       </div>
 
-      <h1 className="text-3xl font-bold text-slate-900 mb-6">Your Orders</h1>
+      <h1 className="text-3xl font-bold text-slate-900 mb-6">{t("Your Orders", "आपके ऑर्डर")}</h1>
 
       <div className="flex gap-8 border-b border-slate-200 mb-6">
-        {TABS.map((tab) => (
+        {tabs.map((tab) => (
           <button
             key={tab.key}
             type="button"
@@ -322,12 +345,12 @@ function MyOrders() {
       </div>
 
       {loading ? (
-        <p className="text-slate-500">Loading...</p>
+        <p className="text-slate-500">{t("Loading...", "लोड हो रहा है...")}</p>
       ) : (
         <>
           {activeTab === "orders" &&
             (orders.length === 0 ? (
-              <p className="text-slate-500">No Orders Found.</p>
+              <p className="text-slate-500">{t("No Orders Found.", "कोई ऑर्डर नहीं मिला।")}</p>
             ) : (
               <div className="space-y-4">
                 {orders.map((order) => (
@@ -343,7 +366,10 @@ function MyOrders() {
           {activeTab === "buyAgain" &&
             (buyAgainItems.length === 0 ? (
               <p className="text-slate-500">
-                Items from your past orders will show up here.
+                {t(
+                  "Items from your past orders will show up here.",
+                  "आपके पिछले ऑर्डर के आइटम यहां दिखेंगे।",
+                )}
               </p>
             ) : (
               <div className="space-y-3">
@@ -363,7 +389,7 @@ function MyOrders() {
                       <div className="min-w-0">
                         <p className="font-medium text-slate-800 truncate">
                           {item.name}
-                          {item.size ? ` (Size: ${item.size})` : ""}
+                          {item.size ? ` (${t("Size", "साइज़")}: ${item.size})` : ""}
                         </p>
                         <p className="text-sm text-slate-500">
                           ₹{item.price}
@@ -383,7 +409,7 @@ function MyOrders() {
                       }
                       className="shrink-0 bg-blue-900 hover:bg-blue-950 text-white text-sm font-medium px-4 py-2 rounded-full transition-colors"
                     >
-                      Add to Cart
+                      {t("Add to Cart", "कार्ट में डालें")}
                     </button>
                   </div>
                 ))}

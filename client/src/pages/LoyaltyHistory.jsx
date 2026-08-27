@@ -6,19 +6,23 @@ import {
   getPublicRewardsInfo,
 } from "../services/rewardsService";
 import { useAuth } from "../context/AuthContext";
+import { useLanguage } from "../context/LanguageContext";
 
-const TYPE_LABELS = {
-  earned: "Earned",
-  redeemed: "Redeemed",
-  refunded: "Refunded",
-  clawback: "Reversed",
-  referral_bonus: "Referral Bonus",
-  admin_adjustment: "Adjustment",
-  expired: "Expired",
-};
+function getTypeLabels(t) {
+  return {
+    earned: t("Earned", "अर्जित"),
+    redeemed: t("Redeemed", "रिडीम किया"),
+    refunded: t("Refunded", "रिफंड हुआ"),
+    clawback: t("Reversed", "उलटा"),
+    referral_bonus: t("Referral Bonus", "रेफरल बोनस"),
+    admin_adjustment: t("Adjustment", "समायोजन"),
+    expired: t("Expired", "समाप्त"),
+  };
+}
 
 function LoyaltyHistory() {
   const { isLoggedIn } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
 
   const [transactions, setTransactions] = useState([]);
@@ -54,45 +58,47 @@ function LoyaltyHistory() {
     });
   }, []);
 
+  const typeLabels = getTypeLabels(t);
+
   return (
     <div className="max-w-3xl mx-auto px-4 py-10">
       <Link
         to="/account"
         className="text-sm text-blue-600 hover:underline mb-4 inline-block"
       >
-        ← Your Account
+        {t("← Your Account", "← आपका खाता")}
       </Link>
 
       <h1 className="text-2xl font-bold text-slate-900 mb-2">
-        Points History
+        {t("Points History", "पॉइंट्स हिस्ट्री")}
       </h1>
 
       {loyaltyRules && (
         <p className="text-sm text-slate-500 mb-6">
-          Earn 1 point per ₹{loyaltyRules.earnRate} spent (credited on
-          delivery). Redeem points for ₹{loyaltyRules.redeemValue} off each,
-          up to {Math.round(loyaltyRules.maxRedeemPercent * 100)}% of an
-          order — minimum {loyaltyRules.minRedeemPoints} points to redeem.
+          {t(
+            `Earn 1 point per ₹${loyaltyRules.earnRate} spent (credited on delivery). Redeem points for ₹${loyaltyRules.redeemValue} off each, up to ${Math.round(loyaltyRules.maxRedeemPercent * 100)}% of an order — minimum ${loyaltyRules.minRedeemPoints} points to redeem.`,
+            `हर ₹${loyaltyRules.earnRate} खर्च पर 1 पॉइंट कमाएं (डिलीवरी पर क्रेडिट होता है)। हर पॉइंट को ₹${loyaltyRules.redeemValue} की छूट के लिए रिडीम करें, ऑर्डर के ${Math.round(loyaltyRules.maxRedeemPercent * 100)}% तक — रिडीम करने के लिए न्यूनतम ${loyaltyRules.minRedeemPoints} पॉइंट्स ज़रूरी हैं।`,
+          )}
         </p>
       )}
 
       {loading ? (
-        <p className="text-slate-500">Loading...</p>
+        <p className="text-slate-500">{t("Loading...", "लोड हो रहा है...")}</p>
       ) : transactions.length === 0 ? (
-        <p className="text-slate-500">No points activity yet.</p>
+        <p className="text-slate-500">{t("No points activity yet.", "अभी तक कोई पॉइंट्स गतिविधि नहीं है।")}</p>
       ) : (
         <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-slate-600">
               <tr>
-                <th className="text-left px-4 py-3 font-semibold">Date</th>
-                <th className="text-left px-4 py-3 font-semibold">Type</th>
+                <th className="text-left px-4 py-3 font-semibold">{t("Date", "तारीख")}</th>
+                <th className="text-left px-4 py-3 font-semibold">{t("Type", "प्रकार")}</th>
                 <th className="text-left px-4 py-3 font-semibold">
-                  Description
+                  {t("Description", "विवरण")}
                 </th>
-                <th className="text-right px-4 py-3 font-semibold">Points</th>
+                <th className="text-right px-4 py-3 font-semibold">{t("Points", "पॉइंट्स")}</th>
                 <th className="text-right px-4 py-3 font-semibold">
-                  Balance
+                  {t("Balance", "बैलेंस")}
                 </th>
               </tr>
             </thead>
@@ -107,7 +113,7 @@ function LoyaltyHistory() {
                     })}
                   </td>
                   <td className="px-4 py-3 text-slate-700">
-                    {TYPE_LABELS[tx.type] || tx.type}
+                    {typeLabels[tx.type] || tx.type}
                   </td>
                   <td className="px-4 py-3 text-slate-500">
                     {tx.description}
@@ -136,10 +142,10 @@ function LoyaltyHistory() {
                 onClick={() => setPage((p) => p - 1)}
                 className="text-blue-600 hover:underline disabled:text-slate-300 disabled:no-underline"
               >
-                Previous
+                {t("Previous", "पिछला")}
               </button>
               <span className="text-slate-500">
-                Page {page} of {pages}
+                {t(`Page ${page} of ${pages}`, `पेज ${page} में से ${pages}`)}
               </span>
               <button
                 type="button"
@@ -147,7 +153,7 @@ function LoyaltyHistory() {
                 onClick={() => setPage((p) => p + 1)}
                 className="text-blue-600 hover:underline disabled:text-slate-300 disabled:no-underline"
               >
-                Next
+                {t("Next", "अगला")}
               </button>
             </div>
           )}

@@ -3,22 +3,26 @@ import { Link, useNavigate } from "react-router-dom";
 import { FaBell } from "react-icons/fa";
 
 import { useAuth } from "../context/AuthContext";
+import { useLanguage } from "../context/LanguageContext";
 import {
   getMyNotifications,
   markNotificationRead,
   markAllNotificationsRead,
 } from "../services/notificationService";
 
-const TYPE_LABELS = {
-  order_status: "Order Update",
-  ticket_reply: "Support Reply",
-  return_status: "Return Update",
-  back_in_stock: "Back in Stock",
-  loyalty_points: "Loyalty Points",
-};
+function getTypeLabels(t) {
+  return {
+    order_status: t("Order Update", "ऑर्डर अपडेट"),
+    ticket_reply: t("Support Reply", "सपोर्ट रिप्लाई"),
+    return_status: t("Return Update", "रिटर्न अपडेट"),
+    back_in_stock: t("Back in Stock", "फिर से स्टॉक में"),
+    loyalty_points: t("Loyalty Points", "लॉयल्टी पॉइंट्स"),
+  };
+}
 
 function Notifications() {
   const { isLoggedIn } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
 
   const [notifications, setNotifications] = useState([]);
@@ -58,18 +62,20 @@ function Notifications() {
     loadNotifications();
   };
 
+  const typeLabels = getTypeLabels(t);
+
   return (
     <div className="max-w-3xl mx-auto px-4 py-8">
       <div className="text-sm mb-2">
         <Link to="/account" className="text-blue-700 hover:underline">
-          Your Account
+          {t("Your Account", "आपका खाता")}
         </Link>
         <span className="text-slate-400 mx-2">›</span>
-        <span className="text-amber-600 font-medium">Alerts</span>
+        <span className="text-amber-600 font-medium">{t("Alerts", "अलर्ट")}</span>
       </div>
 
       <div className="flex items-center justify-between flex-wrap gap-3 mb-6">
-        <h1 className="text-2xl font-bold text-slate-900">Notifications</h1>
+        <h1 className="text-2xl font-bold text-slate-900">{t("Notifications", "सूचनाएं")}</h1>
 
         {unreadCount > 0 && (
           <button
@@ -77,17 +83,17 @@ function Notifications() {
             onClick={handleMarkAllRead}
             className="text-sm font-medium text-blue-700 hover:underline"
           >
-            Mark all as read
+            {t("Mark all as read", "सभी को पढ़ा हुआ चिह्नित करें")}
           </button>
         )}
       </div>
 
       {loading ? (
-        <p className="text-slate-500">Loading...</p>
+        <p className="text-slate-500">{t("Loading...", "लोड हो रहा है...")}</p>
       ) : notifications.length === 0 ? (
         <div className="text-center py-16">
           <FaBell className="text-4xl text-slate-300 mx-auto mb-3" />
-          <p className="text-slate-500">No notifications yet.</p>
+          <p className="text-slate-500">{t("No notifications yet.", "अभी तक कोई सूचना नहीं है।")}</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -104,7 +110,7 @@ function Notifications() {
             >
               <div className="flex items-center justify-between gap-3 mb-1">
                 <span className="text-xs font-semibold text-blue-700 uppercase tracking-wide">
-                  {TYPE_LABELS[item.type] || "Notification"}
+                  {typeLabels[item.type] || t("Notification", "सूचना")}
                 </span>
                 <span className="text-xs text-slate-400 shrink-0">
                   {new Date(item.createdAt).toLocaleString("en-IN", {

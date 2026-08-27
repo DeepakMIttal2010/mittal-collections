@@ -4,6 +4,7 @@ import { toast } from "react-toastify";
 import { FaPaperPlane } from "react-icons/fa";
 
 import { useAuth } from "../context/AuthContext";
+import { useLanguage } from "../context/LanguageContext";
 import { getTicketById, addTicketMessage } from "../services/ticketService";
 
 const STATUS_COLORS = {
@@ -13,10 +14,20 @@ const STATUS_COLORS = {
   Closed: "bg-slate-200 text-slate-600",
 };
 
+function getStatusLabel(t, status) {
+  return {
+    Open: t("Open", "खुला"),
+    "In Progress": t("In Progress", "प्रगति में"),
+    Resolved: t("Resolved", "हल हो गया"),
+    Closed: t("Closed", "बंद"),
+  }[status] || status;
+}
+
 function TicketDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { isLoggedIn } = useAuth();
+  const { t } = useLanguage();
 
   const [ticket, setTicket] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -56,14 +67,14 @@ function TicketDetail() {
       setTicket(response.ticket);
       setReply("");
     } else {
-      toast.error(response.message || "Unable to send message");
+      toast.error(response.message || t("Unable to send message", "संदेश नहीं भेजा जा सका"));
     }
   };
 
   if (loading) {
     return (
       <div className="max-w-3xl mx-auto px-4 py-12 text-center text-slate-500">
-        Loading...
+        {t("Loading...", "लोड हो रहा है...")}
       </div>
     );
   }
@@ -71,9 +82,9 @@ function TicketDetail() {
   if (!ticket) {
     return (
       <div className="max-w-3xl mx-auto px-4 py-12 text-center">
-        <p className="text-slate-500 mb-4">Ticket not found.</p>
+        <p className="text-slate-500 mb-4">{t("Ticket not found.", "टिकट नहीं मिली।")}</p>
         <Link to="/tickets" className="text-blue-700 hover:underline">
-          ← Back to Support Tickets
+          {t("← Back to Support Tickets", "← सपोर्ट टिकट पर वापस जाएं")}
         </Link>
       </div>
     );
@@ -85,11 +96,11 @@ function TicketDetail() {
     <div className="max-w-3xl mx-auto px-4 py-8">
       <div className="text-sm mb-2">
         <Link to="/account" className="text-blue-700 hover:underline">
-          Your Account
+          {t("Your Account", "आपका खाता")}
         </Link>
         <span className="text-slate-400 mx-2">›</span>
         <Link to="/tickets" className="text-blue-700 hover:underline">
-          Support Tickets
+          {t("Support Tickets", "सपोर्ट टिकट")}
         </Link>
         <span className="text-slate-400 mx-2">›</span>
         <span className="text-amber-600 font-medium">{ticket.subject}</span>
@@ -104,13 +115,13 @@ function TicketDetail() {
             STATUS_COLORS[ticket.status] || "bg-slate-100 text-slate-700"
           }`}
         >
-          {ticket.status}
+          {getStatusLabel(t, ticket.status)}
         </span>
       </div>
 
       {ticket.order && (
         <p className="text-sm text-slate-500 mb-6">
-          Related to order{" "}
+          {t("Related to order ", "इस ऑर्डर से संबंधित ")}
           <Link
             to={`/my-orders/${ticket.order._id}`}
             className="text-blue-700 hover:underline"
@@ -134,7 +145,7 @@ function TicketDetail() {
               }`}
             >
               <p className="text-xs font-semibold mb-1 opacity-80">
-                {msg.senderName} {msg.sender === "admin" && "(Support)"}
+                {msg.senderName} {msg.sender === "admin" && `(${t("Support", "सपोर्ट")})`}
               </p>
               <p className="text-sm whitespace-pre-wrap">{msg.message}</p>
               <p className="text-[11px] mt-1.5 opacity-60">
@@ -152,8 +163,10 @@ function TicketDetail() {
 
       {isClosed && (
         <p className="text-sm text-slate-500 bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 mb-4">
-          This ticket is {ticket.status.toLowerCase()}. Sending a message will
-          reopen it.
+          {t(
+            `This ticket is ${ticket.status.toLowerCase()}. Sending a message will reopen it.`,
+            `यह टिकट ${getStatusLabel(t, ticket.status)} है। संदेश भेजने पर यह फिर से खुल जाएगी।`,
+          )}
         </p>
       )}
 
@@ -162,7 +175,7 @@ function TicketDetail() {
           type="text"
           value={reply}
           onChange={(e) => setReply(e.target.value)}
-          placeholder="Type a reply..."
+          placeholder={t("Type a reply...", "जवाब लिखें...")}
           className="flex-1 border border-slate-300 rounded-full px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
         <button
@@ -171,7 +184,7 @@ function TicketDetail() {
           className="flex items-center gap-2 bg-blue-900 hover:bg-blue-950 text-white font-semibold rounded-full px-5 py-2.5 transition-colors disabled:opacity-50"
         >
           <FaPaperPlane className="text-xs" />
-          Send
+          {t("Send", "भेजें")}
         </button>
       </form>
     </div>

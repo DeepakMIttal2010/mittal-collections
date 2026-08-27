@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { FaUndoAlt } from "react-icons/fa";
 
 import { useAuth } from "../context/AuthContext";
+import { useLanguage } from "../context/LanguageContext";
 import { getMyReturnRequests } from "../services/returnService";
 import { imgUrl } from "../services/api";
 
@@ -14,8 +15,19 @@ const STATUS_COLORS = {
   Refunded: "bg-green-100 text-green-700",
 };
 
+function getStatusLabel(t, status) {
+  return {
+    Requested: t("Requested", "अनुरोध किया गया"),
+    Approved: t("Approved", "स्वीकृत"),
+    Rejected: t("Rejected", "अस्वीकृत"),
+    "Picked Up": t("Picked Up", "पिकअप हो गया"),
+    Refunded: t("Refunded", "रिफंड हो गया"),
+  }[status] || status;
+}
+
 function Returns() {
   const { isLoggedIn } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
 
   const [returns, setReturns] = useState([]);
@@ -37,24 +49,24 @@ function Returns() {
     <div className="max-w-3xl mx-auto px-4 py-8">
       <div className="text-sm mb-2">
         <Link to="/account" className="text-blue-700 hover:underline">
-          Your Account
+          {t("Your Account", "आपका खाता")}
         </Link>
         <span className="text-slate-400 mx-2">›</span>
-        <span className="text-amber-600 font-medium">Your Returns</span>
+        <span className="text-amber-600 font-medium">{t("Your Returns", "आपके रिटर्न")}</span>
       </div>
 
-      <h1 className="text-2xl font-bold text-slate-900 mb-6">Your Returns</h1>
+      <h1 className="text-2xl font-bold text-slate-900 mb-6">{t("Your Returns", "आपके रिटर्न")}</h1>
 
       {loading ? (
-        <p className="text-slate-500">Loading...</p>
+        <p className="text-slate-500">{t("Loading...", "लोड हो रहा है...")}</p>
       ) : returns.length === 0 ? (
         <div className="text-center py-16">
           <FaUndoAlt className="text-4xl text-slate-300 mx-auto mb-3" />
           <p className="text-slate-500 mb-4">
-            You haven&apos;t requested any returns yet.
+            {t("You haven't requested any returns yet.", "आपने अभी तक कोई रिटर्न का अनुरोध नहीं किया है।")}
           </p>
           <Link to="/my-orders" className="text-blue-700 hover:underline">
-            Go to Your Orders →
+            {t("Go to Your Orders →", "आपके ऑर्डर पर जाएं →")}
           </Link>
         </div>
       ) : (
@@ -77,7 +89,7 @@ function Returns() {
                   {ret.productName}
                 </p>
                 <p className="text-xs text-slate-500">
-                  Qty {ret.quantity} · Requested{" "}
+                  {t(`Qty ${ret.quantity} · Requested `, `मात्रा ${ret.quantity} · अनुरोध `)}
                   {new Date(ret.createdAt).toLocaleDateString("en-IN", {
                     day: "numeric",
                     month: "short",
@@ -85,7 +97,7 @@ function Returns() {
                 </p>
                 {ret.adminNote && (
                   <p className="text-xs text-slate-500 mt-1">
-                    Note: {ret.adminNote}
+                    {t("Note: ", "नोट: ")}{ret.adminNote}
                   </p>
                 )}
               </div>
@@ -95,7 +107,7 @@ function Returns() {
                   STATUS_COLORS[ret.status] || "bg-slate-100 text-slate-700"
                 }`}
               >
-                {ret.status}
+                {getStatusLabel(t, ret.status)}
               </span>
             </div>
           ))}

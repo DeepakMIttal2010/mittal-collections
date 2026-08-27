@@ -2,6 +2,7 @@ import { useState } from "react";
 import { toast } from "react-toastify";
 import { updateProfile } from "../services/authService";
 import { useAuth } from "../context/AuthContext";
+import { useLanguage } from "../context/LanguageContext";
 
 // Shown right after a Google sign-in that created a brand-new account —
 // Google doesn't provide a phone number, but the rest of the app (order
@@ -10,6 +11,7 @@ import { useAuth } from "../context/AuthContext";
 // (triggered via markJustRegistered below) rather than duplicated here.
 function CompleteMobileModal({ onDone }) {
   const { user, updateUser, markJustRegistered } = useAuth();
+  const { t } = useLanguage();
   const [mobile, setMobile] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -19,7 +21,7 @@ function CompleteMobileModal({ onDone }) {
     setError("");
 
     if (!/^[6-9]\d{9}$/.test(mobile)) {
-      setError("Enter a valid 10-digit mobile number");
+      setError(t("Enter a valid 10-digit mobile number", "एक मान्य 10 अंकों का मोबाइल नंबर दर्ज करें"));
       return;
     }
 
@@ -29,11 +31,11 @@ function CompleteMobileModal({ onDone }) {
 
     if (response.success) {
       updateUser({ mobile });
-      toast.success("Mobile number saved");
+      toast.success(t("Mobile number saved", "मोबाइल नंबर सेव हो गया"));
       markJustRegistered();
       onDone();
     } else {
-      setError(response.message || "Unable to save mobile number");
+      setError(response.message || t("Unable to save mobile number", "मोबाइल नंबर सेव नहीं हो सका"));
     }
 
     setSaving(false);
@@ -43,16 +45,19 @@ function CompleteMobileModal({ onDone }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
       <div className="bg-white rounded-2xl p-8 w-full max-w-sm">
         <h2 className="text-xl font-bold text-slate-900 mb-2">
-          One last thing
+          {t("One last thing", "आखिरी बात")}
         </h2>
         <p className="text-sm text-slate-500 mb-6">
-          Add your mobile number so we can keep you updated on your orders.
+          {t(
+            "Add your mobile number so we can keep you updated on your orders.",
+            "अपना मोबाइल नंबर जोड़ें ताकि हम आपको आपके ऑर्डर की जानकारी दे सकें।",
+          )}
         </p>
 
         <form onSubmit={handleSubmit}>
           <input
             type="tel"
-            placeholder="Mobile Number"
+            placeholder={t("Mobile Number", "मोबाइल नंबर")}
             value={mobile}
             onChange={(e) => setMobile(e.target.value)}
             maxLength={10}
@@ -66,7 +71,7 @@ function CompleteMobileModal({ onDone }) {
             disabled={saving}
             className="w-full bg-blue-900 hover:bg-blue-950 text-white font-semibold rounded-full py-3.5 mt-3 transition-colors disabled:opacity-60"
           >
-            {saving ? "Saving..." : "Continue"}
+            {saving ? t("Saving...", "सेव हो रहा है...") : t("Continue", "जारी रखें")}
           </button>
         </form>
       </div>

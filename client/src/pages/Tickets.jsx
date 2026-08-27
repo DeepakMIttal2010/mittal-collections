@@ -4,6 +4,7 @@ import { toast } from "react-toastify";
 import { FaPlus, FaTicketAlt } from "react-icons/fa";
 
 import { useAuth } from "../context/AuthContext";
+import { useLanguage } from "../context/LanguageContext";
 import { getMyTickets, createTicket } from "../services/ticketService";
 import { getMyOrders } from "../services/orderService";
 
@@ -14,8 +15,18 @@ const STATUS_COLORS = {
   Closed: "bg-slate-200 text-slate-600",
 };
 
+function getStatusLabel(t, status) {
+  return {
+    Open: t("Open", "खुला"),
+    "In Progress": t("In Progress", "प्रगति में"),
+    Resolved: t("Resolved", "हल हो गया"),
+    Closed: t("Closed", "बंद"),
+  }[status] || status;
+}
+
 function Tickets() {
   const { isLoggedIn } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const preselectedOrder = searchParams.get("order") || "";
@@ -27,7 +38,7 @@ function Tickets() {
   const [submitting, setSubmitting] = useState(false);
 
   const [subject, setSubject] = useState(
-    preselectedOrder ? "Issue with my order" : "",
+    preselectedOrder ? t("Issue with my order", "मेरे ऑर्डर में समस्या") : "",
   );
   const [message, setMessage] = useState("");
   const [orderId, setOrderId] = useState(preselectedOrder);
@@ -56,7 +67,7 @@ function Tickets() {
     e.preventDefault();
 
     if (!subject.trim() || !message.trim()) {
-      toast.error("Please fill in both subject and message");
+      toast.error(t("Please fill in both subject and message", "कृपया विषय और संदेश दोनों भरें"));
       return;
     }
 
@@ -71,14 +82,14 @@ function Tickets() {
     setSubmitting(false);
 
     if (response.success) {
-      toast.success("Ticket submitted — we'll get back to you soon");
+      toast.success(t("Ticket submitted — we'll get back to you soon", "टिकट सबमिट हो गई — हम जल्द ही आपसे संपर्क करेंगे"));
       setSubject("");
       setMessage("");
       setOrderId("");
       setShowForm(false);
       loadTickets();
     } else {
-      toast.error(response.message || "Unable to submit ticket");
+      toast.error(response.message || t("Unable to submit ticket", "टिकट सबमिट नहीं हो सकी"));
     }
   };
 
@@ -86,14 +97,14 @@ function Tickets() {
     <div className="max-w-4xl mx-auto px-4 py-8">
       <div className="text-sm mb-2">
         <Link to="/account" className="text-blue-700 hover:underline">
-          Your Account
+          {t("Your Account", "आपका खाता")}
         </Link>
         <span className="text-slate-400 mx-2">›</span>
-        <span className="text-amber-600 font-medium">Support Tickets</span>
+        <span className="text-amber-600 font-medium">{t("Support Tickets", "सपोर्ट टिकट")}</span>
       </div>
 
       <div className="flex items-center justify-between flex-wrap gap-3 mb-6">
-        <h1 className="text-2xl font-bold text-slate-900">Support Tickets</h1>
+        <h1 className="text-2xl font-bold text-slate-900">{t("Support Tickets", "सपोर्ट टिकट")}</h1>
 
         <button
           type="button"
@@ -101,7 +112,7 @@ function Tickets() {
           className="flex items-center gap-2 bg-blue-900 hover:bg-blue-950 text-white font-semibold rounded-full px-5 py-2.5 transition-colors"
         >
           <FaPlus className="text-xs" />
-          New Ticket
+          {t("New Ticket", "नई टिकट")}
         </button>
       </div>
 
@@ -112,14 +123,14 @@ function Tickets() {
         >
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">
-              Subject
+              {t("Subject", "विषय")}
             </label>
             <input
               type="text"
               required
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
-              placeholder="e.g. My order hasn't arrived"
+              placeholder={t("e.g. My order hasn't arrived", "जैसे: मेरा ऑर्डर नहीं पहुंचा")}
               className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
@@ -127,17 +138,17 @@ function Tickets() {
           {orders.length > 0 && (
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">
-                Related order (optional)
+                {t("Related order (optional)", "संबंधित ऑर्डर (वैकल्पिक)")}
               </label>
               <select
                 value={orderId}
                 onChange={(e) => setOrderId(e.target.value)}
                 className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="">None</option>
+                <option value="">{t("None", "कोई नहीं")}</option>
                 {orders.map((order) => (
                   <option key={order._id} value={order._id}>
-                    Order {order._id.slice(-8)} — ₹{order.totalPrice} (
+                    {t("Order ", "ऑर्डर ")}{order._id.slice(-8)} — ₹{order.totalPrice} (
                     {order.orderStatus})
                   </option>
                 ))}
@@ -147,14 +158,14 @@ function Tickets() {
 
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">
-              Message
+              {t("Message", "संदेश")}
             </label>
             <textarea
               required
               rows={4}
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              placeholder="Describe your issue..."
+              placeholder={t("Describe your issue...", "अपनी समस्या बताएं...")}
               className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
@@ -164,18 +175,18 @@ function Tickets() {
             disabled={submitting}
             className="bg-blue-900 hover:bg-blue-950 text-white font-medium px-5 py-2.5 rounded-full transition-colors disabled:opacity-60"
           >
-            {submitting ? "Submitting..." : "Submit Ticket"}
+            {submitting ? t("Submitting...", "सबमिट हो रहा है...") : t("Submit Ticket", "टिकट सबमिट करें")}
           </button>
         </form>
       )}
 
       {loading ? (
-        <p className="text-slate-500">Loading...</p>
+        <p className="text-slate-500">{t("Loading...", "लोड हो रहा है...")}</p>
       ) : tickets.length === 0 ? (
         <div className="text-center py-16">
           <FaTicketAlt className="text-4xl text-slate-300 mx-auto mb-3" />
           <p className="text-slate-500">
-            You haven&apos;t raised any support tickets yet.
+            {t("You haven't raised any support tickets yet.", "आपने अभी तक कोई सपोर्ट टिकट नहीं उठाई है।")}
           </p>
         </div>
       ) : (
@@ -195,11 +206,11 @@ function Tickets() {
                     STATUS_COLORS[ticket.status] || "bg-slate-100 text-slate-700"
                   }`}
                 >
-                  {ticket.status}
+                  {getStatusLabel(t, ticket.status)}
                 </span>
               </div>
               <p className="text-xs text-slate-400">
-                Last updated{" "}
+                {t("Last updated ", "आखिरी बार अपडेट हुआ ")}
                 {new Date(ticket.lastMessageAt).toLocaleString("en-IN", {
                   day: "numeric",
                   month: "short",

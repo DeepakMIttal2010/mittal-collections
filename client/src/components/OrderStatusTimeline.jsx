@@ -1,15 +1,18 @@
 import { FaCheck, FaBoxOpen, FaTruck, FaHome, FaClipboardList, FaTimes } from "react-icons/fa";
+import { useLanguage } from "../context/LanguageContext";
 
 // Canonical progression a non-cancelled order moves through. "Pending" is
 // relabeled "Ordered" here since that's what a customer actually
 // recognizes as the first step, even though the backend status is
 // "Pending" (see Order.js's statusHistory enum).
-const STAGES = [
-  { status: "Pending", label: "Ordered", icon: FaClipboardList },
-  { status: "Processing", label: "Processing", icon: FaBoxOpen },
-  { status: "Shipped", label: "Shipped", icon: FaTruck },
-  { status: "Delivered", label: "Delivered", icon: FaHome },
-];
+function getStages(t) {
+  return [
+    { status: "Pending", label: t("Ordered", "ऑर्डर किया"), icon: FaClipboardList },
+    { status: "Processing", label: t("Processing", "प्रोसेसिंग"), icon: FaBoxOpen },
+    { status: "Shipped", label: t("Shipped", "शिप किया गया"), icon: FaTruck },
+    { status: "Delivered", label: t("Delivered", "डिलीवर हो गया"), icon: FaHome },
+  ];
+}
 
 const formatDate = (date) =>
   new Date(date).toLocaleString("en-IN", {
@@ -21,6 +24,7 @@ const formatDate = (date) =>
   });
 
 function OrderStatusTimeline({ order }) {
+  const { t } = useLanguage();
   const history = order.statusHistory || [];
   const findEntry = (status) => history.find((h) => h.status === status);
 
@@ -33,7 +37,7 @@ function OrderStatusTimeline({ order }) {
           <FaTimes />
         </span>
         <div>
-          <p className="font-semibold text-red-700">Order Cancelled</p>
+          <p className="font-semibold text-red-700">{t("Order Cancelled", "ऑर्डर रद्द हुआ")}</p>
           {cancelledEntry && (
             <p className="text-sm text-red-600">
               {formatDate(cancelledEntry.changedAt)}
@@ -44,15 +48,16 @@ function OrderStatusTimeline({ order }) {
     );
   }
 
-  const currentIndex = STAGES.findIndex((s) => s.status === order.orderStatus);
+  const stages = getStages(t);
+  const currentIndex = stages.findIndex((s) => s.status === order.orderStatus);
 
   return (
     <ol>
-      {STAGES.map((stage, index) => {
+      {stages.map((stage, index) => {
         const entry = findEntry(stage.status);
         const isDone = index <= currentIndex;
         const isCurrent = index === currentIndex;
-        const isLast = index === STAGES.length - 1;
+        const isLast = index === stages.length - 1;
         const Icon = stage.icon;
 
         return (
@@ -84,14 +89,14 @@ function OrderStatusTimeline({ order }) {
                 {stage.label}
                 {isCurrent && (
                   <span className="ml-2 text-xs font-medium text-green-600">
-                    Current status
+                    {t("Current status", "वर्तमान स्थिति")}
                   </span>
                 )}
               </p>
               {entry ? (
                 <p className="text-sm text-slate-500">{formatDate(entry.changedAt)}</p>
               ) : (
-                !isDone && <p className="text-sm text-slate-400">Pending</p>
+                !isDone && <p className="text-sm text-slate-400">{t("Pending", "लंबित")}</p>
               )}
             </div>
           </li>

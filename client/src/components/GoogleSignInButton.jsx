@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { toast } from "react-toastify";
 import { googleSignIn } from "../services/authService";
+import { useLanguage } from "../context/LanguageContext";
 
 const GOOGLE_CLIENT_ID =
   "382416024276-qeo7hdk173590ni1d0lr14kjvrierep7.apps.googleusercontent.com";
@@ -34,6 +35,7 @@ const loadGoogleScript = () => {
 // navigate, or prompt for a missing mobile number on first sign-up).
 function GoogleSignInButton({ onResult }) {
   const buttonRef = useRef(null);
+  const { t } = useLanguage();
 
   useEffect(() => {
     let cancelled = false;
@@ -47,7 +49,7 @@ function GoogleSignInButton({ onResult }) {
           const data = await googleSignIn(response.credential);
 
           if (!data.success) {
-            toast.error(data.message || "Google sign-in failed");
+            toast.error(data.message || t("Google sign-in failed", "Google साइन-इन नहीं हो पाया"));
             return;
           }
 

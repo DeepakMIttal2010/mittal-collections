@@ -3,8 +3,10 @@ import { toast } from "react-toastify";
 import { FaTimes } from "react-icons/fa";
 
 import { createReturnRequest } from "../services/returnService";
+import { useLanguage } from "../context/LanguageContext";
 
 function ReturnRequestModal({ order, item, onClose, onSubmitted }) {
+  const { t } = useLanguage();
   const [quantity, setQuantity] = useState(item.quantity);
   const [reason, setReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -13,7 +15,7 @@ function ReturnRequestModal({ order, item, onClose, onSubmitted }) {
     e.preventDefault();
 
     if (!reason.trim()) {
-      toast.error("Please tell us why you're returning this item");
+      toast.error(t("Please tell us why you're returning this item", "कृपया बताएं कि आप इसे क्यों रिटर्न कर रहे हैं"));
       return;
     }
 
@@ -29,11 +31,11 @@ function ReturnRequestModal({ order, item, onClose, onSubmitted }) {
     setSubmitting(false);
 
     if (response.success) {
-      toast.success("Return request submitted");
+      toast.success(t("Return request submitted", "रिटर्न रिक्वेस्ट सबमिट हो गई"));
       onSubmitted();
       onClose();
     } else {
-      toast.error(response.message || "Unable to submit return request");
+      toast.error(response.message || t("Unable to submit return request", "रिटर्न रिक्वेस्ट सबमिट नहीं हो सकी"));
     }
   };
 
@@ -48,14 +50,14 @@ function ReturnRequestModal({ order, item, onClose, onSubmitted }) {
       >
         <button
           onClick={onClose}
-          aria-label="Close"
+          aria-label={t("Close", "बंद करें")}
           className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"
         >
           <FaTimes />
         </button>
 
         <h2 className="text-lg font-bold text-slate-900 mb-1">
-          Return this item
+          {t("Return this item", "यह आइटम रिटर्न करें")}
         </h2>
         <p className="text-sm text-slate-500 mb-4 line-clamp-2">
           {item.name}
@@ -65,7 +67,7 @@ function ReturnRequestModal({ order, item, onClose, onSubmitted }) {
           {item.quantity > 1 && (
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">
-                Quantity to return
+                {t("Quantity to return", "रिटर्न करने की मात्रा")}
               </label>
               <input
                 type="number"
@@ -80,14 +82,14 @@ function ReturnRequestModal({ order, item, onClose, onSubmitted }) {
 
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">
-              Reason for return
+              {t("Reason for return", "रिटर्न का कारण")}
             </label>
             <textarea
               required
               rows={3}
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              placeholder="e.g. Wrong size, damaged on arrival..."
+              placeholder={t("e.g. Wrong size, damaged on arrival...", "जैसे: गलत साइज़, डिलीवरी पर खराब...")}
               className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
@@ -97,7 +99,7 @@ function ReturnRequestModal({ order, item, onClose, onSubmitted }) {
             disabled={submitting}
             className="w-full bg-blue-900 hover:bg-blue-950 text-white font-semibold rounded-full py-2.5 transition-colors disabled:opacity-60"
           >
-            {submitting ? "Submitting..." : "Submit Return Request"}
+            {submitting ? t("Submitting...", "सबमिट हो रहा है...") : t("Submit Return Request", "रिटर्न रिक्वेस्ट सबमिट करें")}
           </button>
         </form>
       </div>
