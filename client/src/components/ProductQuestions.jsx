@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { FaQuestionCircle } from "react-icons/fa";
 
 import { useAuth } from "../context/AuthContext";
+import { useLanguage } from "../context/LanguageContext";
 import {
   getProductQuestions,
   submitQuestion,
@@ -10,6 +11,7 @@ import {
 
 function ProductQuestions({ productId }) {
   const { isLoggedIn } = useAuth();
+  const { t } = useLanguage();
 
   const [questions, setQuestions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -51,7 +53,7 @@ function ProductQuestions({ productId }) {
       setQuestionText("");
       setShowForm(false);
     } else {
-      setFormMessage(response.message || "Unable to submit question");
+      setFormMessage(response.message || t("Unable to submit question", "सवाल सबमिट नहीं हो सका"));
     }
   };
 
@@ -61,7 +63,7 @@ function ProductQuestions({ productId }) {
     <div className="mt-12 border-t border-slate-200 pt-10">
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <h2 className="text-2xl font-bold text-slate-900">
-          Questions &amp; Answers
+          {t("Questions & Answers", "सवाल और जवाब")}
         </h2>
 
         {isLoggedIn ? (
@@ -70,14 +72,14 @@ function ProductQuestions({ productId }) {
             onClick={() => setShowForm((v) => !v)}
             className="border border-blue-900 text-blue-900 hover:bg-blue-50 font-medium px-5 py-2.5 rounded-full transition-colors"
           >
-            Ask a Question
+            {t("Ask a Question", "सवाल पूछें")}
           </button>
         ) : (
           <Link
             to={`/login?redirect=/product/${productId}`}
             className="border border-blue-900 text-blue-900 hover:bg-blue-50 font-medium px-5 py-2.5 rounded-full transition-colors"
           >
-            Login to Ask
+            {t("Login to Ask", "पूछने के लिए लॉगिन करें")}
           </Link>
         )}
       </div>
@@ -94,14 +96,14 @@ function ProductQuestions({ productId }) {
           className="border border-slate-200 rounded-xl p-5 mb-8 bg-white max-w-xl"
         >
           <label className="block text-sm font-medium text-slate-700 mb-1">
-            Your Question
+            {t("Your Question", "आपका सवाल")}
           </label>
           <textarea
             required
             rows={3}
             value={questionText}
             onChange={(e) => setQuestionText(e.target.value)}
-            placeholder="e.g. What fabric is this made of?"
+            placeholder={t("e.g. What fabric is this made of?", "जैसे: यह किस फैब्रिक से बना है?")}
             className="w-full border border-slate-300 rounded-lg px-3 py-2 mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
 
@@ -110,14 +112,14 @@ function ProductQuestions({ productId }) {
             disabled={submitting}
             className="bg-blue-900 hover:bg-blue-950 text-white font-medium px-5 py-2.5 rounded-full transition-colors disabled:opacity-60"
           >
-            {submitting ? "Submitting..." : "Submit Question"}
+            {submitting ? t("Submitting...", "सबमिट हो रहा है...") : t("Submit Question", "सवाल सबमिट करें")}
           </button>
         </form>
       )}
 
       {questions.length === 0 ? (
         <p className="text-slate-500">
-          No questions yet. Ask us anything about this product!
+          {t("No questions yet. Ask us anything about this product!", "अभी तक कोई सवाल नहीं है। इस प्रोडक्ट के बारे में कुछ भी पूछें!")}
         </p>
       ) : (
         <div className="space-y-5">
@@ -132,7 +134,7 @@ function ProductQuestions({ productId }) {
               </p>
               <p className="text-sm text-slate-600 pl-6">{q.answer}</p>
               <p className="text-xs text-slate-400 pl-6 mt-1">
-                {q.user?.name || "Anonymous"} ·{" "}
+                {q.user?.name || t("Anonymous", "अज्ञात")} ·{" "}
                 {new Date(q.createdAt).toLocaleDateString("en-IN", {
                   day: "numeric",
                   month: "short",

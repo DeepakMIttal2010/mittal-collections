@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { FaStar, FaRegStar } from "react-icons/fa";
 
 import { useAuth } from "../context/AuthContext";
+import { useLanguage } from "../context/LanguageContext";
 import { getProductReviews, submitReview } from "../services/reviewService";
 
 function Stars({ value, size = "text-sm" }) {
@@ -19,6 +20,7 @@ const MAX_REVIEW_IMAGES = 3;
 
 function ProductReviews({ productId }) {
   const { isLoggedIn } = useAuth();
+  const { t } = useLanguage();
 
   const [reviews, setReviews] = useState([]);
   const [totalReviews, setTotalReviews] = useState(0);
@@ -124,7 +126,7 @@ function ProductReviews({ productId }) {
       setVideo(null);
       setShowForm(false);
     } else {
-      setFormMessage(response.message || "Unable to submit review");
+      setFormMessage(response.message || t("Unable to submit review", "रिव्यू सबमिट नहीं हो सका"));
     }
   };
 
@@ -133,7 +135,7 @@ function ProductReviews({ productId }) {
   return (
     <div id="reviews" className="mt-16 border-t border-slate-200 pt-10 scroll-mt-20">
       <h2 className="text-2xl font-bold text-slate-900 mb-6">
-        Customer Reviews
+        {t("Customer Reviews", "ग्राहक रिव्यू")}
       </h2>
 
       <div className="grid grid-cols-1 sm:grid-cols-[auto_1fr_auto] gap-8 items-start mb-8">
@@ -143,14 +145,17 @@ function ProductReviews({ productId }) {
           </p>
           <Stars value={averageRating} size="text-base" />
           <p className="text-sm text-slate-500 mt-1">
-            Based on {totalReviews} review{totalReviews !== 1 ? "s" : ""}
+            {t(
+              `Based on ${totalReviews} review${totalReviews !== 1 ? "s" : ""}`,
+              `${totalReviews} रिव्यू के आधार पर`,
+            )}
           </p>
         </div>
 
         <div className="space-y-1.5 max-w-sm">
           {breakdown.map(({ star, count }) => (
             <div key={star} className="flex items-center gap-2 text-sm">
-              <span className="w-10 text-slate-600">{star} star</span>
+              <span className="w-10 text-slate-600">{t(`${star} star`, `${star} स्टार`)}</span>
               <div className="flex-1 h-2 rounded-full bg-slate-100 overflow-hidden">
                 <div
                   className="h-full bg-amber-500 rounded-full"
@@ -173,14 +178,14 @@ function ProductReviews({ productId }) {
               onClick={() => setShowForm((v) => !v)}
               className="bg-amber-500 hover:bg-amber-600 text-white font-medium px-5 py-2.5 rounded-full transition-colors whitespace-nowrap"
             >
-              Write a Review
+              {t("Write a Review", "रिव्यू लिखें")}
             </button>
           ) : (
             <Link
               to={`/login?redirect=/product/${productId}`}
               className="inline-block border border-amber-500 text-amber-600 hover:bg-amber-50 font-medium px-5 py-2.5 rounded-full transition-colors whitespace-nowrap"
             >
-              Login to Review
+              {t("Login to Review", "रिव्यू के लिए लॉगिन करें")}
             </Link>
           )}
         </div>
@@ -198,7 +203,7 @@ function ProductReviews({ productId }) {
           className="border border-slate-200 rounded-xl p-5 mb-8 bg-white max-w-xl"
         >
           <label className="block text-sm font-medium text-slate-700 mb-1">
-            Your Rating
+            {t("Your Rating", "आपकी रेटिंग")}
           </label>
           <div className="flex gap-1 text-2xl text-amber-500 mb-4">
             {[1, 2, 3, 4, 5].map((n) => (
@@ -206,7 +211,7 @@ function ProductReviews({ productId }) {
                 key={n}
                 type="button"
                 onClick={() => setFormData((f) => ({ ...f, rating: n }))}
-                aria-label={`${n} star`}
+                aria-label={t(`${n} star`, `${n} स्टार`)}
               >
                 {n <= formData.rating ? <FaStar /> : <FaRegStar />}
               </button>
@@ -214,7 +219,7 @@ function ProductReviews({ productId }) {
           </div>
 
           <label className="block text-sm font-medium text-slate-700 mb-1">
-            Review
+            {t("Review", "रिव्यू")}
           </label>
           <textarea
             required
@@ -227,9 +232,9 @@ function ProductReviews({ productId }) {
           />
 
           <label className="block text-sm font-medium text-slate-700 mb-1">
-            Photos{" "}
+            {t("Photos", "फ़ोटो")}{" "}
             <span className="text-slate-400 font-normal">
-              (optional, up to {MAX_REVIEW_IMAGES})
+              {t(`(optional, up to ${MAX_REVIEW_IMAGES})`, `(वैकल्पिक, ${MAX_REVIEW_IMAGES} तक)`)}
             </span>
           </label>
           <div className="flex flex-wrap gap-2 mb-1">
@@ -243,7 +248,7 @@ function ProductReviews({ productId }) {
                 <button
                   type="button"
                   onClick={() => removeImage(index)}
-                  aria-label="Remove photo"
+                  aria-label={t("Remove photo", "फ़ोटो हटाएं")}
                   className="absolute -top-1.5 -right-1.5 bg-slate-900 text-white rounded-full w-5 h-5 text-xs leading-none flex items-center justify-center"
                 >
                   ×
@@ -252,7 +257,7 @@ function ProductReviews({ productId }) {
             ))}
             {images.length < MAX_REVIEW_IMAGES && (
               <label className="w-16 h-16 flex items-center justify-center border border-dashed border-slate-300 rounded-lg text-slate-400 text-xs cursor-pointer hover:border-amber-400 hover:text-amber-500">
-                + Add
+                {t("+ Add", "+ जोड़ें")}
                 <input
                   type="file"
                   accept="image/jpeg,image/png,image/webp"
@@ -264,13 +269,13 @@ function ProductReviews({ productId }) {
             )}
           </div>
           <p className="text-xs text-slate-400 mb-4">
-            JPG, PNG or WEBP, up to 5MB each
+            {t("JPG, PNG or WEBP, up to 5MB each", "JPG, PNG या WEBP, हर एक 5MB तक")}
           </p>
 
           <label className="block text-sm font-medium text-slate-700 mb-1">
-            Video{" "}
+            {t("Video", "वीडियो")}{" "}
             <span className="text-slate-400 font-normal">
-              (optional, one short clip)
+              {t("(optional, one short clip)", "(वैकल्पिक, एक छोटा क्लिप)")}
             </span>
           </label>
           {video ? (
@@ -285,12 +290,12 @@ function ProductReviews({ productId }) {
                 onClick={() => setVideo(null)}
                 className="text-xs text-red-600 hover:underline"
               >
-                Remove
+                {t("Remove", "हटाएं")}
               </button>
             </div>
           ) : (
             <label className="inline-block border border-dashed border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-500 cursor-pointer hover:border-amber-400 hover:text-amber-500 mb-1">
-              + Add a short video
+              {t("+ Add a short video", "+ एक छोटा वीडियो जोड़ें")}
               <input
                 type="file"
                 accept="video/mp4,video/webm,video/quicktime"
@@ -300,7 +305,7 @@ function ProductReviews({ productId }) {
             </label>
           )}
           <p className="text-xs text-slate-400 mb-4">
-            10-15 seconds, MP4/WEBM/MOV, up to 15MB
+            {t("10-15 seconds, MP4/WEBM/MOV, up to 15MB", "10-15 सेकंड, MP4/WEBM/MOV, 15MB तक")}
           </p>
 
           <button
@@ -308,14 +313,14 @@ function ProductReviews({ productId }) {
             disabled={submitting}
             className="bg-amber-500 hover:bg-amber-600 text-white font-medium px-5 py-2.5 rounded-full transition-colors disabled:opacity-60"
           >
-            {submitting ? "Submitting..." : "Submit Review"}
+            {submitting ? t("Submitting...", "सबमिट हो रहा है...") : t("Submit Review", "रिव्यू सबमिट करें")}
           </button>
         </form>
       )}
 
       {reviews.length === 0 ? (
         <p className="text-slate-500">
-          No reviews yet. Be the first to review this product!
+          {t("No reviews yet. Be the first to review this product!", "अभी तक कोई रिव्यू नहीं है। इस प्रोडक्ट का रिव्यू करने वाले पहले व्यक्ति बनें!")}
         </p>
       ) : (
         <div className="space-y-5">
@@ -341,7 +346,7 @@ function ProductReviews({ productId }) {
                     <img
                       key={url}
                       src={url}
-                      alt="Customer photo"
+                      alt={t("Customer photo", "ग्राहक फ़ोटो")}
                       className="w-16 h-16 object-cover rounded-lg border border-slate-200"
                     />
                   ))}
@@ -355,7 +360,7 @@ function ProductReviews({ productId }) {
                 </div>
               )}
               <p className="text-xs text-slate-400">
-                {review.user?.name || "Anonymous"} ·{" "}
+                {review.user?.name || t("Anonymous", "अज्ञात")} ·{" "}
                 {new Date(review.createdAt).toLocaleDateString("en-IN", {
                   day: "numeric",
                   month: "short",

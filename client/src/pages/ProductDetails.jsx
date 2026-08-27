@@ -713,7 +713,10 @@ function ProductDetails() {
           {pointsPreview > 0 && (
             <p className="flex items-center gap-1.5 text-sm text-amber-700 mb-4">
               <FaGift className="text-amber-500" />
-              You&apos;ll earn {pointsPreview} loyalty points on this order
+              {t(
+                `You'll earn ${pointsPreview} loyalty points on this order`,
+                `इस ऑर्डर पर आपको ${pointsPreview} लॉयल्टी पॉइंट्स मिलेंगे`,
+              )}
             </p>
           )}
 
@@ -728,8 +731,10 @@ function ProductDetails() {
           {viewCount > 0 && (
             <p className="flex items-center gap-1.5 text-sm text-slate-500 mb-4">
               <FaEye className="text-slate-400" />
-              {viewCount} {viewCount === 1 ? "person" : "people"} viewed this
-              today
+              {t(
+                `${viewCount} ${viewCount === 1 ? "person" : "people"} viewed this today`,
+                `आज ${viewCount} लोगों ने इसे देखा`,
+              )}
             </p>
           )}
 
@@ -745,7 +750,7 @@ function ProductDetails() {
           {displayStock <= 0 &&
             (notifySubmitted ? (
               <p className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-4 py-3 mb-6">
-                We&apos;ll email you when this is back in stock.
+                {t("We'll email you when this is back in stock.", "जब यह फिर से स्टॉक में आएगा तो हम आपको ईमेल करेंगे।")}
               </p>
             ) : (
               <form
@@ -756,7 +761,7 @@ function ProductDetails() {
                   type="email"
                   value={notifyEmail}
                   onChange={(e) => setNotifyEmail(e.target.value)}
-                  placeholder="Your email"
+                  placeholder={t("Your email", "आपका ईमेल")}
                   required
                   className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
