@@ -5,6 +5,7 @@ import { FaTag, FaTimes, FaGift, FaTags } from "react-icons/fa";
 
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
+import { useLanguage } from "../context/LanguageContext";
 import {
   createOrder,
   verifyRazorpayPayment,
@@ -40,6 +41,7 @@ const loadRazorpayScript = () => {
 
 function Checkout() {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const { isLoggedIn, user } = useAuth();
 
   const { cartItems, totalPrice, bundleInfo, clearCart } = useCart();
@@ -212,9 +214,13 @@ function Checkout() {
         discountAmount: response.discountAmount,
       });
       setCouponInput(response.code);
-      toast.success(`Coupon ${response.code} applied!`);
+      toast.success(
+        t(`Coupon ${response.code} applied!`, `कूपन ${response.code} लागू हुआ!`),
+      );
     } else {
-      setCouponError(response.message || "Invalid coupon code");
+      setCouponError(
+        response.message || t("Invalid coupon code", "अमान्य कूपन कोड"),
+      );
     }
   };
 
@@ -226,12 +232,12 @@ function Checkout() {
 
   const handlePlaceOrder = async () => {
     if (cartItems.length === 0) {
-      toast.error("Your cart is empty");
+      toast.error(t("Your cart is empty", "आपका कार्ट खाली है"));
       return;
     }
 
     if (!selectedAddress) {
-      toast.error("Please add a delivery address");
+      toast.error(t("Please add a delivery address", "कृपया एक डिलीवरी पता जोड़ें"));
       return;
     }
 
@@ -271,7 +277,7 @@ function Checkout() {
 
     if (paymentMethod !== "Razorpay") {
       setPlacing(false);
-      toast.success("Order placed successfully 🎉");
+      toast.success(t("Order placed successfully 🎉", "ऑर्डर सफलतापूर्वक हो गया 🎉"));
       clearCart();
       navigate("/my-orders");
       return;
@@ -285,7 +291,10 @@ function Checkout() {
       // COD order starts in — so this isn't a failure, just no payment
       // collected yet.
       toast.error(
-        "Order placed, but we couldn't open the payment window. You can pay from My Orders.",
+        t(
+          "Order placed, but we couldn't open the payment window. You can pay from My Orders.",
+          "ऑर्डर हो गया, लेकिन पेमेंट विंडो नहीं खुल पाई। आप My Orders से पेमेंट कर सकते हैं।",
+        ),
       );
       clearCart();
       navigate("/my-orders");
@@ -322,15 +331,21 @@ function Checkout() {
 
         finishRazorpayFlow(
           verifyResponse.success
-            ? "Payment successful — order placed 🎉"
-            : "Order placed, but payment verification failed. Please contact support.",
+            ? t("Payment successful — order placed 🎉", "पेमेंट सफल — ऑर्डर हो गया 🎉")
+            : t(
+                "Order placed, but payment verification failed. Please contact support.",
+                "ऑर्डर हो गया, लेकिन पेमेंट verify नहीं हो पाया। कृपया सपोर्ट से संपर्क करें।",
+              ),
           verifyResponse.success,
         );
       },
       modal: {
         ondismiss: () => {
           finishRazorpayFlow(
-            "Order placed — payment not completed. You can pay from My Orders.",
+            t(
+              "Order placed — payment not completed. You can pay from My Orders.",
+              "ऑर्डर हो गया — पेमेंट पूरा नहीं हुआ। आप My Orders से पेमेंट कर सकते हैं।",
+            ),
             false,
           );
         },
@@ -342,7 +357,12 @@ function Checkout() {
     // here, don't navigate away yet. modal.ondismiss (fired once the
     // customer actually closes the modal) handles leaving the page.
     razorpay.on("payment.failed", () => {
-      toast.error("Payment failed — you can try another payment method.");
+      toast.error(
+        t(
+          "Payment failed — you can try another payment method.",
+          "पेमेंट नहीं हो पाया — आप कोई और पेमेंट तरीका आज़मा सकते हैं।",
+        ),
+      );
     });
 
     setPlacing(false);
@@ -352,12 +372,12 @@ function Checkout() {
   if (cartItems.length === 0) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-16 text-center">
-        <p className="text-slate-500 mb-4">Your cart is empty.</p>
+        <p className="text-slate-500 mb-4">{t("Your cart is empty.", "आपका कार्ट खाली है।")}</p>
         <Link
           to="/"
           className="inline-block bg-blue-900 hover:bg-blue-950 text-white font-semibold rounded-full px-6 py-3 transition-colors"
         >
-          Continue Shopping
+          {t("Continue Shopping", "शॉपिंग जारी रखें")}
         </Link>
       </div>
     );
@@ -366,7 +386,7 @@ function Checkout() {
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
       <h1 className="text-2xl font-bold text-slate-900 mb-6">
-        Place Your Order
+        {t("Place Your Order", "अपना ऑर्डर करें")}
       </h1>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -377,10 +397,13 @@ function Checkout() {
             <div className="flex items-start justify-between gap-4">
               <h2 className="font-semibold text-slate-800">
                 {addressesLoading
-                  ? "Loading address..."
+                  ? t("Loading address...", "पता लोड हो रहा है...")
                   : selectedAddress
-                    ? `Delivering to ${selectedAddress.fullName}`
-                    : "No delivery address"}
+                    ? t(
+                        `Delivering to ${selectedAddress.fullName}`,
+                        `${selectedAddress.fullName} को डिलीवर होगा`,
+                      )
+                    : t("No delivery address", "कोई डिलीवरी पता नहीं")}
               </h2>
 
               {addresses.length > 0 && (
@@ -389,7 +412,7 @@ function Checkout() {
                   onClick={() => setShowAddressPicker((v) => !v)}
                   className="text-sm text-blue-700 hover:underline shrink-0"
                 >
-                  Change
+                  {t("Change", "बदलें")}
                 </button>
               )}
             </div>
@@ -401,20 +424,20 @@ function Checkout() {
                 {selectedAddress.city}, {selectedAddress.state}{" "}
                 {selectedAddress.pincode}, {selectedAddress.country}
                 <br />
-                Phone number: {selectedAddress.mobile}
+                {t("Phone number", "फ़ोन नंबर")}: {selectedAddress.mobile}
               </p>
             )}
 
             {!addressesLoading && addresses.length === 0 && (
               <div className="mt-3">
                 <p className="text-sm text-slate-500 mb-3">
-                  You don&apos;t have a saved address yet.
+                  {t("You don't have a saved address yet.", "आपने अभी तक कोई पता सेव नहीं किया है।")}
                 </p>
                 <Link
                   to="/addresses/add?redirect=/checkout"
                   className="inline-block bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold rounded-full px-5 py-2.5 transition-colors"
                 >
-                  Add an address
+                  {t("Add an address", "एक पता जोड़ें")}
                 </Link>
               </div>
             )}
@@ -441,7 +464,7 @@ function Checkout() {
                       {addr.unit ? `, ${addr.unit}` : ""}, {addr.city},{" "}
                       {addr.state} {addr.pincode}
                       <br />
-                      Phone number: {addr.mobile}
+                      {t("Phone number", "फ़ोन नंबर")}: {addr.mobile}
                     </span>
                   </label>
                 ))}
@@ -450,7 +473,7 @@ function Checkout() {
                   to="/addresses/add?redirect=/checkout"
                   className="inline-block text-sm text-blue-700 hover:underline"
                 >
-                  + Add a new address
+                  {t("+ Add a new address", "+ नया पता जोड़ें")}
                 </Link>
               </div>
             )}
@@ -459,7 +482,7 @@ function Checkout() {
           {/* Payment method */}
           <div className="border border-slate-200 rounded-xl p-5 bg-white">
             <h2 className="font-semibold text-slate-800 mb-3">
-              Payment method
+              {t("Payment method", "पेमेंट का तरीका")}
             </h2>
 
             <div className="space-y-3">
@@ -473,9 +496,12 @@ function Checkout() {
                   className="accent-blue-900"
                 />
                 <span className="text-sm text-slate-700">
-                  Cash on Delivery
+                  {t("Cash on Delivery", "कैश ऑन डिलीवरी")}
                   {shipping.codCharge > 0 && (
-                    <span className="text-slate-400"> (+₹{shipping.codCharge} COD charge)</span>
+                    <span className="text-slate-400">
+                      {" "}
+                      (+₹{shipping.codCharge} {t("COD charge", "COD चार्ज")})
+                    </span>
                   )}
                 </span>
               </label>
@@ -490,7 +516,7 @@ function Checkout() {
                   className="accent-blue-900"
                 />
                 <span className="text-sm text-slate-700">
-                  Razorpay (Cards / UPI / Netbanking)
+                  {t("Razorpay (Cards / UPI / Netbanking)", "Razorpay (कार्ड / UPI / नेटबैंकिंग)")}
                 </span>
               </label>
             </div>
@@ -498,8 +524,10 @@ function Checkout() {
             {paymentMethod === "COD" && codCharge > 0 && (
               <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5 mt-4">
                 <p className="text-xs text-amber-800">
-                  A ₹{codCharge} COD handling charge applies to Cash on
-                  Delivery orders — pick Razorpay to avoid it.
+                  {t(
+                    `A ₹${codCharge} COD handling charge applies to Cash on Delivery orders — pick Razorpay to avoid it.`,
+                    `कैश ऑन डिलीवरी ऑर्डर पर ₹${codCharge} COD हैंडलिंग चार्ज लगता है — इससे बचने के लिए Razorpay चुनें।`,
+                  )}
                 </p>
               </div>
             )}
@@ -515,17 +543,23 @@ function Checkout() {
               disabled={placing}
               className="w-full bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-full py-3.5 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              {placing ? "Placing Order..." : "Place Order"}
+              {placing ? t("Placing Order...", "ऑर्डर हो रहा है...") : t("Place Order", "ऑर्डर करें")}
             </button>
 
             {bundleInfo.eligible ? (
               <div className="bg-indigo-50 border border-indigo-200 rounded-lg px-3 py-2.5 mt-4">
                 <span className="text-sm font-medium text-indigo-800 flex items-center gap-1.5">
                   <FaTags className="text-xs" />
-                  Extra {bundleInfo.discountPercent}% OFF Applied!
+                  {t(
+                    `Extra ${bundleInfo.discountPercent}% OFF Applied!`,
+                    `अतिरिक्त ${bundleInfo.discountPercent}% छूट लागू हुई!`,
+                  )}
                 </span>
                 <span className="text-xs text-indigo-700">
-                  Complete the Look bundle discount applied to your order.
+                  {t(
+                    "Complete the Look bundle discount applied to your order.",
+                    "आपके ऑर्डर पर 'Complete the Look' बंडल छूट लागू हुई है।",
+                  )}
                 </span>
               </div>
             ) : (
@@ -536,14 +570,22 @@ function Checkout() {
                 >
                   <span className="text-sm font-medium text-blue-800 flex items-center gap-1.5">
                     <FaTags className="text-xs" />
-                    Get Extra {bundleInfo.discountPercent}% OFF!
+                    {t(
+                      `Get Extra ${bundleInfo.discountPercent}% OFF!`,
+                      `अतिरिक्त ${bundleInfo.discountPercent}% छूट पाएं!`,
+                    )}
                   </span>
                   <span className="text-xs text-blue-700 block">
-                    Add {bundleInfo.missingCategoryLabel} to your cart and
-                    unlock an additional {bundleInfo.discountPercent}% OFF.
+                    {t(
+                      `Add ${bundleInfo.missingCategoryLabel} to your cart and unlock an additional ${bundleInfo.discountPercent}% OFF.`,
+                      `अपने कार्ट में ${bundleInfo.missingCategoryLabel} जोड़ें और अतिरिक्त ${bundleInfo.discountPercent}% छूट पाएं।`,
+                    )}
                   </span>
                   <span className="text-xs font-semibold text-blue-800">
-                    Shop {bundleInfo.missingCategoryLabel} →
+                    {t(
+                      `Shop ${bundleInfo.missingCategoryLabel} →`,
+                      `${bundleInfo.missingCategoryLabel} खरीदें →`,
+                    )}
                   </span>
                 </Link>
               )
@@ -554,13 +596,13 @@ function Checkout() {
                 <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-lg px-3 py-2 text-sm">
                   <span className="text-green-700 font-medium flex items-center gap-1.5">
                     <FaTag className="text-xs" />
-                    {appliedCoupon.code} applied
+                    {t(`${appliedCoupon.code} applied`, `${appliedCoupon.code} लागू है`)}
                   </span>
                   <button
                     type="button"
                     onClick={handleRemoveCoupon}
                     className="text-green-700 hover:text-green-900"
-                    aria-label="Remove coupon"
+                    aria-label={t("Remove coupon", "कूपन हटाएं")}
                   >
                     <FaTimes className="text-xs" />
                   </button>
@@ -576,11 +618,16 @@ function Checkout() {
                     >
                       <span className="text-sm font-medium text-amber-800 flex items-center gap-1.5">
                         <FaTag className="text-xs" />
-                        You&apos;re eligible for {firstOrderOffer.discountValue}
-                        % off (up to ₹{firstOrderOffer.maxDiscount})
+                        {t(
+                          `You're eligible for ${firstOrderOffer.discountValue}% off (up to ₹${firstOrderOffer.maxDiscount})`,
+                          `आप ${firstOrderOffer.discountValue}% छूट के योग्य हैं (₹${firstOrderOffer.maxDiscount} तक)`,
+                        )}
                       </span>
                       <span className="text-xs text-amber-700">
-                        Tap to apply code {firstOrderOffer.code}
+                        {t(
+                          `Tap to apply code ${firstOrderOffer.code}`,
+                          `कोड ${firstOrderOffer.code} लागू करने के लिए टैप करें`,
+                        )}
                       </span>
                     </button>
                   )}
@@ -592,7 +639,7 @@ function Checkout() {
                       onChange={(e) =>
                         setCouponInput(e.target.value.toUpperCase())
                       }
-                      placeholder="Coupon code"
+                      placeholder={t("Coupon code", "कूपन कोड")}
                       className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
                     />
                     <button
@@ -601,7 +648,7 @@ function Checkout() {
                       disabled={checkingCoupon || !couponInput.trim()}
                       className="px-4 py-2 rounded-lg border border-slate-300 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
                     >
-                      {checkingCoupon ? "..." : "Apply"}
+                      {checkingCoupon ? "..." : t("Apply", "लागू करें")}
                     </button>
                   </div>
                   {couponError && (
@@ -617,9 +664,9 @@ function Checkout() {
               <div className="border-t border-slate-100 mt-4 pt-4">
                 <label className="flex items-center justify-between cursor-pointer">
                   <span className="text-sm text-slate-700">
-                    Use loyalty points{" "}
+                    {t("Use loyalty points", "लॉयल्टी पॉइंट्स इस्तेमाल करें")}{" "}
                     <span className="text-slate-400">
-                      ({availablePoints} available)
+                      ({availablePoints} {t("available", "उपलब्ध")})
                     </span>
                   </span>
                   <input
@@ -640,9 +687,9 @@ function Checkout() {
                       className="w-full"
                     />
                     <div className="flex justify-between text-xs text-slate-500 mt-1">
-                      <span>{redeemPoints} points</span>
+                      <span>{redeemPoints} {t("points", "पॉइंट्स")}</span>
                       <span>
-                        -₹{redeemPoints * loyaltyRules.redeemValue} off
+                        -₹{redeemPoints * loyaltyRules.redeemValue} {t("off", "छूट")}
                       </span>
                     </div>
                   </div>
@@ -652,7 +699,7 @@ function Checkout() {
 
             <div className="border-t border-slate-100 mt-4 pt-4 space-y-2 text-sm">
               <div className="flex justify-between text-slate-600">
-                <span>Items:</span>
+                <span>{t("Items", "आइटम")}:</span>
                 <span>₹{totalPrice}</span>
               </div>
               <div className="flex justify-between text-slate-600">
@@ -661,15 +708,15 @@ function Checkout() {
                   onClick={() => setShowDeliveryInfo((prev) => !prev)}
                   className="text-blue-600 hover:underline"
                 >
-                  Delivery*:
+                  {t("Delivery*", "डिलीवरी*")}:
                 </button>
-                <span>{deliveryFee === 0 ? "FREE" : `₹${deliveryFee}`}</span>
+                <span>{deliveryFee === 0 ? t("FREE", "फ्री") : `₹${deliveryFee}`}</span>
               </div>
 
               {showDeliveryInfo && (
                 <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs text-slate-600 space-y-1.5">
                   <p className="font-semibold text-slate-700">
-                    Delivery charges
+                    {t("Delivery charges", "डिलीवरी शुल्क")}
                   </p>
 
                   {sortedShippingTiers.length > 0 ? (
@@ -678,34 +725,46 @@ function Checkout() {
                         key={tier._id || tier.maxOrderValue}
                         className="flex justify-between"
                       >
-                        <span>Orders under ₹{tier.maxOrderValue}</span>
+                        <span>{t(`Orders under ₹${tier.maxOrderValue}`, `₹${tier.maxOrderValue} से कम के ऑर्डर पर`)}</span>
                         <span>₹{tier.fee}</span>
                       </div>
                     ))
                   ) : (
                     <div className="flex justify-between">
-                      <span>Orders under ₹{shipping.freeShippingThreshold}</span>
+                      <span>
+                        {t(
+                          `Orders under ₹${shipping.freeShippingThreshold}`,
+                          `₹${shipping.freeShippingThreshold} से कम के ऑर्डर पर`,
+                        )}
+                      </span>
                       <span>₹{shipping.deliveryFee}</span>
                     </div>
                   )}
 
                   <div className="flex justify-between text-green-700 font-medium">
-                    <span>Orders ₹{shipping.freeShippingThreshold} and above</span>
-                    <span>FREE</span>
+                    <span>
+                      {t(
+                        `Orders ₹${shipping.freeShippingThreshold} and above`,
+                        `₹${shipping.freeShippingThreshold} और उससे ज़्यादा के ऑर्डर पर`,
+                      )}
+                    </span>
+                    <span>{t("FREE", "फ्री")}</span>
                   </div>
                 </div>
               )}
 
               {codCharge > 0 && (
                 <div className="flex justify-between text-slate-600">
-                  <span>COD charge:</span>
+                  <span>{t("COD charge", "COD चार्ज")}:</span>
                   <span>₹{codCharge}</span>
                 </div>
               )}
 
               {discountAmount > 0 && (
                 <div className="flex justify-between text-green-600">
-                  <span>Discount ({appliedCoupon.code}):</span>
+                  <span>
+                    {t("Discount", "छूट")} ({appliedCoupon.code}):
+                  </span>
                   <span>-₹{discountAmount}</span>
                 </div>
               )}
@@ -717,19 +776,19 @@ function Checkout() {
                       onClick={() => setShowBundleInfo((prev) => !prev)}
                       className="hover:underline"
                     >
-                      Bundle discount ({bundleInfo.discountPercent}%)*:
+                      {t("Bundle discount", "बंडल छूट")} ({bundleInfo.discountPercent}%)*:
                     </button>
                     <span>-₹{bundleInfo.discountAmount}</span>
                   </div>
 
                   {showBundleInfo && (
                     <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-xs text-green-800 space-y-1.5">
-                      <p className="font-semibold">Items in this bundle</p>
+                      <p className="font-semibold">{t("Items in this bundle", "इस बंडल में आइटम")}</p>
                       <p className="text-green-700">
-                        *Only the best-matching pair gets the discount —
-                        other items in your order aren&apos;t discounted
-                        twice, even if they&apos;d also qualify for a
-                        different bundle.
+                        {t(
+                          "*Only the best-matching pair gets the discount — other items in your order aren't discounted twice, even if they'd also qualify for a different bundle.",
+                          "*सिर्फ सबसे अच्छे मैच वाली जोड़ी पर छूट मिलती है — बाकी आइटम पर दोबारा छूट नहीं मिलती, भले ही वो किसी दूसरे बंडल के लिए योग्य हों।",
+                        )}
                       </p>
                       {bundleInfo.eligibleItems.map((item) => (
                         <div key={item._id} className="flex justify-between">
@@ -740,11 +799,11 @@ function Checkout() {
                         </div>
                       ))}
                       <div className="flex justify-between font-semibold border-t border-green-200 pt-1.5">
-                        <span>Eligible subtotal</span>
+                        <span>{t("Eligible subtotal", "योग्य सबटोटल")}</span>
                         <span>₹{bundleInfo.eligibleSubtotal}</span>
                       </div>
                       <div className="flex justify-between font-semibold">
-                        <span>{bundleInfo.discountPercent}% off</span>
+                        <span>{t(`${bundleInfo.discountPercent}% off`, `${bundleInfo.discountPercent}% छूट`)}</span>
                         <span>-₹{bundleInfo.discountAmount}</span>
                       </div>
                     </div>
@@ -753,21 +812,26 @@ function Checkout() {
               )}
               {pointsDiscount > 0 && (
                 <div className="flex justify-between text-green-600">
-                  <span>Points redeemed ({redeemPoints}):</span>
+                  <span>
+                    {t("Points redeemed", "पॉइंट्स इस्तेमाल हुए")} ({redeemPoints}):
+                  </span>
                   <span>-₹{pointsDiscount}</span>
                 </div>
               )}
             </div>
 
             <div className="border-t border-slate-100 mt-3 pt-3 flex justify-between">
-              <span className="font-bold text-slate-900">Order Total:</span>
+              <span className="font-bold text-slate-900">{t("Order Total", "ऑर्डर टोटल")}:</span>
               <span className="font-bold text-slate-900">₹{orderTotal}</span>
             </div>
 
             {pointsPreview > 0 && (
               <p className="flex items-center gap-1.5 text-xs text-amber-700 mt-3">
                 <FaGift />
-                You&apos;ll earn {pointsPreview} loyalty points on this order
+                {t(
+                  `You'll earn ${pointsPreview} loyalty points on this order`,
+                  `इस ऑर्डर पर आपको ${pointsPreview} लॉयल्टी पॉइंट्स मिलेंगे`,
+                )}
               </p>
             )}
           </div>

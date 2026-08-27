@@ -5,12 +5,14 @@ import { FaTimes, FaPlus, FaMinus, FaLock, FaGift } from "react-icons/fa";
 
 import { useCart } from "../../context/CartContext";
 import { useAuth } from "../../context/AuthContext";
+import { useLanguage } from "../../context/LanguageContext";
 import { getPublicRewardsInfo } from "../../services/rewardsService";
 import { getSiteSettings } from "../../services/settingsService";
 
 function CartDrawer() {
   const navigate = useNavigate();
   const { isLoggedIn } = useAuth();
+  const { t } = useLanguage();
   const {
     cartItems,
     increaseQty,
@@ -68,7 +70,7 @@ function CartDrawer() {
       >
         <div className="flex items-center justify-between px-6 py-5 border-b border-slate-200">
           <h2 className="text-xl font-bold text-slate-900">
-            Cart
+            {t("Cart", "कार्ट")}
             {totalItems > 0 && (
               <sup className="ml-1 text-sm font-semibold">{totalItems}</sup>
             )}
@@ -77,7 +79,7 @@ function CartDrawer() {
           <button
             type="button"
             onClick={closeCart}
-            aria-label="Close cart"
+            aria-label={t("Close cart", "कार्ट बंद करें")}
             className="w-9 h-9 rounded-full border border-slate-200 flex items-center justify-center text-slate-500 hover:text-slate-800"
           >
             <FaTimes />
@@ -86,13 +88,13 @@ function CartDrawer() {
 
         {cartItems.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center gap-4 px-6 text-center">
-            <p className="text-slate-500">Your cart is empty.</p>
+            <p className="text-slate-500">{t("Your cart is empty.", "आपका कार्ट खाली है।")}</p>
             <Link
               to="/"
               onClick={closeCart}
               className="bg-blue-900 hover:bg-blue-950 text-white font-semibold rounded-full px-6 py-3 transition-colors"
             >
-              Continue Shopping
+              {t("Continue Shopping", "शॉपिंग जारी रखें")}
             </Link>
           </div>
         ) : (
@@ -101,12 +103,14 @@ function CartDrawer() {
               <p className="text-sm text-slate-700">
                 {remaining === 0 ? (
                   <span className="font-medium">
-                    You are eligible for free shipping!
+                    {t("You are eligible for free shipping!", "आप फ्री शिपिंग के लिए योग्य हैं!")}
                   </span>
                 ) : (
                   <>
-                    Add ₹{remaining} more for{" "}
-                    <span className="font-semibold">free shipping</span>
+                    {t(`Add ₹${remaining} more for `, `और ₹${remaining} जोड़ें, `)}
+                    <span className="font-semibold">
+                      {t("free shipping", "फ्री शिपिंग पाने के लिए")}
+                    </span>
                   </>
                 )}
               </p>
@@ -137,7 +141,7 @@ function CartDrawer() {
                     </p>
                     {item.selectedSize && (
                       <p className="text-xs text-slate-400">
-                        Size: {item.selectedSize}
+                        {t("Size", "साइज़")}: {item.selectedSize}
                       </p>
                     )}
                     <p className="text-sm text-slate-500 mt-1">
@@ -148,7 +152,7 @@ function CartDrawer() {
                       onClick={() => removeFromCart(item._id)}
                       className="text-xs underline text-slate-500 mt-2"
                     >
-                      Remove
+                      {t("Remove", "हटाएं")}
                     </button>
                   </div>
 
@@ -177,12 +181,15 @@ function CartDrawer() {
 
             <div className="px-6 py-4 border-t border-slate-200 bg-slate-50">
               <p className="text-xs text-slate-500 mb-3">
-                Tax included. Shipping calculated at checkout.
+                {t(
+                  "Tax included. Shipping calculated at checkout.",
+                  "टैक्स शामिल है। शिपिंग चेकआउट पर calculate होगी।",
+                )}
               </p>
 
               <div className="flex items-center justify-between mb-2">
                 <span className="font-semibold text-slate-800">
-                  Subtotal
+                  {t("Subtotal", "सबटोटल")}
                 </span>
                 <span className="font-bold text-lg text-slate-900">
                   ₹{totalPrice}
@@ -193,8 +200,10 @@ function CartDrawer() {
                 {pointsPreview > 0 && (
                   <>
                     <FaGift />
-                    You&apos;ll earn {pointsPreview} loyalty points on this
-                    order
+                    {t(
+                      `You'll earn ${pointsPreview} loyalty points on this order`,
+                      `इस ऑर्डर पर आपको ${pointsPreview} लॉयल्टी पॉइंट्स मिलेंगे`,
+                    )}
                   </>
                 )}
               </p>
@@ -205,7 +214,7 @@ function CartDrawer() {
                 className="flex items-center justify-center gap-2 w-full bg-blue-900 hover:bg-blue-950 text-white font-semibold rounded-full py-3.5 transition-colors"
               >
                 <FaLock className="text-xs" />
-                Check out
+                {t("Check out", "चेकआउट करें")}
               </button>
             </div>
           </>

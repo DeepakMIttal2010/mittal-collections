@@ -4,12 +4,14 @@ import { Link } from "react-router-dom";
 import { FaTrash, FaPlus, FaMinus, FaGift, FaTags } from "react-icons/fa";
 
 import { useCart } from "../context/CartContext";
+import { useLanguage } from "../context/LanguageContext";
 import { getPublicRewardsInfo } from "../services/rewardsService";
 import { getSiteSettings } from "../services/settingsService";
 import { calculateDeliveryFee } from "../utils/shipping";
 import "./Cart.css";
 
 function Cart() {
+  const { t } = useLanguage();
   const {
     cartItems,
     increaseQty,
@@ -56,12 +58,17 @@ function Cart() {
   if (cartItems.length === 0) {
     return (
       <div className="empty-cart">
-        <h2>Your Cart is Empty</h2>
+        <h2>{t("Your Cart is Empty", "आपका कार्ट खाली है")}</h2>
 
-        <p>Looks like you haven't added any products yet.</p>
+        <p>
+          {t(
+            "Looks like you haven't added any products yet.",
+            "लगता है आपने अभी तक कोई प्रोडक्ट नहीं जोड़ा है।",
+          )}
+        </p>
 
         <Link to="/" className="shop-btn">
-          Continue Shopping
+          {t("Continue Shopping", "शॉपिंग जारी रखें")}
         </Link>
       </div>
     );
@@ -70,7 +77,7 @@ function Cart() {
   return (
     <section className="cart-page">
       <div className="container">
-        <h2 className="cart-title">Shopping Cart</h2>
+        <h2 className="cart-title">{t("Shopping Cart", "शॉपिंग कार्ट")}</h2>
 
         <div className="cart-layout">
           {/* Left */}
@@ -92,7 +99,9 @@ function Cart() {
 
                   <p>
                     {item.category?.name}
-                    {item.selectedSize ? ` · Size: ${item.selectedSize}` : ""}
+                    {item.selectedSize
+                      ? ` · ${t("Size", "साइज़")}: ${item.selectedSize}`
+                      : ""}
                   </p>
 
                   <h4>₹{item.price}</h4>
@@ -125,7 +134,7 @@ function Cart() {
           {/* Right */}
 
           <div className="cart-summary">
-            <h3>Order Summary</h3>
+            <h3>{t("Order Summary", "ऑर्डर सारांश")}</h3>
 
             {bundleInfo.eligible ? (
               <div
@@ -139,10 +148,16 @@ function Cart() {
               >
                 <div style={{ display: "flex", alignItems: "center", gap: "6px", color: "#3730a3", fontWeight: 700, fontSize: "0.9rem" }}>
                   <FaTags style={{ fontSize: "0.85rem" }} />
-                  Extra {bundleInfo.discountPercent}% OFF Applied!
+                  {t(
+                    `Extra ${bundleInfo.discountPercent}% OFF Applied!`,
+                    `अतिरिक्त ${bundleInfo.discountPercent}% छूट लागू हुई!`,
+                  )}
                 </div>
                 <div style={{ color: "#4338ca", fontSize: "0.8rem" }}>
-                  Complete the Look bundle discount applied to your order.
+                  {t(
+                    "Complete the Look bundle discount applied to your order.",
+                    "आपके ऑर्डर पर 'Complete the Look' बंडल छूट लागू हुई है।",
+                  )}
                 </div>
               </div>
             ) : (
@@ -161,32 +176,40 @@ function Cart() {
                 >
                   <div style={{ display: "flex", alignItems: "center", gap: "6px", color: "#1e40af", fontWeight: 700, fontSize: "0.9rem" }}>
                     <FaTags style={{ fontSize: "0.85rem" }} />
-                    Get Extra {bundleInfo.discountPercent}% OFF!
+                    {t(
+                      `Get Extra ${bundleInfo.discountPercent}% OFF!`,
+                      `अतिरिक्त ${bundleInfo.discountPercent}% छूट पाएं!`,
+                    )}
                   </div>
                   <div style={{ color: "#1d4ed8", fontSize: "0.8rem" }}>
-                    Add {bundleInfo.missingCategoryLabel} to your cart and
-                    unlock an additional {bundleInfo.discountPercent}% OFF.
+                    {t(
+                      `Add ${bundleInfo.missingCategoryLabel} to your cart and unlock an additional ${bundleInfo.discountPercent}% OFF.`,
+                      `अपने कार्ट में ${bundleInfo.missingCategoryLabel} जोड़ें और अतिरिक्त ${bundleInfo.discountPercent}% छूट पाएं।`,
+                    )}
                   </div>
                   <div style={{ color: "#1e40af", fontSize: "0.8rem", fontWeight: 700 }}>
-                    Shop {bundleInfo.missingCategoryLabel} →
+                    {t(
+                      `Shop ${bundleInfo.missingCategoryLabel} →`,
+                      `${bundleInfo.missingCategoryLabel} खरीदें →`,
+                    )}
                   </div>
                 </Link>
               )
             )}
 
             <div className="summary-row">
-              <span>Total Items</span>
+              <span>{t("Total Items", "कुल आइटम")}</span>
               <span>{totalItems}</span>
             </div>
 
             <div className="summary-row">
-              <span>Subtotal</span>
+              <span>{t("Subtotal", "सबटोटल")}</span>
               <span>₹{totalPrice}</span>
             </div>
 
             <div className="summary-row">
-              <span>Shipping*</span>
-              <span>{deliveryFee === 0 ? "FREE" : `₹${deliveryFee}`}</span>
+              <span>{t("Shipping*", "शिपिंग*")}</span>
+              <span>{deliveryFee === 0 ? t("FREE", "फ्री") : `₹${deliveryFee}`}</span>
             </div>
 
             {bundleInfo.discountAmount > 0 && (
@@ -205,7 +228,10 @@ function Cart() {
                       font: "inherit",
                     }}
                   >
-                    Bundle discount ({bundleInfo.discountPercent}%)*
+                    {t(
+                      `Bundle discount (${bundleInfo.discountPercent}%)*`,
+                      `बंडल छूट (${bundleInfo.discountPercent}%)*`,
+                    )}
                   </button>
                   <span>-₹{bundleInfo.discountAmount}</span>
                 </div>
@@ -223,7 +249,7 @@ function Cart() {
                     }}
                   >
                     <p style={{ fontWeight: 700, marginBottom: "6px" }}>
-                      Items in this bundle
+                      {t("Items in this bundle", "इस बंडल में आइटम")}
                     </p>
                     {bundleInfo.eligibleItems.map((item) => (
                       <div
@@ -250,7 +276,7 @@ function Cart() {
                         fontWeight: 700,
                       }}
                     >
-                      <span>Eligible subtotal</span>
+                      <span>{t("Eligible subtotal", "योग्य सबटोटल")}</span>
                       <span>₹{bundleInfo.eligibleSubtotal}</span>
                     </div>
                     <div
@@ -260,7 +286,7 @@ function Cart() {
                         fontWeight: 700,
                       }}
                     >
-                      <span>{bundleInfo.discountPercent}% off</span>
+                      <span>{t(`${bundleInfo.discountPercent}% off`, `${bundleInfo.discountPercent}% छूट`)}</span>
                       <span>-₹{bundleInfo.discountAmount}</span>
                     </div>
                   </div>
@@ -271,14 +297,20 @@ function Cart() {
             <hr />
 
             <div className="summary-row total">
-              <span>Total</span>
+              <span>{t("Total", "कुल")}</span>
               <span>₹{orderTotal}</span>
             </div>
 
             <p style={{ fontSize: "0.7rem", color: "#94a3b8", marginTop: "8px" }}>
-              *Shipping varies by delivery address and order value.
+              {t(
+                "*Shipping varies by delivery address and order value.",
+                "*शिपिंग डिलीवरी पते और ऑर्डर वैल्यू के अनुसार अलग हो सकती है।",
+              )}
               {bundleInfo.discountAmount > 0 &&
-                " *Bundle discount applies to the best-matching pair only — other items aren't discounted twice."}
+                t(
+                  " *Bundle discount applies to the best-matching pair only — other items aren't discounted twice.",
+                  " *बंडल छूट सिर्फ सबसे अच्छे मैच वाली जोड़ी पर लागू होती है — बाकी आइटम पर दोबारा छूट नहीं मिलती।",
+                )}
             </p>
 
             {pointsPreview > 0 && (
@@ -293,16 +325,19 @@ function Cart() {
                 }}
               >
                 <FaGift />
-                You&apos;ll earn {pointsPreview} loyalty points on this order
+                {t(
+                  `You'll earn ${pointsPreview} loyalty points on this order`,
+                  `इस ऑर्डर पर आपको ${pointsPreview} लॉयल्टी पॉइंट्स मिलेंगे`,
+                )}
               </p>
             )}
 
             <Link to="/checkout" className="checkout-btn">
-              Proceed to Checkout
+              {t("Proceed to Checkout", "चेकआउट पर जाएं")}
             </Link>
 
             <button className="clear-btn" onClick={clearCart}>
-              Clear Cart
+              {t("Clear Cart", "कार्ट खाली करें")}
             </button>
           </div>
         </div>
