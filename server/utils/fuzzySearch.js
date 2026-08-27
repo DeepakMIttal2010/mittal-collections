@@ -27,9 +27,51 @@ const normalize = (text) =>
   (text || "")
     .toLowerCase()
     .trim()
-    .replace(/[^a-z0-9\s]/g, " ")
+    // Keeps Devanagari (ऀ-ॿ) alongside Latin/digits, not just
+    // a-z0-9 — otherwise a Hindi-script query gets stripped to nothing
+    // before it ever reaches the synonym lookup below.
+    .replace(/[^a-z0-9ऀ-ॿ\s]/g, " ")
     .split(/\s+/)
     .filter(Boolean);
+
+// This catalog is home textiles for an Indian audience where plenty of
+// shoppers — especially outside the big metros — search in Hindi or
+// Hinglish rather than English. Fuzzy/typo matching alone can't bridge
+// two genuinely different words for the same thing ("पायदान" and
+// "doormat" aren't a few edits apart), so common terms are mapped
+// directly to the English catalog word they mean, in both Devanagari
+// and the most common Romanized spellings.
+const HINDI_SYNONYMS = {
+  doormat: ["पायदान", "पाएदान", "paaydaan", "paydan", "paydaan"],
+  bedsheet: ["चादर", "चदर", "chaadar", "chadar", "chader"],
+  cushion: ["कुशन", "गद्दी", "kushan", "gaddi"],
+  pillow: ["तकिया", "takiya", "takia"],
+  towel: ["तौलिया", "तौलिए", "tauliya", "taulia", "tauliye"],
+  curtain: ["पर्दा", "पर्दे", "parda", "pardaa", "parde"],
+  blanket: ["कंबल", "कम्बल", "kambal", "kambel", "kambl"],
+  quilt: ["रजाई", "rajai", "razai"],
+};
+
+const HINDI_TO_ENGLISH = new Map(
+  Object.entries(HINDI_SYNONYMS).flatMap(([english, variants]) =>
+    variants.map((variant) => [variant.toLowerCase(), english]),
+  ),
+);
+
+// Adds the mapped English word alongside any Hindi/Hinglish word found
+// in the query, so scoring below (which only ever looks at English
+// product text) picks it up like any other query word — the original
+// word is kept too, it's never removed.
+const expandSynonyms = (words) => {
+  const expanded = [...words];
+
+  for (const word of words) {
+    const english = HINDI_TO_ENGLISH.get(word);
+    if (english) expanded.push(english);
+  }
+
+  return expanded;
+};
 
 // Returns a match score for a query against a piece of text, or 0 if no
 // reasonable match (exact substrings score highest, near-typos score lower).
@@ -64,7 +106,7 @@ const scoreText = (queryWords, text) => {
 // Scores a product against a search query using its name (weighted higher)
 // and description. Returns 0 for no match.
 export const scoreProduct = (query, product) => {
-  const queryWords = normalize(query);
+  const queryWords = expandSynonyms(normalize(query));
   if (queryWords.length === 0) return 0;
 
   const nameScore = scoreText(queryWords, product.name) * 2;
