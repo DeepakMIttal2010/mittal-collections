@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState } from "react";
 
 import { toast } from "react-toastify";
 
-import { syncCart, syncGuestCart } from "../services/cartService";
+import { syncCart, syncGuestCart, mergeGuestCart } from "../services/cartService";
 import { getSiteSettings } from "../services/settingsService";
 import { useAuth } from "./AuthContext";
 import { getVisitorId } from "../utils/visitorId";
@@ -40,6 +40,18 @@ export function CartProvider({ children }) {
   useEffect(() => {
     localStorage.setItem("cartItems", JSON.stringify(cartItems));
   }, [cartItems]);
+
+  // Once right after login, drop the now-redundant guest cart snapshot
+  // (see mergeGuestCart's own comment) — the actual cart contents don't
+  // need merging, they're already the same localStorage state before
+  // and after login, but without this the guest-keyed snapshot lingers
+  // forever as a duplicate in admin's product-engagement/abandoned-cart
+  // reports. Idempotent, so re-running on every login is harmless.
+  useEffect(() => {
+    if (isLoggedIn) {
+      mergeGuestCart(getVisitorId());
+    }
+  }, [isLoggedIn]);
 
   // Mirror the cart to the backend (debounced) — logged-in customers sync
   // by account (also used for the abandoned-cart reminder), guests sync

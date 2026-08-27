@@ -50,3 +50,22 @@ export const syncGuestCart = async (visitorId, items) => {
     console.error("Sync Guest Cart Error:", error);
   }
 };
+
+// Called once right after login — deletes the now-redundant guest cart
+// snapshot so it doesn't linger as a permanent duplicate in admin
+// reports. Idempotent: harmless to call again on a later login, since
+// there's nothing left to delete after the first time.
+export const mergeGuestCart = async (visitorId) => {
+  try {
+    await fetch(`${API_BASE_URL}/cart/merge-guest`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${getToken()}`,
+      },
+      body: JSON.stringify({ visitorId }),
+    });
+  } catch (error) {
+    console.error("Merge Guest Cart Error:", error);
+  }
+};

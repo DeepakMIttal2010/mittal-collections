@@ -87,3 +87,63 @@ describe("POST /api/cart/sync-guest", () => {
     expect(await CartSnapshot.findOne({ visitorId: "guest-d" })).toBeNull();
   });
 });
+
+describe("POST /api/cart/merge-guest", () => {
+  it("rejects an unauthenticated request", async () => {
+    const res = await request(app)
+      .post("/api/cart/merge-guest")
+      .send({ visitorId: "guest-e" });
+    expect(res.status).toBe(401);
+  });
+
+  it("deletes the guest snapshot on login instead of leaving a permanent duplicate", async () => {
+    const user = await createUser();
+    const product = await createProduct();
+
+    await request(app)
+      .post("/api/cart/sync-guest")
+      .send({ visitorId: "guest-e", items: [cartItem(product)] });
+    expect(await CartSnapshot.findOne({ visitorId: "guest-e" })).toBeTruthy();
+
+    const res = await request(app)
+      .post("/api/cart/merge-guest")
+      .set("Authorization", `Bearer ${signToken(user)}`)
+      .send({ visitorId: "guest-e" });
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(await CartSnapshot.findOne({ visitorId: "guest-e" })).toBeNull();
+  });
+
+  it("is a harmless no-op without a visitorId or with nothing to delete", async () => {
+    const user = await createUser();
+
+    const res = await request(app)
+      .post("/api/cart/merge-guest")
+      .set("Authorization", `Bearer ${signToken(user)}`)
+      .send({});
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+  });
+
+  it("only deletes the matching guest snapshot, leaving other guests' carts alone", async () => {
+    const user = await createUser();
+    const product = await createProduct();
+
+    await request(app)
+      .post("/api/cart/sync-guest")
+      .send({ visitorId: "guest-f", items: [cartItem(product)] });
+    await request(app)
+      .post("/api/cart/sync-guest")
+      .send({ visitorId: "guest-g", items: [cartItem(product)] });
+
+    await request(app)
+      .post("/api/cart/merge-guest")
+      .set("Authorization", `Bearer ${signToken(user)}`)
+      .send({ visitorId: "guest-f" });
+
+    expect(await CartSnapshot.findOne({ visitorId: "guest-f" })).toBeNull();
+    expect(await CartSnapshot.findOne({ visitorId: "guest-g" })).toBeTruthy();
+  });
+});

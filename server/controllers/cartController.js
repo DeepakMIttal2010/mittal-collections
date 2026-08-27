@@ -78,6 +78,39 @@ export const syncGuestCart = async (req, res) => {
 };
 
 // ============================
+// Merge a just-logged-in customer's guest cart snapshot into their
+// account — called once right after login, mirroring
+// wishlistController.js's mergeGuestWishlist. Unlike the wishlist,
+// there's no item-by-item merge to do here: the actual cart contents
+// already live in the browser's localStorage and carry over on their
+// own regardless of login state, and syncCart (fired right after this
+// by CartContext) will shortly write the current items under the
+// user's own snapshot anyway. This just deletes the now-redundant
+// guest snapshot — without it, the guest doc lingers forever as a
+// permanently-stale duplicate, double-counting that customer's cart in
+// getProductEngagement's cartCount and showing up as a phantom
+// abandoned guest cart that can never actually be reminded about.
+// ============================
+export const mergeGuestCart = async (req, res) => {
+  try {
+    const { visitorId } = req.body;
+
+    if (visitorId) {
+      await CartSnapshot.deleteOne({ visitorId });
+    }
+
+    res.status(200).json({ success: true });
+  } catch (error) {
+    console.error("Merge Guest Cart Error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};
+
+// ============================
 // Send Abandoned Cart Reminders
 // Called by an external scheduler (not a logged-in admin session),
 // protected by a shared secret rather than JWT auth.
