@@ -237,45 +237,6 @@ export const deletePage = async (req, res) => {
 };
 
 // ============================
-// TEMPORARY: BULK SYNC HINDI CONTENT (one-off migration)
-// Called by hand with a shared secret rather than JWT auth — same
-// pattern as sendAbandonedCartReminders — since there's no local admin
-// session against production. Remove once the one-time sync has run.
-// ============================
-export const hindiPageSync = async (req, res) => {
-  try {
-    if (req.query.secret !== process.env.CRON_SECRET) {
-      return res.status(401).json({ success: false, message: "Unauthorized" });
-    }
-
-    const { updates = [] } = req.body;
-    const notFound = [];
-
-    for (const update of updates) {
-      const result = await Page.updateOne(
-        { slug: update.slug },
-        { $set: { titleHi: update.titleHi, contentHi: update.contentHi } },
-      );
-
-      if (result.matchedCount === 0) notFound.push(update.slug);
-    }
-
-    res.status(200).json({
-      success: true,
-      updated: updates.length - notFound.length,
-      notFound,
-    });
-  } catch (error) {
-    console.error("Hindi Page Sync Error:", error);
-
-    res.status(500).json({
-      success: false,
-      message: "Server Error",
-    });
-  }
-};
-
-// ============================
 // PERMANENTLY DELETE PAGE (Admin)
 // ============================
 export const permanentlyDeletePage = async (req, res) => {
