@@ -11,14 +11,19 @@ import {
 
 import { getCategories } from "../services/categoryService";
 import { getSubcategories } from "../services/subcategoryService";
+import { useLanguage } from "../context/LanguageContext";
 
 // Controlled drawer — open state lives in MainLayout so BottomNav's
 // "Categories" tab can open the same drawer instead of each owning a
 // separate copy of the categories/subcategories fetch and expand state.
 function MobileMenu({ isOpen, onClose }) {
+  const { language, t } = useLanguage();
   const [categories, setCategories] = useState([]);
   const [subcategories, setSubcategories] = useState([]);
   const [openCategoryId, setOpenCategoryId] = useState(null);
+
+  // Guides has a genuinely separate Hindi URL — see Navbar.jsx's comment.
+  const guidesPath = language === "hi" ? "/hi/articles" : "/articles";
 
   useEffect(() => {
     const loadData = async () => {
@@ -99,7 +104,7 @@ function MobileMenu({ isOpen, onClose }) {
             onClick={close}
             className="block px-5 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-amber-600"
           >
-            Home
+            {t("Home", "होम")}
           </NavLink>
 
           {categories.map((category) => {
@@ -171,7 +176,7 @@ function MobileMenu({ isOpen, onClose }) {
             className="flex items-center gap-2 px-5 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-amber-600 border-t border-slate-100"
           >
             <FaFire className="text-amber-500" />
-            Top Trending
+            {t("Top Trending", "टॉप ट्रेंडिंग")}
           </NavLink>
 
           <NavLink
@@ -180,7 +185,7 @@ function MobileMenu({ isOpen, onClose }) {
             className="flex items-center gap-2 px-5 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-amber-600 border-t border-slate-100"
           >
             <FaTag className="text-red-600" />
-            Clearance Sale
+            {t("Clearance Sale", "क्लियरेंस सेल")}
           </NavLink>
 
           <NavLink
@@ -189,15 +194,15 @@ function MobileMenu({ isOpen, onClose }) {
             className="flex items-center gap-2 px-5 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-amber-600 border-t border-slate-100"
           >
             <FaBell className="text-amber-500" />
-            New Arrivals
+            {t("New Arrivals", "नई आवक")}
           </NavLink>
 
           <NavLink
-            to="/articles"
+            to={guidesPath}
             onClick={close}
             className="block px-5 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-amber-600 border-t border-slate-100"
           >
-            Guides
+            {t("Guides", "गाइड")}
           </NavLink>
         </div>
       </div>

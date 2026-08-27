@@ -1,21 +1,28 @@
 import { useEffect, useState } from "react";
-import { Link, Navigate, useParams, useLocation } from "react-router-dom";
+import { Link, Navigate, useParams, useLocation, useNavigate } from "react-router-dom";
 
 import { getArticleBySlug } from "../services/articleService";
 import { imgUrl } from "../services/api";
 import Seo from "../components/Seo";
 import Breadcrumbs from "../components/Breadcrumbs";
 import { buildBreadcrumbJsonLd } from "../utils/breadcrumbJsonLd";
+import { useLanguage } from "../context/LanguageContext";
 
 const SITE_URL = "https://www.mittalcollections.com";
 
 function ArticleDetail() {
   const { slug } = useParams();
-  // The URL prefix decides the language here, not the header's global
-  // toggle — a /hi/ URL is a distinct, search-indexable page (see
-  // render.js and sitemap.js), so it must always render Hindi
-  // regardless of whatever language the rest of the site is set to.
-  const isHindi = useLocation().pathname.startsWith("/hi/");
+  const { language } = useLanguage();
+  const location = useLocation();
+  const navigate = useNavigate();
+  // The URL prefix is what actually decides which content renders — a
+  // /hi/ URL is a distinct, search-indexable page (see render.js and
+  // sitemap.js), so canonical/hreflang stay correct regardless of the
+  // visitor's own toggle. The effect below keeps this in sync with the
+  // header's language toggle so switching it while already reading an
+  // article still feels instant, the same as it does everywhere else on
+  // the site, instead of only taking effect on the next navigation.
+  const isHindi = location.pathname.startsWith("/hi/");
 
   const [article, setArticle] = useState(null);
   const [status, setStatus] = useState("loading");
@@ -44,6 +51,19 @@ function ArticleDetail() {
     };
   }, [slug]);
 
+  useEffect(() => {
+    if (!article) return;
+    const wantHindi = language === "hi";
+    if (wantHindi === isHindi) return;
+    // Only follow the toggle into /hi/ if this article actually has a
+    // Hindi version — otherwise stay put rather than bounce to a page
+    // that would immediately redirect itself back anyway.
+    if (wantHindi && !article.titleHi) return;
+    navigate(`${wantHindi ? "/hi" : ""}/articles/${article.slug}`, {
+      replace: true,
+    });
+  }, [language, isHindi, article, navigate]);
+
   if (status === "loading") {
     return (
       <div className="max-w-3xl mx-auto px-4 py-16 text-slate-500">
@@ -56,10 +76,13 @@ function ArticleDetail() {
     return (
       <div className="max-w-3xl mx-auto px-4 py-16">
         <h1 className="text-2xl font-bold text-slate-900 mb-2">
-          Article not found
+          {isHindi ? "लेख नहीं मिला" : "Article not found"}
         </h1>
-        <Link to="/articles" className="text-blue-600 hover:underline">
-          Back to Guides & Ideas
+        <Link
+          to={isHindi ? "/hi/articles" : "/articles"}
+          className="text-blue-600 hover:underline"
+        >
+          {isHindi ? "गाइड और आइडिया पर वापस जाएं" : "Back to Guides & Ideas"}
         </Link>
       </div>
     );

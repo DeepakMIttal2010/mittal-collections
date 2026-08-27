@@ -1,15 +1,19 @@
 import { useEffect, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { FaRulerCombined, FaArrowRight } from "react-icons/fa";
 
 import { getArticles } from "../services/articleService";
 import { imgUrl } from "../services/api";
 import Seo from "../components/Seo";
+import { useLanguage } from "../context/LanguageContext";
 
 const SITE_URL = "https://www.mittalcollections.com";
 
 function Articles() {
-  const isHindi = useLocation().pathname.startsWith("/hi/");
+  const { language } = useLanguage();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const isHindi = location.pathname.startsWith("/hi/");
   const [articles, setArticles] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -24,6 +28,19 @@ function Articles() {
 
     load();
   }, []);
+
+  // The URL prefix is what actually decides which content renders (see
+  // the isHindi above) — that's what keeps this page's canonical URL and
+  // hreflang tags SEO-correct regardless of the visitor's own language
+  // preference. This effect just keeps the URL itself in sync with the
+  // header's language toggle, so switching it while already on this page
+  // feels the same as it does everywhere else on the site (Product
+  // name/description swap in place) instead of requiring a fresh click.
+  useEffect(() => {
+    const wantHindi = language === "hi";
+    if (wantHindi === isHindi) return;
+    navigate(wantHindi ? "/hi/articles" : "/articles", { replace: true });
+  }, [language, isHindi, navigate]);
 
   // The Hindi listing only shows articles that actually have a Hindi
   // version — otherwise it would link to a /hi/articles/:slug URL that
