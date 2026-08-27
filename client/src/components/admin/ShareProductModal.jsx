@@ -665,12 +665,22 @@ function ShareProductModal({ product, onClose }) {
       const slideMs = Math.max(SLIDE_MS, MIN_VIDEO_MS / loadedImages.length);
       const totalMs = slideMs * loadedImages.length;
 
-      // Bake the chosen track directly into the recording rather than
-      // leaving "add music" as a manual step on Instagram/Facebook,
-      // which is easy to skip. Skipped entirely for "none" — no
-      // AudioContext, no extra permission prompt, video stays silent.
+      // captureStream(30) ("auto" mode) samples the canvas on its own
+      // internal clock, independent of when drawFrame below actually
+      // paints — under any real CPU hiccup (decoding a large photo, GC,
+      // a slow frame) the two clocks drift apart and the recording comes
+      // out with uneven-feeling pacing: whichever slide was on-screen
+      // during the hiccup gets over- or under-sampled relative to the
+      // others, even though drawFrame's own slide-switching math is
+      // correct. captureStream(0) ("manual" mode) instead only produces
+      // a frame when explicitly told to via requestFrame() — driving
+      // that from its own steady setInterval below decouples "how often
+      // do we push a frame" from "how often did drawFrame happen to run",
+      // giving a consistent recorded frame rate regardless of drawing
+      // hiccups.
       let audioCtx = null;
-      const videoStream = canvas.captureStream(30);
+      const videoStream = canvas.captureStream(0);
+      const [videoTrack] = videoStream.getVideoTracks();
       let combinedStream = videoStream;
 
       if (selectedMusic !== "none") {
@@ -709,6 +719,7 @@ function ShareProductModal({ product, onClose }) {
       recorder.onerror = (event) => {
         console.error("MediaRecorder error:", event.error || event);
         cancelAnimationFrame(frameHandle);
+        clearInterval(pushTimer);
         if (recorder.state !== "inactive") recorder.stop();
       };
 
@@ -720,6 +731,10 @@ function ShareProductModal({ product, onClose }) {
 
       let frameHandle;
       const startedAt = performance.now();
+
+      // Steady 30fps frame push, independent of drawFrame's own actual
+      // cadence — see the captureStream(0) comment above.
+      const pushTimer = setInterval(() => videoTrack.requestFrame(), 1000 / 30);
 
       const drawFrame = () => {
         try {
@@ -785,6 +800,7 @@ function ShareProductModal({ product, onClose }) {
 
       await stopped;
       cancelAnimationFrame(frameHandle);
+      clearInterval(pushTimer);
       if (audioCtx) await audioCtx.close();
 
       const blob = new Blob(chunks, { type: mimeType.split(";")[0] });
