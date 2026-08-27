@@ -468,11 +468,22 @@ function ShareProductModal({ product, onClose }) {
   const [videoUrl, setVideoUrl] = useState(null);
   const [videoBlob, setVideoBlob] = useState(null);
   const [videoError, setVideoError] = useState("");
+  const [videoWarning, setVideoWarning] = useState("");
   const [selectedMusic, setSelectedMusic] = useState(DEFAULT_MUSIC);
 
-  const rawImages = (
-    product.images?.length ? product.images : [product.image]
-  ).filter(Boolean);
+  // Deduped — a product's images[] can legitimately contain the same
+  // URL twice (e.g. old bulk-import data). Two grid thumbnails sharing
+  // one URL would also share React's `key`, which can make the second
+  // one silently reflect the first one's selection state instead of
+  // toggling independently — so a duplicate effectively "eats" one of
+  // the admin's picks without them realizing why.
+  const rawImages = [
+    ...new Set(
+      (product.images?.length ? product.images : [product.image]).filter(
+        Boolean,
+      ),
+    ),
+  ];
 
   // Every photo is shown in the picker (not just the first few) — the
   // cover photo is pinned first since it's the one the admin is most
@@ -618,6 +629,7 @@ function ShareProductModal({ product, onClose }) {
 
   const generateVideo = async () => {
     setVideoError("");
+    setVideoWarning("");
     setVideoRecording(true);
     setVideoUrl(null);
     setVideoBlob(null);
@@ -649,8 +661,9 @@ function ShareProductModal({ product, onClose }) {
         );
       }
       if (loadedImages.length < images.length) {
-        toast.warn(
-          "Kuch selected photos video mein use nahi ho payi — baaki se video ban gaya",
+        const dropped = images.length - loadedImages.length;
+        setVideoWarning(
+          `${dropped} of your ${images.length} selected photos couldn't be used (load failed or unsupported source) — the video below only has the other ${loadedImages.length}.`,
         );
       }
 
@@ -986,6 +999,11 @@ function ShareProductModal({ product, onClose }) {
             {mode === "video" && videoError && (
               <p className="text-sm text-red-600 mb-3">{videoError}</p>
             )}
+            {mode === "video" && videoWarning && (
+              <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">
+                {videoWarning}
+              </p>
+            )}
 
             <div className="space-y-2">
               {mode === "image" ? (
@@ -1031,12 +1049,19 @@ function ShareProductModal({ product, onClose }) {
                     <p className="text-[11px] text-slate-400 mb-1">
                       Tap in the order you want them in the video — the
                       number shown is that photo's slide position.
+                      {selectedImages.length >= MAX_SLIDES && (
+                        <span className="text-amber-600 font-medium">
+                          {" "}
+                          Max {MAX_SLIDES} reached — deselect one to add another.
+                        </span>
+                      )}
                     </p>
                     <div className="grid grid-cols-5 gap-2 max-h-40 overflow-y-auto pr-0.5">
                       {allImages.map((src) => {
                         const orderIndex = selectedImages.indexOf(src);
                         const checked = orderIndex !== -1;
                         const isCover = src === product.image;
+                        const atCap = !checked && selectedImages.length >= MAX_SLIDES;
                         return (
                           <button
                             key={src}
@@ -1044,7 +1069,11 @@ function ShareProductModal({ product, onClose }) {
                             onClick={() => toggleImageSelection(src)}
                             disabled={videoRecording}
                             className={`relative aspect-square rounded-lg overflow-hidden border-2 disabled:opacity-50 ${
-                              checked ? "border-slate-900" : "border-transparent opacity-50"
+                              checked
+                                ? "border-slate-900"
+                                : atCap
+                                  ? "border-transparent opacity-30 cursor-not-allowed"
+                                  : "border-transparent opacity-50"
                             }`}
                           >
                             <img
