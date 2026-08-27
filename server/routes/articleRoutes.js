@@ -8,6 +8,7 @@ import {
   updateArticle,
   deleteArticle,
   uploadArticleImage,
+  hindiBulkSync,
 } from "../controllers/articleController.js";
 import authMiddleware from "../middleware/authMiddleware.js";
 import adminMiddleware from "../middleware/adminMiddleware.js";
@@ -32,5 +33,7 @@ router.post(
   imageOptimizer,
   uploadArticleImage,
 );
+// Temporary — see hindiBulkSync's own comment. Remove once run.
+router.post("/hindi-bulk-sync", hindiBulkSync);
 
 export default router;
