@@ -1,4 +1,5 @@
 import { Component } from "react";
+import { useLanguage } from "../context/LanguageContext";
 
 // Error boundaries must be class components — React has no hook
 // equivalent for getDerivedStateFromError/componentDidCatch.
@@ -35,19 +36,23 @@ class ErrorBoundary extends Component {
 }
 
 function DefaultFallback() {
+  const { t } = useLanguage();
+
   return (
     <div className="max-w-2xl mx-auto px-4 py-24 text-center">
       <p className="text-sm font-semibold text-amber-600 mb-3">
-        Something went wrong
+        {t("Something went wrong", "कुछ गड़बड़ हो गई")}
       </p>
 
       <h1 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
-        This page hit a snag
+        {t("This page hit a snag", "इस पेज में समस्या आ गई")}
       </h1>
 
       <p className="text-slate-600 mb-8">
-        Sorry about that — please reload the page. If the problem keeps
-        happening, let us know.
+        {t(
+          "Sorry about that — please reload the page. If the problem keeps happening, let us know.",
+          "इसके लिए खेद है — कृपया पेज रीलोड करें। अगर समस्या बनी रहे, तो हमें बताएं।",
+        )}
       </p>
 
       <button
@@ -55,7 +60,7 @@ function DefaultFallback() {
         onClick={() => window.location.reload()}
         className="inline-block bg-blue-900 hover:bg-blue-950 text-white font-semibold rounded-full px-8 py-3.5 transition-colors"
       >
-        Reload Page
+        {t("Reload Page", "पेज रीलोड करें")}
       </button>
     </div>
   );

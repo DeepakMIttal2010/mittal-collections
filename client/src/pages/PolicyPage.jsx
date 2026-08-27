@@ -2,9 +2,11 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { getPageBySlug } from "../services/pageService";
 import Seo from "../components/Seo";
+import { useLanguage } from "../context/LanguageContext";
 
 function PolicyPage() {
   const { slug } = useParams();
+  const { t } = useLanguage();
 
   const [page, setPage] = useState(null);
   const [status, setStatus] = useState("loading");
@@ -35,7 +37,7 @@ function PolicyPage() {
   if (status === "loading") {
     return (
       <div className="max-w-3xl mx-auto px-4 py-16">
-        <p className="text-slate-500">Loading...</p>
+        <p className="text-slate-500">{t("Loading...", "लोड हो रहा है...")}</p>
       </div>
     );
   }
@@ -44,7 +46,7 @@ function PolicyPage() {
     return (
       <div className="max-w-3xl mx-auto px-4 py-16">
         <h1 className="text-2xl font-bold text-slate-900 mb-2">
-          Page not found
+          {t("Page not found", "पेज नहीं मिला")}
         </h1>
       </div>
     );
