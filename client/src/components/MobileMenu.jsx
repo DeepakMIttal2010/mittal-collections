@@ -86,12 +86,12 @@ function MobileMenu({ isOpen, onClose }) {
         }`}
       >
         <div className="flex items-center justify-between px-5 py-5 border-b border-slate-200">
-          <h2 className="text-lg font-bold text-slate-900">Menu</h2>
+          <h2 className="text-lg font-bold text-slate-900">{t("Menu", "मेनू")}</h2>
 
           <button
             type="button"
             onClick={close}
-            aria-label="Close menu"
+            aria-label={t("Close menu", "मेनू बंद करें")}
             className="w-9 h-9 rounded-full border border-slate-200 flex items-center justify-center text-slate-500 hover:text-slate-800"
           >
             <FaTimes />
@@ -127,7 +127,10 @@ function MobileMenu({ isOpen, onClose }) {
                     <button
                       type="button"
                       onClick={() => toggleCategory(category._id)}
-                      aria-label={`${isExpanded ? "Collapse" : "Expand"} ${category.name}`}
+                      aria-label={t(
+                        `${isExpanded ? "Collapse" : "Expand"} ${category.name}`,
+                        `${category.name} ${isExpanded ? "संकुचित करें" : "विस्तृत करें"}`,
+                      )}
                       className="px-4 py-3 text-slate-400"
                     >
                       {isExpanded ? (

@@ -31,7 +31,7 @@ function ClearanceCategoryRow({ category, products, t, isFirst }) {
           <button
             type="button"
             onClick={() => scroll("prev")}
-            aria-label="Previous"
+            aria-label={t("Previous", "पिछला")}
             className="w-9 h-9 rounded-full border border-slate-300 text-slate-500 hover:bg-white flex items-center justify-center"
           >
             <FaChevronLeft className="text-xs" />
@@ -39,7 +39,7 @@ function ClearanceCategoryRow({ category, products, t, isFirst }) {
           <button
             type="button"
             onClick={() => scroll("next")}
-            aria-label="Next"
+            aria-label={t("Next", "अगला")}
             className="w-9 h-9 rounded-full border border-red-600 text-red-600 hover:bg-white flex items-center justify-center"
           >
             <FaChevronRight className="text-xs" />

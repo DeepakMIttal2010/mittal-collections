@@ -67,7 +67,7 @@ function ArticleDetail() {
   if (status === "loading") {
     return (
       <div className="max-w-3xl mx-auto px-4 py-16 text-slate-500">
-        Loading...
+        {isHindi ? "लोड हो रहा है..." : "Loading..."}
       </div>
     );
   }

@@ -67,7 +67,7 @@ function QuickViewModal({ product, onClose }) {
       >
         <button
           onClick={onClose}
-          aria-label="Close"
+          aria-label={t("Close", "बंद करें")}
           className="absolute top-3 right-3 z-10 w-8 h-8 rounded-full bg-white/90 hover:bg-white text-slate-600 flex items-center justify-center shadow"
         >
           <FaTimes />
@@ -82,7 +82,7 @@ function QuickViewModal({ product, onClose }) {
 
           {discount > 0 && (
             <span className="absolute top-3 left-3 bg-red-600 text-white text-xs font-semibold px-2.5 py-1 rounded-full">
-              {discount}% OFF
+              {t(`${discount}% OFF`, `${discount}% छूट`)}
             </span>
           )}
         </div>
@@ -115,7 +115,7 @@ function QuickViewModal({ product, onClose }) {
           {pointsPreview > 0 && (
             <p className="flex items-center gap-1.5 text-xs text-amber-700 mb-3">
               <FaGift />
-              Earn {pointsPreview} loyalty points
+              {t(`Earn ${pointsPreview} loyalty points`, `${pointsPreview} लॉयल्टी पॉइंट्स कमाएं`)}
             </p>
           )}
 
@@ -141,12 +141,12 @@ function QuickViewModal({ product, onClose }) {
               className="flex-1 flex items-center justify-center gap-2 bg-blue-900 hover:bg-blue-950 text-white font-semibold rounded-full px-4 py-2.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <FaShoppingCart className="text-sm" />
-              Add to Cart
+              {t("Add to Cart", "कार्ट में डालें")}
             </button>
 
             <button
               onClick={handleWishlistToggle}
-              aria-label="Toggle wishlist"
+              aria-label={t("Toggle wishlist", "विशलिस्ट टॉगल करें")}
               className={`w-11 h-11 shrink-0 rounded-full border flex items-center justify-center transition-colors ${
                 isWishlisted
                   ? "bg-red-50 border-red-200 text-red-600"
@@ -158,7 +158,7 @@ function QuickViewModal({ product, onClose }) {
 
             <button
               onClick={() => toggleCompare(product)}
-              aria-label="Toggle compare"
+              aria-label={t("Toggle compare", "तुलना टॉगल करें")}
               className={`w-11 h-11 shrink-0 rounded-full border flex items-center justify-center transition-colors ${
                 inCompare
                   ? "bg-blue-50 border-blue-200 text-blue-700"
@@ -174,7 +174,7 @@ function QuickViewModal({ product, onClose }) {
             onClick={onClose}
             className="text-center text-sm text-blue-700 hover:underline mt-4"
           >
-            View Full Details →
+            {t("View Full Details →", "पूरी जानकारी देखें →")}
           </Link>
         </div>
       </div>

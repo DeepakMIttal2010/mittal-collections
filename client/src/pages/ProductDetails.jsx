@@ -349,10 +349,10 @@ function ProductDetails() {
       <div className="p-16 text-center">
         <Seo title="Product Not Found" noindex />
         <h2 className="text-xl font-semibold text-slate-800 mb-4">
-          Product Not Found
+          {t("Product Not Found", "प्रोडक्ट नहीं मिला")}
         </h2>
         <Link to="/" className="text-blue-600 hover:underline">
-          Back to Home
+          {t("Back to Home", "होम पर वापस जाएं")}
         </Link>
       </div>
     );
@@ -387,7 +387,7 @@ function ProductDetails() {
     if (response.success) {
       setNotifySubmitted(true);
     } else {
-      alert(response.message || "Unable to subscribe");
+      alert(response.message || t("Unable to subscribe", "सब्सक्राइब नहीं हो सका"));
     }
   };
 
@@ -456,7 +456,7 @@ function ProductDetails() {
   };
 
   const breadcrumbItems = [
-    { name: "Home", path: "/" },
+    { name: t("Home", "होम"), path: "/" },
     ...(product.category
       ? [
           {
@@ -477,13 +477,13 @@ function ProductDetails() {
   ];
 
   const specRows = [
-    { label: "What's Included", value: product.whatsIncluded },
-    { label: "Fabric", value: product.fabric },
-    { label: "Size", value: product.size },
-    { label: "GSM", value: product.gsm },
-    { label: "Wash Care", value: product.washCare },
-    { label: "Brand", value: product.brand },
-    { label: "Country of Origin", value: product.countryOfOrigin },
+    { label: t("What's Included", "क्या शामिल है"), value: product.whatsIncluded },
+    { label: t("Fabric", "फैब्रिक"), value: product.fabric },
+    { label: t("Size", "साइज़"), value: product.size },
+    { label: t("GSM", "GSM"), value: product.gsm },
+    { label: t("Wash Care", "वॉश केयर"), value: product.washCare },
+    { label: t("Brand", "ब्रांड"), value: product.brand },
+    { label: t("Country of Origin", "मूल देश"), value: product.countryOfOrigin },
   ].filter((row) => row.value);
 
   const effectiveReturnDays =
@@ -658,7 +658,7 @@ function ProductDetails() {
           </h1>
 
           <p className="text-xs text-slate-400 mb-3 font-mono">
-            Product ID: {product._id}
+            {t("Product ID: ", "प्रोडक्ट ID: ")}{product._id}
           </p>
 
           <div className="flex items-center gap-1 text-amber-500 mb-4">
@@ -818,7 +818,7 @@ function ProductDetails() {
           )}
 
           <div className="flex items-center gap-3 mb-6">
-            <span className="text-sm font-medium text-slate-700">Qty:</span>
+            <span className="text-sm font-medium text-slate-700">{t("Qty:", "मात्रा:")}</span>
             <div className="flex items-center border border-slate-300 rounded-lg">
               <button
                 type="button"
@@ -849,12 +849,12 @@ function ProductDetails() {
               className="flex-1 flex items-center justify-center gap-2 bg-blue-900 hover:bg-blue-950 text-white font-semibold rounded-full px-6 py-3 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <FaShoppingCart />
-              Add to Cart — ₹{displayPrice * quantity}
+              {t(`Add to Cart — ₹${displayPrice * quantity}`, `कार्ट में डालें — ₹${displayPrice * quantity}`)}
             </button>
 
             <button
               onClick={handleWishlistToggle}
-              aria-label="Toggle wishlist"
+              aria-label={t("Toggle wishlist", "विशलिस्ट टॉगल करें")}
               className={`w-12 h-12 shrink-0 rounded-full border flex items-center justify-center transition-colors ${
                 isWishlisted
                   ? "bg-red-50 border-red-200 text-red-600"
@@ -870,7 +870,7 @@ function ProductDetails() {
             disabled={displayStock <= 0}
             className="w-full border-2 border-blue-900 text-blue-900 font-semibold rounded-full px-6 py-3 hover:bg-blue-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Buy it now
+            {t("Buy it now", "अभी खरीदें")}
           </button>
 
           {whatsappPhone &&
@@ -881,7 +881,7 @@ function ProductDetails() {
                 className="flex items-center justify-center gap-2 w-full bg-slate-200 text-slate-400 font-semibold rounded-full px-6 py-3 mt-3 cursor-not-allowed"
               >
                 <FaWhatsapp />
-                Order on WhatsApp
+                {t("Order on WhatsApp", "WhatsApp पर ऑर्डर करें")}
               </button>
             ) : (
               <a
@@ -893,7 +893,7 @@ function ProductDetails() {
                 className="flex items-center justify-center gap-2 w-full bg-[#25D366] hover:bg-[#1ebe5a] text-white font-semibold rounded-full px-6 py-3 mt-3 transition-colors"
               >
                 <FaWhatsapp />
-                Order on WhatsApp
+                {t("Order on WhatsApp", "WhatsApp पर ऑर्डर करें")}
               </a>
             ))}
 
@@ -901,32 +901,32 @@ function ProductDetails() {
             {[
               {
                 icon: <FaTruck />,
-                label: "Fast Delivery",
+                label: t("Fast Delivery", "तेज़ डिलीवरी"),
               },
               {
                 icon: <FaMoneyBillWave />,
-                label: "Pay on Delivery",
+                label: t("Pay on Delivery", "डिलीवरी पर भुगतान"),
               },
               product.isReturnable
                 ? {
                     icon: <FaUndoAlt />,
-                    label: `${effectiveReturnDays} days Return`,
+                    label: t(`${effectiveReturnDays} days Return`, `${effectiveReturnDays} दिन रिटर्न`),
                   }
                 : {
                     icon: <FaBan />,
-                    label: "Non-returnable",
+                    label: t("Non-returnable", "गैर-वापसी योग्य"),
                   },
               {
                 icon: <FaLock />,
-                label: "Secure Payment",
+                label: t("Secure Payment", "सुरक्षित भुगतान"),
               },
               {
                 icon: <FaMedal />,
-                label: "100% Genuine",
+                label: t("100% Genuine", "100% असली"),
               },
               {
                 icon: <FaWhatsapp />,
-                label: "WhatsApp Support",
+                label: t("WhatsApp Support", "WhatsApp सपोर्ट"),
               },
             ].map((item) => (
               <div
@@ -941,7 +941,7 @@ function ProductDetails() {
 
           <div className="flex items-center gap-4 mt-6">
             <span className="text-sm font-medium text-slate-700">
-              Share:
+              {t("Share:", "शेयर करें:")}
             </span>
             {shareLinks.map(({ label, icon: Icon, href }) => (
               <a
@@ -951,7 +951,7 @@ function ProductDetails() {
                   target: "_blank",
                   rel: "noopener noreferrer",
                 })}
-                aria-label={`Share on ${label}`}
+                aria-label={t(`Share on ${label}`, `${label} पर शेयर करें`)}
                 className="w-9 h-9 rounded-full bg-slate-900 hover:bg-amber-500 text-white flex items-center justify-center transition-colors"
               >
                 <Icon className="text-sm" />
@@ -963,7 +963,7 @@ function ProductDetails() {
             to="/"
             className="inline-block mt-6 text-sm text-blue-700 hover:underline"
           >
-            ← Continue Shopping
+            {t("← Continue Shopping", "← शॉपिंग जारी रखें")}
           </Link>
         </div>
       </div>
@@ -972,14 +972,14 @@ function ProductDetails() {
         <div className="mt-16">
           <div className="flex items-center justify-between mb-2">
             <h2 className="text-3xl font-bold text-slate-900">
-              Complete the Look
+              {t("Complete the Look", "लुक कम्प्लीट करें")}
             </h2>
 
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => scrollBundle("prev")}
-                aria-label="Previous products"
+                aria-label={t("Previous products", "पिछले प्रोडक्ट")}
                 className="w-9 h-9 rounded-full border border-slate-300 text-slate-500 hover:bg-slate-50 flex items-center justify-center"
               >
                 <FaChevronLeft className="text-xs" />
@@ -987,7 +987,7 @@ function ProductDetails() {
               <button
                 type="button"
                 onClick={() => scrollBundle("next")}
-                aria-label="Next products"
+                aria-label={t("Next products", "अगले प्रोडक्ट")}
                 className="w-9 h-9 rounded-full border border-blue-900 text-blue-900 hover:bg-blue-50 flex items-center justify-center"
               >
                 <FaChevronRight className="text-xs" />
@@ -998,11 +998,11 @@ function ProductDetails() {
           <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 mb-6">
             <FaGift className="text-blue-700 shrink-0" />
             <span className="text-sm text-blue-800">
-              Add a {bundleCategoryLabel} to this order and get{" "}
+              {t(`Add a ${bundleCategoryLabel} to this order and get `, `इस ऑर्डर में ${bundleCategoryLabel} जोड़ें और पाएं `)}
               <span className="font-bold">
-                {bundleDiscountPercent}% off
+                {t(`${bundleDiscountPercent}% off`, `${bundleDiscountPercent}% छूट`)}
               </span>{" "}
-              automatically at checkout — no code needed.
+              {t("automatically at checkout — no code needed.", "चेकआउट पर अपने आप — कोई कोड ज़रूरी नहीं।")}
             </span>
           </div>
 
@@ -1023,14 +1023,14 @@ function ProductDetails() {
         <div className="mt-16">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-3xl font-bold text-slate-900">
-              You may also like
+              {t("You may also like", "आपको ये भी पसंद आ सकते हैं")}
             </h2>
 
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => scrollRelated("prev")}
-                aria-label="Previous products"
+                aria-label={t("Previous products", "पिछले प्रोडक्ट")}
                 className="w-9 h-9 rounded-full border border-slate-300 text-slate-500 hover:bg-slate-50 flex items-center justify-center"
               >
                 <FaChevronLeft className="text-xs" />
@@ -1038,7 +1038,7 @@ function ProductDetails() {
               <button
                 type="button"
                 onClick={() => scrollRelated("next")}
-                aria-label="Next products"
+                aria-label={t("Next products", "अगले प्रोडक्ट")}
                 className="w-9 h-9 rounded-full border border-blue-900 text-blue-900 hover:bg-blue-50 flex items-center justify-center"
               >
                 <FaChevronRight className="text-xs" />
@@ -1084,7 +1084,7 @@ function ProductDetails() {
                 e.stopPropagation();
                 toggleLightboxZoom();
               }}
-              aria-label={isLightboxZoomed ? "Zoom out" : "Zoom in"}
+              aria-label={isLightboxZoomed ? t("Zoom out", "ज़ूम आउट") : t("Zoom in", "ज़ूम इन")}
               className="absolute top-6 right-20 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center"
             >
               {isLightboxZoomed ? <FaSearchMinus /> : <FaSearchPlus />}
@@ -1093,7 +1093,7 @@ function ProductDetails() {
 
           <button
             onClick={closeLightbox}
-            aria-label="Close"
+            aria-label={t("Close", "बंद करें")}
             className="absolute top-6 right-6 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center"
           >
             <FaTimes />
@@ -1105,7 +1105,7 @@ function ProductDetails() {
                 e.stopPropagation();
                 showPrevImage();
               }}
-              aria-label="Previous"
+              aria-label={t("Previous", "पिछला")}
               className="absolute left-4 sm:left-8 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center"
             >
               <FaChevronLeft />
@@ -1132,7 +1132,7 @@ function ProductDetails() {
             >
               <img
                 src={`${imgUrl(mediaItems[lightboxIndex]?.url)}`}
-                alt={`${t(product.name, product.nameHi)} - photo ${lightboxIndex + 1}`}
+                alt={`${t(product.name, product.nameHi)} - ${t("photo", "फ़ोटो")} ${lightboxIndex + 1}`}
                 onClick={toggleLightboxZoom}
                 className={
                   isLightboxZoomed
@@ -1149,7 +1149,7 @@ function ProductDetails() {
                 e.stopPropagation();
                 showNextImage();
               }}
-              aria-label="Next"
+              aria-label={t("Next", "अगला")}
               className="absolute right-4 sm:right-8 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center"
             >
               <FaChevronRight />

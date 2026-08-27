@@ -54,7 +54,7 @@ function CustomerGallery() {
             >
               <img
                 src={review.images[0]}
-                alt={review.product?.name || "Customer photo"}
+                alt={review.product?.name || t("Customer photo", "ग्राहक फ़ोटो")}
                 loading="lazy"
                 className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
               />
@@ -69,7 +69,7 @@ function CustomerGallery() {
                   ))}
                 </div>
                 <p className="text-white text-xs font-medium truncate">
-                  {review.user?.name || "Verified Buyer"}
+                  {review.user?.name || t("Verified Buyer", "सत्यापित खरीदार")}
                 </p>
               </div>
             </Link>

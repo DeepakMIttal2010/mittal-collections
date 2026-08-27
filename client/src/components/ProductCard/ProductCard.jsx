@@ -48,7 +48,7 @@ function ProductCard({ product }) {
             loading="lazy"
           />
 
-          <span className="discount-badge">{discount}% OFF</span>
+          <span className="discount-badge">{t(`${discount}% OFF`, `${discount}% छूट`)}</span>
 
           {isOutOfStock ? (
             <span className="stock-badge out-of-stock-badge">
@@ -56,14 +56,14 @@ function ProductCard({ product }) {
             </span>
           ) : (
             isLowStock && (
-              <span className="stock-badge">Only {product.stock} left!</span>
+              <span className="stock-badge">{t(`Only ${product.stock} left!`, `सिर्फ़ ${product.stock} बचे हैं!`)}</span>
             )
           )}
 
           <div className="product-icons">
             <button
               type="button"
-              aria-label="Add to wishlist"
+              aria-label={t("Add to wishlist", "विशलिस्ट में डालें")}
               onClick={(e) => {
                 e.preventDefault();
                 addToWishlist(product);
@@ -74,7 +74,7 @@ function ProductCard({ product }) {
 
             <button
               type="button"
-              aria-label="Quick view"
+              aria-label={t("Quick view", "क्विक व्यू")}
               onClick={(e) => {
                 e.preventDefault();
                 setShowQuickView(true);
@@ -85,7 +85,7 @@ function ProductCard({ product }) {
 
             <button
               type="button"
-              aria-label="Toggle compare"
+              aria-label={t("Toggle compare", "तुलना टॉगल करें")}
               className={inCompare ? "active" : ""}
               onClick={(e) => {
                 e.preventDefault();
@@ -116,7 +116,7 @@ function ProductCard({ product }) {
           {pointsPreview > 0 && (
             <p className="points-preview">
               <FaGift />
-              Earn {pointsPreview} loyalty points
+              {t(`Earn ${pointsPreview} loyalty points`, `${pointsPreview} लॉयल्टी पॉइंट्स कमाएं`)}
             </p>
           )}
         </div>
@@ -133,7 +133,7 @@ function ProductCard({ product }) {
           }}
         >
           <FaShoppingCart />
-          {isOutOfStock ? "Out of Stock" : "Add to Cart"}
+          {isOutOfStock ? t("Out of Stock", "स्टॉक में नहीं") : t("Add to Cart", "कार्ट में डालें")}
         </button>
       </div>
 

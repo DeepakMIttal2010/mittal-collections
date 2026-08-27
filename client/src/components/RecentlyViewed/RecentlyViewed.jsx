@@ -57,7 +57,7 @@ function RecentlyViewed({ excludeId }) {
             <button
               type="button"
               onClick={() => scroll("prev")}
-              aria-label="Previous"
+              aria-label={t("Previous", "पिछला")}
               className="w-9 h-9 rounded-full border border-slate-300 text-slate-500 hover:bg-slate-50 flex items-center justify-center"
             >
               <FaChevronLeft className="text-xs" />
@@ -65,7 +65,7 @@ function RecentlyViewed({ excludeId }) {
             <button
               type="button"
               onClick={() => scroll("next")}
-              aria-label="Next"
+              aria-label={t("Next", "अगला")}
               className="w-9 h-9 rounded-full border border-slate-300 text-slate-500 hover:bg-slate-50 flex items-center justify-center"
             >
               <FaChevronRight className="text-xs" />

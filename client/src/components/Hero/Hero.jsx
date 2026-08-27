@@ -91,7 +91,7 @@ function Hero() {
   const slideTitle = t(slide.title, slide.titleHi);
   const imageAlt = slide.title
     ? slideTitle.replace(/\n/g, " ")
-    : "Mittal Collections home furnishing";
+    : t("Mittal Collections home furnishing", "मित्तल कलेक्शंस होम फर्निशिंग");
 
   const goPrev = () =>
     setActiveIndex((prev) => (prev - 1 + slides.length) % slides.length);
@@ -151,7 +151,7 @@ function Hero() {
             <button
               type="button"
               onClick={goPrev}
-              aria-label="Previous slide"
+              aria-label={t("Previous slide", "पिछली स्लाइड")}
               className="hero-arrow hero-arrow-left"
             >
               <FaChevronLeft />
@@ -160,7 +160,7 @@ function Hero() {
             <button
               type="button"
               onClick={goNext}
-              aria-label="Next slide"
+              aria-label={t("Next slide", "अगली स्लाइड")}
               className="hero-arrow hero-arrow-right"
             >
               <FaChevronRight />
@@ -171,7 +171,7 @@ function Hero() {
                 <button
                   key={s._id}
                   type="button"
-                  aria-label={`Go to slide ${i + 1}`}
+                  aria-label={t(`Go to slide ${i + 1}`, `स्लाइड ${i + 1} पर जाएं`)}
                   onClick={() => setActiveIndex(i)}
                   className={`hero-dot ${i === activeIndex ? "active" : ""}`}
                 />

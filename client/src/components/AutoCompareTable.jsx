@@ -4,24 +4,27 @@ import { FaStar, FaShoppingCart } from "react-icons/fa";
 import { imgUrl } from "../services/api";
 import { productUrl } from "../utils/productUrl";
 import { useCart } from "../context/CartContext";
+import { useLanguage } from "../context/LanguageContext";
 
-const SPEC_ROWS = [
-  { label: "Price", get: (p) => `₹${p.price}` },
-  {
-    label: "Rating",
-    get: (p) => (
-      <span className="flex items-center gap-1">
-        <FaStar className="text-amber-500 text-xs" /> {p.rating}
-      </span>
-    ),
-  },
-  { label: "Fabric", get: (p) => p.fabric },
-  { label: "Size", get: (p) => p.size },
-  { label: "GSM", get: (p) => p.gsm },
-  { label: "Wash Care", get: (p) => p.washCare },
-  { label: "Brand", get: (p) => p.brand },
-  { label: "Country of Origin", get: (p) => p.countryOfOrigin },
-];
+function getSpecRows(t) {
+  return [
+    { label: t("Price", "कीमत"), get: (p) => `₹${p.price}` },
+    {
+      label: t("Rating", "रेटिंग"),
+      get: (p) => (
+        <span className="flex items-center gap-1">
+          <FaStar className="text-amber-500 text-xs" /> {p.rating}
+        </span>
+      ),
+    },
+    { label: t("Fabric", "फैब्रिक"), get: (p) => p.fabric },
+    { label: t("Size", "साइज़"), get: (p) => p.size },
+    { label: t("GSM", "GSM"), get: (p) => p.gsm },
+    { label: t("Wash Care", "वॉश केयर"), get: (p) => p.washCare },
+    { label: t("Brand", "ब्रांड"), get: (p) => p.brand },
+    { label: t("Country of Origin", "मूल देश"), get: (p) => p.countryOfOrigin },
+  ];
+}
 
 // Auto-compares the current product against a few similar products from
 // the same category — no user selection needed, unlike the manual
@@ -29,9 +32,11 @@ const SPEC_ROWS = [
 // compared products actually has a value for it.
 function AutoCompareTable({ mainProduct, similarProducts }) {
   const { addToCart } = useCart();
+  const { t } = useLanguage();
   const products = [mainProduct, ...similarProducts];
 
-  const visibleRows = SPEC_ROWS.filter((row) =>
+  const specRows = getSpecRows(t);
+  const visibleRows = specRows.filter((row) =>
     products.some((p) => row.get(p)),
   );
 
@@ -40,11 +45,13 @@ function AutoCompareTable({ mainProduct, similarProducts }) {
   return (
     <div className="mt-16">
       <h2 className="text-3xl font-bold text-slate-900 mb-2">
-        Compare with similar products
+        {t("Compare with similar products", "समान प्रोडक्ट से तुलना करें")}
       </h2>
       <p className="text-slate-500 mb-6">
-        See how this product stacks up against similar items in the same
-        category.
+        {t(
+          "See how this product stacks up against similar items in the same category.",
+          "देखें कि यह प्रोडक्ट उसी श्रेणी के समान आइटम की तुलना में कैसा है।",
+        )}
       </p>
 
       <div className="overflow-x-auto">
@@ -63,7 +70,7 @@ function AutoCompareTable({ mainProduct, similarProducts }) {
                   >
                     {index === 0 && (
                       <span className="inline-block mb-1 text-[11px] font-bold text-blue-900">
-                        THIS PRODUCT
+                        {t("THIS PRODUCT", "यह प्रोडक्ट")}
                       </span>
                     )}
                     <Link to={productUrl(product)}>
@@ -114,7 +121,7 @@ function AutoCompareTable({ mainProduct, similarProducts }) {
                     className="w-full max-w-[170px] flex items-center justify-center gap-1.5 bg-blue-900 hover:bg-blue-950 text-white text-xs font-semibold rounded-full py-2.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <FaShoppingCart className="text-[10px]" />
-                    Add to Cart
+                    {t("Add to Cart", "कार्ट में डालें")}
                   </button>
                 </td>
               ))}

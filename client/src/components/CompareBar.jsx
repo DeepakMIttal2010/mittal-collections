@@ -3,9 +3,11 @@ import { FaTimes, FaExchangeAlt } from "react-icons/fa";
 
 import { useCompare } from "../context/CompareContext";
 import { imgUrl } from "../services/api";
+import { useLanguage } from "../context/LanguageContext";
 
 function CompareBar() {
   const { compareItems, removeFromCompare, clearCompare } = useCompare();
+  const { t } = useLanguage();
 
   if (compareItems.length === 0) return null;
 
@@ -27,7 +29,7 @@ function CompareBar() {
             <button
               type="button"
               onClick={() => removeFromCompare(product._id)}
-              aria-label={`Remove ${product.name} from compare`}
+              aria-label={t(`Remove ${product.name} from compare`, `${product.name} को तुलना से हटाएं`)}
               className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-slate-700 text-white flex items-center justify-center text-[9px]"
             >
               <FaTimes />
@@ -37,7 +39,7 @@ function CompareBar() {
       </div>
 
       <span className="text-sm font-medium text-slate-700 whitespace-nowrap shrink-0">
-        {compareItems.length} selected
+        {t(`${compareItems.length} selected`, `${compareItems.length} चुने गए`)}
       </span>
 
       <Link
@@ -45,16 +47,16 @@ function CompareBar() {
         className="flex items-center gap-1.5 bg-blue-900 hover:bg-blue-950 text-white text-sm font-semibold rounded-full px-3 sm:px-4 py-2 transition-colors whitespace-nowrap shrink-0"
       >
         <FaExchangeAlt className="text-xs" />
-        Compare
+        {t("Compare", "तुलना करें")}
       </Link>
 
       <button
         type="button"
         onClick={clearCompare}
-        aria-label="Clear compare list"
+        aria-label={t("Clear compare list", "तुलना सूची साफ़ करें")}
         className="text-slate-400 hover:text-slate-600 text-xs shrink-0"
       >
-        Clear
+        {t("Clear", "साफ़ करें")}
       </button>
     </div>
   );

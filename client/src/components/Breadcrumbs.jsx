@@ -1,10 +1,13 @@
 import { Link } from "react-router-dom";
 import { FaChevronRight } from "react-icons/fa";
+import { useLanguage } from "../context/LanguageContext";
 
 // items: [{ name, path }] — path omitted on the last (current) item.
 function Breadcrumbs({ items }) {
+  const { t } = useLanguage();
+
   return (
-    <nav aria-label="Breadcrumb" className="mb-4">
+    <nav aria-label={t("Breadcrumb", "ब्रेडक्रंब")} className="mb-4">
       <ol className="flex flex-wrap items-center gap-1.5 text-sm text-slate-500">
         {items.map((item, i) => {
           const isLast = i === items.length - 1;

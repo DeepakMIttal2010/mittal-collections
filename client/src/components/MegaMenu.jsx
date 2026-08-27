@@ -173,7 +173,7 @@ function MoreCategoriesMenu({ categories, getGroupedSubcategories, linkClassName
                 to={`/category/${activeCategory?.slug}`}
                 className="text-sm font-medium text-amber-700 hover:text-amber-800"
               >
-                View all {activeCategory?.name} →
+                {t(`View all ${activeCategory?.name} →`, `सभी ${activeCategory?.name} देखें →`)}
               </NavLink>
             )}
           </div>

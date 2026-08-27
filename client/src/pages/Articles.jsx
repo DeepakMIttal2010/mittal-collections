@@ -85,10 +85,13 @@ function Articles() {
             <FaRulerCombined />
           </span>
           <div>
-            <p className="font-semibold">Curtain Size Calculator</p>
+            <p className="font-semibold">
+              {isHindi ? "कर्टन साइज़ कैलकुलेटर" : "Curtain Size Calculator"}
+            </p>
             <p className="text-sm text-blue-100">
-              Enter your window size, get the exact curtain size to buy —
-              free tool.
+              {isHindi
+                ? "अपनी विंडो का साइज़ डालें, खरीदने के लिए सही कर्टन साइज़ पाएं — मुफ़्त टूल।"
+                : "Enter your window size, get the exact curtain size to buy — free tool."}
             </p>
           </div>
         </div>
