@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import QRCode from "qrcode";
 import { toast } from "react-toastify";
+import fixWebmDuration from "fix-webm-duration";
 import {
   FaTimes,
   FaShareAlt,
@@ -816,7 +817,21 @@ function ShareProductModal({ product, onClose }) {
       clearInterval(pushTimer);
       if (audioCtx) await audioCtx.close();
 
-      const blob = new Blob(chunks, { type: mimeType.split(";")[0] });
+      const rawBlob = new Blob(chunks, { type: mimeType.split(";")[0] });
+
+      // MediaRecorder-produced webm never writes a Duration into its
+      // header — the browser has to guess at playback time, and various
+      // players/tools (including, sometimes, this very <video> preview)
+      // can end up cutting playback short of the actual recorded content
+      // as a result, which reads exactly like "the last slide never
+      // shows up" even though the frames are genuinely in the file. Not
+      // an issue for the mp4 path (real Safari), which writes a proper
+      // duration natively.
+      const recordedMs = performance.now() - startedAt;
+      const blob = rawBlob.type.includes("webm")
+        ? await fixWebmDuration(rawBlob, recordedMs, { logger: false })
+        : rawBlob;
+
       const url = URL.createObjectURL(blob);
       setVideoBlob(blob);
       setVideoUrl(url);
