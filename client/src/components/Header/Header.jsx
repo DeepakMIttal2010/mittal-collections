@@ -272,7 +272,7 @@ function Header() {
 
   const handleMicClick = () => {
     if (!recognitionRef.current) {
-      alert("Voice search is not supported in this browser.");
+      alert(t("Voice search is not supported in this browser.", "इस ब्राउज़र में आवाज़ से खोज उपलब्ध नहीं है।"));
       return;
     }
 
@@ -311,7 +311,7 @@ function Header() {
                 <FaMapMarkerAlt className="text-amber-600 mt-1 text-base shrink-0" />
                 <span>
                   <span className="block text-xs text-slate-500">
-                    Deliver to {deliverName}
+                    {t("Deliver to ", "डिलीवर करें ")}{deliverName}
                   </span>
                   <span className="block text-sm font-bold text-slate-900">
                     {deliverPlace}
@@ -322,7 +322,7 @@ function Header() {
               {addressOpen && (
                 <div className="absolute top-full left-0 z-50 mt-1 w-72 bg-white border border-slate-200 rounded-lg shadow-lg py-2">
                   <div className="px-4 py-1.5 text-xs font-semibold text-slate-400 uppercase tracking-wide">
-                    Choose delivery address
+                    {t("Choose delivery address", "डिलीवरी पता चुनें")}
                   </div>
 
                   {savedAddresses.map((address) => (
@@ -347,7 +347,7 @@ function Header() {
                           {address.fullName}
                           {address.isDefault && (
                             <span className="ml-1.5 text-[10px] font-semibold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded align-middle">
-                              Current
+                              {t("Current", "वर्तमान")}
                             </span>
                           )}
                         </span>
@@ -366,14 +366,14 @@ function Header() {
                       onClick={() => setAddressOpen(false)}
                       className="block px-4 py-2 text-sm font-medium text-blue-700 hover:bg-slate-50"
                     >
-                      + Add New Address
+                      {t("+ Add New Address", "+ नया पता जोड़ें")}
                     </Link>
                     <Link
                       to="/addresses"
                       onClick={() => setAddressOpen(false)}
                       className="block px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 hover:text-amber-600"
                     >
-                      Manage Addresses
+                      {t("Manage Addresses", "पते प्रबंधित करें")}
                     </Link>
                   </div>
                 </div>
@@ -388,7 +388,7 @@ function Header() {
               {deliverName ? (
                 <span>
                   <span className="block text-xs text-slate-500">
-                    Deliver to {deliverName}
+                    {t("Deliver to ", "डिलीवर करें ")}{deliverName}
                   </span>
                   <span className="block text-sm font-bold text-slate-900">
                     {deliverPlace}
@@ -396,7 +396,7 @@ function Header() {
                 </span>
               ) : (
                 <span className="text-sm font-bold text-slate-900">
-                  Deliver to: {deliverPlace}
+                  {t("Deliver to: ", "डिलीवर करें: ")}{deliverPlace}
                 </span>
               )}
             </Link>
@@ -413,7 +413,7 @@ function Header() {
               <button
                 type="button"
                 onClick={() => setCategoryMenuOpen((prev) => !prev)}
-                aria-label="Search category"
+                aria-label={t("Search category", "सर्च श्रेणी")}
                 aria-expanded={categoryMenuOpen}
                 className="flex items-center gap-1 h-full bg-slate-100 rounded-l-full text-xs font-medium text-slate-600 border-r border-slate-300 pl-4 pr-2.5 py-2 hover:bg-slate-200 transition-colors"
               >
@@ -437,7 +437,7 @@ function Header() {
                         : "text-slate-700 hover:bg-slate-50"
                     }`}
                   >
-                    All Categories
+                    {t("All Categories", "सभी श्रेणियां")}
                   </button>
 
                   {categories.map((c) => (
@@ -465,13 +465,13 @@ function Header() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onFocus={() => setShowSuggestions(true)}
-              placeholder="Search Bedsheets, Towels, Curtains..."
+              placeholder={t("Search Bedsheets, Towels, Curtains...", "बेडशीट, टॉवल, कर्टन खोजें...")}
               className="flex-1 min-w-0 outline-none text-sm text-slate-700 placeholder:text-slate-400 pl-3"
             />
             <button
               type="button"
               onClick={handleMicClick}
-              title={listening ? "Listening..." : "Search by voice"}
+              title={listening ? t("Listening...", "सुन रहे हैं...") : t("Search by voice", "आवाज़ से खोजें")}
               className="p-1"
             >
               <FaMicrophone
@@ -484,7 +484,7 @@ function Header() {
               type="submit"
               className="bg-blue-700 hover:bg-blue-800 text-white text-sm font-medium px-5 py-2 rounded-full transition-colors"
             >
-              Go
+              {t("Go", "जाएं")}
             </button>
           </div>
 
@@ -550,27 +550,29 @@ function Header() {
               <button
                 type="button"
                 onClick={handleInstallClick}
-                aria-label="Install the Mittal Collections app"
-                title="Install App"
+                aria-label={t("Install the Mittal Collections app", "मित्तल कलेक्शंस ऐप इंस्टॉल करें")}
+                title={t("Install App", "ऐप इंस्टॉल करें")}
                 className="flex flex-col items-center text-slate-600 hover:text-blue-700 transition-colors"
               >
                 <FaDownload className="text-lg" />
                 <span className="hidden min-[1440px]:block text-xs mt-0.5">
-                  Install
+                  {t("Install", "इंस्टॉल")}
                 </span>
               </button>
 
               {showInstallHelp && (
                 <div className="absolute top-full right-0 z-50 mt-1 w-56 bg-white border border-slate-200 rounded-lg shadow-lg p-3 text-xs text-slate-600 leading-relaxed">
-                  Apne browser ke menu se{" "}
-                  <strong>&quot;Add to Home Screen&quot;</strong> ya{" "}
-                  <strong>&quot;Install App&quot;</strong> option chunein.
+                  {t("From your browser's menu, choose ", "अपने ब्राउज़र के मेनू से ")}
+                  <strong>&quot;{t("Add to Home Screen", "Add to Home Screen")}&quot;</strong>{" "}
+                  {t("or", "या")}{" "}
+                  <strong>&quot;{t("Install App", "Install App")}&quot;</strong>
+                  {t(".", " चुनें।")}
                   <button
                     type="button"
                     onClick={() => setShowInstallHelp(false)}
                     className="block mt-2 text-blue-700 font-medium hover:underline"
                   >
-                    Got it
+                    {t("Got it", "समझ गया")}
                   </button>
                 </div>
               )}
@@ -590,41 +592,41 @@ function Header() {
                 <span className="w-7 h-7 rounded-full bg-amber-600 text-white text-sm font-semibold flex items-center justify-center">
                   {user?.name?.charAt(0).toUpperCase()}
                 </span>
-                <span className="hidden min-[1440px]:block text-xs mt-0.5">Account</span>
+                <span className="hidden min-[1440px]:block text-xs mt-0.5">{t("Account", "खाता")}</span>
               </button>
 
               {accountOpen && (
                 <div className="absolute top-full right-0 z-50 mt-1 w-48 bg-white border border-slate-200 rounded-lg shadow-lg py-2">
                   <div className="px-4 py-2 text-sm text-slate-500 border-b border-slate-100 truncate">
-                    Hi, {user?.name}
+                    {t("Hi, ", "नमस्ते, ")}{user?.name}
                   </div>
 
                   <Link
                     to="/account"
                     className="block px-4 py-2 text-sm font-medium text-slate-800 hover:bg-slate-50 hover:text-amber-600"
                   >
-                    My Account
+                    {t("My Account", "मेरा खाता")}
                   </Link>
 
                   <Link
                     to="/my-orders"
                     className="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-amber-600"
                   >
-                    My Orders
+                    {t("My Orders", "मेरे ऑर्डर")}
                   </Link>
 
                   <Link
                     to="/wishlist"
                     className="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-amber-600"
                   >
-                    Wishlist
+                    {t("Wishlist", "विशलिस्ट")}
                   </Link>
 
                   <Link
                     to="/change-password"
                     className="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-amber-600"
                   >
-                    Change Password
+                    {t("Change Password", "पासवर्ड बदलें")}
                   </Link>
 
                   <button
@@ -632,7 +634,7 @@ function Header() {
                     onClick={logout}
                     className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-slate-50"
                   >
-                    Logout
+                    {t("Logout", "लॉगआउट")}
                   </button>
                 </div>
               )}
@@ -643,7 +645,7 @@ function Header() {
               className="hidden md:flex flex-col items-center text-slate-600 hover:text-blue-700 transition-colors"
             >
               <FaUser className="text-lg" />
-              <span className="hidden min-[1440px]:block text-xs mt-0.5">Account</span>
+              <span className="hidden min-[1440px]:block text-xs mt-0.5">{t("Account", "खाता")}</span>
             </Link>
           )}
 
@@ -652,7 +654,7 @@ function Header() {
             className="relative flex flex-col items-center text-slate-600 hover:text-blue-700 transition-colors"
           >
             <FaHeart className="text-lg" />
-            <span className="hidden min-[1440px]:block text-xs mt-0.5">Wishlist</span>
+            <span className="hidden min-[1440px]:block text-xs mt-0.5">{t("Wishlist", "विशलिस्ट")}</span>
             {totalWishlistItems > 0 && (
               <span className="absolute -top-1.5 -right-2 bg-red-500 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
                 {totalWishlistItems}
@@ -666,7 +668,7 @@ function Header() {
             className="relative flex flex-col items-center text-slate-600 hover:text-blue-700 transition-colors"
           >
             <FaShoppingCart className="text-lg" />
-            <span className="hidden min-[1440px]:block text-xs mt-0.5">Cart</span>
+            <span className="hidden min-[1440px]:block text-xs mt-0.5">{t("Cart", "कार्ट")}</span>
             {totalItems > 0 && (
               <span className="absolute -top-1.5 -right-2 bg-red-500 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
                 {totalItems}
@@ -687,7 +689,7 @@ function Header() {
             <button
               type="button"
               onClick={() => setMobileCategoryMenuOpen((prev) => !prev)}
-              aria-label="Search category"
+              aria-label={t("Search category", "सर्च श्रेणी")}
               aria-expanded={mobileCategoryMenuOpen}
               className="flex items-center gap-1 h-full bg-slate-100 rounded-l-full text-xs font-medium text-slate-600 border-r border-slate-300 pl-3 pr-1.5 py-2"
             >
@@ -739,13 +741,13 @@ function Header() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onFocus={() => setShowSuggestions(true)}
-            placeholder="Search products..."
+            placeholder={t("Search products...", "प्रोडक्ट खोजें...")}
             className="flex-1 min-w-0 outline-none text-sm text-slate-700 placeholder:text-slate-400 pl-3"
           />
           <button
             type="button"
             onClick={handleMicClick}
-            title={listening ? "Listening..." : "Search by voice"}
+            title={listening ? t("Listening...", "सुन रहे हैं...") : t("Search by voice", "आवाज़ से खोजें")}
             className="p-1"
           >
             <FaMicrophone
@@ -758,7 +760,7 @@ function Header() {
             type="submit"
             className="bg-blue-700 hover:bg-blue-800 text-white text-sm font-medium px-4 py-1.5 rounded-full"
           >
-            Go
+            {t("Go", "जाएं")}
           </button>
         </div>
 
