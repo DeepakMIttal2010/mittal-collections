@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, Navigate, useParams, useLocation } from "react-router-dom";
 
 import { getArticleBySlug } from "../services/articleService";
 import { imgUrl } from "../services/api";
@@ -7,8 +7,15 @@ import Seo from "../components/Seo";
 import Breadcrumbs from "../components/Breadcrumbs";
 import { buildBreadcrumbJsonLd } from "../utils/breadcrumbJsonLd";
 
+const SITE_URL = "https://www.mittalcollections.com";
+
 function ArticleDetail() {
   const { slug } = useParams();
+  // The URL prefix decides the language here, not the header's global
+  // toggle — a /hi/ URL is a distinct, search-indexable page (see
+  // render.js and sitemap.js), so it must always render Hindi
+  // regardless of whatever language the rest of the site is set to.
+  const isHindi = useLocation().pathname.startsWith("/hi/");
 
   const [article, setArticle] = useState(null);
   const [status, setStatus] = useState("loading");
@@ -58,46 +65,86 @@ function ArticleDetail() {
     );
   }
 
-  const url = `https://www.mittalcollections.com/articles/${article.slug}`;
+  const hasHindiContent = Boolean(article.titleHi);
+
+  // No Hindi version authored yet for this article — send a /hi/ visitor
+  // to the real (English) page rather than showing English content
+  // under a Hindi URL, which would just be duplicate content under two
+  // URLs with nothing distinguishing them.
+  if (isHindi && !hasHindiContent) {
+    return <Navigate to={`/articles/${article.slug}`} replace />;
+  }
+
+  const displayTitle = isHindi ? article.titleHi : article.title;
+  const displayExcerpt = isHindi ? article.excerptHi || article.excerpt : article.excerpt;
+  const displayContent = isHindi ? article.contentHi || article.content : article.content;
+
+  const enUrl = `${SITE_URL}/articles/${article.slug}`;
+  const hiUrl = `${SITE_URL}/hi/articles/${article.slug}`;
+  const url = isHindi ? hiUrl : enUrl;
 
   const articleJsonLd = {
     "@context": "https://schema.org",
     "@type": "Article",
-    headline: article.title,
-    description: article.excerpt,
+    headline: displayTitle,
+    description: displayExcerpt,
     image: article.coverImage ? imgUrl(article.coverImage) : undefined,
     datePublished: article.createdAt,
     dateModified: article.updatedAt,
+    inLanguage: isHindi ? "hi" : "en",
     author: { "@type": "Organization", name: "Mittal Collections" },
     publisher: { "@type": "Organization", name: "Mittal Collections" },
   };
 
   const breadcrumbItems = [
     { name: "Home", path: "/" },
-    { name: "Guides & Ideas", path: "/articles" },
-    { name: article.title },
+    { name: isHindi ? "गाइड और आइडिया" : "Guides & Ideas", path: isHindi ? "/hi/articles" : "/articles" },
+    { name: displayTitle },
   ];
+
+  // Only advertised as a real alternate once a Hindi version actually
+  // exists — hasHindiContent is guaranteed true here for the Hindi
+  // branch (the redirect above already handled the false case), so this
+  // always includes both when reached.
+  const alternateLangs = hasHindiContent
+    ? [
+        { lang: "en", url: enUrl },
+        { lang: "hi", url: hiUrl },
+        { lang: "x-default", url: enUrl },
+      ]
+    : undefined;
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-12">
       <Seo
-        title={article.title}
-        description={article.excerpt || article.title}
+        title={displayTitle}
+        description={displayExcerpt || displayTitle}
         image={article.coverImage ? imgUrl(article.coverImage) : undefined}
         url={url}
+        lang={isHindi ? "hi" : "en"}
+        alternateLangs={alternateLangs}
         jsonLd={[articleJsonLd, buildBreadcrumbJsonLd(breadcrumbItems)]}
       />
 
       <Breadcrumbs items={breadcrumbItems} />
 
+      {hasHindiContent && (
+        <Link
+          to={isHindi ? `/articles/${article.slug}` : `/hi/articles/${article.slug}`}
+          className="inline-block text-sm text-amber-600 hover:underline mb-4"
+        >
+          {isHindi ? "Read in English" : "हिंदी में पढ़ें"}
+        </Link>
+      )}
+
       <h1 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
-        {article.title}
+        {displayTitle}
       </h1>
 
       {article.coverImage && (
         <img
           src={imgUrl(article.coverImage)}
-          alt={article.title}
+          alt={displayTitle}
           className="w-full rounded-xl mb-8 object-cover max-h-96"
         />
       )}
@@ -115,7 +162,7 @@ function ArticleDetail() {
           [&_table]:w-full [&_table]:my-6 [&_table]:border-collapse [&_table]:text-sm
           [&_th]:text-left [&_th]:bg-slate-50 [&_th]:font-semibold [&_th]:text-slate-700 [&_th]:px-3 [&_th]:py-2 [&_th]:border [&_th]:border-slate-200
           [&_td]:px-3 [&_td]:py-2 [&_td]:border [&_td]:border-slate-200"
-        dangerouslySetInnerHTML={{ __html: article.content }}
+        dangerouslySetInnerHTML={{ __html: displayContent }}
       />
     </div>
   );

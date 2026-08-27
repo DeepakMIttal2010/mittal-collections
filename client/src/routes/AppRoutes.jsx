@@ -168,6 +168,11 @@ function AppRoutes() {
           <Route path="/policies/:slug" element={<PolicyPage />} />
           <Route path="/articles" element={<Articles />} />
           <Route path="/articles/:slug" element={<ArticleDetail />} />
+          {/* Hindi versions — same components, which self-detect the /hi/
+              prefix via useLocation() and render titleHi/excerptHi/
+              contentHi (see ArticleDetail.jsx and Articles.jsx). */}
+          <Route path="/hi/articles" element={<Articles />} />
+          <Route path="/hi/articles/:slug" element={<ArticleDetail />} />
           <Route
             path="/curtain-size-calculator"
             element={<CurtainSizeCalculator />}

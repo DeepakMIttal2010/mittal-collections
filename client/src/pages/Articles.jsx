@@ -1,12 +1,15 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { FaRulerCombined, FaArrowRight } from "react-icons/fa";
 
 import { getArticles } from "../services/articleService";
 import { imgUrl } from "../services/api";
 import Seo from "../components/Seo";
 
+const SITE_URL = "https://www.mittalcollections.com";
+
 function Articles() {
+  const isHindi = useLocation().pathname.startsWith("/hi/");
   const [articles, setArticles] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -22,20 +25,38 @@ function Articles() {
     load();
   }, []);
 
+  // The Hindi listing only shows articles that actually have a Hindi
+  // version — otherwise it would link to a /hi/articles/:slug URL that
+  // just redirects straight back to English (see ArticleDetail.jsx).
+  const visibleArticles = isHindi
+    ? articles.filter((article) => article.titleHi)
+    : articles;
+
   return (
     <div className="max-w-6xl mx-auto px-4 py-12">
       <Seo
-        title="Guides & Ideas"
-        description="Home furnishing guides, buying tips and styling ideas from Mittal Collections — bedsheets, curtains, towels and more."
-        url="https://www.mittalcollections.com/articles"
+        title={isHindi ? "गाइड और आइडिया" : "Guides & Ideas"}
+        description={
+          isHindi
+            ? "मित्तल कलेक्शंस से घर की साज-सज्जा की गाइड, खरीदारी के सुझाव और सजावट के आइडिया — चादर, पर्दे, तौलिए और भी बहुत कुछ।"
+            : "Home furnishing guides, buying tips and styling ideas from Mittal Collections — bedsheets, curtains, towels and more."
+        }
+        url={`${SITE_URL}${isHindi ? "/hi/articles" : "/articles"}`}
+        lang={isHindi ? "hi" : "en"}
+        alternateLangs={[
+          { lang: "en", url: `${SITE_URL}/articles` },
+          { lang: "hi", url: `${SITE_URL}/hi/articles` },
+          { lang: "x-default", url: `${SITE_URL}/articles` },
+        ]}
       />
 
       <h1 className="text-3xl md:text-4xl font-bold text-slate-900 mb-2">
-        Guides & Ideas
+        {isHindi ? "गाइड और आइडिया" : "Guides & Ideas"}
       </h1>
       <p className="text-slate-500 mb-8">
-        Buying guides and styling tips to help you choose the right home
-        furnishing.
+        {isHindi
+          ? "सही घरेलू साज-सज्जा चुनने में मदद करने वाली खरीदारी गाइड और स्टाइलिंग टिप्स।"
+          : "Buying guides and styling tips to help you choose the right home furnishing."}
       </p>
 
       <Link
@@ -67,36 +88,47 @@ function Articles() {
             </div>
           ))}
         </div>
-      ) : articles.length === 0 ? (
-        <p className="text-slate-500">No articles yet — check back soon.</p>
+      ) : visibleArticles.length === 0 ? (
+        <p className="text-slate-500">
+          {isHindi
+            ? "अभी तक कोई हिंदी लेख नहीं — जल्द ही वापस देखें।"
+            : "No articles yet — check back soon."}
+        </p>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {articles.map((article) => (
-            <Link
-              key={article._id}
-              to={`/articles/${article.slug}`}
-              className="group block"
-            >
-              <div className="aspect-[4/3] bg-slate-100 rounded-lg overflow-hidden mb-3">
-                {article.coverImage && (
-                  <img
-                    src={imgUrl(article.coverImage)}
-                    alt={article.title}
-                    loading="lazy"
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
+          {visibleArticles.map((article) => {
+            const displayTitle = isHindi ? article.titleHi : article.title;
+            const displayExcerpt = isHindi
+              ? article.excerptHi || article.excerpt
+              : article.excerpt;
+
+            return (
+              <Link
+                key={article._id}
+                to={`${isHindi ? "/hi" : ""}/articles/${article.slug}`}
+                className="group block"
+              >
+                <div className="aspect-[4/3] bg-slate-100 rounded-lg overflow-hidden mb-3">
+                  {article.coverImage && (
+                    <img
+                      src={imgUrl(article.coverImage)}
+                      alt={displayTitle}
+                      loading="lazy"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                  )}
+                </div>
+                <h2 className="font-semibold text-slate-900 group-hover:text-amber-600 transition-colors">
+                  {displayTitle}
+                </h2>
+                {displayExcerpt && (
+                  <p className="text-sm text-slate-500 mt-1 line-clamp-2">
+                    {displayExcerpt}
+                  </p>
                 )}
-              </div>
-              <h2 className="font-semibold text-slate-900 group-hover:text-amber-600 transition-colors">
-                {article.title}
-              </h2>
-              {article.excerpt && (
-                <p className="text-sm text-slate-500 mt-1 line-clamp-2">
-                  {article.excerpt}
-                </p>
-              )}
-            </Link>
-          ))}
+              </Link>
+            );
+          })}
         </div>
       )}
     </div>

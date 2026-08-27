@@ -70,6 +70,9 @@ function AdminArticles() {
                   Status
                 </th>
                 <th className="text-center px-4 py-3 font-semibold">
+                  Hindi
+                </th>
+                <th className="text-center px-4 py-3 font-semibold">
                   Actions
                 </th>
               </tr>
@@ -102,6 +105,22 @@ function AdminArticles() {
                       }`}
                     >
                       {article.isActive ? "Published" : "Draft"}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    <span
+                      className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
+                        article.titleHi
+                          ? "bg-blue-100 text-blue-700"
+                          : "bg-slate-100 text-slate-400"
+                      }`}
+                      title={
+                        article.titleHi
+                          ? "Has a Hindi version at /hi/articles/..."
+                          : "No Hindi version yet"
+                      }
+                    >
+                      {article.titleHi ? "✓" : "—"}
                     </span>
                   </td>
                   <td className="px-4 py-3">

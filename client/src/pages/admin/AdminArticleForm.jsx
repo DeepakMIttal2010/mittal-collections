@@ -11,11 +11,22 @@ import {
   uploadArticleImage,
 } from "../../services/adminArticleService";
 
+const TOOLBAR_CONFIG = {
+  container: [
+    [{ header: [2, 3, false] }],
+    ["bold", "italic", "underline"],
+    [{ list: "ordered" }, { list: "bullet" }],
+    ["link", "image"],
+    ["clean"],
+  ],
+};
+
 function AdminArticleForm() {
   const { id } = useParams();
   const isEditing = Boolean(id);
   const navigate = useNavigate();
   const quillRef = useRef(null);
+  const quillRefHi = useRef(null);
 
   const [loading, setLoading] = useState(isEditing);
   const [saving, setSaving] = useState(false);
@@ -24,6 +35,9 @@ function AdminArticleForm() {
   const [title, setTitle] = useState("");
   const [excerpt, setExcerpt] = useState("");
   const [content, setContent] = useState("");
+  const [titleHi, setTitleHi] = useState("");
+  const [excerptHi, setExcerptHi] = useState("");
+  const [contentHi, setContentHi] = useState("");
   const [coverImage, setCoverImage] = useState("");
   const [isActive, setIsActive] = useState(true);
 
@@ -37,6 +51,9 @@ function AdminArticleForm() {
         setTitle(response.article.title);
         setExcerpt(response.article.excerpt || "");
         setContent(response.article.content);
+        setTitleHi(response.article.titleHi || "");
+        setExcerptHi(response.article.excerptHi || "");
+        setContentHi(response.article.contentHi || "");
         setCoverImage(response.article.coverImage || "");
         setIsActive(response.article.isActive);
       } else {
@@ -89,19 +106,45 @@ function AdminArticleForm() {
     };
   };
 
+  const handleContentImageButtonHi = () => {
+    const input = document.createElement("input");
+    input.setAttribute("type", "file");
+    input.setAttribute("accept", "image/*");
+    input.click();
+
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+
+      const editor = quillRefHi.current?.getEditor();
+      const range = editor?.getSelection(true);
+
+      const response = await uploadArticleImage(file);
+
+      if (response.success) {
+        editor.insertEmbed(range?.index ?? 0, "image", response.url);
+        editor.setSelection((range?.index ?? 0) + 1);
+      } else {
+        alert(response.message || "Unable to upload image");
+      }
+    };
+  };
+
   const modules = useMemo(
     () => ({
       toolbar: {
-        container: [
-          [{ header: [2, 3, false] }],
-          ["bold", "italic", "underline"],
-          [{ list: "ordered" }, { list: "bullet" }],
-          ["link", "image"],
-          ["clean"],
-        ],
-        handlers: {
-          image: handleContentImageButton,
-        },
+        ...TOOLBAR_CONFIG,
+        handlers: { image: handleContentImageButton },
+      },
+    }),
+    [],
+  );
+
+  const modulesHi = useMemo(
+    () => ({
+      toolbar: {
+        ...TOOLBAR_CONFIG,
+        handlers: { image: handleContentImageButtonHi },
       },
     }),
     [],
@@ -112,7 +155,16 @@ function AdminArticleForm() {
 
     setSaving(true);
 
-    const payload = { title, excerpt, content, coverImage, isActive };
+    const payload = {
+      title,
+      excerpt,
+      content,
+      titleHi,
+      excerptHi,
+      contentHi,
+      coverImage,
+      isActive,
+    };
     const response = isEditing
       ? await updateArticle(id, payload)
       : await addArticle(payload);
@@ -202,6 +254,58 @@ function AdminArticleForm() {
             placeholder="Write the article here."
             className="bg-white [&_.ql-editor]:min-h-[280px]"
           />
+        </div>
+
+        <div className="pt-4 border-t border-slate-200">
+          <h3 className="text-sm font-semibold text-slate-800 mb-1">
+            Hindi Version (optional)
+          </h3>
+          <p className="text-xs text-slate-500 mb-4">
+            Leave blank to skip — the article still works fine in English
+            only. Fill these in to publish a separate, search-indexable
+            Hindi page for this article.
+          </p>
+
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              शीर्षक (Title in Hindi)
+            </label>
+            <input
+              type="text"
+              value={titleHi}
+              onChange={(e) => setTitleHi(e.target.value)}
+              placeholder="अपने घर के लिए सही पर्दे कैसे चुनें"
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              सारांश (Excerpt in Hindi)
+            </label>
+            <textarea
+              rows={2}
+              value={excerptHi}
+              onChange={(e) => setExcerptHi(e.target.value)}
+              placeholder="लेख की सूची और मेटा विवरण में दिखने वाला संक्षिप्त सारांश।"
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              सामग्री (Content in Hindi)
+            </label>
+            <ReactQuill
+              ref={quillRefHi}
+              theme="snow"
+              value={contentHi}
+              onChange={setContentHi}
+              modules={modulesHi}
+              placeholder="यहाँ हिंदी में लेख लिखें।"
+              className="bg-white [&_.ql-editor]:min-h-[280px]"
+            />
+          </div>
         </div>
 
         <label className="flex items-center gap-2 text-sm text-slate-700">

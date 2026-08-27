@@ -210,6 +210,8 @@ const buildMeta = async (path) => {
     const article = data.article;
     const image = article.coverImage ? imgUrl(article.coverImage) : DEFAULT_IMAGE;
     const url = `${SITE_URL}/articles/${article.slug}`;
+    const hasHindi = Boolean(article.titleHi);
+    const hiUrl = `${SITE_URL}/hi/articles/${article.slug}`;
 
     const breadcrumbItems = [
       { name: "Home", path: "/" },
@@ -223,6 +225,16 @@ const buildMeta = async (path) => {
       image,
       url,
       ogType: "article",
+      lang: "en",
+      // Only advertised once a Hindi version actually exists — otherwise
+      // this would hreflang-link to a URL that just redirects right back.
+      alternateLangs: hasHindi
+        ? [
+            { lang: "en", url },
+            { lang: "hi", url: hiUrl },
+            { lang: "x-default", url },
+          ]
+        : undefined,
       jsonLd: [
         {
           "@context": "https://schema.org",
@@ -232,6 +244,65 @@ const buildMeta = async (path) => {
           image: article.coverImage ? imgUrl(article.coverImage) : undefined,
           datePublished: article.createdAt,
           dateModified: article.updatedAt,
+          inLanguage: "en",
+          author: { "@type": "Organization", name: SITE_NAME },
+          publisher: { "@type": "Organization", name: SITE_NAME },
+        },
+        buildBreadcrumbJsonLd(breadcrumbItems),
+      ],
+    };
+  }
+
+  if (parts[0] === "hi" && parts[1] === "articles" && parts[2]) {
+    const data = await fetch(`${API_BASE}/api/articles/slug/${parts[2]}`).then(
+      (r) => r.json(),
+    );
+
+    if (!data.success) return null;
+
+    const article = data.article;
+    const enUrl = `${SITE_URL}/articles/${article.slug}`;
+
+    // No Hindi content authored for this article — same rule the client
+    // route enforces (see ArticleDetail.jsx): a /hi/ URL only exists once
+    // there's real Hindi content to serve there, otherwise redirect a
+    // crawler straight to the real (English) page instead of a 404 or a
+    // soft-404-looking English-under-a-Hindi-URL page.
+    if (!article.titleHi) {
+      return { redirect: enUrl };
+    }
+
+    const image = article.coverImage ? imgUrl(article.coverImage) : DEFAULT_IMAGE;
+    const hiUrl = `${SITE_URL}/hi/articles/${article.slug}`;
+
+    const breadcrumbItems = [
+      { name: "Home", path: "/" },
+      { name: "गाइड और आइडिया", path: "/hi/articles" },
+      { name: article.titleHi },
+    ];
+
+    return {
+      title: `${article.titleHi} | ${SITE_NAME}`,
+      description: article.excerptHi || article.excerpt || article.titleHi,
+      image,
+      url: hiUrl,
+      ogType: "article",
+      lang: "hi",
+      alternateLangs: [
+        { lang: "en", url: enUrl },
+        { lang: "hi", url: hiUrl },
+        { lang: "x-default", url: enUrl },
+      ],
+      jsonLd: [
+        {
+          "@context": "https://schema.org",
+          "@type": "Article",
+          headline: article.titleHi,
+          description: article.excerptHi || article.excerpt,
+          image: article.coverImage ? imgUrl(article.coverImage) : undefined,
+          datePublished: article.createdAt,
+          dateModified: article.updatedAt,
+          inLanguage: "hi",
           author: { "@type": "Organization", name: SITE_NAME },
           publisher: { "@type": "Organization", name: SITE_NAME },
         },
@@ -254,6 +325,16 @@ const injectMeta = (html, meta) => {
     <meta property="og:image" content="${escapeHtml(meta.image)}" />
     <meta property="og:url" content="${escapeHtml(meta.url)}" />
     <link rel="canonical" href="${escapeHtml(meta.url)}" />
+    ${
+      meta.alternateLangs
+        ? meta.alternateLangs
+            .map(
+              ({ lang, url }) =>
+                `<link rel="alternate" hreflang="${escapeHtml(lang)}" href="${escapeHtml(url)}" />`,
+            )
+            .join("\n    ")
+        : ""
+    }
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="${escapeHtml(meta.title)}" />
     <meta name="twitter:description" content="${escapeHtml(meta.description)}" />
@@ -261,10 +342,19 @@ const injectMeta = (html, meta) => {
     ${meta.jsonLd ? `<script type="application/ld+json">${JSON.stringify(meta.jsonLd)}</script>` : ""}
   `;
 
-  return html
+  let result = html
     .replace(/<title>.*?<\/title>/i, "")
     .replace(/<meta name="description"[^>]*>/i, "")
     .replace("</head>", `${tags}\n  </head>`);
+
+  if (meta.lang) {
+    result = result.replace(/<html([^>]*)>/i, (fullMatch, attrs) => {
+      const withoutLang = attrs.replace(/\s*lang="[^"]*"/i, "");
+      return `<html${withoutLang} lang="${escapeHtml(meta.lang)}">`;
+    });
+  }
+
+  return result;
 };
 
 export default async function handler(req, res) {
@@ -283,6 +373,15 @@ export default async function handler(req, res) {
     const meta = await buildMeta(path);
 
     res.setHeader("Content-Type", "text/html; charset=utf-8");
+
+    // A /hi/articles/:slug for an article with no Hindi content yet —
+    // send the crawler straight to the real (English) page with a real
+    // 301, the same outcome the client route reaches via <Navigate>.
+    if (meta?.redirect) {
+      res.setHeader("Cache-Control", "public, max-age=300, s-maxage=3600");
+      res.redirect(301, meta.redirect);
+      return;
+    }
 
     if (!meta) {
       // A confidently-resolved "doesn't exist" (product/category/article

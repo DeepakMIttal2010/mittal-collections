@@ -55,6 +55,17 @@
       ],
       "destination": "/api/render?path=/articles/:slug"
     },
+    {
+      "source": "/hi/articles/:slug",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*([bB]ot|facebookexternalhit|WhatsApp|Pinterest|embedly|Quora Link Preview|Slurp|ia_archiver|Discordbot|TelegramBot|redirectionio).*"
+        }
+      ],
+      "destination": "/api/render?path=/hi/articles/:slug"
+    },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }

@@ -14,7 +14,7 @@ const generateSlug = (title) =>
 export const getArticles = async (req, res) => {
   try {
     const articles = await Article.find({ isActive: true })
-      .select("title slug excerpt coverImage createdAt")
+      .select("title slug excerpt titleHi excerptHi coverImage createdAt")
       .sort({ createdAt: -1 });
 
     res.status(200).json({
@@ -170,7 +170,8 @@ export const uploadArticleImage = async (req, res) => {
 // ============================
 export const addArticle = async (req, res) => {
   try {
-    const { title, excerpt, content, coverImage, isActive } = req.body;
+    const { title, excerpt, content, titleHi, excerptHi, contentHi, coverImage, isActive } =
+      req.body;
 
     if (!title || !content) {
       return res.status(400).json({
@@ -195,6 +196,9 @@ export const addArticle = async (req, res) => {
       slug,
       excerpt: excerpt || "",
       content,
+      titleHi: titleHi || "",
+      excerptHi: excerptHi || "",
+      contentHi: contentHi || "",
       coverImage: coverImage || "",
       isActive: isActive === undefined ? true : isActive === true || isActive === "true",
     });
@@ -228,7 +232,8 @@ export const updateArticle = async (req, res) => {
       });
     }
 
-    const { title, excerpt, content, coverImage, isActive } = req.body;
+    const { title, excerpt, content, titleHi, excerptHi, contentHi, coverImage, isActive } =
+      req.body;
 
     if (title && title !== article.title) {
       article.title = title;
@@ -237,6 +242,9 @@ export const updateArticle = async (req, res) => {
 
     if (excerpt !== undefined) article.excerpt = excerpt;
     if (content !== undefined) article.content = content;
+    if (titleHi !== undefined) article.titleHi = titleHi;
+    if (excerptHi !== undefined) article.excerptHi = excerptHi;
+    if (contentHi !== undefined) article.contentHi = contentHi;
 
     let oldCoverImage = null;
     if (coverImage !== undefined && coverImage !== article.coverImage) {
