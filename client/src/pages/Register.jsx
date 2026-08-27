@@ -5,6 +5,7 @@ import { FaArrowLeft } from "react-icons/fa";
 import { registerUser, verifyRegisterOtp } from "../services/authService";
 import { subscribeToNewsletter } from "../services/newsletterService";
 import { useAuth } from "../context/AuthContext";
+import { useLanguage } from "../context/LanguageContext";
 import GoogleSignInButton from "../components/GoogleSignInButton";
 import CompleteMobileModal from "../components/CompleteMobileModal";
 
@@ -27,6 +28,7 @@ function Register() {
   const [loading, setLoading] = useState(false);
   const [showMobileModal, setShowMobileModal] = useState(false);
   const { login, markJustRegistered } = useAuth();
+  const { t } = useLanguage();
 
   const [otpStep, setOtpStep] = useState(false);
   const [otp, setOtp] = useState("");
@@ -39,7 +41,7 @@ function Register() {
     if (data.needsMobile) {
       setShowMobileModal(true);
     } else {
-      toast.success("Signed in with Google");
+      toast.success(t("Signed in with Google", "Google से साइन इन हुआ"));
       navigate(redirectTo);
     }
   };
@@ -58,7 +60,7 @@ function Register() {
 
     try {
       if (formData.password !== formData.confirmPassword) {
-        toast.error("Passwords do not match");
+        toast.error(t("Passwords do not match", "पासवर्ड मेल नहीं खाते"));
         setLoading(false);
         return;
       }
@@ -68,14 +70,19 @@ function Register() {
       const data = await registerUser(userData);
 
       if (data.success) {
-        toast.success("Verification code sent to your email");
+        toast.success(
+          t(
+            "Verification code sent to your email",
+            "आपके ईमेल पर वेरिफिकेशन कोड भेज दिया गया है",
+          ),
+        );
         setOtpStep(true);
       } else {
         toast.error(data.message);
       }
     } catch (error) {
       console.error(error);
-      toast.error("Registration Failed");
+      toast.error(t("Registration Failed", "रजिस्ट्रेशन नहीं हो पाया"));
     }
 
     setLoading(false);
@@ -90,7 +97,7 @@ function Register() {
       const data = await verifyRegisterOtp(formData.email, otp);
 
       if (data.success) {
-        toast.success("Registration Successful");
+        toast.success(t("Registration Successful", "रजिस्ट्रेशन सफल हुआ"));
         markJustRegistered();
 
         if (subscribeNewsletter) {
@@ -103,7 +110,7 @@ function Register() {
       }
     } catch (error) {
       console.error(error);
-      toast.error("Verification Failed");
+      toast.error(t("Verification Failed", "वेरिफिकेशन नहीं हो पाया"));
     }
 
     setVerifying(false);
@@ -117,13 +124,13 @@ function Register() {
       const data = await registerUser(userData);
 
       if (data.success) {
-        toast.success("Verification code resent");
+        toast.success(t("Verification code resent", "वेरिफिकेशन कोड फिर से भेजा गया"));
       } else {
         toast.error(data.message);
       }
     } catch (error) {
       console.error(error);
-      toast.error("Unable to resend code");
+      toast.error(t("Unable to resend code", "कोड फिर से नहीं भेजा जा सका"));
     }
 
     setResending(false);
@@ -136,20 +143,26 @@ function Register() {
     <div className="min-h-[70vh] flex items-center justify-center py-16 px-4">
       <div className="w-full max-w-md">
         <h1 className="text-5xl font-bold text-center text-slate-900 mb-10">
-          {otpStep ? "Verify Your Email" : "Create Account"}
+          {otpStep
+            ? t("Verify Your Email", "अपना ईमेल वेरिफाई करें")
+            : t("Create Account", "खाता बनाएं")}
         </h1>
 
         {otpStep ? (
           <form onSubmit={handleVerifyOtp}>
             <p className="text-sm text-slate-600 mb-6 text-center">
-              We sent a 6-digit code to <strong>{formData.email}</strong>.
-              Enter it below to finish creating your account.
+              {t("We sent a 6-digit code to ", "हमने ")}
+              <strong>{formData.email}</strong>
+              {t(
+                ". Enter it below to finish creating your account.",
+                " पर 6 अंकों का कोड भेजा है। खाता बनाना पूरा करने के लिए इसे नीचे दर्ज करें।",
+              )}
             </p>
 
             <input
               type="text"
               inputMode="numeric"
-              placeholder="Enter 6-digit code"
+              placeholder={t("Enter 6-digit code", "6 अंकों का कोड दर्ज करें")}
               value={otp}
               onChange={(e) =>
                 setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))
@@ -165,7 +178,9 @@ function Register() {
               disabled={verifying || otp.length !== 6}
               className="w-full bg-blue-900 hover:bg-blue-950 text-white font-semibold rounded-full py-3.5 mt-2 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              {verifying ? "Verifying..." : "Verify & Create Account"}
+              {verifying
+                ? t("Verifying...", "वेरिफाई हो रहा है...")
+                : t("Verify & Create Account", "वेरिफाई करें और खाता बनाएं")}
             </button>
 
             <div className="flex items-center justify-between mt-4 text-sm">
@@ -174,7 +189,7 @@ function Register() {
                 onClick={() => setOtpStep(false)}
                 className="text-slate-500 underline hover:text-slate-700"
               >
-                Change details
+                {t("Change details", "जानकारी बदलें")}
               </button>
               <button
                 type="button"
@@ -182,7 +197,9 @@ function Register() {
                 disabled={resending}
                 className="text-blue-700 underline hover:text-blue-900 disabled:opacity-60"
               >
-                {resending ? "Resending..." : "Resend code"}
+                {resending
+                  ? t("Resending...", "फिर से भेजा जा रहा है...")
+                  : t("Resend code", "कोड फिर से भेजें")}
               </button>
             </div>
           </form>
@@ -192,7 +209,7 @@ function Register() {
 
             <div className="flex items-center gap-4 my-6">
               <div className="flex-1 h-px bg-slate-200" />
-              <span className="text-xs text-slate-400 uppercase">or</span>
+              <span className="text-xs text-slate-400 uppercase">{t("or", "या")}</span>
               <div className="flex-1 h-px bg-slate-200" />
             </div>
 
@@ -200,7 +217,7 @@ function Register() {
               <input
                 type="text"
                 name="name"
-                placeholder="Full Name"
+                placeholder={t("Full Name", "पूरा नाम")}
                 value={formData.name}
                 onChange={handleChange}
                 required
@@ -210,7 +227,7 @@ function Register() {
               <input
                 type="email"
                 name="email"
-                placeholder="Email"
+                placeholder={t("Email", "ईमेल")}
                 value={formData.email}
                 onChange={handleChange}
                 required
@@ -220,7 +237,7 @@ function Register() {
               <input
                 type="tel"
                 name="mobile"
-                placeholder="Mobile Number"
+                placeholder={t("Mobile Number", "मोबाइल नंबर")}
                 value={formData.mobile}
                 onChange={handleChange}
                 maxLength={10}
@@ -232,7 +249,7 @@ function Register() {
               <input
                 type="password"
                 name="password"
-                placeholder="Password"
+                placeholder={t("Password", "पासवर्ड")}
                 value={formData.password}
                 onChange={handleChange}
                 required
@@ -242,7 +259,7 @@ function Register() {
               <input
                 type="password"
                 name="confirmPassword"
-                placeholder="Confirm Password"
+                placeholder={t("Confirm Password", "पासवर्ड की पुष्टि करें")}
                 value={formData.confirmPassword}
                 onChange={handleChange}
                 required
@@ -252,7 +269,7 @@ function Register() {
               <input
                 type="text"
                 name="referralCode"
-                placeholder="Referral Code (optional)"
+                placeholder={t("Referral Code (optional)", "रेफरल कोड (वैकल्पिक)")}
                 value={formData.referralCode}
                 onChange={(e) =>
                   setFormData({
@@ -270,7 +287,7 @@ function Register() {
                   onChange={(e) => setSubscribeNewsletter(e.target.checked)}
                   className="w-4 h-4 accent-blue-900"
                 />
-                Register to our newsletter
+                {t("Register to our newsletter", "हमारे न्यूज़लेटर के लिए रजिस्टर करें")}
               </label>
 
               <div className="flex gap-4">
@@ -279,14 +296,16 @@ function Register() {
                   disabled={loading}
                   className="flex-1 bg-blue-900 hover:bg-blue-950 text-white font-semibold rounded-full py-3.5 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  {loading ? "Creating Account..." : "Register"}
+                  {loading
+                    ? t("Creating Account...", "खाता बनाया जा रहा है...")
+                    : t("Register", "रजिस्टर करें")}
                 </button>
 
                 <Link
                   to={`/login?redirect=${encodeURIComponent(redirectTo)}`}
                   className="flex-1 border-2 border-blue-900 text-blue-900 hover:bg-blue-50 font-semibold rounded-full py-3.5 text-center transition-colors"
                 >
-                  Login
+                  {t("Login", "लॉगिन")}
                 </Link>
               </div>
             </form>
@@ -298,7 +317,7 @@ function Register() {
           className="mt-10 flex items-center justify-center gap-2 text-sm text-slate-600 underline hover:text-amber-600"
         >
           <FaArrowLeft className="text-xs" />
-          Return to Store
+          {t("Return to Store", "स्टोर पर वापस जाएं")}
         </Link>
       </div>
 

@@ -8,11 +8,13 @@ import {
 } from "../services/addressService";
 import { getStates } from "../services/stateService";
 import { useAuth } from "../context/AuthContext";
+import { useLanguage } from "../context/LanguageContext";
 
 function AddressForm() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { isLoggedIn } = useAuth();
+  const { t } = useLanguage();
   const [searchParams] = useSearchParams();
   const redirectTo = searchParams.get("redirect") || "/addresses";
   const isEdit = Boolean(id);
@@ -71,7 +73,7 @@ function AddressForm() {
           isDefault: existing.isDefault || false,
         });
       } else {
-        toast.error("Address not found");
+        toast.error(t("Address not found", "पता नहीं मिला"));
         navigate("/addresses");
       }
 
@@ -79,7 +81,7 @@ function AddressForm() {
     };
 
     loadAddress();
-  }, [id, isEdit, isLoggedIn, navigate]);
+  }, [id, isEdit, isLoggedIn, navigate, t]);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -100,10 +102,10 @@ function AddressForm() {
     setSaving(false);
 
     if (data.success) {
-      toast.success(isEdit ? "Address updated" : "Address added");
+      toast.success(isEdit ? t("Address updated", "पता अपडेट हो गया") : t("Address added", "पता जोड़ा गया"));
       navigate(redirectTo);
     } else {
-      toast.error(data.message || "Unable to save address");
+      toast.error(data.message || t("Unable to save address", "पता सेव नहीं हो सका"));
     }
   };
 
@@ -113,7 +115,7 @@ function AddressForm() {
   if (loading) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-8">
-        <p className="text-slate-500">Loading...</p>
+        <p className="text-slate-500">{t("Loading...", "लोड हो रहा है...")}</p>
       </div>
     );
   }
@@ -122,26 +124,26 @@ function AddressForm() {
     <div className="max-w-7xl mx-auto px-4 py-8">
       <div className="text-sm mb-2">
         <Link to="/account" className="text-blue-700 hover:underline">
-          Your Account
+          {t("Your Account", "आपका खाता")}
         </Link>
         <span className="text-slate-400 mx-2">›</span>
         <Link to="/addresses" className="text-blue-700 hover:underline">
-          Your Addresses
+          {t("Your Addresses", "आपके पते")}
         </Link>
         <span className="text-slate-400 mx-2">›</span>
         <span className="text-amber-600 font-medium">
-          {isEdit ? "Edit Address" : "New Address"}
+          {isEdit ? t("Edit Address", "पता एडिट करें") : t("New Address", "नया पता")}
         </span>
       </div>
 
       <h1 className="text-3xl font-bold text-slate-900 mb-6">
-        {isEdit ? "Edit address" : "Add a new address"}
+        {isEdit ? t("Edit address", "पता एडिट करें") : t("Add a new address", "नया पता जोड़ें")}
       </h1>
 
       <form onSubmit={handleSubmit} className="max-w-md space-y-4">
         <div>
           <label className="block text-sm font-semibold text-slate-800 mb-1">
-            Full name (First and Last name)
+            {t("Full name (First and Last name)", "पूरा नाम (पहला और अंतिम नाम)")}
           </label>
           <input
             type="text"
@@ -155,7 +157,7 @@ function AddressForm() {
 
         <div>
           <label className="block text-sm font-semibold text-slate-800 mb-1">
-            Phone number
+            {t("Phone number", "फ़ोन नंबर")}
           </label>
           <input
             type="tel"
@@ -171,12 +173,12 @@ function AddressForm() {
 
         <div>
           <label className="block text-sm font-semibold text-slate-800 mb-1">
-            Street address
+            {t("Street address", "स्ट्रीट एड्रेस")}
           </label>
           <input
             type="text"
             name="address"
-            placeholder="Street address or P.O. Box"
+            placeholder={t("Street address or P.O. Box", "स्ट्रीट एड्रेस या पी.ओ. बॉक्स")}
             value={formData.address}
             onChange={handleChange}
             required
@@ -186,12 +188,12 @@ function AddressForm() {
 
         <div>
           <label className="block text-sm font-semibold text-slate-800 mb-1">
-            Unit or suite number
+            {t("Unit or suite number", "यूनिट या सुइट नंबर")}
           </label>
           <input
             type="text"
             name="unit"
-            placeholder="Apt, suite, unit, building, floor, etc."
+            placeholder={t("Apt, suite, unit, building, floor, etc.", "अपार्टमेंट, सुइट, यूनिट, बिल्डिंग, फ्लोर आदि")}
             value={formData.unit}
             onChange={handleChange}
             className={inputClass}
@@ -201,7 +203,7 @@ function AddressForm() {
         <div className="grid grid-cols-3 gap-3">
           <div>
             <label className="block text-sm font-semibold text-slate-800 mb-1">
-              City
+              {t("City", "शहर")}
             </label>
             <input
               type="text"
@@ -215,7 +217,7 @@ function AddressForm() {
 
           <div>
             <label className="block text-sm font-semibold text-slate-800 mb-1">
-              State
+              {t("State", "राज्य")}
             </label>
             <select
               name="state"
@@ -224,7 +226,7 @@ function AddressForm() {
               required
               className={inputClass}
             >
-              <option value="">Select</option>
+              <option value="">{t("Select", "चुनें")}</option>
               {states.map((state) => (
                 <option key={state._id} value={state.name}>
                   {state.name}
@@ -235,7 +237,7 @@ function AddressForm() {
 
           <div>
             <label className="block text-sm font-semibold text-slate-800 mb-1">
-              ZIP Code
+              {t("ZIP Code", "ज़िप कोड")}
             </label>
             <input
               type="text"
@@ -258,7 +260,7 @@ function AddressForm() {
             onChange={handleChange}
             className="w-4 h-4 accent-blue-900"
           />
-          Make this my default address
+          {t("Make this my default address", "इसे मेरा डिफ़ॉल्ट पता बनाएं")}
         </label>
 
         <button
@@ -266,7 +268,11 @@ function AddressForm() {
           disabled={saving}
           className="bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-full px-8 py-3.5 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
         >
-          {saving ? "Saving..." : isEdit ? "Save address" : "Add address"}
+          {saving
+            ? t("Saving...", "सेव हो रहा है...")
+            : isEdit
+              ? t("Save address", "पता सेव करें")
+              : t("Add address", "पता जोड़ें")}
         </button>
       </form>
     </div>

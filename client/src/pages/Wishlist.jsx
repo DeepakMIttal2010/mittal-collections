@@ -5,12 +5,14 @@ import { FaTrash, FaShoppingCart } from "react-icons/fa";
 import { useWishlist } from "../context/WishlistContext";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
+import { useLanguage } from "../context/LanguageContext";
 
 function Wishlist() {
   const { wishlistItems, removeFromWishlist, clearWishlist } = useWishlist();
 
   const { addToCart } = useCart();
   const { isLoggedIn } = useAuth();
+  const { t } = useLanguage();
 
   const hasItems = wishlistItems && wishlistItems.length > 0;
 
@@ -19,25 +21,28 @@ function Wishlist() {
       {isLoggedIn && (
         <div className="text-sm mb-2">
           <Link to="/account" className="text-blue-700 hover:underline">
-            Your Account
+            {t("Your Account", "आपका खाता")}
           </Link>
           <span className="text-slate-400 mx-2">›</span>
-          <span className="text-amber-600 font-medium">Wishlist</span>
+          <span className="text-amber-600 font-medium">{t("Wishlist", "विशलिस्ट")}</span>
         </div>
       )}
 
-      <h1 className="text-3xl font-bold text-slate-900 mb-6">My Wishlist</h1>
+      <h1 className="text-3xl font-bold text-slate-900 mb-6">{t("My Wishlist", "मेरी विशलिस्ट")}</h1>
 
       {!hasItems ? (
         <div>
           <p className="text-slate-500 mb-4">
-            Your wishlist is empty. Save your favourite products here.
+            {t(
+              "Your wishlist is empty. Save your favourite products here.",
+              "आपकी विशलिस्ट खाली है। अपने पसंदीदा प्रोडक्ट यहां सहेजें।",
+            )}
           </p>
           <Link
             to="/"
             className="inline-block bg-blue-900 hover:bg-blue-950 text-white font-semibold rounded-full px-6 py-3 transition-colors"
           >
-            Continue Shopping
+            {t("Continue Shopping", "शॉपिंग जारी रखें")}
           </Link>
         </div>
       ) : (
@@ -75,7 +80,7 @@ function Wishlist() {
                       className="flex items-center justify-center gap-2 bg-blue-900 hover:bg-blue-950 text-white text-sm font-medium py-2.5 rounded-lg transition-colors"
                     >
                       <FaShoppingCart />
-                      Add to Cart
+                      {t("Add to Cart", "कार्ट में डालें")}
                     </button>
 
                     <button
@@ -84,7 +89,7 @@ function Wishlist() {
                       className="flex items-center justify-center gap-2 bg-red-50 hover:bg-red-100 text-red-600 text-sm font-medium py-2.5 rounded-lg transition-colors"
                     >
                       <FaTrash />
-                      Remove
+                      {t("Remove", "हटाएं")}
                     </button>
                   </div>
                 </div>
@@ -98,7 +103,7 @@ function Wishlist() {
               onClick={clearWishlist}
               className="text-red-600 hover:text-red-700 text-sm font-medium underline"
             >
-              Clear Wishlist
+              {t("Clear Wishlist", "विशलिस्ट खाली करें")}
             </button>
           </div>
         </>

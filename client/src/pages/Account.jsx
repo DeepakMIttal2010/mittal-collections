@@ -17,57 +17,79 @@ import {
 } from "react-icons/fa";
 import { FaWhatsapp } from "react-icons/fa6";
 import { useAuth } from "../context/AuthContext";
+import { useLanguage } from "../context/LanguageContext";
 import { getProfile } from "../services/authService";
 import { getPublicRewardsInfo } from "../services/rewardsService";
 import { getMyNotifications } from "../services/notificationService";
 
-const ACCOUNT_LINKS = [
-  {
-    to: "/my-orders",
-    icon: FaBoxOpen,
-    title: "Your Orders",
-    description: "Track, view status and check your order history",
-  },
-  {
-    to: "/wishlist",
-    icon: FaHeart,
-    title: "Wishlist",
-    description: "View and manage items you've saved for later",
-  },
-  {
-    to: "/addresses",
-    icon: FaMapMarkerAlt,
-    title: "Your Addresses",
-    description: "Edit, remove or set a default address",
-  },
-  {
-    to: "/tickets",
-    icon: FaTicketAlt,
-    title: "Support Tickets",
-    description: "Raise an issue and chat with our support team",
-  },
-  {
-    to: "/returns",
-    icon: FaUndoAlt,
-    title: "Your Returns",
-    description: "Track the status of items you've returned",
-  },
-  {
-    to: "/edit-profile",
-    icon: FaUserEdit,
-    title: "Edit Profile",
-    description: "Update your name and mobile number",
-  },
-  {
-    to: "/change-password",
-    icon: FaLock,
-    title: "Change Password",
-    description: "Update your account password",
-  },
-];
+function getAccountLinks(t) {
+  return [
+    {
+      to: "/my-orders",
+      icon: FaBoxOpen,
+      title: t("Your Orders", "आपके ऑर्डर"),
+      description: t(
+        "Track, view status and check your order history",
+        "अपने ऑर्डर को ट्रैक करें, स्टेटस देखें और ऑर्डर हिस्ट्री जांचें",
+      ),
+    },
+    {
+      to: "/wishlist",
+      icon: FaHeart,
+      title: t("Wishlist", "विशलिस्ट"),
+      description: t(
+        "View and manage items you've saved for later",
+        "आपके सहेजे गए आइटम देखें और प्रबंधित करें",
+      ),
+    },
+    {
+      to: "/addresses",
+      icon: FaMapMarkerAlt,
+      title: t("Your Addresses", "आपके पते"),
+      description: t(
+        "Edit, remove or set a default address",
+        "पता एडिट करें, हटाएं या डिफ़ॉल्ट पता सेट करें",
+      ),
+    },
+    {
+      to: "/tickets",
+      icon: FaTicketAlt,
+      title: t("Support Tickets", "सपोर्ट टिकट"),
+      description: t(
+        "Raise an issue and chat with our support team",
+        "समस्या दर्ज करें और हमारी सपोर्ट टीम से चैट करें",
+      ),
+    },
+    {
+      to: "/returns",
+      icon: FaUndoAlt,
+      title: t("Your Returns", "आपके रिटर्न"),
+      description: t(
+        "Track the status of items you've returned",
+        "आपके रिटर्न किए गए आइटम का स्टेटस ट्रैक करें",
+      ),
+    },
+    {
+      to: "/edit-profile",
+      icon: FaUserEdit,
+      title: t("Edit Profile", "प्रोफ़ाइल एडिट करें"),
+      description: t(
+        "Update your name and mobile number",
+        "अपना नाम और मोबाइल नंबर अपडेट करें",
+      ),
+    },
+    {
+      to: "/change-password",
+      icon: FaLock,
+      title: t("Change Password", "पासवर्ड बदलें"),
+      description: t("Update your account password", "अपने खाते का पासवर्ड अपडेट करें"),
+    },
+  ];
+}
 
 function Account() {
   const { user, isLoggedIn, logout } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const [loyaltyPoints, setLoyaltyPoints] = useState(user?.loyaltyPoints || 0);
   const [referralCode, setReferralCode] = useState(user?.referralCode || "");
@@ -112,22 +134,24 @@ function Account() {
 
   const handleCopyReferralLink = () => {
     navigator.clipboard.writeText(referralLink);
-    toast.success("Referral link copied!");
+    toast.success(t("Referral link copied!", "रेफरल लिंक कॉपी हो गया!"));
   };
+
+  const accountLinks = getAccountLinks(t);
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-10">
       <div className="flex items-start justify-between gap-4 mb-6">
         <div>
           <h1 className="text-3xl font-bold text-slate-900 mb-1">
-            Your Account
+            {t("Your Account", "आपका खाता")}
           </h1>
-          <p className="text-slate-500">Hi, {user?.name}</p>
+          <p className="text-slate-500">{t("Hi, ", "नमस्ते, ")}{user?.name}</p>
         </div>
 
         <Link
           to="/notifications"
-          title="Alerts"
+          title={t("Alerts", "अलर्ट")}
           className="relative shrink-0 w-11 h-11 rounded-full bg-white border border-slate-200 text-slate-600 hover:text-rose-600 hover:border-rose-300 flex items-center justify-center text-lg transition-colors"
         >
           <FaBell />
@@ -147,30 +171,38 @@ function Account() {
             </span>
             <span>
               <span className="block font-semibold text-slate-800">
-                {loyaltyPoints} Loyalty Points
+                {t(`${loyaltyPoints} Loyalty Points`, `${loyaltyPoints} लॉयल्टी पॉइंट्स`)}
               </span>
               <span className="block text-sm text-slate-500 mt-0.5">
-                Worth ₹{loyaltyPoints * rewards.loyalty.redeemValue} — tap to
-                see your points history
+                {t(
+                  `Worth ₹${loyaltyPoints * rewards.loyalty.redeemValue} — tap to see your points history`,
+                  `₹${loyaltyPoints * rewards.loyalty.redeemValue} मूल्य — अपनी पॉइंट्स हिस्ट्री देखने के लिए टैप करें`,
+                )}
               </span>
             </span>
           </Link>
 
           <ul className="text-xs text-slate-600 space-y-1 bg-white/60 rounded-lg p-3">
             <li>
-              <strong>Earn:</strong> 1 point for every ₹
-              {rewards.loyalty.earnRate} you spend, credited once your order
-              is delivered.
+              <strong>{t("Earn:", "कमाएं:")}</strong>{" "}
+              {t(
+                `1 point for every ₹${rewards.loyalty.earnRate} you spend, credited once your order is delivered.`,
+                `आपके हर ₹${rewards.loyalty.earnRate} खर्च पर 1 पॉइंट, जो ऑर्डर डिलीवर होने पर क्रेडिट होता है।`,
+              )}
             </li>
             <li>
-              <strong>Use:</strong> Each point is worth ₹
-              {rewards.loyalty.redeemValue} off at checkout.
+              <strong>{t("Use:", "उपयोग:")}</strong>{" "}
+              {t(
+                `Each point is worth ₹${rewards.loyalty.redeemValue} off at checkout.`,
+                `चेकआउट पर हर पॉइंट ₹${rewards.loyalty.redeemValue} की छूट के बराबर है।`,
+              )}
             </li>
             <li>
-              <strong>Limit:</strong> Points can cover up to{" "}
-              {Math.round(rewards.loyalty.maxRedeemPercent * 100)}% of an
-              order, and you need at least {rewards.loyalty.minRedeemPoints}{" "}
-              points to redeem.
+              <strong>{t("Limit:", "सीमा:")}</strong>{" "}
+              {t(
+                `Points can cover up to ${Math.round(rewards.loyalty.maxRedeemPercent * 100)}% of an order, and you need at least ${rewards.loyalty.minRedeemPoints} points to redeem.`,
+                `पॉइंट्स ऑर्डर के ${Math.round(rewards.loyalty.maxRedeemPercent * 100)}% तक कवर कर सकते हैं, और रिडीम करने के लिए कम से कम ${rewards.loyalty.minRedeemPoints} पॉइंट्स ज़रूरी हैं।`,
+              )}
             </li>
           </ul>
         </div>
@@ -183,11 +215,13 @@ function Account() {
               </span>
               <span>
                 <span className="block font-semibold text-slate-800">
-                  Refer a Friend
+                  {t("Refer a Friend", "दोस्त को रेफर करें")}
                 </span>
                 <span className="block text-sm text-slate-500 mt-0.5">
-                  You get {rewards.referral.referrerPoints} points, they get{" "}
-                  {rewards.referral.referredPoints} — after their first order
+                  {t(
+                    `You get ${rewards.referral.referrerPoints} points, they get ${rewards.referral.referredPoints} — after their first order`,
+                    `आपको ${rewards.referral.referrerPoints} पॉइंट्स मिलेंगे, उन्हें ${rewards.referral.referredPoints} — उनके पहले ऑर्डर के बाद`,
+                  )}
                 </span>
               </span>
             </div>
@@ -210,19 +244,27 @@ function Account() {
               className="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg px-3 py-2 transition-colors mb-3"
             >
               <FaWhatsapp />
-              Share on WhatsApp
+              {t("Share on WhatsApp", "WhatsApp पर शेयर करें")}
             </a>
 
             <ul className="text-xs text-slate-600 space-y-1 bg-white/60 rounded-lg p-3">
-              <li>Share your link with a friend who hasn&apos;t shopped here yet.</li>
               <li>
-                They sign up using your link and place an order — no separate
-                code entry needed since it&apos;s built into the link.
+                {t(
+                  "Share your link with a friend who hasn't shopped here yet.",
+                  "अपना लिंक उस दोस्त के साथ शेयर करें जिसने अभी तक यहां से खरीदारी नहीं की है।",
+                )}
               </li>
               <li>
-                Once their first order is <strong>delivered</strong>, you get{" "}
-                {rewards.referral.referrerPoints} points and they get{" "}
-                {rewards.referral.referredPoints} points, automatically.
+                {t(
+                  "They sign up using your link and place an order — no separate code entry needed since it's built into the link.",
+                  "वे आपके लिंक से साइन अप करके ऑर्डर करते हैं — अलग से कोड डालने की ज़रूरत नहीं क्योंकि यह लिंक में ही शामिल है।",
+                )}
+              </li>
+              <li>
+                {t(
+                  `Once their first order is delivered, you get ${rewards.referral.referrerPoints} points and they get ${rewards.referral.referredPoints} points, automatically.`,
+                  `उनका पहला ऑर्डर डिलीवर होते ही, आपको ${rewards.referral.referrerPoints} पॉइंट्स और उन्हें ${rewards.referral.referredPoints} पॉइंट्स अपने आप मिल जाएंगे।`,
+                )}
               </li>
             </ul>
           </div>
@@ -230,7 +272,7 @@ function Account() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-        {ACCOUNT_LINKS.map(({ to, icon: Icon, title, description }) => (
+        {accountLinks.map(({ to, icon: Icon, title, description }) => (
           <Link
             key={to}
             to={to}
@@ -262,10 +304,10 @@ function Account() {
 
           <span>
             <span className="block font-semibold text-slate-800">
-              Logout
+              {t("Logout", "लॉगआउट")}
             </span>
             <span className="block text-sm text-slate-500 mt-1">
-              Sign out of your account on this device
+              {t("Sign out of your account on this device", "इस डिवाइस पर अपने खाते से साइन आउट करें")}
             </span>
           </span>
         </button>

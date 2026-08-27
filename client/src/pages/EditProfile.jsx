@@ -3,10 +3,12 @@ import { Link, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { getProfile, updateProfile } from "../services/authService";
 import { useAuth } from "../context/AuthContext";
+import { useLanguage } from "../context/LanguageContext";
 
 function EditProfile() {
   const navigate = useNavigate();
   const { updateUser, isLoggedIn } = useAuth();
+  const { t } = useLanguage();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -33,14 +35,14 @@ function EditProfile() {
           mobile: data.user.mobile || "",
         });
       } else {
-        toast.error(data.message || "Unable to load profile");
+        toast.error(data.message || t("Unable to load profile", "प्रोफ़ाइल लोड नहीं हो सकी"));
       }
 
       setLoading(false);
     };
 
     loadProfile();
-  }, [isLoggedIn, navigate]);
+  }, [isLoggedIn, navigate, t]);
 
   const handleChange = (e) => {
     setFormData({
@@ -58,10 +60,10 @@ function EditProfile() {
 
     if (data.success) {
       updateUser(data.user);
-      toast.success("Profile updated successfully");
+      toast.success(t("Profile updated successfully", "प्रोफ़ाइल सफलतापूर्वक अपडेट हो गई"));
       navigate("/account");
     } else {
-      toast.error(data.message || "Unable to update profile");
+      toast.error(data.message || t("Unable to update profile", "प्रोफ़ाइल अपडेट नहीं हो सकी"));
     }
   };
 
@@ -72,22 +74,22 @@ function EditProfile() {
     <div className="max-w-7xl mx-auto px-4 py-8">
       <div className="text-sm mb-2">
         <Link to="/account" className="text-blue-700 hover:underline">
-          Your Account
+          {t("Your Account", "आपका खाता")}
         </Link>
         <span className="text-slate-400 mx-2">›</span>
-        <span className="text-amber-600 font-medium">Edit Profile</span>
+        <span className="text-amber-600 font-medium">{t("Edit Profile", "प्रोफ़ाइल एडिट करें")}</span>
       </div>
 
-      <h1 className="text-3xl font-bold text-slate-900 mb-6">Edit Profile</h1>
+      <h1 className="text-3xl font-bold text-slate-900 mb-6">{t("Edit Profile", "प्रोफ़ाइल एडिट करें")}</h1>
 
       {loading ? (
-        <p className="text-slate-500">Loading...</p>
+        <p className="text-slate-500">{t("Loading...", "लोड हो रहा है...")}</p>
       ) : (
         <form onSubmit={handleSubmit} className="max-w-md">
           <input
             type="text"
             name="name"
-            placeholder="Full Name"
+            placeholder={t("Full Name", "पूरा नाम")}
             value={formData.name}
             onChange={handleChange}
             required
@@ -104,7 +106,7 @@ function EditProfile() {
           <input
             type="tel"
             name="mobile"
-            placeholder="Mobile Number"
+            placeholder={t("Mobile Number", "मोबाइल नंबर")}
             value={formData.mobile}
             onChange={handleChange}
             maxLength={10}
@@ -118,7 +120,7 @@ function EditProfile() {
             disabled={saving}
             className="bg-blue-900 hover:bg-blue-950 text-white font-semibold rounded-full px-8 py-3.5 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            {saving ? "Saving..." : "Save Changes"}
+            {saving ? t("Saving...", "सेव हो रहा है...") : t("Save Changes", "बदलाव सेव करें")}
           </button>
         </form>
       )}

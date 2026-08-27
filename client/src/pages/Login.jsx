@@ -4,6 +4,7 @@ import { toast } from "react-toastify";
 import { FaArrowLeft } from "react-icons/fa";
 import { loginUser } from "../services/authService";
 import { useAuth } from "../context/AuthContext";
+import { useLanguage } from "../context/LanguageContext";
 import GoogleSignInButton from "../components/GoogleSignInButton";
 import CompleteMobileModal from "../components/CompleteMobileModal";
 
@@ -12,6 +13,7 @@ function Login() {
   const [searchParams] = useSearchParams();
   const redirectTo = searchParams.get("redirect") || "/";
   const { login } = useAuth();
+  const { t } = useLanguage();
 
   const [formData, setFormData] = useState({
     email: "",
@@ -27,7 +29,7 @@ function Login() {
     if (data.needsMobile) {
       setShowMobileModal(true);
     } else {
-      toast.success("Login Successful");
+      toast.success(t("Login Successful", "लॉगिन सफल हुआ"));
       navigate(redirectTo);
     }
   };
@@ -50,7 +52,7 @@ function Login() {
       if (data.success) {
         login(data.user, data.token);
 
-        toast.success("Login Successful");
+        toast.success(t("Login Successful", "लॉगिन सफल हुआ"));
 
         navigate(redirectTo);
       } else {
@@ -58,7 +60,7 @@ function Login() {
       }
     } catch (error) {
       console.error(error);
-      toast.error("Login Failed");
+      toast.error(t("Login Failed", "लॉगिन नहीं हो पाया"));
     }
 
     setLoading(false);
@@ -68,14 +70,14 @@ function Login() {
     <div className="min-h-[70vh] flex items-center justify-center py-16 px-4">
       <div className="w-full max-w-md">
         <h1 className="text-5xl font-bold text-center text-slate-900 mb-10">
-          Login
+          {t("Login", "लॉगिन")}
         </h1>
 
         <GoogleSignInButton onResult={handleGoogleResult} />
 
         <div className="flex items-center gap-4 my-6">
           <div className="flex-1 h-px bg-slate-200" />
-          <span className="text-xs text-slate-400 uppercase">or</span>
+          <span className="text-xs text-slate-400 uppercase">{t("or", "या")}</span>
           <div className="flex-1 h-px bg-slate-200" />
         </div>
 
@@ -83,7 +85,7 @@ function Login() {
           <input
             type="email"
             name="email"
-            placeholder="Email"
+            placeholder={t("Email", "ईमेल")}
             value={formData.email}
             onChange={handleChange}
             required
@@ -93,7 +95,7 @@ function Login() {
           <input
             type="password"
             name="password"
-            placeholder="Password"
+            placeholder={t("Password", "पासवर्ड")}
             value={formData.password}
             onChange={handleChange}
             required
@@ -104,7 +106,7 @@ function Login() {
             to="/forgot-password"
             className="text-sm text-slate-700 underline hover:text-amber-600 mb-8 block"
           >
-            Forgot password?
+            {t("Forgot password?", "पासवर्ड भूल गए?")}
           </Link>
 
           <div className="flex gap-4">
@@ -113,14 +115,14 @@ function Login() {
               disabled={loading}
               className="flex-1 bg-blue-900 hover:bg-blue-950 text-white font-semibold rounded-full py-3.5 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              {loading ? "Signing in..." : "Sign in"}
+              {loading ? t("Signing in...", "लॉगिन हो रहा है...") : t("Sign in", "साइन इन करें")}
             </button>
 
             <Link
               to={`/register?redirect=${encodeURIComponent(redirectTo)}`}
               className="flex-1 border-2 border-blue-900 text-blue-900 hover:bg-blue-50 font-semibold rounded-full py-3.5 text-center transition-colors"
             >
-              Create account
+              {t("Create account", "खाता बनाएं")}
             </Link>
           </div>
         </form>
@@ -130,7 +132,7 @@ function Login() {
           className="mt-10 flex items-center justify-center gap-2 text-sm text-slate-600 underline hover:text-amber-600"
         >
           <FaArrowLeft className="text-xs" />
-          Return to Store
+          {t("Return to Store", "स्टोर पर वापस जाएं")}
         </Link>
       </div>
 
