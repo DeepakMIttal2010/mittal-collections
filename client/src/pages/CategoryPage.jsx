@@ -12,6 +12,7 @@ import Seo from "../components/Seo";
 import Breadcrumbs from "../components/Breadcrumbs";
 import { buildBreadcrumbJsonLd } from "../utils/breadcrumbJsonLd";
 import { getSiteSettings } from "../services/settingsService";
+import { useLanguage } from "../context/LanguageContext";
 import { FaRulerCombined, FaGift } from "react-icons/fa";
 
 // Sizing/buying help callouts shown on the matching category's product
@@ -22,65 +23,75 @@ import { FaRulerCombined, FaGift } from "react-icons/fa";
 // can list more than one guide (e.g. doormats: size AND buying-guide) —
 // each entry also doubles as an internal link that helps these articles
 // get discovered/indexed, since they otherwise only sit on /articles.
-const SIZE_HELP_LINKS = {
-  curtains: [
-    {
-      to: "/curtain-size-calculator",
-      label: "Not sure what size to buy?",
-      cta: "Use our free Curtain Size Calculator →",
-    },
-  ],
-  bedsheets: [
-    {
-      to: "/articles/bedsheet-size-guide-which-size-fits-single-double-queen-king-beds",
-      label: "Confused about bed sizes?",
-      cta: "See our Bedsheet Size Guide (Single/Double/Queen/King) →",
-    },
-  ],
-  doormats: [
-    {
-      to: "/articles/doormat-size-guide-which-size-for-entrance-bedroom-bathroom-kitchen",
-      label: "Not sure which size fits where?",
-      cta: "See our Doormat Size Guide →",
-    },
-    {
-      to: "/articles/how-to-choose-the-right-doormat",
-      label: "Not sure which doormat to pick?",
-      cta: "See our Doormat Buying Guide →",
-    },
-  ],
-  towels: [
-    {
-      to: "/articles/towel-size-guide-which-size-for-face-hand-bath-cleaning",
-      label: "Face, hand or bath towel?",
-      cta: "See our Towel Size Guide →",
-    },
-  ],
-  "cushion-covers": [
-    {
-      to: "/articles/cushion-cover-size-guide-standard-sizes-what-we-stock",
-      label: "Not sure which cushion cover size fits?",
-      cta: "See our Cushion Cover Size Guide →",
-    },
-  ],
-  cushions: [
-    {
-      to: "/articles/pillows-vs-cushions-fill-and-firmness-guide",
-      label: "Not sure what filling to pick?",
-      cta: "See our Pillows vs Cushions Fill & Firmness Guide →",
-    },
-  ],
-};
+function getSizeHelpLinks(t) {
+  return {
+    curtains: [
+      {
+        to: "/curtain-size-calculator",
+        label: t("Not sure what size to buy?", "पक्का नहीं कि कौन सा साइज़ खरीदें?"),
+        cta: t("Use our free Curtain Size Calculator →", "हमारा मुफ़्त कर्टन साइज़ कैलकुलेटर इस्तेमाल करें →"),
+      },
+    ],
+    bedsheets: [
+      {
+        to: "/articles/bedsheet-size-guide-which-size-fits-single-double-queen-king-beds",
+        label: t("Confused about bed sizes?", "बेड साइज़ को लेकर उलझन में हैं?"),
+        cta: t(
+          "See our Bedsheet Size Guide (Single/Double/Queen/King) →",
+          "हमारी बेडशीट साइज़ गाइड देखें (सिंगल/डबल/क्वीन/किंग) →",
+        ),
+      },
+    ],
+    doormats: [
+      {
+        to: "/articles/doormat-size-guide-which-size-for-entrance-bedroom-bathroom-kitchen",
+        label: t("Not sure which size fits where?", "पक्का नहीं किस जगह कौन सा साइज़ फिट होगा?"),
+        cta: t("See our Doormat Size Guide →", "हमारी डोरमैट साइज़ गाइड देखें →"),
+      },
+      {
+        to: "/articles/how-to-choose-the-right-doormat",
+        label: t("Not sure which doormat to pick?", "पक्का नहीं कौन सा डोरमैट चुनें?"),
+        cta: t("See our Doormat Buying Guide →", "हमारी डोरमैट खरीद गाइड देखें →"),
+      },
+    ],
+    towels: [
+      {
+        to: "/articles/towel-size-guide-which-size-for-face-hand-bath-cleaning",
+        label: t("Face, hand or bath towel?", "फेस, हैंड या बाथ टॉवल?"),
+        cta: t("See our Towel Size Guide →", "हमारी टॉवल साइज़ गाइड देखें →"),
+      },
+    ],
+    "cushion-covers": [
+      {
+        to: "/articles/cushion-cover-size-guide-standard-sizes-what-we-stock",
+        label: t("Not sure which cushion cover size fits?", "पक्का नहीं कौन सा कुशन कवर साइज़ फिट होगा?"),
+        cta: t("See our Cushion Cover Size Guide →", "हमारी कुशन कवर साइज़ गाइड देखें →"),
+      },
+    ],
+    cushions: [
+      {
+        to: "/articles/pillows-vs-cushions-fill-and-firmness-guide",
+        label: t("Not sure what filling to pick?", "पक्का नहीं कौन सी फिलिंग चुनें?"),
+        cta: t(
+          "See our Pillows vs Cushions Fill & Firmness Guide →",
+          "हमारी पिलो बनाम कुशन फिल एंड फर्मनेस गाइड देखें →",
+        ),
+      },
+    ],
+  };
+}
 
-const SORT_OPTIONS = [
-  { value: "featured", label: "Featured" },
-  { value: "price-asc", label: "Price, low to high" },
-  { value: "price-desc", label: "Price, high to low" },
-  { value: "name-asc", label: "Alphabetically, A-Z" },
-  { value: "name-desc", label: "Alphabetically, Z-A" },
-  { value: "date-desc", label: "Date, new to old" },
-  { value: "date-asc", label: "Date, old to new" },
-];
+function getSortOptions(t) {
+  return [
+    { value: "featured", label: t("Featured", "फ़ीचर्ड") },
+    { value: "price-asc", label: t("Price, low to high", "कीमत, कम से ज़्यादा") },
+    { value: "price-desc", label: t("Price, high to low", "कीमत, ज़्यादा से कम") },
+    { value: "name-asc", label: t("Alphabetically, A-Z", "वर्णानुक्रम, A-Z") },
+    { value: "name-desc", label: t("Alphabetically, Z-A", "वर्णानुक्रम, Z-A") },
+    { value: "date-desc", label: t("Date, new to old", "तारीख़, नए से पुराने") },
+    { value: "date-asc", label: t("Date, old to new", "तारीख़, पुराने से नए") },
+  ];
+}
 
 function sortProducts(products, sortBy) {
   const sorted = [...products];
@@ -121,6 +132,7 @@ function sortProducts(products, sortBy) {
 function CategoryPage() {
   const { categorySlug, subcategorySlug } = useParams();
   const navigate = useNavigate();
+  const { t } = useLanguage();
 
   const [status, setStatus] = useState("loading");
   const [category, setCategory] = useState(null);
@@ -215,10 +227,10 @@ function CategoryPage() {
       <div className="max-w-7xl mx-auto px-4 py-8">
         <Seo title="Category Not Found" noindex />
         <h2 className="text-xl font-semibold text-slate-800 mb-2">
-          Category not found
+          {t("Category not found", "श्रेणी नहीं मिली")}
         </h2>
         <Link to="/" className="text-blue-700 hover:underline">
-          Back to home
+          {t("Back to home", "होम पर वापस जाएं")}
         </Link>
       </div>
     );
@@ -246,10 +258,13 @@ function CategoryPage() {
       : category.name;
 
   const breadcrumbItems = [
-    { name: "Home", path: "/" },
+    { name: t("Home", "होम"), path: "/" },
     { name: category.name, path: `/category/${categorySlug}` },
     ...(activeSubcategory ? [{ name: activeSubcategory.name }] : []),
   ];
+
+  const sizeHelpLinks = getSizeHelpLinks(t);
+  const sortOptions = getSortOptions(t);
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
@@ -276,16 +291,22 @@ function CategoryPage() {
           </span>
           <span className="text-sm">
             <span className="font-semibold text-amber-800">
-              Buy {category.name} + {partner.name} together
+              {t(
+                `Buy ${category.name} + ${partner.name} together`,
+                `${category.name} + ${partner.name} एक साथ खरीदें`,
+              )}
             </span>{" "}
             <span className="text-amber-700">
-              and get {discountPercent}% off automatically at checkout →
+              {t(
+                `and get ${discountPercent}% off automatically at checkout →`,
+                `और चेकआउट पर अपने आप ${discountPercent}% छूट पाएं →`,
+              )}
             </span>
           </span>
         </Link>
       ))}
 
-      {(SIZE_HELP_LINKS[categorySlug] || []).map((guide) => (
+      {(sizeHelpLinks[categorySlug] || []).map((guide) => (
         <Link
           key={guide.to}
           to={guide.to}
@@ -310,7 +331,7 @@ function CategoryPage() {
             className={pillClass(!activeSubcategory)}
             onClick={() => navigate(`/category/${categorySlug}`)}
           >
-            All
+            {t("All", "सभी")}
           </button>
 
           {subcategoryList.map((sub) => (
@@ -334,9 +355,9 @@ function CategoryPage() {
           onChange={(e) => setSortBy(e.target.value)}
           className="border border-slate-300 rounded-lg text-sm text-slate-700 px-3 py-2 outline-none"
         >
-          {SORT_OPTIONS.map((opt) => (
+          {sortOptions.map((opt) => (
             <option key={opt.value} value={opt.value}>
-              Sort by: {opt.label}
+              {t("Sort by: ", "इसके अनुसार क्रमबद्ध करें: ")}{opt.label}
             </option>
           ))}
         </select>

@@ -5,8 +5,10 @@ import { getCategories } from "../services/categoryService";
 import ProductGrid from "../components/ProductGrid/ProductGrid";
 import ProductGridSkeleton from "../components/ProductGrid/ProductGridSkeleton";
 import Seo from "../components/Seo";
+import { useLanguage } from "../context/LanguageContext";
 
 function SearchResults() {
+  const { t } = useLanguage();
   const [searchParams] = useSearchParams();
   const query = searchParams.get("q") || "";
   const categoryFromUrl = searchParams.get("category") || "";
@@ -98,11 +100,13 @@ function SearchResults() {
       />
 
       <h2 className="text-xl font-semibold text-slate-800 mb-6">
-        {hasQuery ? `Search results for "${query}"` : "Search"}
+        {hasQuery
+          ? t(`Search results for "${query}"`, `"${query}" के लिए खोज परिणाम`)
+          : t("Search", "खोजें")}
       </h2>
 
       {!hasQuery ? (
-        <p className="text-slate-500">Type something in the search box above.</p>
+        <p className="text-slate-500">{t("Type something in the search box above.", "ऊपर सर्च बॉक्स में कुछ टाइप करें।")}</p>
       ) : loading ? (
         <ProductGridSkeleton />
       ) : (
@@ -113,7 +117,7 @@ function SearchResults() {
               onChange={(e) => setCategory(e.target.value)}
               className="border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-700"
             >
-              <option value="">All Categories</option>
+              <option value="">{t("All Categories", "सभी श्रेणियां")}</option>
               {categories.map((c) => (
                 <option key={c._id} value={c._id}>
                   {c.name}
@@ -125,14 +129,14 @@ function SearchResults() {
               type="number"
               value={minPrice}
               onChange={(e) => setMinPrice(e.target.value)}
-              placeholder="Min ₹"
+              placeholder={t("Min ₹", "न्यूनतम ₹")}
               className="w-24 border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-700"
             />
             <input
               type="number"
               value={maxPrice}
               onChange={(e) => setMaxPrice(e.target.value)}
-              placeholder="Max ₹"
+              placeholder={t("Max ₹", "अधिकतम ₹")}
               className="w-24 border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-700"
             />
 
@@ -141,20 +145,20 @@ function SearchResults() {
               onChange={(e) => setSortBy(e.target.value)}
               className="border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-700 ml-auto"
             >
-              <option value="">Sort: Relevance</option>
-              <option value="price_asc">Price: Low to High</option>
-              <option value="price_desc">Price: High to Low</option>
-              <option value="newest">Newest First</option>
+              <option value="">{t("Sort: Relevance", "क्रमबद्ध करें: प्रासंगिकता")}</option>
+              <option value="price_asc">{t("Price: Low to High", "कीमत: कम से ज़्यादा")}</option>
+              <option value="price_desc">{t("Price: High to Low", "कीमत: ज़्यादा से कम")}</option>
+              <option value="newest">{t("Newest First", "सबसे नए पहले")}</option>
             </select>
           </div>
 
           {products.length === 0 ? (
             <div className="text-center py-12">
               <p className="text-slate-600 mb-2">
-                No products found for &quot;{query}&quot;.
+                {t(`No products found for "${query}".`, `"${query}" के लिए कोई प्रोडक्ट नहीं मिला।`)}
               </p>
               <p className="text-slate-500 text-sm mb-8">
-                Try a different search term, or browse a category below.
+                {t("Try a different search term, or browse a category below.", "कोई अलग सर्च टर्म आज़माएं, या नीचे किसी श्रेणी में देखें।")}
               </p>
 
               {categories.length > 0 && (

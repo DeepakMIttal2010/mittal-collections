@@ -5,9 +5,11 @@ import { getProductsByMaxPrice } from "../services/productService";
 import ProductGrid from "../components/ProductGrid/ProductGrid";
 import ProductGridSkeleton from "../components/ProductGrid/ProductGridSkeleton";
 import Seo from "../components/Seo";
+import { useLanguage } from "../context/LanguageContext";
 
 function PriceRangePage() {
   const { maxPrice } = useParams();
+  const { t } = useLanguage();
 
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -42,12 +44,15 @@ function PriceRangePage() {
         noindex
       />
       <h1 className="text-3xl font-bold text-slate-900 mb-2">
-        Products Under ₹{maxPrice}
+        {t(`Products Under ₹${maxPrice}`, `₹${maxPrice} से कम में प्रोडक्ट`)}
       </h1>
       <p className="text-slate-500 mb-8">
         {loading
-          ? "Loading products..."
-          : `${products.length} product${products.length !== 1 ? "s" : ""} found`}
+          ? t("Loading products...", "प्रोडक्ट लोड हो रहे हैं...")
+          : t(
+              `${products.length} product${products.length !== 1 ? "s" : ""} found`,
+              `${products.length} प्रोडक्ट मिले`,
+            )}
       </p>
 
       {loading ? (
