@@ -47,13 +47,24 @@ export const getReportsData = async ({ days, startDate, endDate } = {}) => {
   }
 };
 
-export const getProductEngagement = async () => {
+// startDate/endDate (YYYY-MM-DD) are optional — omit both for the
+// default all-time view. Only scopes the Views column; wishlist/cart
+// counts are always current-state, never date-filtered (see the
+// backend's own comment on why).
+export const getProductEngagement = async (startDate, endDate) => {
   try {
-    const response = await fetch(`${API_BASE_URL}/admin/product-engagement`, {
-      headers: {
-        Authorization: `Bearer ${getToken()}`,
+    const params = new URLSearchParams();
+    if (startDate) params.set("startDate", startDate);
+    if (endDate) params.set("endDate", endDate);
+
+    const response = await fetch(
+      `${API_BASE_URL}/admin/product-engagement?${params.toString()}`,
+      {
+        headers: {
+          Authorization: `Bearer ${getToken()}`,
+        },
       },
-    });
+    );
 
     const data = await response.json();
 
@@ -109,10 +120,14 @@ export const getProductCartUsers = async (productId) => {
   }
 };
 
-export const getProductViewUsers = async (productId) => {
+export const getProductViewUsers = async (productId, startDate, endDate) => {
   try {
+    const params = new URLSearchParams();
+    if (startDate) params.set("startDate", startDate);
+    if (endDate) params.set("endDate", endDate);
+
     const response = await fetch(
-      `${API_BASE_URL}/admin/product-engagement/${productId}/view-users`,
+      `${API_BASE_URL}/admin/product-engagement/${productId}/view-users?${params.toString()}`,
       {
         headers: {
           Authorization: `Bearer ${getToken()}`,

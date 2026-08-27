@@ -98,6 +98,54 @@ describe("GET /api/admin/product-engagement", () => {
     expect(untouchedRow.cartCount).toBe(0);
   });
 
+  it("scopes views to a startDate/endDate range while leaving wishlist/cart counts as current-state", async () => {
+    const admin = await createUser({ role: "admin" });
+    const product = await createProduct();
+
+    const wishlistUser = await createUser();
+    await Wishlist.create({
+      user: wishlistUser._id,
+      product: product._id,
+      priceWhenAdded: product.price,
+    });
+
+    // One visit "yesterday", two visits "today" — a range covering only
+    // yesterday should report just the one.
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayISO = yesterday.toISOString().slice(0, 10);
+
+    await PageVisit.create({
+      path: `/product/${product._id}`,
+      visitorId: "visitor-yesterday",
+      createdAt: yesterday,
+    });
+    await PageVisit.create({
+      path: `/product/${product._id}`,
+      visitorId: "visitor-today-a",
+    });
+    await PageVisit.create({
+      path: `/product/${product._id}`,
+      visitorId: "visitor-today-b",
+    });
+
+    const res = await request(app)
+      .get(
+        `/api/admin/product-engagement?startDate=${yesterdayISO}&endDate=${yesterdayISO}`,
+      )
+      .set("Authorization", `Bearer ${signToken(admin)}`);
+
+    expect(res.status).toBe(200);
+
+    const row = res.body.engagement.find(
+      (e) => e.productId === product._id.toString(),
+    );
+    expect(row.views).toBe(1);
+    expect(row.uniqueViewers).toBe(1);
+    // Unaffected by the views date filter — still the live count.
+    expect(row.wishlistCount).toBe(1);
+  });
+
   it("drops a product's cart count once the cart is emptied", async () => {
     const admin = await createUser({ role: "admin" });
     const product = await createProduct();
@@ -333,6 +381,41 @@ describe("GET /api/admin/product-engagement/:productId/view-users", () => {
     expect(res.status).toBe(200);
     expect(res.body.users).toHaveLength(1);
     expect(res.body.users[0].name).toBe("Anjali Gupta");
+  });
+
+  it("scopes the viewer list to a startDate/endDate range when given", async () => {
+    const admin = await createUser({ role: "admin" });
+    const product = await createProduct();
+    const oldViewer = await createUser({ name: "Old Viewer" });
+    const recentViewer = await createUser({ name: "Recent Viewer" });
+
+    const lastMonth = new Date();
+    lastMonth.setDate(lastMonth.getDate() - 30);
+
+    await PageVisit.create({
+      path: `/product/${product._id}`,
+      visitorId: "visitor-old",
+      user: oldViewer._id,
+      createdAt: lastMonth,
+    });
+    await PageVisit.create({
+      path: `/product/${product._id}`,
+      visitorId: "visitor-recent",
+      user: recentViewer._id,
+    });
+
+    const since = new Date();
+    since.setDate(since.getDate() - 1);
+
+    const res = await request(app)
+      .get(
+        `/api/admin/product-engagement/${product._id}/view-users?startDate=${since.toISOString().slice(0, 10)}`,
+      )
+      .set("Authorization", `Bearer ${signToken(admin)}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.users).toHaveLength(1);
+    expect(res.body.users[0].name).toBe("Recent Viewer");
   });
 });
 

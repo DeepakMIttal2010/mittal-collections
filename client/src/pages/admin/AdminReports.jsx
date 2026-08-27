@@ -429,7 +429,7 @@ function AbandonedCartsModal({ onClose }) {
   );
 }
 
-function ProductUsersModal({ productId, productName, type, totalUniqueViewers, onClose }) {
+function ProductUsersModal({ productId, productName, type, totalUniqueViewers, dateRange, onClose }) {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -439,7 +439,13 @@ function ProductUsersModal({ productId, productName, type, totalUniqueViewers, o
     const load = async () => {
       setLoading(true);
 
-      const response = await fetchUsers(productId);
+      // dateRange only ever applies to the "views" type — the other
+      // fetchers just ignore the extra args, they're always current-state.
+      const response = await fetchUsers(
+        productId,
+        dateRange?.startDate,
+        dateRange?.endDate,
+      );
 
       if (response.success) setUsers(response.users);
 
@@ -448,7 +454,7 @@ function ProductUsersModal({ productId, productName, type, totalUniqueViewers, o
 
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [productId, type]);
+  }, [productId, type, dateRange]);
 
   const exportUsersCSV = () => {
     const csv = Papa.unparse(
@@ -811,6 +817,14 @@ function AdminReports() {
   // than re-fetched on every range change.
   const [engagement, setEngagement] = useState([]);
   const [engagementLoading, setEngagementLoading] = useState(true);
+  // Views-only date filter, independent of the days/customRange above
+  // (which drives the rest of the page) — null means the section's
+  // default, all-time view. wishlist/cart counts never change with this,
+  // they're always current-state (see the section's own note).
+  const [engagementRange, setEngagementRange] = useState(null); // { startDate, endDate } | null
+  const [showEngagementPicker, setShowEngagementPicker] = useState(false);
+  const [engagementDraftStart, setEngagementDraftStart] = useState("");
+  const [engagementDraftEnd, setEngagementDraftEnd] = useState(todayISO());
   const [usersModal, setUsersModal] = useState(null); // { productId, productName, type } | null
   const [showAbandonedCarts, setShowAbandonedCarts] = useState(false);
 
@@ -860,7 +874,10 @@ function AdminReports() {
     const loadEngagement = async () => {
       setEngagementLoading(true);
 
-      const response = await getProductEngagement();
+      const response = await getProductEngagement(
+        engagementRange?.startDate,
+        engagementRange?.endDate,
+      );
 
       if (response.success) setEngagement(response.engagement);
 
@@ -868,7 +885,25 @@ function AdminReports() {
     };
 
     loadEngagement();
-  }, []);
+  }, [engagementRange]);
+
+  const engagementRangeLabel = engagementRange
+    ? `${new Date(engagementRange.startDate).toLocaleDateString("en-IN", { day: "numeric", month: "short" })} – ${new Date(engagementRange.endDate).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}`
+    : "All time";
+
+  const applyEngagementRange = () => {
+    if (!engagementDraftStart || !engagementDraftEnd) return;
+    setEngagementRange({ startDate: engagementDraftStart, endDate: engagementDraftEnd });
+    setShowEngagementPicker(false);
+  };
+
+  const selectEngagementYesterday = () => {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const iso = yesterday.toISOString().slice(0, 10);
+    setEngagementRange({ startDate: iso, endDate: iso });
+    setShowEngagementPicker(false);
+  };
 
   const rangeLabel = customRange
     ? `${new Date(customRange.startDate).toLocaleDateString("en-IN", { day: "numeric", month: "short" })} – ${new Date(customRange.endDate).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}`
@@ -983,13 +1018,17 @@ function AdminReports() {
     // of this export is (see loadEngagement's own comment) — included
     // here anyway since this is the one export button on the page, and
     // "current status, not just this range" is noted right in the row.
-    section("Product Engagement (current status, all-time views)", engagement, (e) => ({
-      Product: e.name,
-      Views: e.views,
-      "Unique Viewers": e.uniqueViewers,
-      Wishlisted: e.wishlistCount,
-      "In Cart": e.cartCount,
-    }));
+    section(
+      `Product Engagement (current status, views ${engagementRange ? `for ${engagementRangeLabel}` : "all-time"})`,
+      engagement,
+      (e) => ({
+        Product: e.name,
+        Views: e.views,
+        "Unique Viewers": e.uniqueViewers,
+        Wishlisted: e.wishlistCount,
+        "In Cart": e.cartCount,
+      }),
+    );
     // Every wishlist/cart row, not just counts — matches what each
     // product's own drill-down modal shows, just all in one place.
     section(
@@ -1525,13 +1564,88 @@ function AdminReports() {
       </div>
 
       <div className="bg-white border border-slate-200 rounded-xl p-5 mb-6">
-        <h3 className="font-semibold text-slate-800 mb-1">
-          Product Engagement — current status
-        </h3>
+        <div className="flex items-center justify-between flex-wrap gap-3 mb-1">
+          <h3 className="font-semibold text-slate-800">
+            Product Engagement — current status
+          </h3>
+
+          <div className="relative flex items-center gap-2">
+            <div className="flex items-center gap-1 bg-white border border-slate-300 rounded-lg p-1">
+              <button
+                type="button"
+                onClick={() => setEngagementRange(null)}
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                  !engagementRange
+                    ? "bg-blue-600 text-white"
+                    : "text-slate-500 hover:bg-slate-100"
+                }`}
+              >
+                All time
+              </button>
+              <button
+                type="button"
+                onClick={selectEngagementYesterday}
+                className="px-3 py-1.5 rounded-md text-sm font-medium text-slate-500 hover:bg-slate-100 transition-colors"
+              >
+                Yesterday
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowEngagementPicker((v) => !v)}
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                  engagementRange
+                    ? "bg-blue-600 text-white"
+                    : "text-slate-500 hover:bg-slate-100"
+                }`}
+              >
+                {engagementRange ? engagementRangeLabel : "Custom"}
+              </button>
+            </div>
+
+            {showEngagementPicker && (
+              <div className="absolute right-0 top-full mt-2 z-10 bg-white border border-slate-200 rounded-lg shadow-lg p-4 flex items-end gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">
+                    From
+                  </label>
+                  <input
+                    type="date"
+                    value={engagementDraftStart}
+                    max={engagementDraftEnd}
+                    onChange={(e) => setEngagementDraftStart(e.target.value)}
+                    className="border border-slate-300 rounded-lg px-2 py-1.5 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">
+                    To
+                  </label>
+                  <input
+                    type="date"
+                    value={engagementDraftEnd}
+                    max={todayISO()}
+                    onChange={(e) => setEngagementDraftEnd(e.target.value)}
+                    className="border border-slate-300 rounded-lg px-2 py-1.5 text-sm"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={applyEngagementRange}
+                  disabled={!engagementDraftStart || !engagementDraftEnd}
+                  className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-1.5 rounded-lg disabled:opacity-50"
+                >
+                  Apply
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
         <p className="text-xs text-slate-400 mb-4">
-          Views are all-time; wishlist/cart counts are how many people have
-          it right now, not a historical total. Cart count only covers
-          logged-in customers.
+          {engagementRange
+            ? `Views are for ${engagementRangeLabel}; wishlist/cart counts are how many people have it right now, not a historical total.`
+            : "Views are all-time; wishlist/cart counts are how many people have it right now, not a historical total."}{" "}
+          Cart count only covers logged-in customers.
         </p>
         <ProductEngagementTable
           items={engagement}
@@ -1652,6 +1766,7 @@ function AdminReports() {
           productName={usersModal.productName}
           type={usersModal.type}
           totalUniqueViewers={usersModal.totalUniqueViewers}
+          dateRange={usersModal.type === "views" ? engagementRange : null}
           onClose={() => setUsersModal(null)}
         />
       )}

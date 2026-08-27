@@ -864,6 +864,28 @@ export const getVisitLog = async (req, res) => {
 // ============================
 export const getProductEngagement = async (req, res) => {
   try {
+    // Views defaults to all-time (unchanged) — only scoped down when the
+    // admin actually picks a range, e.g. to see what was viewed
+    // yesterday. wishlist/cart counts are a current-state snapshot (see
+    // the UI's own note), so they're never date-filtered regardless.
+    const viewsMatch = { path: /^\/product\// };
+
+    if (req.query.startDate || req.query.endDate) {
+      viewsMatch.createdAt = {};
+
+      if (req.query.startDate) {
+        const since = new Date(req.query.startDate);
+        since.setHours(0, 0, 0, 0);
+        viewsMatch.createdAt.$gte = since;
+      }
+
+      if (req.query.endDate) {
+        const until = new Date(req.query.endDate);
+        until.setHours(23, 59, 59, 999);
+        viewsMatch.createdAt.$lte = until;
+      }
+    }
+
     const [products, viewsAgg, wishlistAgg, cartAgg] = await Promise.all([
       Product.find().select("name image price stock").lean(),
 
@@ -872,7 +894,7 @@ export const getProductEngagement = async (req, res) => {
       // grouping by the raw path, which would fragment counts across a
       // product's old and current slug after a rename.
       PageVisit.aggregate([
-        { $match: { path: /^\/product\// } },
+        { $match: viewsMatch },
         {
           $project: {
             productId: { $arrayElemAt: [{ $split: ["$path", "/"] }, 2] },
@@ -1013,13 +1035,32 @@ export const getProductCartUsers = async (req, res) => {
 // ============================
 export const getProductViewUsers = async (req, res) => {
   try {
+    // Same optional startDate/endDate as getProductEngagement, so a
+    // drill-down opened while a range is applied only shows viewers from
+    // that range instead of all-time.
+    const viewsMatch = {
+      path: new RegExp(`^/product/${req.params.productId}(/|$)`),
+      user: { $ne: null },
+    };
+
+    if (req.query.startDate || req.query.endDate) {
+      viewsMatch.createdAt = {};
+
+      if (req.query.startDate) {
+        const since = new Date(req.query.startDate);
+        since.setHours(0, 0, 0, 0);
+        viewsMatch.createdAt.$gte = since;
+      }
+
+      if (req.query.endDate) {
+        const until = new Date(req.query.endDate);
+        until.setHours(23, 59, 59, 999);
+        viewsMatch.createdAt.$lte = until;
+      }
+    }
+
     const visits = await PageVisit.aggregate([
-      {
-        $match: {
-          path: new RegExp(`^/product/${req.params.productId}(/|$)`),
-          user: { $ne: null },
-        },
-      },
+      { $match: viewsMatch },
       { $group: { _id: "$user", lastViewedAt: { $max: "$createdAt" } } },
       { $sort: { lastViewedAt: -1 } },
     ]);
