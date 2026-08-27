@@ -1,5 +1,5 @@
 import { imgUrl } from "../../services/api";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
 
 import {
@@ -98,6 +98,12 @@ function EditProduct() {
 
   const [productNumber, setProductNumber] = useState("");
 
+  // The __v this form was loaded with, so the server can detect (and
+  // reject) a save based on a copy that's gone stale because someone
+  // else saved changes in the meantime. A ref, not state — it's only
+  // read at submit time and shouldn't trigger re-renders.
+  const productVersionRef = useRef(null);
+
   const loadProduct = async () => {
     const [productRes, categoriesRes, subcategoriesRes, settingsRes] =
       await Promise.all([
@@ -115,6 +121,8 @@ function EditProduct() {
 
     if (productRes.success) {
       const product = productRes.product;
+
+      productVersionRef.current = product.__v;
 
       setFormData({
         name: product.name || "",
@@ -344,6 +352,9 @@ function EditProduct() {
     });
 
     data.append("variants", JSON.stringify(cleanVariants));
+    if (productVersionRef.current !== null) {
+      data.append("version", productVersionRef.current);
+    }
     data.append("existingImages", JSON.stringify(existingImages));
     data.append("mainImageIndex", mainImageIndex);
     newImages.forEach((file) => data.append("images", file));

@@ -247,6 +247,12 @@ const productSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
+    // Lets Mongoose reject a save() against a stale in-memory copy (it
+    // compares __v) instead of silently overwriting whatever another
+    // admin saved in between — closes a last-write-wins data-loss bug
+    // where two admins editing the same product at once could have one
+    // save quietly revert the other's fields (see updateProduct).
+    optimisticConcurrency: true,
   },
 );
 

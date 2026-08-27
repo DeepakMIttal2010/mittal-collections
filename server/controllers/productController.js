@@ -24,6 +24,20 @@ import { deleteCloudinaryAssetsByUrl } from "../utils/cloudinaryCleanup.js";
 const COST_FIELDS =
   "-purchasePrice -miscExpenses -purchaseDate -variants.purchasePrice";
 
+// Product has optimisticConcurrency enabled, so a save() against a
+// stale copy (someone else saved changes to this product in between
+// this request's load and its own save) throws VersionError instead
+// of silently overwriting the other change. Surface that as a 409 the
+// admin UI can show as "reload and try again", not a generic 500.
+const isVersionConflict = (error) => error.name === "VersionError";
+
+const sendVersionConflictResponse = (res) =>
+  res.status(409).json({
+    success: false,
+    message:
+      "This product was updated by someone else while you were editing. Please reload and try again.",
+  });
+
 const generateSlug = (name) =>
   name
     .toLowerCase()
@@ -1101,6 +1115,20 @@ export const updateProduct = async (req, res) => {
       });
     }
 
+    // The admin's form was loaded from a specific version of this product;
+    // if someone else has saved changes since then, this submission is
+    // working from stale data and would silently overwrite their edit
+    // with a full-form replace (schema-level optimisticConcurrency below
+    // only catches two saves racing at the same instant — this catches
+    // the far more common case of a form left open across someone else's
+    // edit). Only enforced when the client actually sends a version.
+    if (
+      req.body.version !== undefined &&
+      Number(req.body.version) !== product.__v
+    ) {
+      return sendVersionConflictResponse(res);
+    }
+
     const wasOutOfStock = product.stock <= 0;
 
     product.name = req.body.name;
@@ -1244,6 +1272,10 @@ export const updateProduct = async (req, res) => {
       product,
     });
   } catch (error) {
+    if (isVersionConflict(error)) {
+      return sendVersionConflictResponse(res);
+    }
+
     console.error(error);
 
     res.status(500).json({
@@ -1276,6 +1308,10 @@ export const restoreProduct = async (req, res) => {
       product,
     });
   } catch (error) {
+    if (isVersionConflict(error)) {
+      return sendVersionConflictResponse(res);
+    }
+
     console.error(error);
 
     res.status(500).json({
@@ -1307,6 +1343,10 @@ export const deleteProduct = async (req, res) => {
       message: "Product deleted successfully",
     });
   } catch (error) {
+    if (isVersionConflict(error)) {
+      return sendVersionConflictResponse(res);
+    }
+
     console.error(error);
 
     res.status(500).json({
