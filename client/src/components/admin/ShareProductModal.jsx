@@ -470,14 +470,25 @@ function ShareProductModal({ product, onClose }) {
   const [videoError, setVideoError] = useState("");
   const [selectedMusic, setSelectedMusic] = useState(DEFAULT_MUSIC);
 
-  const allImages = (
+  const rawImages = (
     product.images?.length ? product.images : [product.image]
   ).filter(Boolean);
 
-  // Which photos go into the video — chosen up front instead of always
-  // silently using the first MAX_SLIDES, so the admin can drop a bad/
-  // irrelevant photo themselves. All photos start selected (up to the
-  // cap) since that matches what auto-generation used to do.
+  // Every photo is shown in the picker (not just the first few) — the
+  // cover photo is pinned first since it's the one the admin is most
+  // likely to want as slide 1, and so it's never missing from the grid
+  // just because it happens to sit past some cutoff in product.images.
+  const allImages =
+    product.image && rawImages.includes(product.image)
+      ? [product.image, ...rawImages.filter((src) => src !== product.image)]
+      : rawImages;
+
+  // Which photos go into the video, AND in what order — tap order IS
+  // priority order (1st tap = slide 1, 2nd tap = slide 2, ...), shown as
+  // a number badge on each thumbnail instead of a plain checkmark.
+  // Tapping an already-selected photo removes it and the rest shift
+  // down. All photos start selected in their default (cover-first)
+  // order, up to the cap, matching what auto-generation used to do.
   const [selectedImages, setSelectedImages] = useState(() =>
     allImages.slice(0, MAX_SLIDES),
   );
@@ -998,12 +1009,18 @@ function ShareProductModal({ product, onClose }) {
                   <div className="mb-1">
                     <div className="flex items-center justify-between mb-1">
                       <label className="block text-xs font-medium text-slate-500">
-                        Photos to include ({selectedImages.length}/{Math.min(allImages.length, MAX_SLIDES)})
+                        Photos & order ({selectedImages.length}/{MAX_SLIDES})
                       </label>
                     </div>
-                    <div className="grid grid-cols-5 gap-2">
-                      {allImages.slice(0, MAX_SLIDES).map((src) => {
-                        const checked = selectedImages.includes(src);
+                    <p className="text-[11px] text-slate-400 mb-1">
+                      Tap in the order you want them in the video — the
+                      number shown is that photo's slide position.
+                    </p>
+                    <div className="grid grid-cols-5 gap-2 max-h-40 overflow-y-auto pr-0.5">
+                      {allImages.map((src) => {
+                        const orderIndex = selectedImages.indexOf(src);
+                        const checked = orderIndex !== -1;
+                        const isCover = src === product.image;
                         return (
                           <button
                             key={src}
@@ -1019,9 +1036,14 @@ function ShareProductModal({ product, onClose }) {
                               alt=""
                               className="w-full h-full object-cover"
                             />
+                            {isCover && (
+                              <span className="absolute top-1 left-1 bg-slate-900/80 text-white text-[9px] font-semibold px-1.5 py-0.5 rounded">
+                                Main
+                              </span>
+                            )}
                             {checked && (
-                              <span className="absolute top-1 right-1 w-4 h-4 rounded-full bg-slate-900 text-white text-[10px] flex items-center justify-center">
-                                ✓
+                              <span className="absolute top-1 right-1 w-5 h-5 rounded-full bg-slate-900 text-white text-[11px] font-bold flex items-center justify-center">
+                                {orderIndex + 1}
                               </span>
                             )}
                           </button>
