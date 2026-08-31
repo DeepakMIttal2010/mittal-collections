@@ -1,18 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
 import {
   FaUser,
-  FaHeart,
   FaShoppingCart,
   FaMicrophone,
   FaMapMarkerAlt,
-  FaDownload,
   FaChevronDown,
 } from "react-icons/fa";
 
 import { getCategories } from "../../services/categoryService";
 import { useCart } from "../../context/CartContext";
-import { useWishlist } from "../../context/WishlistContext";
 import { useAuth } from "../../context/AuthContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { useInstallPrompt } from "../../hooks/useInstallPrompt";
@@ -28,11 +26,9 @@ import { notifyDefaultAddressChanged } from "../../utils/addressEvents";
 
 function Header() {
   const { totalItems, openCart } = useCart();
-  const { totalWishlistItems } = useWishlist();
   const { user, logout, isLoggedIn } = useAuth();
   const { language, setLanguage, t } = useLanguage();
-  const { showIcon: showInstallIcon, canPromptNatively, promptInstall } =
-    useInstallPrompt();
+  const { canPromptNatively, promptInstall } = useInstallPrompt();
   const navigate = useNavigate();
 
   const [query, setQuery] = useState("");
@@ -44,7 +40,21 @@ function Header() {
   const mobileCategoryMenuRef = useRef(null);
   const [listening, setListening] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
-  const [showInstallHelp, setShowInstallHelp] = useState(false);
+  const accountCloseTimer = useRef(null);
+
+  // A zero-gap hover handoff between the trigger and its absolutely
+  // positioned panel still isn't reliable — the panel sits outside the
+  // trigger's own layout box, so the pointer can hit-test to nothing for
+  // a frame while crossing between them, firing a real mouseleave. A
+  // short close delay (cancelable by re-entering either element) absorbs
+  // that gap, same fix as the MegaMenu dropdowns use.
+  const openAccountMenu = () => {
+    clearTimeout(accountCloseTimer.current);
+    setAccountOpen(true);
+  };
+  const scheduleCloseAccountMenu = () => {
+    accountCloseTimer.current = setTimeout(() => setAccountOpen(false), 150);
+  };
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [deliverName, setDeliverName] = useState("");
@@ -127,10 +137,41 @@ function Header() {
     }
 
     // No `beforeinstallprompt` yet (Chrome hasn't decided to offer it) or
-    // never will (iOS Safari has no such API) — the icon still stays
-    // visible per the "always there when not installed" ask, so give
-    // people the manual path instead of doing nothing on click.
-    setShowInstallHelp(true);
+    // never will (iOS Safari has no such API) — give people the manual
+    // path via a toast instead of doing nothing on click.
+    toast.info(
+      t(
+        'From your browser\'s menu, choose "Add to Home Screen" or "Install App".',
+        'अपने ब्राउज़र के मेनू से "Add to Home Screen" या "Install App" चुनें।',
+      ),
+      { autoClose: 6000 },
+    );
+  };
+
+  // The Recently Viewed section only exists on Home, and only once it
+  // has products to show (it renders null while empty/loading — see
+  // RecentlyViewed.jsx), so a plain `#recently-viewed` link can't rely
+  // on the element already being there. Navigate first, then poll
+  // briefly for the section to mount before scrolling to it.
+  const goToRecentlyViewed = (e) => {
+    e.preventDefault();
+    setAccountOpen(false);
+
+    const scrollIfPresent = () => {
+      const el = document.getElementById("recently-viewed");
+      if (!el) return false;
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+      return true;
+    };
+
+    if (window.location.pathname === "/" && scrollIfPresent()) return;
+
+    navigate("/");
+    let attempts = 0;
+    const interval = setInterval(() => {
+      attempts += 1;
+      if (scrollIfPresent() || attempts > 20) clearInterval(interval);
+    }, 100);
   };
 
   // Always a "Deliver to [Name] / [Place]" pair — the real name + saved
@@ -542,57 +583,21 @@ function Header() {
             </button>
           </div>
 
-          {showInstallIcon && (
-            <div
-              className="relative"
-              onMouseLeave={() => setShowInstallHelp(false)}
-            >
-              <button
-                type="button"
-                onClick={handleInstallClick}
-                aria-label={t("Install the Mittal Collections app", "मित्तल कलेक्शंस ऐप इंस्टॉल करें")}
-                title={t("Install App", "ऐप इंस्टॉल करें")}
-                className="flex flex-col items-center text-slate-600 hover:text-blue-700 transition-colors"
-              >
-                <FaDownload className="text-lg" />
-                <span className="hidden min-[1440px]:block text-xs mt-0.5">
-                  {t("Install", "इंस्टॉल")}
-                </span>
-              </button>
-
-              {showInstallHelp && (
-                <div className="absolute top-full right-0 z-50 mt-1 w-56 bg-white border border-slate-200 rounded-lg shadow-lg p-3 text-xs text-slate-600 leading-relaxed">
-                  {t("From your browser's menu, choose ", "अपने ब्राउज़र के मेनू से ")}
-                  <strong>&quot;{t("Add to Home Screen", "Add to Home Screen")}&quot;</strong>{" "}
-                  {t("or", "या")}{" "}
-                  <strong>&quot;{t("Install App", "Install App")}&quot;</strong>
-                  {t(".", " चुनें।")}
-                  <button
-                    type="button"
-                    onClick={() => setShowInstallHelp(false)}
-                    className="block mt-2 text-blue-700 font-medium hover:underline"
-                  >
-                    {t("Got it", "समझ गया")}
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
 
           {isLoggedIn ? (
             <div
               className="hidden md:block relative"
-              onMouseEnter={() => setAccountOpen(true)}
-              onMouseLeave={() => setAccountOpen(false)}
+              onMouseEnter={openAccountMenu}
+              onMouseLeave={scheduleCloseAccountMenu}
             >
               <button
                 type="button"
-                className="flex flex-col items-center text-slate-600 hover:text-blue-700 transition-colors"
+                className="flex items-center gap-1.5 text-slate-600 hover:text-blue-700 transition-colors"
               >
-                <span className="w-7 h-7 rounded-full bg-amber-600 text-white text-sm font-semibold flex items-center justify-center">
+                <span className="w-7 h-7 rounded-full bg-amber-600 text-white text-sm font-semibold flex items-center justify-center shrink-0">
                   {user?.name?.charAt(0).toUpperCase()}
                 </span>
-                <span className="hidden min-[1440px]:block text-xs mt-0.5">{t("Account", "खाता")}</span>
+                <span className="text-sm">{t("Account", "खाता")}</span>
               </button>
 
               {accountOpen && (
@@ -631,6 +636,14 @@ function Header() {
 
                   <button
                     type="button"
+                    onClick={handleInstallClick}
+                    className="block w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-amber-600"
+                  >
+                    {t("Download the App", "ऐप डाउनलोड करें")}
+                  </button>
+
+                  <button
+                    type="button"
                     onClick={logout}
                     className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-slate-50"
                   >
@@ -640,40 +653,114 @@ function Header() {
               )}
             </div>
           ) : (
-            <Link
-              to="/login"
-              className="hidden md:flex flex-col items-center text-slate-600 hover:text-blue-700 transition-colors"
+            <div
+              className="hidden md:block relative"
+              onMouseEnter={openAccountMenu}
+              onMouseLeave={scheduleCloseAccountMenu}
             >
-              <FaUser className="text-lg" />
-              <span className="hidden min-[1440px]:block text-xs mt-0.5">{t("Account", "खाता")}</span>
-            </Link>
-          )}
+              <Link
+                to="/login"
+                className="flex items-center gap-1.5 text-slate-600 hover:text-blue-700 transition-colors"
+              >
+                <FaUser className="text-lg" />
+                <span className="text-sm">{t("Sign In", "साइन इन")}</span>
+              </Link>
 
-          <Link
-            to="/wishlist"
-            className="relative flex flex-col items-center text-slate-600 hover:text-blue-700 transition-colors"
-          >
-            <FaHeart className="text-lg" />
-            <span className="hidden min-[1440px]:block text-xs mt-0.5">{t("Wishlist", "विशलिस्ट")}</span>
-            {totalWishlistItems > 0 && (
-              <span className="absolute -top-1.5 -right-2 bg-red-500 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
-                {totalWishlistItems}
-              </span>
-            )}
-          </Link>
+              {accountOpen && (
+                <div className="absolute top-full right-0 z-50 mt-1 w-56 bg-white border border-slate-200 rounded-lg shadow-lg py-3">
+                  <div className="px-4 flex flex-col gap-2 pb-3 border-b border-slate-100">
+                    <Link
+                      to="/login"
+                      className="block text-center bg-blue-900 hover:bg-blue-950 text-white text-sm font-semibold rounded-full py-2 transition-colors"
+                    >
+                      {t("Sign In", "साइन इन करें")}
+                    </Link>
+                    <Link
+                      to="/register"
+                      className="block text-center text-sm font-medium text-blue-900 hover:underline"
+                    >
+                      {t("Create an Account", "खाता बनाएं")}
+                    </Link>
+                  </div>
+
+                  <Link
+                    to="/login?redirect=/account"
+                    className="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-amber-600"
+                  >
+                    {t("My Account", "मेरा खाता")}
+                  </Link>
+
+                  <Link
+                    to="/login?redirect=/my-orders"
+                    className="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-amber-600"
+                  >
+                    {t("My Orders", "मेरे ऑर्डर")}
+                  </Link>
+
+                  <Link
+                    to="/wishlist"
+                    className="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-amber-600"
+                  >
+                    {t("Wishlist", "विशलिस्ट")}
+                  </Link>
+
+                  <Link
+                    to="/login?redirect=/my-orders"
+                    className="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-amber-600"
+                  >
+                    {t("Review My Purchases", "अपनी खरीद की समीक्षा करें")}
+                  </Link>
+
+                  <Link
+                    to="/#recently-viewed"
+                    onClick={goToRecentlyViewed}
+                    className="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-amber-600"
+                  >
+                    {t("Recently Viewed", "हाल ही में देखे गए")}
+                  </Link>
+
+                  <Link
+                    to="/contact"
+                    className="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-amber-600"
+                  >
+                    {t("Help & Contact", "सहायता और संपर्क")}
+                  </Link>
+
+                  <div className="mt-2 pt-2 border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={handleInstallClick}
+                      className="block w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-amber-600"
+                    >
+                      {t("Download the App", "ऐप डाउनलोड करें")}
+                    </button>
+
+                    <Link
+                      to="/login?redirect=/loyalty-history"
+                      className="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-amber-600"
+                    >
+                      {t("Loyalty Points", "लॉयल्टी पॉइंट्स")}
+                    </Link>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           <button
             type="button"
             onClick={openCart}
-            className="relative flex flex-col items-center text-slate-600 hover:text-blue-700 transition-colors"
+            className="flex items-center gap-1.5 text-slate-600 hover:text-blue-700 transition-colors"
           >
-            <FaShoppingCart className="text-lg" />
-            <span className="hidden min-[1440px]:block text-xs mt-0.5">{t("Cart", "कार्ट")}</span>
-            {totalItems > 0 && (
-              <span className="absolute -top-1.5 -right-2 bg-red-500 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
-                {totalItems}
-              </span>
-            )}
+            <span className="relative">
+              <FaShoppingCart className="text-lg" />
+              {totalItems > 0 && (
+                <span className="absolute -top-1.5 -right-2 bg-red-500 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
+                  {totalItems}
+                </span>
+              )}
+            </span>
+            <span className="hidden sm:inline text-sm">{t("Cart", "कार्ट")}</span>
           </button>
         </div>
       </div>

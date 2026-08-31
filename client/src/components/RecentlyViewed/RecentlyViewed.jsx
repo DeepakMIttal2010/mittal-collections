@@ -46,7 +46,7 @@ function RecentlyViewed({ excludeId }) {
   if (loading || products.length === 0) return null;
 
   return (
-    <section className="py-12 bg-white">
+    <section className="py-12 bg-white" id="recently-viewed">
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl md:text-3xl font-bold text-slate-900">
