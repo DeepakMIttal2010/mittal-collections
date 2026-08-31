@@ -21,7 +21,14 @@ function Navbar() {
 
   return (
     <nav className="hidden md:block bg-white border-b border-slate-200">
-      <div className="max-w-7xl mx-auto px-4 flex items-center overflow-x-auto">
+      {/* No overflow-x-auto here — the category dropdown panels are
+          position:absolute descendants of this row, and any overflow
+          value other than visible on an ancestor clips them regardless
+          of which element is their actual positioning context. The
+          site-wide html/body overflow-x:hidden safety net (see
+          mobile-header-overflow-fix) already prevents page-level
+          overflow if this row's content briefly exceeds its width. */}
+      <div className="max-w-7xl mx-auto px-4 flex items-center">
         <div className="flex items-center">
           <NavLink to="/" className={linkClass}>
             {t("Home", "होम")}
