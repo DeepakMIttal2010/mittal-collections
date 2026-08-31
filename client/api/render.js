@@ -14,8 +14,12 @@ const SITE_NAME = "Mittal Collections";
 const SITE_URL = "https://www.mittalcollections.com";
 const API_BASE =
   process.env.VITE_API_URL || "https://mittal-collections-api.onrender.com";
+// TODO: placeholder real-product photo (doormat) picked 2026-08-31 as a
+// stand-in for the generic stock photo this used to be — user asked to be
+// reminded to swap it for a more representative one later. Mirrors
+// client/src/components/Seo.jsx's own DEFAULT_IMAGE.
 const DEFAULT_IMAGE =
-  "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=1200";
+  "https://res.cloudinary.com/y2gghpvz/image/upload/q_auto,f_auto,w_1200/v1786455968/mittal-collections/eyh3ckt24w8hf7gu3aop.jpg";
 
 const escapeHtml = (value) =>
   String(value ?? "")

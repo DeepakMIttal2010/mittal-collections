@@ -1,8 +1,11 @@
 import { Helmet } from "react-helmet-async";
 
 const SITE_NAME = "Mittal Collections";
+// TODO: placeholder real-product photo (doormat) picked 2026-08-31 as a
+// stand-in for the generic stock photo this used to be — user asked to be
+// reminded to swap it for a more representative one later.
 const DEFAULT_IMAGE =
-  "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=1200";
+  "https://res.cloudinary.com/y2gghpvz/image/upload/q_auto,f_auto,w_1200/v1786455968/mittal-collections/eyh3ckt24w8hf7gu3aop.jpg";
 
 // alternateLangs: [{ lang: "en"|"hi"|"x-default", url }] — a page that
 // exists in more than one language links to every version (itself
