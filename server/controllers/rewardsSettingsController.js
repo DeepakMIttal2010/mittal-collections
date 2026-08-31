@@ -5,6 +5,7 @@ import {
   expireInactivePoints,
 } from "../utils/loyaltyPoints.js";
 import { getReferralSettings } from "../utils/referral.js";
+import { REVIEW_BONUS_POINTS } from "./reviewController.js";
 
 // Writes one log row per field that actually changed.
 const logChanges = async (module, oldDoc, newFields, changedBy) => {
@@ -158,6 +159,7 @@ export const getPublicRewardsInfo = async (req, res) => {
         referrerPoints: referral.referrerPoints,
         referredPoints: referral.referredPoints,
       },
+      reviewBonusPoints: REVIEW_BONUS_POINTS,
     });
   } catch (error) {
     console.error("Get Public Rewards Info Error:", error);
