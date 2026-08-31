@@ -10,7 +10,7 @@ function Navbar() {
   const { language, t } = useLanguage();
 
   const linkClass = ({ isActive }) =>
-    `text-sm font-medium px-4 py-3 transition-colors ${
+    `text-sm font-medium px-4 py-3 whitespace-nowrap transition-colors ${
       isActive ? "text-amber-600" : "text-slate-700 hover:text-amber-600"
     }`;
 
@@ -21,7 +21,7 @@ function Navbar() {
 
   return (
     <nav className="hidden md:block bg-white border-b border-slate-200">
-      <div className="max-w-7xl mx-auto px-4 flex items-center">
+      <div className="max-w-7xl mx-auto px-4 flex items-center overflow-x-auto">
         <div className="flex items-center">
           <NavLink to="/" className={linkClass}>
             {t("Home", "होम")}
