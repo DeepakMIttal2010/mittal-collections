@@ -105,15 +105,15 @@ function Rewards() {
         ),
         t(
           "They sign up using your link and place an order — no separate code needed.",
-          "वे आपके लिंक से साइन अप करके ऑर्डर करते हैं — अलग से कोड की ज़रूरत नहीं।",
+          "वे आपके लिंक से खाता बनाकर ऑर्डर करते हैं — अलग से कोड की ज़रूरत नहीं।",
         ),
         t(
           `Once their first order is delivered, you get ${rewards.referral.referrerPoints} points and they get ${rewards.referral.referredPoints} points, automatically.`,
           `उनका पहला ऑर्डर डिलीवर होते ही, आपको ${rewards.referral.referrerPoints} पॉइंट्स और उन्हें ${rewards.referral.referredPoints} पॉइंट्स अपने आप मिल जाते हैं।`,
         ),
         t(
-          "Find your referral link on your Account page once you're signed in.",
-          "साइन इन करने के बाद अपना रेफरल लिंक Account पेज पर पाएं।",
+          "Find your referral link on your Account page once you're logged in.",
+          "लॉगिन करने के बाद अपना रेफरल लिंक अपने खाता पेज पर पाएं।",
         ),
       ],
     },

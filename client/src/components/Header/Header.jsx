@@ -663,7 +663,7 @@ function Header() {
                 className="flex items-center gap-1.5 text-slate-600 hover:text-blue-700 transition-colors"
               >
                 <FaUser className="text-lg" />
-                <span className="text-sm">{t("Sign In", "साइन इन")}</span>
+                <span className="text-sm">{t("Sign In", "लॉगिन")}</span>
               </Link>
 
               {accountOpen && (
@@ -673,7 +673,7 @@ function Header() {
                       to="/login"
                       className="block text-center bg-blue-900 hover:bg-blue-950 text-white text-sm font-semibold rounded-full py-2 transition-colors"
                     >
-                      {t("Sign In", "साइन इन करें")}
+                      {t("Sign In", "लॉगिन करें")}
                     </Link>
                     <Link
                       to="/register"
