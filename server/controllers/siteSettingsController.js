@@ -7,10 +7,10 @@ import { invalidateBundleRulesCache } from "../utils/bundleDiscount.js";
 export const getSiteSettings = async (req, res) => {
   try {
     let settings = await SiteSettings.findOne().populate([
-      { path: "bundleRules.categoryA", select: "name slug" },
-      { path: "bundleRules.categoryB", select: "name slug" },
-      { path: "pricingRules.category", select: "name slug" },
-      { path: "pricingRules.subcategory", select: "name slug" },
+      { path: "bundleRules.categoryA", select: "name nameHi slug" },
+      { path: "bundleRules.categoryB", select: "name nameHi slug" },
+      { path: "pricingRules.category", select: "name nameHi slug" },
+      { path: "pricingRules.subcategory", select: "name nameHi slug" },
     ]);
 
     if (!settings) {
@@ -86,10 +86,10 @@ export const updateSiteSettings = async (req, res) => {
 
     await settings.save();
     await settings.populate([
-      { path: "bundleRules.categoryA", select: "name slug" },
-      { path: "bundleRules.categoryB", select: "name slug" },
-      { path: "pricingRules.category", select: "name slug" },
-      { path: "pricingRules.subcategory", select: "name slug" },
+      { path: "bundleRules.categoryA", select: "name nameHi slug" },
+      { path: "bundleRules.categoryB", select: "name nameHi slug" },
+      { path: "pricingRules.category", select: "name nameHi slug" },
+      { path: "pricingRules.subcategory", select: "name nameHi slug" },
     ]);
 
     res.status(200).json({

@@ -61,7 +61,7 @@ export const getAllFooterLinksAdmin = async (req, res) => {
 // ============================
 export const createFooterLink = async (req, res) => {
   try {
-    const { label, url, displayOrder, isActive } = req.body;
+    const { label, labelHi, url, displayOrder, isActive } = req.body;
 
     if (!label || !url) {
       return res.status(400).json({
@@ -72,6 +72,7 @@ export const createFooterLink = async (req, res) => {
 
     const link = await FooterLink.create({
       label,
+      labelHi: labelHi || "",
       url,
       displayOrder: displayOrder || 0,
       isActive: isActive !== undefined ? isActive : true,
@@ -106,9 +107,10 @@ export const updateFooterLink = async (req, res) => {
       });
     }
 
-    const { label, url, displayOrder, isActive } = req.body;
+    const { label, labelHi, url, displayOrder, isActive } = req.body;
 
     if (label !== undefined) link.label = label;
+    if (labelHi !== undefined) link.labelHi = labelHi;
     if (url !== undefined) link.url = url;
     if (displayOrder !== undefined) link.displayOrder = displayOrder;
     if (isActive !== undefined) link.isActive = isActive;

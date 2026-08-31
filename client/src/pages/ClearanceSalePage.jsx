@@ -78,7 +78,7 @@ function ClearanceSalePage() {
             return (
               <section key={category._id}>
                 <h2 className="text-2xl font-bold text-slate-900 mb-6">
-                  {category.name}
+                  {t(category.name, category.nameHi)}
                 </h2>
 
                 <ProductGrid products={visibleProducts} />

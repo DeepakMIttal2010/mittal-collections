@@ -16,7 +16,7 @@ const generateSlug = (name) =>
 export const getSubcategories = async (req, res) => {
   try {
     const subcategories = await Subcategory.find({ isActive: true })
-      .populate("category", "name slug")
+      .populate("category", "name nameHi slug")
       .sort({ displayOrder: 1 });
 
     res.status(200).json({
@@ -58,7 +58,7 @@ export const getAllSubcategoriesAdmin = async (req, res) => {
     const total = await Subcategory.countDocuments(filter);
 
     const subcategories = await Subcategory.find(filter)
-      .populate("category", "name slug")
+      .populate("category", "name nameHi slug")
       .sort({ [sortBy]: sortOrder })
       .skip((page - 1) * limit)
       .limit(limit);
@@ -86,8 +86,15 @@ export const getAllSubcategoriesAdmin = async (req, res) => {
 // ============================
 export const addSubcategory = async (req, res) => {
   try {
-    const { category, groupLabel, name, subtitle, displayOrder, isActive } =
-      req.body;
+    const {
+      category,
+      groupLabel,
+      name,
+      nameHi,
+      subtitle,
+      displayOrder,
+      isActive,
+    } = req.body;
 
     if (!category || !groupLabel || !name) {
       return res.status(400).json({
@@ -102,6 +109,7 @@ export const addSubcategory = async (req, res) => {
       category,
       groupLabel,
       name,
+      nameHi: nameHi || "",
       slug,
       subtitle: subtitle || "",
       image: req.file ? req.file.path : "",
@@ -138,8 +146,15 @@ export const updateSubcategory = async (req, res) => {
       });
     }
 
-    const { category, groupLabel, name, subtitle, displayOrder, isActive } =
-      req.body;
+    const {
+      category,
+      groupLabel,
+      name,
+      nameHi,
+      subtitle,
+      displayOrder,
+      isActive,
+    } = req.body;
 
     if (category) subcategory.category = category;
     if (groupLabel) subcategory.groupLabel = groupLabel;
@@ -149,6 +164,7 @@ export const updateSubcategory = async (req, res) => {
       subcategory.slug = generateSlug(name);
     }
 
+    if (nameHi !== undefined) subcategory.nameHi = nameHi;
     if (subtitle !== undefined) subcategory.subtitle = subtitle;
     if (displayOrder !== undefined) subcategory.displayOrder = displayOrder;
     if (isActive !== undefined) subcategory.isActive = isActive === "true";

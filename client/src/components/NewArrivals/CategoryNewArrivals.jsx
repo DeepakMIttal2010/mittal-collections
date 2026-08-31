@@ -50,12 +50,13 @@ function CategoryNewArrivals() {
             <div className="flex items-end justify-between mb-10 gap-4">
               <div>
                 <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-2">
-                  {category.name} — {t("New Arrivals", "नए प्रोडक्ट्स")}
+                  {t(category.name, category.nameHi)} —{" "}
+                  {t("New Arrivals", "नए प्रोडक्ट्स")}
                 </h2>
                 <p className="text-slate-500">
                   {t(
                     `Fresh additions to our ${category.name} collection.`,
-                    `हमारे ${category.name} कलेक्शन में नए जुड़े प्रोडक्ट्स।`,
+                    `हमारे ${t(category.name, category.nameHi)} कलेक्शन में नए जुड़े प्रोडक्ट्स।`,
                   )}
                 </p>
               </div>

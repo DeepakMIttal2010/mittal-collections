@@ -83,7 +83,7 @@ function Footer() {
             {categoryColumns.map(({ category, items }) => (
               <div key={category._id}>
                 <h3 className="text-sm font-semibold text-slate-800 mb-3 pb-2 border-b border-amber-500/40">
-                  {category.name}
+                  {t(category.name, category.nameHi)}
                 </h3>
                 <ul className="space-y-2 text-xs">
                   {items.length > 0 ? (
@@ -93,7 +93,7 @@ function Footer() {
                           to={`/category/${category.slug}/${item.slug}`}
                           className="text-slate-600 hover:text-amber-600 transition-colors"
                         >
-                          {item.name}
+                          {t(item.name, item.nameHi)}
                         </Link>
                       </li>
                     ))
@@ -158,7 +158,7 @@ function Footer() {
                         rel="noopener noreferrer"
                         className="hover:text-white transition-colors"
                       >
-                        {item.label}
+                        {t(item.label, item.labelHi)}
                       </a>
                     </li>
                   ) : (
@@ -167,7 +167,7 @@ function Footer() {
                         to={item.url}
                         className="hover:text-white transition-colors"
                       >
-                        {item.label}
+                        {t(item.label, item.labelHi)}
                       </Link>
                     </li>
                   ),

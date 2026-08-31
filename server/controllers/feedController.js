@@ -63,7 +63,7 @@ export const getGoogleProductFeed = async (req, res) => {
       .select(
         "name description price oldPrice image images stock variants slug brand category productNumber",
       )
-      .populate("category", "name");
+      .populate("category", "name nameHi");
 
     const items = products
       .map((product) => {

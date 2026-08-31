@@ -120,7 +120,7 @@ function MobileMenu({ isOpen, onClose }) {
                     onClick={close}
                     className="flex-1 px-5 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-amber-600"
                   >
-                    {category.name}
+                    {t(category.name, category.nameHi)}
                   </NavLink>
 
                   {hasSubmenu && (
@@ -129,7 +129,7 @@ function MobileMenu({ isOpen, onClose }) {
                       onClick={() => toggleCategory(category._id)}
                       aria-label={t(
                         `${isExpanded ? "Collapse" : "Expand"} ${category.name}`,
-                        `${category.name} ${isExpanded ? "संकुचित करें" : "विस्तृत करें"}`,
+                        `${t(category.name, category.nameHi)} ${isExpanded ? "संकुचित करें" : "विस्तृत करें"}`,
                       )}
                       className="px-4 py-3 text-slate-400"
                     >
@@ -160,7 +160,7 @@ function MobileMenu({ isOpen, onClose }) {
                                   onClick={close}
                                   className="block py-1.5 text-sm text-slate-600 hover:text-amber-600"
                                 >
-                                  {item.name}
+                                  {t(item.name, item.nameHi)}
                                 </NavLink>
                               </li>
                             ))}

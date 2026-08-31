@@ -257,10 +257,24 @@ function CategoryPage() {
       ? `${activeSubcategory.name} - ${category.name}`
       : category.name;
 
-  const breadcrumbItems = [
-    { name: t("Home", "होम"), path: "/" },
+  // Structured data and the <Seo> title/meta stay English-only regardless
+  // of the language toggle (schema.org/SEO convention) — only the visible
+  // breadcrumb trail below gets translated.
+  const breadcrumbItemsForSeo = [
+    { name: "Home", path: "/" },
     { name: category.name, path: `/category/${categorySlug}` },
     ...(activeSubcategory ? [{ name: activeSubcategory.name }] : []),
+  ];
+
+  const breadcrumbItems = [
+    { name: t("Home", "होम"), path: "/" },
+    {
+      name: t(category.name, category.nameHi),
+      path: `/category/${categorySlug}`,
+    },
+    ...(activeSubcategory
+      ? [{ name: t(activeSubcategory.name, activeSubcategory.nameHi) }]
+      : []),
   ];
 
   const sizeHelpLinks = getSizeHelpLinks(t);
@@ -272,12 +286,14 @@ function CategoryPage() {
         title={pageTitle}
         description={`Buy ${pageTitle} online with pan-India delivery at Mittal Collections - fast 24-hour delivery in Ghaziabad. ${category.description || ""}`.trim()}
         url={`https://www.mittalcollections.com/category/${categorySlug}${subcategorySlug ? `/${subcategorySlug}` : ""}`}
-        jsonLd={buildBreadcrumbJsonLd(breadcrumbItems)}
+        jsonLd={buildBreadcrumbJsonLd(breadcrumbItemsForSeo)}
       />
       <Breadcrumbs items={breadcrumbItems} />
       <h1 className="text-xl font-semibold text-slate-800 mb-4">
-        {category.name}
-        {activeSubcategory ? ` / ${activeSubcategory.name}` : ""}
+        {t(category.name, category.nameHi)}
+        {activeSubcategory
+          ? ` / ${t(activeSubcategory.name, activeSubcategory.nameHi)}`
+          : ""}
       </h1>
 
       {bundlePartners.map(({ partner, discountPercent }) => (
@@ -293,7 +309,7 @@ function CategoryPage() {
             <span className="font-semibold text-amber-800">
               {t(
                 `Buy ${category.name} + ${partner.name} together`,
-                `${category.name} + ${partner.name} एक साथ खरीदें`,
+                `${t(category.name, category.nameHi)} + ${t(partner.name, partner.nameHi)} एक साथ खरीदें`,
               )}
             </span>{" "}
             <span className="text-amber-700">
@@ -343,7 +359,7 @@ function CategoryPage() {
                 navigate(`/category/${categorySlug}/${sub.slug}`)
               }
             >
-              {sub.name}
+              {t(sub.name, sub.nameHi)}
             </button>
           ))}
         </div>

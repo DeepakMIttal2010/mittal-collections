@@ -81,7 +81,7 @@ function NewArrivalsPage() {
               <section key={category._id}>
                 <div className="flex items-end justify-between mb-6 gap-4">
                   <h2 className="text-2xl font-bold text-slate-900">
-                    {category.name}
+                    {t(category.name, category.nameHi)}
                   </h2>
 
                   <Link

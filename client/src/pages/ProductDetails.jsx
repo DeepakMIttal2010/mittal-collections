@@ -73,7 +73,7 @@ function ProductDetails() {
   const [isLightboxZoomed, setIsLightboxZoomed] = useState(false);
   const [relatedProducts, setRelatedProducts] = useState([]);
   const [bundleProducts, setBundleProducts] = useState([]);
-  const [bundleCategoryLabel, setBundleCategoryLabel] = useState("");
+  const [bundleCategory, setBundleCategory] = useState(null);
   const [bundleDiscountPercent, setBundleDiscountPercent] = useState(0);
   const [viewCount, setViewCount] = useState(0);
   const [reviewStats, setReviewStats] = useState({
@@ -205,7 +205,7 @@ function ProductDetails() {
 
             if (bundleRes.success) {
               setBundleProducts(bundleRes.products.slice(0, 8));
-              setBundleCategoryLabel(partnerCategory.name);
+              setBundleCategory(partnerCategory);
               setBundleDiscountPercent(matchedRule.discountPercent);
             }
           }
@@ -455,8 +455,11 @@ function ProductDetails() {
     }),
   };
 
-  const breadcrumbItems = [
-    { name: t("Home", "होम"), path: "/" },
+  // Structured data stays English-only regardless of the language toggle
+  // (schema.org/SEO convention) — only the visible breadcrumb trail below
+  // gets translated.
+  const breadcrumbItemsForSeo = [
+    { name: "Home", path: "/" },
     ...(product.category
       ? [
           {
@@ -474,6 +477,27 @@ function ProductDetails() {
         ]
       : []),
     { name: product.name },
+  ];
+
+  const breadcrumbItems = [
+    { name: t("Home", "होम"), path: "/" },
+    ...(product.category
+      ? [
+          {
+            name: t(product.category.name, product.category.nameHi),
+            path: `/category/${product.category.slug}`,
+          },
+        ]
+      : []),
+    ...(product.subcategory && product.category
+      ? [
+          {
+            name: t(product.subcategory.name, product.subcategory.nameHi),
+            path: `/category/${product.category.slug}/${product.subcategory.slug}`,
+          },
+        ]
+      : []),
+    { name: t(product.name, product.nameHi) },
   ];
 
   const specRows = [
@@ -515,7 +539,7 @@ function ProductDetails() {
         url={shareUrl}
         jsonLd={[
           productJsonLd,
-          buildBreadcrumbJsonLd(breadcrumbItems),
+          buildBreadcrumbJsonLd(breadcrumbItemsForSeo),
           faqJsonLd,
         ]}
       />
@@ -649,8 +673,10 @@ function ProductDetails() {
         {/* Details */}
         <div className="min-w-0">
           <p className="text-sm text-slate-500 mb-1">
-            {product.category?.name}
-            {product.subcategory?.name ? ` / ${product.subcategory.name}` : ""}
+            {t(product.category?.name, product.category?.nameHi)}
+            {product.subcategory?.name
+              ? ` / ${t(product.subcategory.name, product.subcategory.nameHi)}`
+              : ""}
           </p>
 
           <h1 className="text-3xl font-bold text-slate-900 mb-1">
@@ -998,7 +1024,10 @@ function ProductDetails() {
           <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 mb-6">
             <FaGift className="text-blue-700 shrink-0" />
             <span className="text-sm text-blue-800">
-              {t(`Add a ${bundleCategoryLabel} to this order and get `, `इस ऑर्डर में ${bundleCategoryLabel} जोड़ें और पाएं `)}
+              {t(
+                `Add a ${bundleCategory?.name} to this order and get `,
+                `इस ऑर्डर में ${t(bundleCategory?.name, bundleCategory?.nameHi)} जोड़ें और पाएं `,
+              )}
               <span className="font-bold">
                 {t(`${bundleDiscountPercent}% off`, `${bundleDiscountPercent}% छूट`)}
               </span>{" "}

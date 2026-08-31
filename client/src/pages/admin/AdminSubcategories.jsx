@@ -32,6 +32,7 @@ function AdminSubcategories() {
     category: "",
     groupLabel: "",
     name: "",
+    nameHi: "",
     subtitle: "",
     displayOrder: 0,
     isActive: true,
@@ -107,6 +108,7 @@ function AdminSubcategories() {
       category: "",
       groupLabel: "",
       name: "",
+      nameHi: "",
       subtitle: "",
       displayOrder: 0,
       isActive: true,
@@ -154,6 +156,7 @@ function AdminSubcategories() {
       category: sub.category?._id || "",
       groupLabel: sub.groupLabel,
       name: sub.name,
+      nameHi: sub.nameHi || "",
       subtitle: sub.subtitle || "",
       displayOrder: sub.displayOrder,
       isActive: sub.isActive,
@@ -266,6 +269,20 @@ function AdminSubcategories() {
               value={formData.name}
               onChange={handleChange}
               required
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Item Name (Hindi, optional)
+            </label>
+            <input
+              type="text"
+              name="nameHi"
+              placeholder="हिंदी में आइटम का नाम"
+              value={formData.nameHi}
+              onChange={handleChange}
               className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>

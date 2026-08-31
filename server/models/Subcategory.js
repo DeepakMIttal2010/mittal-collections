@@ -22,6 +22,14 @@ const subcategorySchema = new mongoose.Schema(
       trim: true,
     },
 
+    // Optional Hindi translation — public display falls back to `name`
+    // whenever this is empty.
+    nameHi: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
     slug: {
       type: String,
       required: [true, "Slug is required"],

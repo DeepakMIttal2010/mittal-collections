@@ -57,7 +57,7 @@ function About() {
                 to={`/category/${category.slug}`}
                 className="border border-slate-300 rounded-full px-5 py-2 text-sm font-medium text-slate-700 hover:border-amber-500 hover:text-amber-600 transition-colors"
               >
-                {category.name}
+                {t(category.name, category.nameHi)}
               </Link>
             ))}
           </div>

@@ -169,7 +169,7 @@ function SearchResults() {
                       to={`/category/${c.slug}`}
                       className="px-4 py-2 rounded-full border border-slate-300 text-sm text-slate-700 hover:border-amber-500 hover:text-amber-600 transition-colors"
                     >
-                      {c.name}
+                      {t(c.name, c.nameHi)}
                     </Link>
                   ))}
                 </div>

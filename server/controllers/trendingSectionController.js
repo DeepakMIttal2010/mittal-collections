@@ -12,7 +12,7 @@ export const getAllTrendingSectionsAdmin = async (req, res) => {
     const sortOrder = req.query.sortOrder === "desc" ? -1 : 1;
 
     const sections = await TrendingSection.find()
-      .populate("category", "name slug image isActive")
+      .populate("category", "name nameHi slug image isActive")
       .sort({ [sortBy]: sortOrder });
 
     res.status(200).json({
@@ -60,7 +60,7 @@ export const addTrendingSection = async (req, res) => {
       isActive: isActive === undefined ? true : isActive,
     });
 
-    await section.populate("category", "name slug image isActive");
+    await section.populate("category", "name nameHi slug image isActive");
 
     res.status(201).json({
       success: true,
@@ -113,7 +113,7 @@ export const updateTrendingSection = async (req, res) => {
     if (isActive !== undefined) section.isActive = isActive;
 
     await section.save();
-    await section.populate("category", "name slug image isActive");
+    await section.populate("category", "name nameHi slug image isActive");
 
     res.status(200).json({
       success: true,
@@ -139,7 +139,7 @@ export const restoreTrendingSection = async (req, res) => {
       req.params.id,
       { isActive: true },
       { new: true },
-    ).populate("category", "name slug image isActive");
+    ).populate("category", "name nameHi slug image isActive");
 
     if (!section) {
       return res.status(404).json({

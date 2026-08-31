@@ -38,7 +38,7 @@ function TrendingCategoryRow({ category, products, t, isFirst }) {
     <div className={isFirst ? "" : "mt-12"}>
       <div className="flex items-center justify-between gap-4 mb-1">
         <h3 className="text-xl md:text-2xl font-bold text-slate-900">
-          {category.name}
+          {t(category.name, category.nameHi)}
         </h3>
 
         <div className="hidden sm:flex items-center gap-2">

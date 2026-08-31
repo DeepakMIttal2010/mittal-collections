@@ -114,7 +114,8 @@ export const getCategoryById = async (req, res) => {
 // ============================
 export const addCategory = async (req, res) => {
   try {
-    const { name, description, featured, displayOrder, isActive } = req.body;
+    const { name, nameHi, description, featured, displayOrder, isActive } =
+      req.body;
 
     if (!name) {
       return res.status(400).json({
@@ -143,6 +144,7 @@ export const addCategory = async (req, res) => {
 
     const category = await Category.create({
       name,
+      nameHi: nameHi || "",
       slug,
       description: description || "",
       image: req.file.path,
@@ -180,13 +182,15 @@ export const updateCategory = async (req, res) => {
       });
     }
 
-    const { name, description, featured, displayOrder, isActive } = req.body;
+    const { name, nameHi, description, featured, displayOrder, isActive } =
+      req.body;
 
     if (name && name !== category.name) {
       category.name = name;
       category.slug = generateSlug(name);
     }
 
+    if (nameHi !== undefined) category.nameHi = nameHi;
     if (description !== undefined) category.description = description;
     if (featured !== undefined)
       category.featured = featured === "true" || featured === true;

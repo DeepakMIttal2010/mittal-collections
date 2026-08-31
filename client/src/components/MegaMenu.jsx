@@ -102,6 +102,8 @@ function DropdownPortal({ rect, onMouseEnter, onMouseLeave, children }) {
 }
 
 function SubmenuPanel({ category, groups }) {
+  const { t } = useLanguage();
+
   return (
     <div className="bg-white border border-slate-200 shadow-lg rounded-b-lg p-6 flex gap-10 min-w-max">
       {Object.entries(groups).map(([groupLabel, items]) => (
@@ -119,7 +121,7 @@ function SubmenuPanel({ category, groups }) {
                     to={`/category/${category.slug}/${item.slug}`}
                     className="text-sm text-slate-600 hover:text-amber-600 transition-colors block"
                   >
-                    {item.name}
+                    {t(item.name, item.nameHi)}
                   </NavLink>
                 </li>
               ))}
@@ -131,6 +133,7 @@ function SubmenuPanel({ category, groups }) {
 }
 
 function CategoryNavItem({ category, groups, linkClassName }) {
+  const { t } = useLanguage();
   const hasSubmenu = Object.keys(groups).length > 0;
   const { triggerRef, isOpen, rect, open, close } = useHoverDropdown();
 
@@ -148,7 +151,7 @@ function CategoryNavItem({ category, groups, linkClassName }) {
           "text-sm font-medium px-4 py-3 text-slate-700 hover:text-amber-600"
         }
       >
-        {category.name}
+        {t(category.name, category.nameHi)}
       </NavLink>
 
       {isOpen && hasSubmenu && (
@@ -213,7 +216,7 @@ function MoreCategoriesMenu({ categories, getGroupedSubcategories, linkClassName
                       : "text-slate-700 hover:bg-slate-50"
                   }`}
                 >
-                  {category.name}
+                  {t(category.name, category.nameHi)}
                 </NavLink>
               ))}
             </div>
@@ -235,7 +238,7 @@ function MoreCategoriesMenu({ categories, getGroupedSubcategories, linkClassName
                               to={`/category/${activeCategory.slug}/${item.slug}`}
                               className="text-sm text-slate-600 hover:text-amber-600 transition-colors block"
                             >
-                              {item.name}
+                              {t(item.name, item.nameHi)}
                             </NavLink>
                           </li>
                         ))}
@@ -247,7 +250,10 @@ function MoreCategoriesMenu({ categories, getGroupedSubcategories, linkClassName
                   to={`/category/${activeCategory?.slug}`}
                   className="text-sm font-medium text-amber-700 hover:text-amber-800"
                 >
-                  {t(`View all ${activeCategory?.name} →`, `सभी ${activeCategory?.name} देखें →`)}
+                  {t(
+                    `View all ${activeCategory?.name} →`,
+                    `सभी ${t(activeCategory?.name, activeCategory?.nameHi)} देखें →`,
+                  )}
                 </NavLink>
               )}
             </div>

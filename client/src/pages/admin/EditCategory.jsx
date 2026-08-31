@@ -17,6 +17,7 @@ function EditCategory() {
 
   const [formData, setFormData] = useState({
     name: "",
+    nameHi: "",
     description: "",
     displayOrder: 0,
     featured: false,
@@ -35,6 +36,7 @@ function EditCategory() {
 
       setFormData({
         name: category.name,
+        nameHi: category.nameHi || "",
         description: category.description || "",
         displayOrder: category.displayOrder || 0,
         featured: category.featured,
@@ -84,6 +86,7 @@ function EditCategory() {
     const data = new FormData();
 
     data.append("name", formData.name);
+    data.append("nameHi", formData.nameHi);
     data.append("description", formData.description);
     data.append("displayOrder", formData.displayOrder);
     data.append("featured", formData.featured);
@@ -132,6 +135,20 @@ function EditCategory() {
             value={formData.name}
             onChange={handleChange}
             required
+            className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">
+            Category Name (Hindi, optional)
+          </label>
+          <input
+            type="text"
+            name="nameHi"
+            value={formData.nameHi}
+            onChange={handleChange}
+            placeholder="हिंदी में श्रेणी का नाम"
             className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>

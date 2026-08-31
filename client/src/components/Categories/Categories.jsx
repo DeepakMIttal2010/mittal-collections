@@ -63,7 +63,7 @@ function Categories() {
                 <div className="relative h-72 overflow-hidden">
                   <img
                     src={`${imgUrl(category.image)}`}
-                    alt={category.name}
+                    alt={t(category.name, category.nameHi)}
                     loading="lazy"
                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                   />
@@ -72,7 +72,7 @@ function Categories() {
 
                   <div className="absolute bottom-0 left-0 right-0 p-5 text-white">
                     <h3 className="text-xl font-semibold mb-1">
-                      {category.name}
+                      {t(category.name, category.nameHi)}
                     </h3>
 
                     {category.description && (

@@ -197,8 +197,8 @@ export const getProducts = async (req, res) => {
 
     let products = await Product.find(filter)
       .select(COST_FIELDS)
-      .populate("category", "name slug image")
-      .populate("subcategory", "name slug")
+      .populate("category", "name nameHi slug image")
+      .populate("subcategory", "name nameHi slug")
       .sort({ createdAt: -1 })
       .lean();
 
@@ -382,8 +382,8 @@ export const getAllProductsAdmin = async (req, res) => {
       ]);
     } else {
       products = await Product.find(filter)
-        .populate("category", "name slug image")
-        .populate("subcategory", "name slug")
+        .populate("category", "name nameHi slug image")
+        .populate("subcategory", "name nameHi slug")
         .sort({ [sortBy]: sortOrder })
         .skip((page - 1) * limit)
         .limit(limit);
@@ -427,8 +427,8 @@ export const getAllProductsAdmin = async (req, res) => {
 export const getProductByIdAdmin = async (req, res) => {
   try {
     const product = await Product.findById(req.params.id)
-      .populate("category", "name slug image")
-      .populate("subcategory", "name slug");
+      .populate("category", "name nameHi slug image")
+      .populate("subcategory", "name nameHi slug");
 
     if (!product) {
       return res.status(404).json({
@@ -573,8 +573,8 @@ export const getTrendingProducts = async (req, res) => {
       $or: [{ stock: { $gt: 0 } }, { willRestock: { $ne: false } }],
     })
       .select(COST_FIELDS)
-      .populate("category", "name slug image")
-      .populate("subcategory", "name slug")
+      .populate("category", "name nameHi slug image")
+      .populate("subcategory", "name nameHi slug")
       .sort({ trendingRank: 1, updatedAt: -1 })
       .limit(limit);
 
@@ -613,7 +613,7 @@ export const getTrendingProductsByCategory = async (req, res) => {
     const perCategoryLimit = Math.max(parseInt(req.query.limit, 10) || 10, 1);
 
     const configuredSections = await TrendingSection.find({ isActive: true })
-      .populate("category", "name slug isActive")
+      .populate("category", "name nameHi slug isActive")
       .sort({ displayOrder: 1 });
 
     const sections = await Promise.all(
@@ -628,8 +628,8 @@ export const getTrendingProductsByCategory = async (req, res) => {
             $or: [{ stock: { $gt: 0 } }, { willRestock: { $ne: false } }],
           })
             .select(COST_FIELDS)
-            .populate("category", "name slug image")
-            .populate("subcategory", "name slug")
+            .populate("category", "name nameHi slug image")
+            .populate("subcategory", "name nameHi slug")
             .sort({ trendingRank: 1, updatedAt: -1 })
             .limit(perCategoryLimit);
 
@@ -637,6 +637,7 @@ export const getTrendingProductsByCategory = async (req, res) => {
             category: {
               _id: section.category._id,
               name: section.category.name,
+              nameHi: section.category.nameHi,
               slug: section.category.slug,
             },
             products,
@@ -688,8 +689,8 @@ export const getNewArrivalProducts = async (req, res) => {
       $or: [{ stock: { $gt: 0 } }, { willRestock: { $ne: false } }],
     })
       .select(COST_FIELDS)
-      .populate("category", "name slug image")
-      .populate("subcategory", "name slug")
+      .populate("category", "name nameHi slug image")
+      .populate("subcategory", "name nameHi slug")
       .sort({ createdAt: -1 })
       .limit(limit);
 
@@ -723,7 +724,7 @@ export const getNewArrivalsByCategory = async (req, res) => {
     const configuredSections = await NewArrivalsSection.find({
       isActive: true,
     })
-      .populate("category", "name slug isActive")
+      .populate("category", "name nameHi slug isActive")
       .sort({ displayOrder: 1 });
 
     const sections = await Promise.all(
@@ -741,8 +742,8 @@ export const getNewArrivalsByCategory = async (req, res) => {
             $or: [{ stock: { $gt: 0 } }, { willRestock: { $ne: false } }],
           })
             .select(COST_FIELDS)
-            .populate("category", "name slug image")
-            .populate("subcategory", "name slug")
+            .populate("category", "name nameHi slug image")
+            .populate("subcategory", "name nameHi slug")
             .sort({ createdAt: -1 })
             .limit(perCategoryLimit);
 
@@ -750,6 +751,7 @@ export const getNewArrivalsByCategory = async (req, res) => {
             category: {
               _id: section.category._id,
               name: section.category.name,
+              nameHi: section.category.nameHi,
               slug: section.category.slug,
             },
             products,
@@ -804,8 +806,8 @@ export const getBestSellers = async (req, res) => {
       $or: [{ stock: { $gt: 0 } }, { willRestock: { $ne: false } }],
     })
       .select(COST_FIELDS)
-      .populate("category", "name slug image")
-      .populate("subcategory", "name slug");
+      .populate("category", "name nameHi slug image")
+      .populate("subcategory", "name nameHi slug");
 
     const soldCountById = new Map(
       salesByProduct.map((entry) => [entry._id.toString(), entry.totalSold]),
@@ -882,8 +884,8 @@ export const getBigSavingsProducts = async (req, res) => {
       $or: [{ stock: { $gt: 0 } }, { willRestock: { $ne: false } }],
     })
       .select(COST_FIELDS)
-      .populate("category", "name slug image isActive")
-      .populate("subcategory", "name slug");
+      .populate("category", "name nameHi slug image isActive")
+      .populate("subcategory", "name nameHi slug");
 
     const discountById = new Map(
       candidates.map((entry) => [entry._id.toString(), entry.discountPercent]),
@@ -919,6 +921,7 @@ export const getBigSavingsProducts = async (req, res) => {
           category: {
             _id: category._id,
             name: category.name,
+            nameHi: category.nameHi,
             slug: category.slug,
           },
           totalCount: sorted.length,
@@ -951,8 +954,8 @@ export const getProductById = async (req, res) => {
   try {
     const product = await Product.findById(req.params.id)
       .select(COST_FIELDS)
-      .populate("category", "name slug image")
-      .populate("subcategory", "name slug");
+      .populate("category", "name nameHi slug image")
+      .populate("subcategory", "name nameHi slug");
 
     if (!product || product.visibility === "offline") {
       return res.status(404).json({

@@ -16,6 +16,7 @@ function AdminFooterLinks() {
 
   const [formData, setFormData] = useState({
     label: "",
+    labelHi: "",
     url: "",
     displayOrder: 0,
     isActive: true,
@@ -67,7 +68,13 @@ function AdminFooterLinks() {
   };
 
   const resetForm = () => {
-    setFormData({ label: "", url: "", displayOrder: 0, isActive: true });
+    setFormData({
+      label: "",
+      labelHi: "",
+      url: "",
+      displayOrder: 0,
+      isActive: true,
+    });
     setEditingId(null);
   };
 
@@ -94,6 +101,7 @@ function AdminFooterLinks() {
     setEditingId(item._id);
     setFormData({
       label: item.label,
+      labelHi: item.labelHi || "",
       url: item.url,
       displayOrder: item.displayOrder,
       isActive: item.isActive,
@@ -142,6 +150,20 @@ function AdminFooterLinks() {
             value={formData.label}
             onChange={handleChange}
             required
+            className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">
+            Label (Hindi, optional)
+          </label>
+          <input
+            type="text"
+            name="labelHi"
+            placeholder="हिंदी में लेबल"
+            value={formData.labelHi}
+            onChange={handleChange}
             className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>

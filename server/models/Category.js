@@ -9,6 +9,14 @@ const categorySchema = new mongoose.Schema(
       unique: true,
     },
 
+    // Optional Hindi translation — public display falls back to `name`
+    // whenever this is empty.
+    nameHi: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
     slug: {
       type: String,
       required: [true, "Slug is required"],

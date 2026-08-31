@@ -25,7 +25,10 @@ function SubcategoryRow({ category, groupLabel, items, activeSubcategory }) {
     <div>
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-2xl font-bold text-slate-900">
-          {t(`${category.name} by ${titleCase(groupLabel)}`, `${category.name}, ${titleCase(groupLabel)} के अनुसार`)}
+          {t(
+            `${category.name} by ${titleCase(groupLabel)}`,
+            `${t(category.name, category.nameHi)}, ${titleCase(groupLabel)} के अनुसार`,
+          )}
         </h3>
 
         <div className="flex items-center gap-2">
@@ -72,7 +75,7 @@ function SubcategoryRow({ category, groupLabel, items, activeSubcategory }) {
                   {imageUrl && (
                     <img
                       src={`${imgUrl(imageUrl)}`}
-                      alt={sub.name}
+                      alt={t(sub.name, sub.nameHi)}
                       loading="lazy"
                       className="w-full h-full object-cover"
                     />
@@ -81,7 +84,7 @@ function SubcategoryRow({ category, groupLabel, items, activeSubcategory }) {
 
                 <div className="text-center py-3 px-2">
                   <p className="text-xl font-bold uppercase tracking-wide text-slate-500 leading-tight">
-                    {sub.name}
+                    {t(sub.name, sub.nameHi)}
                   </p>
 
                   {sub.subtitle && (

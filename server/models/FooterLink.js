@@ -8,6 +8,14 @@ const footerLinkSchema = new mongoose.Schema(
       trim: true,
     },
 
+    // Optional Hindi translation — public display falls back to `label`
+    // whenever this is empty.
+    labelHi: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
     url: {
       type: String,
       required: [true, "URL is required"],

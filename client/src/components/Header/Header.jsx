@@ -108,8 +108,10 @@ function Header() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [mobileCategoryMenuOpen]);
 
-  const selectedCategoryName =
-    categories.find((c) => c._id === searchCategory)?.name || t("All", "सभी");
+  const selectedCategory = categories.find((c) => c._id === searchCategory);
+  const selectedCategoryName = selectedCategory
+    ? t(selectedCategory.name, selectedCategory.nameHi)
+    : t("All", "सभी");
 
   // Outside-click (not onBlur+setTimeout) to hide suggestions — onBlur
   // fires on mousedown, before the click event a suggestion button
@@ -495,7 +497,7 @@ function Header() {
                           : "text-slate-700 hover:bg-slate-50"
                       }`}
                     >
-                      {c.name}
+                      {t(c.name, c.nameHi)}
                     </button>
                   ))}
                 </div>
@@ -817,7 +819,7 @@ function Header() {
                         : "text-slate-700 hover:bg-slate-50"
                     }`}
                   >
-                    {c.name}
+                    {t(c.name, c.nameHi)}
                   </button>
                 ))}
               </div>
