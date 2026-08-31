@@ -21,14 +21,18 @@ function Navbar() {
 
   return (
     <nav className="hidden md:block bg-white border-b border-slate-200">
-      {/* No overflow-x-auto here — the category dropdown panels are
-          position:absolute descendants of this row, and any overflow
-          value other than visible on an ancestor clips them regardless
-          of which element is their actual positioning context. The
-          site-wide html/body overflow-x:hidden safety net (see
-          mobile-header-overflow-fix) already prevents page-level
-          overflow if this row's content briefly exceeds its width. */}
-      <div className="max-w-7xl mx-auto px-4 flex items-center">
+      {/* overflow-x-auto is safe here — the category dropdown panels
+          (MegaMenu.jsx) are portalled straight to <body> precisely so
+          this row's own overflow handling can't clip them, unlike an
+          earlier version of this fix that set overflow here before the
+          panels were portalled. Without this, a row too wide for the
+          viewport (long category names, a narrow laptop/browser width)
+          would either wrap nav text onto a second line or get silently
+          clipped off-screen by the site-wide html/body
+          overflow-x:hidden safety net (see mobile-header-overflow-fix)
+          — this way it scrolls within itself instead, so every item
+          stays reachable. */}
+      <div className="max-w-7xl mx-auto px-4 flex items-center overflow-x-auto">
         <div className="flex items-center">
           <NavLink to="/" className={linkClass}>
             {t("Home", "होम")}
