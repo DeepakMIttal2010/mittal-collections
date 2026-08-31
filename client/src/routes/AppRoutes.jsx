@@ -36,6 +36,7 @@ const ArticleDetail = lazy(() => import("../pages/ArticleDetail"));
 const CurtainSizeCalculator = lazy(
   () => import("../pages/CurtainSizeCalculator"),
 );
+const Rewards = lazy(() => import("../pages/Rewards"));
 const Compare = lazy(() => import("../pages/Compare"));
 const Tickets = lazy(() => import("../pages/Tickets"));
 const TicketDetail = lazy(() => import("../pages/TicketDetail"));
@@ -177,6 +178,7 @@ function AppRoutes() {
             path="/curtain-size-calculator"
             element={<CurtainSizeCalculator />}
           />
+          <Route path="/rewards" element={<Rewards />} />
           {/* Product Details */}
           <Route path="/product/:id/:slug?" element={<ProductDetails />} />
           <Route path="/trending" element={<TrendingPage />} />

@@ -14,6 +14,16 @@
   overflow: hidden;
 }
 
+/* Sized to its own content instead of the photo slides' fixed 85vh —
+   that height, combined with vertically-centering a taller content
+   block (icon-badge benefit row needs more room than one description
+   line), was pushing the button down into the page's fixed WhatsApp
+   button on shorter viewports. */
+.hero-rewards-slide {
+  height: auto;
+  min-height: 0;
+}
+
 .hero-bg-image {
   position: absolute;
   inset: 0;
@@ -32,6 +42,48 @@
 
   display: flex;
   align-items: center;
+}
+
+/* The rewards slide has no photo behind it — a light blue gradient
+   instead, matching the site's own light-card design language rather
+   than the dark photo-overlay treatment the other slides need for
+   white text to stay legible. */
+.hero-bg-rewards {
+  background: linear-gradient(180deg, #fff1f2 0%, #ffffff 100%);
+  overflow: hidden;
+}
+
+/* Soft, blurred color blobs for visual depth — kept purely decorative
+   (aria-hidden via being empty spans, no content) and behind everything
+   else via z-index/stacking order in the DOM. */
+.hero-bg-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(60px);
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.hero-bg-blob-1 {
+  width: 420px;
+  height: 420px;
+  top: -160px;
+  right: -100px;
+  background: radial-gradient(circle, #fecdd3 0%, transparent 70%);
+}
+
+.hero-bg-blob-2 {
+  width: 380px;
+  height: 380px;
+  bottom: -180px;
+  left: -80px;
+  background: radial-gradient(circle, #fbcfe8 0%, transparent 70%);
+}
+
+.hero-overlay-rewards {
+  background: none;
+  height: auto;
+  padding: 48px 0;
 }
 
 .hero-arrow {
@@ -54,6 +106,17 @@
 
 .hero-arrow:hover {
   background: rgba(255, 255, 255, 0.35);
+}
+
+/* The rewards slide's light background needs dark arrows/dots instead
+   of the white-on-photo styling the other slides use for contrast. */
+.hero-arrow-light {
+  background: rgba(15, 23, 42, 0.06);
+  color: #be123c;
+}
+
+.hero-arrow-light:hover {
+  background: rgba(15, 23, 42, 0.12);
 }
 
 .hero-arrow-left {
@@ -88,6 +151,14 @@
   background: #d4af37;
 }
 
+.hero-dots-light .hero-dot {
+  background: rgba(15, 23, 42, 0.15);
+}
+
+.hero-dots-light .hero-dot.active {
+  background: #be123c;
+}
+
 .hero-content {
   max-width: 650px;
   color: white;
@@ -110,6 +181,175 @@
   font-size: 20px;
   line-height: 1.8;
   margin-bottom: 35px;
+}
+
+/* Rewards slide: light background, one card per benefit — matches the
+   site's own light-card design language (see e.g. Account.jsx's
+   dashboard cards) instead of the dark-photo-overlay treatment the
+   other slides need. */
+.hero-rewards-content {
+  width: 100%;
+  color: #0f172a;
+}
+
+.hero-rewards-heading {
+  text-align: center;
+  margin-bottom: 28px;
+}
+
+.hero-rewards-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: white;
+  color: #be123c;
+  padding: 7px 18px 7px 7px;
+  border-radius: 100px;
+  letter-spacing: 0.5px;
+  font-weight: 700;
+  font-size: 13px;
+  box-shadow: 0 4px 14px -6px rgba(190, 18, 60, 0.3);
+}
+
+.hero-rewards-badge-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #fb7185, #be123c);
+  color: white;
+  font-size: 12px;
+}
+
+.hero-rewards-content h2 {
+  font-size: 34px;
+  margin: 14px 0 0;
+  line-height: 1.2;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.hero-rewards-cards {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 18px;
+  margin-bottom: 28px;
+}
+
+.hero-rewards-card {
+  background: white;
+  border: 1px solid #fecdd3;
+  border-radius: 16px;
+  padding: 22px 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+}
+
+.hero-rewards-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 16px 28px -12px rgba(190, 18, 60, 0.22);
+  border-color: #fda4af;
+}
+
+.hero-rewards-card-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  font-size: 18px;
+  margin-bottom: 14px;
+}
+
+/* Each benefit gets its own accent — makes the four cards read as
+   distinct things at a glance instead of four identical icons. */
+.hero-rewards-icon-rose {
+  background: linear-gradient(135deg, #fecdd3, #fda4af);
+  color: #9f1239;
+  box-shadow: 0 4px 10px -4px rgba(190, 18, 60, 0.35);
+}
+
+.hero-rewards-icon-amber {
+  background: linear-gradient(135deg, #fde68a, #fbbf24);
+  color: #92400e;
+  box-shadow: 0 4px 10px -4px rgba(180, 83, 9, 0.35);
+}
+
+.hero-rewards-icon-indigo {
+  background: linear-gradient(135deg, #c7d2fe, #818cf8);
+  color: #3730a3;
+  box-shadow: 0 4px 10px -4px rgba(67, 56, 202, 0.35);
+}
+
+.hero-rewards-icon-teal {
+  background: linear-gradient(135deg, #99f6e4, #2dd4bf);
+  color: #115e59;
+  box-shadow: 0 4px 10px -4px rgba(15, 118, 110, 0.35);
+}
+
+/* Section-card backgrounds for the standalone /rewards details page —
+   same four accents as the hero icons above, applied to a whole card
+   instead of just the icon circle. */
+.hero-rewards-theme-rose {
+  background: #fff1f2;
+  border-color: #fecdd3;
+}
+
+.hero-rewards-theme-amber {
+  background: #fffbeb;
+  border-color: #fde68a;
+}
+
+.hero-rewards-theme-indigo {
+  background: #eef2ff;
+  border-color: #c7d2fe;
+}
+
+.hero-rewards-theme-teal {
+  background: #f0fdfa;
+  border-color: #99f6e4;
+}
+
+.hero-rewards-card h3 {
+  font-size: 16px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 6px;
+}
+
+.hero-rewards-card p {
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: #64748b;
+  margin: 0;
+}
+
+.hero-rewards-content .hero-rewards-cta-wrap {
+  text-align: center;
+}
+
+.hero-rewards-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: linear-gradient(135deg, #f43f5e, #be123c);
+  color: white;
+  font-weight: 600;
+  font-size: 16px;
+  border: none;
+  border-radius: 35px;
+  padding: 14px 34px;
+  cursor: pointer;
+  box-shadow: 0 8px 20px -8px rgba(190, 18, 60, 0.5);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.hero-rewards-cta:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 26px -8px rgba(190, 18, 60, 0.6);
 }
 
 .hero-buttons {
@@ -163,6 +403,48 @@
   .hero-content p {
     font-size: 16px;
     margin-bottom: 24px;
+  }
+
+  .hero-overlay-rewards {
+    padding: 32px 0;
+  }
+
+  .hero-rewards-heading {
+    margin-bottom: 20px;
+  }
+
+  .hero-rewards-content h2 {
+    font-size: 24px;
+  }
+
+  .hero-rewards-cards {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .hero-rewards-card {
+    padding: 16px 18px;
+  }
+
+  .hero-rewards-card-icon {
+    width: 36px;
+    height: 36px;
+    font-size: 15px;
+    margin-bottom: 10px;
+  }
+
+  .hero-rewards-card h3 {
+    font-size: 15px;
+  }
+
+  .hero-rewards-card p {
+    font-size: 13px;
+  }
+
+  .hero-rewards-cta {
+    padding: 12px 24px;
+    font-size: 14px;
   }
 
   .shop-btn,
