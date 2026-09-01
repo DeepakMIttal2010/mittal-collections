@@ -270,9 +270,8 @@ function RankedBarList({ items, labelKey, valueKey, formatValue, emptyText }) {
 // Wishlist has a precise per-item add date; a cart snapshot only tracks one
 // updatedAt for the whole cart, not per line item (see
 // getProductCartUsers), so that one is "last synced" not "added on"; a
-// product view has no per-user record at all unless they were logged in
-// (see getProductViewUsers) — the modal for that type shows a note
-// explaining the gap rather than implying it's the full viewer list.
+// product view is grouped per visitorId (see getProductViewUsers), guest
+// or logged-in, so this one is "last viewed" per visitor.
 const USER_MODAL_CONFIG = {
   wishlist: {
     title: "Wishlisted by",
@@ -287,7 +286,7 @@ const USER_MODAL_CONFIG = {
     fetch: getProductCartUsers,
   },
   views: {
-    title: "Viewed by (logged-in only)",
+    title: "Viewed by (all)",
     dateLabel: "Last viewed",
     dateKey: "lastViewedAt",
     fetch: getProductViewUsers,
@@ -429,7 +428,7 @@ function AbandonedCartsModal({ onClose }) {
   );
 }
 
-function ProductUsersModal({ productId, productName, type, totalUniqueViewers, dateRange, onClose }) {
+function ProductUsersModal({ productId, productName, type, dateRange, onClose }) {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -515,15 +514,6 @@ function ProductUsersModal({ productId, productName, type, totalUniqueViewers, d
         </div>
 
         <div className="p-5 overflow-y-auto">
-          {type === "views" && (
-            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">
-              Only shows viewers who were logged in at the time — most
-              visits are anonymous.{" "}
-              {typeof totalUniqueViewers === "number" && (
-                <>Total unique viewers (including guests): {totalUniqueViewers}.</>
-              )}
-            </p>
-          )}
           {loading ? (
             <p className="text-sm text-slate-400 text-center py-8">Loading...</p>
           ) : users.length === 0 ? (
@@ -691,12 +681,7 @@ function ProductEngagementTable({ items, loading, onSelectUsers }) {
                       <button
                         type="button"
                         onClick={() =>
-                          onSelectUsers(
-                            item.productId,
-                            item.name,
-                            "views",
-                            item.uniqueViewers,
-                          )
+                          onSelectUsers(item.productId, item.name, "views")
                         }
                         className="text-blue-700 hover:underline"
                       >
@@ -894,6 +879,12 @@ function AdminReports() {
   const applyEngagementRange = () => {
     if (!engagementDraftStart || !engagementDraftEnd) return;
     setEngagementRange({ startDate: engagementDraftStart, endDate: engagementDraftEnd });
+    setShowEngagementPicker(false);
+  };
+
+  const selectEngagementToday = () => {
+    const iso = new Date().toISOString().slice(0, 10);
+    setEngagementRange({ startDate: iso, endDate: iso });
     setShowEngagementPicker(false);
   };
 
@@ -1584,6 +1575,13 @@ function AdminReports() {
               </button>
               <button
                 type="button"
+                onClick={selectEngagementToday}
+                className="px-3 py-1.5 rounded-md text-sm font-medium text-slate-500 hover:bg-slate-100 transition-colors"
+              >
+                Today
+              </button>
+              <button
+                type="button"
                 onClick={selectEngagementYesterday}
                 className="px-3 py-1.5 rounded-md text-sm font-medium text-slate-500 hover:bg-slate-100 transition-colors"
               >
@@ -1650,8 +1648,8 @@ function AdminReports() {
         <ProductEngagementTable
           items={engagement}
           loading={engagementLoading}
-          onSelectUsers={(productId, productName, type, totalUniqueViewers) =>
-            setUsersModal({ productId, productName, type, totalUniqueViewers })
+          onSelectUsers={(productId, productName, type) =>
+            setUsersModal({ productId, productName, type })
           }
         />
       </div>
@@ -1765,7 +1763,6 @@ function AdminReports() {
           productId={usersModal.productId}
           productName={usersModal.productName}
           type={usersModal.type}
-          totalUniqueViewers={usersModal.totalUniqueViewers}
           dateRange={usersModal.type === "views" ? engagementRange : null}
           onClose={() => setUsersModal(null)}
         />

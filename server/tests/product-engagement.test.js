@@ -352,7 +352,7 @@ describe("GET /api/admin/product-engagement/:productId/view-users", () => {
     expect(res.status).toBe(401);
   });
 
-  it("lists only visits made while logged in, not anonymous ones, deduped per person", async () => {
+  it("lists both logged-in and guest visitors, deduped per visitorId", async () => {
     const admin = await createUser({ role: "admin" });
     const product = await createProduct();
     const loggedInViewer = await createUser({ name: "Anjali Gupta" });
@@ -368,7 +368,7 @@ describe("GET /api/admin/product-engagement/:productId/view-users", () => {
       visitorId: "visitor-1",
       user: loggedInViewer._id,
     });
-    // An anonymous visit to the same product — must not appear here.
+    // An anonymous visit to the same product — now shown as a guest row.
     await PageVisit.create({
       path: `/product/${product._id}/some-slug`,
       visitorId: "visitor-2",
@@ -379,8 +379,9 @@ describe("GET /api/admin/product-engagement/:productId/view-users", () => {
       .set("Authorization", `Bearer ${signToken(admin)}`);
 
     expect(res.status).toBe(200);
-    expect(res.body.users).toHaveLength(1);
-    expect(res.body.users[0].name).toBe("Anjali Gupta");
+    expect(res.body.users).toHaveLength(2);
+    const names = res.body.users.map((u) => u.name).sort();
+    expect(names).toEqual(["Anjali Gupta", "Guest (not logged in)"]);
   });
 
   it("scopes the viewer list to a startDate/endDate range when given", async () => {

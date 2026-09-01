@@ -1026,12 +1026,12 @@ export const getProductCartUsers = async (req, res) => {
 };
 
 // ============================
-// Who viewed a given product — logged-in viewers only. Most traffic is
-// anonymous (PageVisit.user is only ever set for a visit made while
-// logged in — see PageVisit.js), so this list is expected to be far
-// shorter than getProductEngagement's own views/uniqueViewers count;
-// the frontend surfaces that gap explicitly rather than implying this
-// is the complete viewer list.
+// Who viewed a given product — logged-in viewers and guests alike, one
+// row per visitorId (see PageVisit.js — visitorId is set for every
+// visit, guest or not, same identity CartSnapshot/Wishlist use for
+// guests), each with the last time that visitor viewed it. Guests show
+// as "Guest (not logged in)" with no contact details, same shape
+// getProductCartUsers/getProductWishlistUsers already use.
 // ============================
 export const getProductViewUsers = async (req, res) => {
   try {
@@ -1040,7 +1040,6 @@ export const getProductViewUsers = async (req, res) => {
     // that range instead of all-time.
     const viewsMatch = {
       path: new RegExp(`^/product/${req.params.productId}(/|$)`),
-      user: { $ne: null },
     };
 
     if (req.query.startDate || req.query.endDate) {
@@ -1061,19 +1060,25 @@ export const getProductViewUsers = async (req, res) => {
 
     const visits = await PageVisit.aggregate([
       { $match: viewsMatch },
-      { $group: { _id: "$user", lastViewedAt: { $max: "$createdAt" } } },
+      {
+        $group: {
+          _id: "$visitorId",
+          user: { $first: "$user" },
+          lastViewedAt: { $max: "$createdAt" },
+        },
+      },
       { $sort: { lastViewedAt: -1 } },
     ]);
 
     const accounts = await User.find({
-      _id: { $in: visits.map((v) => v._id) },
+      _id: { $in: visits.filter((v) => v.user).map((v) => v.user) },
     }).select("name email mobile");
     const accountMap = new Map(accounts.map((a) => [a._id.toString(), a]));
 
     const users = visits.map((v) => {
-      const account = accountMap.get(v._id.toString());
+      const account = v.user ? accountMap.get(v.user.toString()) : null;
       return {
-        name: account?.name || "Deleted account",
+        name: account?.name || (v.user ? "Deleted account" : "Guest (not logged in)"),
         email: account?.email || null,
         mobile: account?.mobile || null,
         lastViewedAt: v.lastViewedAt,
