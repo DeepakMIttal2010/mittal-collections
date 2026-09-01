@@ -19,7 +19,11 @@ test("adding to cart from the product page updates the cart drawer with matching
   await expect(page.getByText("Luxury Cotton Bedsheet").last()).toBeVisible();
   await expect(page.getByText(/₹1,?499/).last()).toBeVisible();
 
-  const cartButton = page.getByRole("button", { name: /^Cart/ });
+  // The badge count renders before the "Cart" label in the DOM (see
+  // Header.jsx), so the accessible name is "1 Cart", not "Cart 1" — and
+  // a bare /Cart/ also matches every "Add to Cart" button on the page,
+  // so anchor to the header button's exact name shape instead.
+  const cartButton = page.getByRole("button", { name: /^\d*\s*Cart$/ });
   await expect(cartButton).toContainText("1");
 });
 
