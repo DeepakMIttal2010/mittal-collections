@@ -789,8 +789,8 @@ function ProductDetails() {
             <p className="flex items-center gap-1.5 text-sm text-slate-500 mb-4">
               <FaEye className="text-slate-400" />
               {t(
-                `${viewCount} ${viewCount === 1 ? "person" : "people"} viewed this today`,
-                `आज ${viewCount} लोगों ने इसे देखा`,
+                `${viewCount} ${viewCount === 1 ? "person" : "people"} viewed this in the last 30 days`,
+                `पिछले 30 दिनों में ${viewCount} लोगों ने इसे देखा`,
               )}
             </p>
           )}

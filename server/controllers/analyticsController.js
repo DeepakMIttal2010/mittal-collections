@@ -78,12 +78,12 @@ const getLocationWithFallback = async (rawIp = "") => {
 };
 
 // ============================
-// Get Product View Count — last 24h (Public)
+// Get Product View Count — last 30 days (Public)
 // ============================
 export const getProductViewCount = async (req, res) => {
   try {
     const { id } = req.params;
-    const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
     // Prefix match, not exact — a real product URL is /product/:id/:slug
     // (see productUrl.js), so an exact "/product/:id" match was missing
