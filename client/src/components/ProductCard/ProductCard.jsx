@@ -7,7 +7,6 @@ import {
   FaHeart,
   FaEye,
   FaShoppingCart,
-  FaStar,
   FaExchangeAlt,
 } from "react-icons/fa";
 import { useWishlist } from "../../context/WishlistContext";
@@ -101,11 +100,6 @@ function ProductCard({ product }) {
           <p className="category">{product.category?.name}</p>
 
           <h3>{t(product.name, product.nameHi)}</h3>
-
-          <div className="rating">
-            <FaStar className="star" />
-            <span>{product.rating}</span>
-          </div>
 
           <div className="price">
             <span className="new-price">₹{product.price}</span>

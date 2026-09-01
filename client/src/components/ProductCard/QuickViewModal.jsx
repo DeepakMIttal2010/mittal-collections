@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   FaTimes,
-  FaStar,
   FaShoppingCart,
   FaHeart,
   FaGift,
@@ -95,11 +94,6 @@ function QuickViewModal({ product, onClose }) {
           <h2 className="text-xl font-bold text-slate-900 mb-2">
             {t(product.name, product.nameHi)}
           </h2>
-
-          <div className="flex items-center gap-1 text-amber-500 mb-3">
-            <FaStar className="text-sm" />
-            <span className="text-slate-700 text-sm">{product.rating}</span>
-          </div>
 
           <div className="flex items-center gap-3 mb-3">
             <span className="text-2xl font-bold text-slate-900">

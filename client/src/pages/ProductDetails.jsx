@@ -714,10 +714,14 @@ function ProductDetails() {
             {t(product.name, product.nameHi)}
           </h1>
 
-          <div className="flex items-center gap-1 text-amber-500 mb-4">
-            <FaStar />
-            <span className="text-slate-700 text-sm">{product.rating}</span>
-          </div>
+          {reviewStats.totalReviews > 0 && (
+            <div className="flex items-center gap-1 text-amber-500 mb-4">
+              <FaStar />
+              <span className="text-slate-700 text-sm">
+                {reviewStats.averageRating.toFixed(1)} ({reviewStats.totalReviews})
+              </span>
+            </div>
+          )}
 
           <div className="flex items-center gap-3 mb-4">
             <span className="text-3xl font-bold text-slate-900">

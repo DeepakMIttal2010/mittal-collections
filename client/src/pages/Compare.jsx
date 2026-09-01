@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { FaTimes, FaShoppingCart, FaStar } from "react-icons/fa";
+import { FaTimes, FaShoppingCart } from "react-icons/fa";
 
 import { useCompare } from "../context/CompareContext";
 import { useCart } from "../context/CartContext";
@@ -20,14 +20,6 @@ function getRows(t) {
         ) : (
           "—"
         ),
-    },
-    {
-      label: t("Rating", "रेटिंग"),
-      render: (p) => (
-        <span className="flex items-center gap-1">
-          <FaStar className="text-amber-500 text-xs" /> {p.rating}
-        </span>
-      ),
     },
     { label: t("Category", "श्रेणी"), render: (p) => p.category?.name || "—" },
     {

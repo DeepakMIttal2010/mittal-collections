@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { FaStar, FaShoppingCart } from "react-icons/fa";
+import { FaShoppingCart } from "react-icons/fa";
 
 import { imgUrl } from "../services/api";
 import { productUrl } from "../utils/productUrl";
@@ -9,14 +9,6 @@ import { useLanguage } from "../context/LanguageContext";
 function getSpecRows(t) {
   return [
     { label: t("Price", "कीमत"), get: (p) => `₹${p.price}` },
-    {
-      label: t("Rating", "रेटिंग"),
-      get: (p) => (
-        <span className="flex items-center gap-1">
-          <FaStar className="text-amber-500 text-xs" /> {p.rating}
-        </span>
-      ),
-    },
     { label: t("Fabric", "फैब्रिक"), get: (p) => p.fabric },
     { label: t("Size", "साइज़"), get: (p) => p.size },
     { label: t("GSM", "GSM"), get: (p) => p.gsm },
