@@ -70,6 +70,7 @@ jobs:
       JWT_SECRET: e2e-ci-throwaway-secret
       CRON_SECRET: e2e-ci-throwaway-secret
       PORT: 5000
+      DISABLE_AUTH_RATE_LIMIT: "true"
     steps:
       - uses: actions/checkout@v4
 
@@ -118,16 +119,16 @@ jobs:
           done
           echo "Client did not come up in time:" && cat /tmp/client.log && exit 1
 
-      # Desktop project only — running both desktop-chrome and
-      # mobile-375 back to back doubles every file's login/register
-      # calls against the same server process, blowing past the
-      # 20-req/15min auth rate limiter the suite is designed to stay
-      # under for a single project run (see e2e/README.md's rate
-      # limiter note). Confirmed 2026-09-01: test:all failed CI with
-      # "Too many attempts" once the second project started.
+      # Both projects (desktop + mobile-375) — safe now that
+      # DISABLE_AUTH_RATE_LIMIT is set above; without it, running both
+      # projects back to back doubles every file's login/register
+      # calls against the same server process and blows past the
+      # 20-req/15min auth rate limiter (confirmed 2026-09-01: this
+      # step failed with "Too many attempts" before that env var was
+      # added).
       - name: Run e2e tests
         working-directory: e2e
-        run: npm test
+        run: npm run test:all
 
       - name: Upload Playwright report on failure
         if: failure()

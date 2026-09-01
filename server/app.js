@@ -88,9 +88,14 @@ app.use(express.urlencoded({ extended: true }));
 
 // Rate limit auth endpoints — 20 attempts per 15 minutes per IP, to
 // slow down password brute-forcing without blocking normal use.
+// DISABLE_AUTH_RATE_LIMIT raises this for the e2e CI job only (see
+// .github/workflows/ci.yml) — a single Playwright run's fixtures
+// (e2e/tests/helpers.js) alone can exceed 20 auth requests, and unlike
+// local dev there's no restart between test files to reset the
+// limiter's in-memory store. Never set in production.
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: 20,
+  limit: process.env.DISABLE_AUTH_RATE_LIMIT === "true" ? 1000 : 20,
   standardHeaders: true,
   legacyHeaders: false,
   message: {
