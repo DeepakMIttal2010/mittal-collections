@@ -1,7 +1,7 @@
 # Mittal Collections — Documentation
 
 Full documentation set for the Mittal Collections e-commerce platform,
-generated 2026-08-07, last refreshed 2026-08-08 to cover: product
+generated 2026-08-07, last refreshed 2026-09-01 to cover: product
 returnability & trust badges, manual + auto Compare, WhatsApp/COD
 badges, the Customer Support ticket system, the Return Request system
 (including automated stock restore + loyalty clawback on approved
@@ -9,10 +9,14 @@ returns), IP/address-based "Deliver to" header, the Advanced Analytics
 Dashboard (custom date range, growth %, CSV export, conversion funnel,
 search analytics, cart abandonment, loyalty/referral performance), the
 Notification Center (customer bell + admin bell extensions for
-Tickets/Returns/low-stock), a welcome-popup fix, a 68-test automated
-backend suite (`server/tests/`), a 36-test Playwright browser suite
-(`e2e/`), a fully clean ESLint baseline, and a Cloudinary v1→v2
-migration plan.
+Tickets/Returns/low-stock), a welcome-popup fix, guest cart/wishlist
+(with merge-on-login), review photo/video uploads with review-bonus
+loyalty points, wishlist price-drop alerts, Hindi article pages, the
+admin Product Engagement report (per-product views/wishlist/cart, with
+guest-inclusive viewer drill-downs), a product-page pincode delivery
+checker, a 163-test automated backend suite (`server/tests/`, 23
+files), a 36-test Playwright browser suite (`e2e/`, 8 files), a fully
+clean ESLint baseline, and a Cloudinary v1→v2 migration plan.
 
 | Document | What's in it |
 |---|---|

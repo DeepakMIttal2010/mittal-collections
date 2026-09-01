@@ -2,8 +2,8 @@
 
 **Base URL (production):** `https://mittal-collections-api.onrender.com/api`
 **Base URL (local):** `http://localhost:5000/api`
-**Document version:** 1.2
-**Last updated:** 2026-08-25
+**Document version:** 1.3
+**Last updated:** 2026-09-01
 
 ## Conventions
 
@@ -36,20 +36,25 @@ Registration is a **2-step OTP flow** (changed 2026-08-08) — `POST /register` 
 | GET | `/trending` | Public | Admin-curated "Trending" list (`?limit=`). |
 | GET | `/trending-by-category` | Public | Category-grouped Top Trending carousels for the homepage and `/trending` page — one carousel per category enabled via the admin-managed `TrendingSection` ordering (see `/api/trending-sections`); per-product inclusion within a category still comes from `isTrending`/`trendingRank`. New 2026-08-19. |
 | GET | `/best-sellers` | Public | Top products ranked by actual units sold from order history, excluding cancelled orders (`?limit=`). |
+| GET | `/new-arrivals` | Public | Flat New Arrivals list (not category-grouped) — used where a single ranked list is needed rather than the homepage's per-category carousels below. |
 | GET | `/new-arrivals-by-category` | Public | Category-grouped New Arrivals for the homepage sections and the `/new-arrivals` page, driven by the admin-managed `NewArrivalsSection` ordering (see `/api/new-arrivals-sections`); replaces the earlier `Category.showInHomeNewArrivals` flag approach. Products can opt out individually via `Product.showInNewArrivals`. New 2026-08-19. |
-| GET | `/suggestions` | Public | Autocomplete suggestions (`?q=`). |
+| GET | `/big-savings` | Public | Products with the largest discount off `oldPrice`, for a "Big Savings" homepage/landing section. |
+| GET | `/suggestions` | Public | Autocomplete suggestions (`?q=`). Matches Hindi/Hinglish search terms as well as English. |
 | GET | `/:id` | Public | Single product (populated category/subcategory). Response may include `variants[]` (size/price/oldPrice/stock) for products sold in multiple sizes — see note below. |
+| GET | `/:id/admin` | Admin | Single product incl. inactive/soft-deleted and internal cost fields, for the admin Edit Product screen. |
 | POST | `/:id/notify` | Public | Subscribe an email for back-in-stock alert on an out-of-stock product. |
 | GET | `/admin` | Admin | All products incl. inactive/soft-deleted. |
 | GET | `/decode-number` | Admin | Decodes a printed price-label's internal cost-cipher "product number" back to purchase month/year/price — used by the QR/print-label workflow. New 2026-08-10. |
 | POST | `/` | Admin | Create product (`multipart/form-data`: images[], videos[], fields incl. optional specs, `isReturnable`, `returnPeriodDays`, optional `variants[]`). `image` is no longer schema-required (supports the transient state created by Duplicate below). |
 | POST | `/:id/duplicate` | Admin | Duplicates a product — copies name/price/category/stock/specs/cost fields into a new **inactive** product with no images — and returns its id so the admin can jump straight to its Edit page. New 2026-08-11. |
-| PUT | `/:id` | Admin | Update product. |
+| PUT | `/:id` | Admin | Update product. Rejects the write with a conflict error if the product was edited by someone else since the client last loaded it (optimistic concurrency via Mongoose's `__v`, see note below) instead of silently overwriting the other admin's changes. |
 | PUT | `/:id/restore` | Admin | Restore a soft-deleted product. |
 | DELETE | `/:id` | Admin | Soft delete. |
 | DELETE | `/:id/permanent` | Admin | Hard delete. Now also cleans up the Cloudinary asset (best-effort) and dangling `Wishlist`/`StockAlert`/`Review` references, in addition to the pre-existing `Order` reference guard, and is blocked by an `OfflineSale` reference too. |
 
 **Size variants (added 2026-08-20):** `Product.variants` is an optional array of `{ size, price, oldPrice, stock, purchasePrice }` for products sold at multiple sizes/prices (e.g. Curtains at 7x4 vs 9x4). When present, the top-level `price`/`oldPrice` mirror the first variant and top-level `stock` is the sum across variants — both recomputed server-side and never trusted from the client. Each size becomes its own cart line and is carried through to the order as `orderItems[].size`. `purchasePrice`/`miscExpenses`/`purchaseDate` (top-level and inside `variants[]`) are internal cost fields and are always stripped from public API responses.
+
+**Concurrent-edit protection:** `Product` has Mongoose's `optimisticConcurrency` enabled — two admins opening the same product's Edit page and both saving no longer results in a silent last-write-wins data loss; the second `PUT /:id` fails with a conflict instead of quietly reverting the first admin's fields.
 
 ## Categories — `/api/categories` · Subcategories — `/api/subcategories`
 
@@ -71,6 +76,8 @@ New 2026-08-10, admin-only (`authMiddleware` + `adminMiddleware`) on every route
 | Method | Path | Auth | Description |
 |---|---|---|---|
 | POST | `/sync` | User | Upserts the logged-in user's server-side cart snapshot (debounced client-side call; used only for abandoned-cart detection, never read back into the cart UI). |
+| POST | `/sync-guest` | Public | Same snapshot upsert as `/sync`, keyed by an anonymous `visitorId` instead of a logged-in user — lets guest carts also feed abandoned-cart detection. |
+| POST | `/merge-guest` | User | Called once right after login to fold a just-logged-in customer's guest cart snapshot into their account's. |
 | POST | `/send-abandoned-reminders` | Secret | Scheduled job entry point (hourly). Emails users with a stale, non-empty cart snapshot. Accepts `GET` too as of 2026-08-13 (cron-job.org defaults new jobs to GET; this endpoint was POST-only and had likely 404'd on every scheduled run since inception until fixed). |
 
 ## Orders — `/api/orders`
@@ -130,14 +137,20 @@ New 2026-08-10, admin-only (`authMiddleware` + `adminMiddleware`) on every route
 | PUT | `/admin/loyalty` | Admin | Update loyalty settings (logs each changed field). |
 | PUT | `/admin/referral` | Admin | Update referral settings (logs each changed field). |
 
-## Wishlist — `/api/wishlist` (all routes require User auth)
+## Wishlist — `/api/wishlist`
 
-| Method | Path | Description |
-|---|---|---|
-| GET | `/` | Current user's wishlist. |
-| POST | `/` | Add a product. |
-| DELETE | `/:productId` | Remove one product. |
-| DELETE | `/` | Clear entire wishlist. |
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | `/` | User | Current user's wishlist. |
+| POST | `/` | User | Add a product. |
+| DELETE | `/:productId` | User | Remove one product. |
+| DELETE | `/` | User | Clear entire wishlist. |
+| GET | `/guest/:visitorId` | Public | Guest wishlist, keyed by an anonymous `visitorId` instead of a logged-in user. |
+| POST | `/guest` | Public | Add a product to a guest wishlist. |
+| DELETE | `/guest/:visitorId/:productId` | Public | Remove one product from a guest wishlist. |
+| DELETE | `/guest/:visitorId` | Public | Clear a guest wishlist entirely. |
+| POST | `/merge-guest` | User | Called once right after login to fold a just-logged-in customer's guest wishlist into their account's. |
+| POST / GET | `/send-price-drop-alerts` | Secret | Scheduled job entry point. Emails logged-in users (guest wishlist items are skipped — no email to send to) whenever a wishlisted product's price has dropped below whatever price it last alerted for (or the price when added, if never alerted), so the same drop is never re-notified on every run. Accepts `GET` too, same cron-job.org compatibility reason as the abandoned-cart-reminders endpoint. |
 
 ## Addresses — `/api/addresses` (all routes require User auth)
 
@@ -154,11 +167,12 @@ New 2026-08-10, admin-only (`authMiddleware` + `adminMiddleware`) on every route
 | Method | Path | Auth | Description |
 |---|---|---|---|
 | GET | `/product/:productId` | Public | Approved reviews / published Q&A for a product, with rating average / count. |
-| POST | `/` | User | Submit a review or question (pending admin moderation). |
+| GET | `/showcase` *(reviews only)* | Public | A curated cross-product set of approved reviews (with photos/video, where present), for a site-wide testimonials-style section. |
+| POST | `/` | User | Submit a review or question (pending admin moderation). Reviews accept `multipart/form-data` with up to 3 `images` and one `video` (Cloudinary-hosted, capped duration enforced server-side); an approved review tied to a Delivered order earns the reviewer bonus loyalty points (see `pointsAwarded` in `DATABASE.md`, capped per order so multiple reviews from one order don't each earn the full bonus). |
 | GET | `/admin` | Admin | All reviews/questions incl. unmoderated. |
 | PUT | `/:id/answer` *(questions only)* | Admin | Answer + publish a question. |
 | PUT | `/:id/approve` *(reviews)* / `/:id/answer` *(questions)* / `/:id/seen` | Admin | Approve a review / answer+publish a question / mark seen. |
-| DELETE | `/:id` | Admin | Delete. |
+| DELETE | `/:id` | Admin | Delete. For reviews, also removes the review's Cloudinary image/video assets and claws back any bonus loyalty points it had awarded. |
 
 ## Coupons — `/api/coupons`
 
@@ -179,9 +193,10 @@ New 2026-08-10, admin-only (`authMiddleware` + `adminMiddleware`) on every route
 | GET | `/` | Public | Published articles list. |
 | GET | `/slug/:slug` | Public | Single article by slug. |
 | GET | `/admin`, `/admin/:id` | Admin | Admin list / single (incl. unpublished). |
-| POST | `/` | Admin | Create (rich-text `content`, cover image upload). |
+| POST | `/` | Admin | Create (rich-text `content`, cover image upload). Optional `titleHi`/`excerptHi`/`contentHi` fields power the Hindi version of the article, served client-side at `/hi/articles/:slug` (same underlying document and API route — no separate Hindi endpoint). |
 | PUT | `/:id` | Admin | Update. |
 | DELETE | `/:id` | Admin | Delete. |
+| POST | `/upload-image` | Admin | Upload a single image for use inside the rich-text editor body (separate from the cover image sent with create/update). |
 
 ## Site Settings — `/api/settings`
 
@@ -226,6 +241,17 @@ All of the following follow the same pattern — `GET /` (public list where rele
 | PUT | `/customers/:id` | Admin | Block/unblock a customer. |
 | DELETE | `/customers/:id` | Admin | Delete a customer. |
 
+**Product Engagement report** (added 2026-08-26, `/api/admin/product-engagement*`):
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | `/product-engagement` | Admin | Per-product views/wishlist-count/cart-count, one row per product. Views default to all-time; wishlist/cart counts are always a current-state snapshot (how many people have it right now), never date-filtered. Optional `startDate`+`endDate` scopes the views figure to a range. |
+| GET | `/product-engagement/:productId/wishlist-users` | Admin | Who currently has this product wishlisted — name/email/mobile + when added, including guest entries (shown as "Guest (not logged in)", no contact details). |
+| GET | `/product-engagement/:productId/cart-users` | Admin | Who currently has this product in their cart — same shape as wishlist-users, "last synced" date instead of "added on" (a cart snapshot only tracks one `updatedAt` for the whole cart, not per line item). |
+| GET | `/product-engagement/:productId/view-users` | Admin | Who viewed this product — logged-in and guest visitors alike, one row per visitor (guests as "Guest (not logged in)"), each with the last time they viewed it. Optional `startDate`+`endDate`, same as the parent report. |
+| GET | `/product-engagement/details` | Admin | Flat CSV-export-friendly row list combining every current wishlist + cart entry across all products in one response (`product`, `type`, `name`, `mobile`, `email`, `date` per row). |
+| GET | `/abandoned-carts` | Admin | Every currently-abandoned cart snapshot (3-hour-inactive cutoff) with its items, value, and whether a reminder email has already gone out. |
+
 ## Analytics — `/api/analytics`
 
 | Method | Path | Auth | Description |
@@ -233,6 +259,14 @@ All of the following follow the same pattern — `GET /` (public list where rele
 | POST | `/visit` | Public | Records a page visit (used by `VisitTracker`, feeds GA4-independent internal analytics). |
 | GET | `/product-views/:id` | Public | "N people viewed this today" counter shown on product pages. |
 | GET | `/my-location` | Public | IP-based city/region/country guess for the requesting visitor — the fallback source for the header's "Deliver to" block when a customer isn't logged in or has no saved address. |
+
+## Delivery — `/api/delivery`
+
+New 2026-09-01. Server-side proxy for India Post's free public pincode-lookup API, which has no CORS headers and so can't be called directly from the browser.
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | `/check-pincode/:pincode` | Public | Validates the pincode is 6 digits, looks it up via India Post, and matches the returned post-office name(s)/district against the site's own delivery-area list (`server/utils/deliveryAreas.js`, mirrored in `client/src/utils/deliveryAreas.js` — no hardcoded pincode-to-area table to keep in sync by hand). Response: `{ success, found, fastDelivery, areaName, district }` (or `{ success, found: false }` for an unrecognized pincode). |
 
 ## Product Feed — `/api/feed`
 

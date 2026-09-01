@@ -39,7 +39,7 @@ across that file's tests via `beforeAll` to stay under the auth rate
 limiter, not one fresh user per test) — no mocking, this drives the
 actual running app exactly as a browser user would.
 
-As of 2026-08-25, `cd server && npm test` reports **15 test files, 84 tests, all passing** (up from the coverage described in the 2026-08-19 pass below, driven mainly by the COD-charge, order-delete/restore, and review-request features landing 2026-08-24).
+As of 2026-09-01, `cd server && npm test` reports **23 test files, 163 tests, all passing** (up from the 2026-08-25 snapshot below, driven mainly by guest cart/wishlist, review photo/video uploads + review-bonus points, wishlist price-drop alerts, Hindi articles, the admin Product Engagement report, and the delivery-pincode checker landing since then — plus dedicated regression tests for two fixed security exploits: trusting client-supplied order price/quantity, and illegal order-status transitions).
 
 Coverage today (`server/tests/`):
 - **Order placement** — stock reserve + atomic rollback on a short item, delivery-fee/total calculation, auth requirement.
@@ -64,7 +64,7 @@ Coverage today (`server/tests/`):
 - **Addresses** — first address auto-becomes default even if not requested; only one address is ever default at a time; deleting the default address promotes another one; a user cannot read/update/delete another user's address (404, not 403 — doesn't even confirm the address exists).
 - **Reviews & Questions** — a user can't submit two reviews for the same product; unapproved reviews are excluded from both the public list *and* the average-rating calculation; questions stay unpublished until an admin answers, and don't auto-publish on a blank answer even if `isPublished` is left unset.
 
-E2E coverage today (`e2e/tests/`), 36 tests across 8 files:
+E2E coverage today (`e2e/tests/`), 36 tests across 8 files (the file list below previously named only 7 — `smoke.spec.js` added at the bottom):
 - **Browsing/search** (`browsing.spec.js`) — category page loads real products and shows a friendly empty state for a nonexistent one, search returns results for a real term and doesn't crash on a nonsense one, autocomplete suggestions appear and navigate, product page renders gallery/price/Add to Cart, auto-compare table appears.
 - **Cart/checkout** (`cart-checkout.spec.js`) — add to cart opens the drawer with matching name/price, logged-out checkout redirects to `/login?redirect=/checkout` and a logged-in customer with cart items actually reaches it.
 - **Marketing widgets** (`marketing-widgets.spec.js`) — welcome popup appears for a guest and auto-closes, does **not** appear for a logged-in visitor (confirms the fix earlier in this session actually works in a real browser); WhatsApp buttons (site-wide + pre-filled product-page link + disabled-when-out-of-stock).
@@ -72,6 +72,7 @@ E2E coverage today (`e2e/tests/`), 36 tests across 8 files:
 - **Notification Center** (`notifications.spec.js`) — bell badge count, dropdown, click-to-read-and-navigate, `/notifications` page, mark-all-read, bell absent when logged out.
 - **Admin panel** (`admin.spec.js`) — non-admin and unauthenticated visitors redirected from `/admin`, admin login form rejects a non-admin account with a clear alert, admin notification bell shows a real new order and navigates to Orders on click.
 - **SEO** (`seo.spec.js`) — unique title + **exactly one** meta description per page, Product/BreadcrumbList JSON-LD present and matching the visible breadcrumb trail exactly, homepage LocalBusiness schema, sitemap.xml/robots.txt content. **Found and fixed a real bug**: `index.html` had a static `<meta name="description">` that `react-helmet-async` never removes (it only manages tags it renders itself), so every single page carried two duplicate description tags. Removed the static one — every route already sets its own via the shared `<Seo>` component.
+- **Smoke** (`smoke.spec.js`) — homepage loads and renders a page title, as a fast baseline check before the rest of the suite.
 
 Everything else in this document is still manual — direct API smoke
 tests via `curl` against both local and production for anything not

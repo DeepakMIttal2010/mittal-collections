@@ -242,7 +242,22 @@ above) rather than re-read from here later.
 ## Reviews, Questions, Support
 
 ### `Review`
-product (indexed), user, rating (1–5), comment, isApproved.
+| Field | Type | Notes |
+|---|---|---|
+| product | ObjectId | indexed, **(required)** |
+| user | ObjectId | **(required)** |
+| order | ObjectId | the Delivered order that made this product reviewable, if any — groups reviews for the per-order bonus-points cap; `null` for reviews with no matching order (e.g. seeded data) |
+| rating | Number | **(required)**, 1–5 |
+| title | String | optional, default `""` |
+| content | String | **(required)** — the review text (not `comment`) |
+| images | [String] | Cloudinary URLs, capped at 3 (enforced in the controller) |
+| video | String | optional single short clip URL, default `""` |
+| isApproved | Boolean | default `false` |
+| isSeenByAdmin | Boolean | default `false` |
+| reviewPointsProcessed | Boolean | default `false` — guards the review-bonus loyalty points against double-crediting |
+| pointsAwarded | Number | default `0` — exact points this review contributed, can be less than the flat bonus once the order-level cap is used up |
+
+**Indexes:** `{isSeenByAdmin:1, createdAt:-1}` (admin notification poll). Deleting a review cleans up its Cloudinary image/video assets and claws back any awarded points.
 
 ### `Question`
 product (indexed), user, question, answer, isPublished.
