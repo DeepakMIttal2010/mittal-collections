@@ -63,6 +63,7 @@ function ProductDetails() {
   const { t } = useLanguage();
 
   const [product, setProduct] = useState(null);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [selectedVariant, setSelectedVariant] = useState(null);
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
@@ -137,10 +138,16 @@ function ProductDetails() {
       setLoading(true);
       setRelatedProducts([]);
       setBundleProducts([]);
-      setBundleCategoryLabel("");
+      setBundleCategory(null);
       setBundleDiscountPercent(0);
 
       const response = await getProductById(id);
+
+      // Only a confirmed 404 counts as "doesn't exist" — a transient
+      // failure (cold-starting backend, network blip) must not render
+      // the same not-found/noindex state, or a slow response to a
+      // crawler silently tells Google to drop a real, live product.
+      setLoadFailed(!response.success && !response.notFound);
 
       if (response.success) {
         setProduct(response.product);
@@ -342,6 +349,30 @@ function ProductDetails() {
 
   if (loading) {
     return <ProductDetailsSkeleton />;
+  }
+
+  if (!product && loadFailed) {
+    // A fetch failure, not a confirmed 404 — the product may well
+    // exist, so this deliberately renders no <Seo noindex> at all
+    // (see getProductById's comment). A real visitor gets a retry
+    // instead of a permanent dead end.
+    return (
+      <div className="p-16 text-center">
+        <h2 className="text-xl font-semibold text-slate-800 mb-4">
+          {t(
+            "Something went wrong loading this product",
+            "इस प्रोडक्ट को लोड करने में समस्या हुई",
+          )}
+        </h2>
+        <button
+          type="button"
+          onClick={() => window.location.reload()}
+          className="text-blue-600 hover:underline"
+        >
+          {t("Try again", "फिर से कोशिश करें")}
+        </button>
+      </div>
+    );
   }
 
   if (!product) {

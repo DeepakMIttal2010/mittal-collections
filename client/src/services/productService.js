@@ -384,14 +384,28 @@ export const getProductById = async (id) => {
   try {
     const response = await fetch(`${API_BASE_URL}/products/${id}`);
 
+    // A real 404 (product genuinely deleted/never existed) is the only
+    // case that should ever be treated as "not found" — anything else
+    // (a 5xx, a cold-starting backend, a network blip) is a transient
+    // failure that says nothing about whether the product exists, and
+    // callers must not conflate the two: ProductDetails.jsx used to
+    // noindex the page either way, which meant Googlebot hitting a
+    // slow/cold backend got a false "doesn't exist" signal and quietly
+    // excluded real, in-stock product pages from the index (confirmed
+    // in Search Console's "Excluded by noindex tag" report, 2026-09-01).
+    if (response.status === 404) {
+      return { success: false, notFound: true, product: null };
+    }
+
     if (!response.ok) {
-      throw new Error("Failed to fetch product");
+      throw new Error(`Failed to fetch product (status ${response.status})`);
     }
 
     const data = await response.json();
 
     return {
       success: data.success,
+      notFound: false,
       product: data.product,
     };
   } catch (error) {
@@ -399,6 +413,7 @@ export const getProductById = async (id) => {
 
     return {
       success: false,
+      notFound: false,
       product: null,
     };
   }

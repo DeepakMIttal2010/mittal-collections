@@ -150,6 +150,18 @@ function CategoryPage() {
         getCategories(),
         getSiteSettings(),
       ]);
+
+      // getCategories() swallows any fetch failure into an empty list
+      // (see categoryService.js) — treating that the same as "this slug
+      // doesn't exist" would noindex the page on a transient backend
+      // hiccup instead of a genuine 404, the same bug already found and
+      // fixed on ProductDetails.jsx (Search Console's "Excluded by
+      // noindex tag" report, 2026-09-01).
+      if (!catRes.success) {
+        if (!cancelled) setStatus("error");
+        return;
+      }
+
       const matchedCategory = catRes.categories.find(
         (c) => c.slug === categorySlug,
       );
@@ -218,6 +230,29 @@ function CategoryPage() {
     return (
       <div className="max-w-7xl mx-auto px-4 py-8">
         <ProductGridSkeleton />
+      </div>
+    );
+  }
+
+  if (status === "error") {
+    // A fetch failure, not a confirmed missing category — deliberately
+    // no <Seo noindex> here (see the comment above where this status is
+    // set). A real visitor gets a retry instead of a permanent dead end.
+    return (
+      <div className="max-w-7xl mx-auto px-4 py-8 text-center">
+        <h2 className="text-xl font-semibold text-slate-800 mb-4">
+          {t(
+            "Something went wrong loading this page",
+            "इस पेज को लोड करने में समस्या हुई",
+          )}
+        </h2>
+        <button
+          type="button"
+          onClick={() => window.location.reload()}
+          className="text-blue-700 hover:underline"
+        >
+          {t("Try again", "फिर से कोशिश करें")}
+        </button>
       </div>
     );
   }
