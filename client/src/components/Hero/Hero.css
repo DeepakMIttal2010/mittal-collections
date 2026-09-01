@@ -18,8 +18,18 @@
    that height, combined with vertically-centering a taller content
    block (icon-badge benefit row needs more room than one description
    line), was pushing the button down into the page's fixed WhatsApp
-   button on shorter viewports. */
-.hero-rewards-slide {
+   button on shorter viewports.
+
+   Compound selector (.hero.hero-rewards-slide, not just
+   .hero-rewards-slide) deliberately outranks the plain .hero rule
+   inside the @media (max-width: 640px) block further down — same
+   specificity as this used to have meant cascade ORDER decided the
+   winner, and the mobile media query rule comes later in the file, so
+   it was silently reinstating a fixed 70vh (with .hero's own
+   overflow: hidden) on phones and clipping the bottom cards + CTA
+   right off. The extra specificity here wins regardless of where
+   either rule sits in the file. */
+.hero.hero-rewards-slide {
   height: auto;
   min-height: 0;
 }
@@ -421,6 +431,14 @@
     grid-template-columns: 1fr;
     gap: 12px;
     margin-bottom: 20px;
+  }
+
+  /* Matches MainLayout.jsx's own h-20 (80px) spacer for the same fixed
+     BottomNav bar — without this the CTA button ends up sitting right
+     where that bar covers it while scrolling to the end of the tall,
+     single-column card stack. */
+  .hero-rewards-cta-wrap {
+    padding-bottom: 80px;
   }
 
   .hero-rewards-card {
