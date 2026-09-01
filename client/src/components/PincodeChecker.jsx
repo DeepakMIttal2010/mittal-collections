@@ -80,9 +80,15 @@ function PincodeChecker() {
         </p>
       )}
 
-      {(result?.type === "invalid" || result?.type === "error") && (
+      {result?.type === "invalid" && (
         <p className="text-xs text-red-600 mt-1.5">
           {t("That doesn't look like a valid pincode", "यह एक मान्य पिनकोड नहीं लगता")}
+        </p>
+      )}
+
+      {result?.type === "error" && (
+        <p className="text-xs text-red-600 mt-1.5">
+          {t("Couldn't check right now — please try again", "अभी जांच नहीं हो पाई — कृपया फिर से कोशिश करें")}
         </p>
       )}
     </div>
