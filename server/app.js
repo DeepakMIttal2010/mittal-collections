@@ -39,6 +39,7 @@ import returnRoutes from "./routes/returnRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
 import feedRoutes from "./routes/feedRoutes.js";
 import whatsappRoutes from "./routes/whatsappRoutes.js";
+import deliveryRoutes from "./routes/deliveryRoutes.js";
 
 const app = express();
 
@@ -143,6 +144,7 @@ app.use("/api/returns", returnRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/feed", feedRoutes);
 app.use("/api/whatsapp", whatsappRoutes);
+app.use("/api/delivery", deliveryRoutes);
 
 // Health Check
 app.get("/api/health", (req, res) => {

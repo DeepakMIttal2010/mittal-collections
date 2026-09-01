@@ -15,29 +15,13 @@ import { getSiteSettings } from "../../services/settingsService";
 import { getFooterLinks } from "../../services/footerLinkService";
 import { useIsGhaziabadVisitor } from "../../hooks/useIsGhaziabadVisitor";
 import { useLanguage } from "../../context/LanguageContext";
+import { DELIVERY_AREAS } from "../../utils/deliveryAreas";
 
 const SOCIAL_ICONS = [
   { key: "facebook", icon: FaFacebookF, label: "Facebook" },
   { key: "instagram", icon: FaInstagram, label: "Instagram" },
   { key: "twitter", icon: FaTwitter, label: "Twitter" },
   { key: "linkedin", icon: FaLinkedinIn, label: "LinkedIn" },
-];
-
-// Full delivery-area list — kept out of the top banner (which only has
-// room for a short "Vasundhara & 10 km आसपास" summary) and given its own
-// scannable spot here instead, where a customer can actually check for
-// their specific locality without waiting on a scrolling ticker.
-const DELIVERY_AREAS = [
-  "Vasundhara",
-  "Vaishali",
-  "Indirapuram",
-  "Kaushambi",
-  "Sahibabad",
-  "Mohan Nagar",
-  "Rajendra Nagar",
-  "Lajpat Nagar",
-  "Suryanagar",
-  "Brij Vihar",
 ];
 
 function Footer() {

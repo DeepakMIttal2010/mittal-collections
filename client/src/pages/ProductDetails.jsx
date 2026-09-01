@@ -1,5 +1,6 @@
 import { imgUrl } from "../services/api";
 import Seo from "../components/Seo";
+import PincodeChecker from "../components/PincodeChecker";
 import ProductDetailsSkeleton from "./ProductDetailsSkeleton";
 import ProductReviews from "../components/ProductReviews";
 import ProductQuestions from "../components/ProductQuestions";
@@ -794,6 +795,8 @@ function ProductDetails() {
               )}
             </p>
           )}
+
+          <PincodeChecker />
 
           {product.colorVariesNote && (
             <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mb-4">
