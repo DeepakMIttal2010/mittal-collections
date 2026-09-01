@@ -39,6 +39,12 @@ function AdminPOS() {
   const [error, setError] = useState("");
   const [sale, setSale] = useState(null);
 
+  // A scanned product with size variants can't be added straight to the
+  // cart — which size was physically handed over matters for stock
+  // accuracy (see posCart.js/reserveStockForItems), so it waits here
+  // until the staff member picks one.
+  const [pendingVariantProduct, setPendingVariantProduct] = useState(null);
+
   // Guards against React StrictMode's deliberate double-invoke of
   // effects in development (and any other accidental double-mount) —
   // without this, scanning one QR code could add the same product
@@ -58,6 +64,8 @@ function AdminPOS() {
         if (response.success) {
           if (response.product.stock <= 0) {
             toast.error(`${response.product.name} is out of stock`);
+          } else if (response.product.variants?.length > 0) {
+            setPendingVariantProduct(response.product);
           } else {
             addToPosCart(response.product);
             toast.success(`${response.product.name} added to cart`);
@@ -79,16 +87,25 @@ function AdminPOS() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  const handleQuantityChange = (productId, quantity) => {
-    setCart(updatePosCartQuantity(productId, quantity));
+  const handleQuantityChange = (productId, size, quantity) => {
+    setCart(updatePosCartQuantity(productId, size, quantity));
   };
 
-  const handlePriceChange = (productId, unitPrice) => {
-    setCart(updatePosCartPrice(productId, unitPrice));
+  const handlePriceChange = (productId, size, unitPrice) => {
+    setCart(updatePosCartPrice(productId, size, unitPrice));
   };
 
-  const handleRemove = (productId) => {
-    setCart(removeFromPosCart(productId));
+  const handleRemove = (productId, size) => {
+    setCart(removeFromPosCart(productId, size));
+  };
+
+  const handlePickVariant = (variant) => {
+    addToPosCart(pendingVariantProduct, variant);
+    toast.success(
+      `${pendingVariantProduct.name} (${variant.size}) added to cart`,
+    );
+    setCart(getPosCart());
+    setPendingVariantProduct(null);
   };
 
   const handleMobileBlur = async () => {
@@ -143,6 +160,7 @@ function AdminPOS() {
     const response = await recordOfflineSale({
       items: cart.map((item) => ({
         productId: item.productId,
+        size: item.size || "",
         quantity: item.quantity,
         unitPrice: item.unitPrice,
       })),
@@ -167,7 +185,8 @@ function AdminPOS() {
     const lines = [
       "Mittal Collections - Bill Receipt",
       ...sale.items.map(
-        (i) => `${i.productName}: ${i.quantity} x ₹${i.unitPrice} = ₹${i.subtotal}`,
+        (i) =>
+          `${i.productName}${i.size ? ` (${i.size})` : ""}: ${i.quantity} x ₹${i.unitPrice} = ₹${i.subtotal}`,
       ),
       ...(sale.discountAmount > 0 ? [`Discount: -₹${sale.discountAmount}`] : []),
       `Total: ₹${sale.totalAmount}`,
@@ -184,6 +203,58 @@ function AdminPOS() {
     return <div className="p-8 text-center text-slate-500">Loading...</div>;
   }
 
+  // ===== Size picker (scanned product has variants) =====
+  if (pendingVariantProduct) {
+    return (
+      <div className="p-6 max-w-md mx-auto">
+        <div className="bg-white border border-slate-200 rounded-xl p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <img
+              src={imgUrl(pendingVariantProduct.image)}
+              alt={pendingVariantProduct.name}
+              className="w-14 h-14 object-cover rounded-lg shrink-0"
+            />
+            <div>
+              <p className="font-semibold text-slate-800">
+                {pendingVariantProduct.name}
+              </p>
+              <p className="text-sm text-slate-500">
+                Which size was handed over?
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            {pendingVariantProduct.variants.map((variant) => (
+              <button
+                key={variant.size}
+                type="button"
+                disabled={variant.stock <= 0}
+                onClick={() => handlePickVariant(variant)}
+                className="w-full flex items-center justify-between border border-slate-300 rounded-lg px-4 py-3 hover:border-blue-500 hover:bg-blue-50 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:border-slate-300 disabled:hover:bg-transparent transition-colors"
+              >
+                <span className="font-medium text-slate-800">
+                  {variant.size}
+                </span>
+                <span className="text-sm text-slate-500">
+                  ₹{variant.price} · {variant.stock > 0 ? `${variant.stock} in stock` : "Out of stock"}
+                </span>
+              </button>
+            ))}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setPendingVariantProduct(null)}
+            className="w-full mt-4 text-sm text-slate-500 hover:underline"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   // ===== Receipt view (after a successful sale) =====
   if (sale) {
     return (
@@ -197,9 +268,12 @@ function AdminPOS() {
           </p>
 
           <div className="border-t border-b border-slate-100 py-4 mb-4 text-sm space-y-1">
-            {sale.items.map((item) => (
-              <div key={item.product} className="flex justify-between">
-                <span>{item.productName}</span>
+            {sale.items.map((item, i) => (
+              <div key={`${item.product}::${item.size}::${i}`} className="flex justify-between">
+                <span>
+                  {item.productName}
+                  {item.size && ` (${item.size})`}
+                </span>
                 <span>
                   {item.quantity} × ₹{item.unitPrice} = ₹{item.subtotal}
                 </span>
@@ -272,6 +346,7 @@ function AdminPOS() {
                 setDiscountInput("");
                 setPaymentProofFile(null);
                 setPaymentProofPreview("");
+                setPendingVariantProduct(null);
               }}
               className="border-2 border-blue-900 text-blue-900 font-semibold rounded-full py-3 transition-colors"
             >
@@ -303,7 +378,7 @@ function AdminPOS() {
         <div className="bg-white border border-slate-200 rounded-xl p-5 mb-5 space-y-4">
           {cart.map((item) => (
             <div
-              key={item.productId}
+              key={`${item.productId}::${item.size}`}
               className="flex items-center gap-3 border-b border-slate-100 pb-4 last:border-0 last:pb-0"
             >
               <img
@@ -315,13 +390,23 @@ function AdminPOS() {
               <div className="flex-1 min-w-0">
                 <p className="font-medium text-slate-800 truncate">
                   {item.name}
+                  {item.size && (
+                    <span className="text-slate-400 font-normal">
+                      {" "}
+                      — {item.size}
+                    </span>
+                  )}
                 </p>
 
                 <div className="flex items-center gap-2 mt-1">
                   <button
                     type="button"
                     onClick={() =>
-                      handleQuantityChange(item.productId, item.quantity - 1)
+                      handleQuantityChange(
+                        item.productId,
+                        item.size,
+                        item.quantity - 1,
+                      )
                     }
                     className="w-6 h-6 rounded bg-slate-100 hover:bg-slate-200 text-slate-700"
                   >
@@ -333,7 +418,11 @@ function AdminPOS() {
                   <button
                     type="button"
                     onClick={() =>
-                      handleQuantityChange(item.productId, item.quantity + 1)
+                      handleQuantityChange(
+                        item.productId,
+                        item.size,
+                        item.quantity + 1,
+                      )
                     }
                     className="w-6 h-6 rounded bg-slate-100 hover:bg-slate-200 text-slate-700"
                   >
@@ -346,7 +435,11 @@ function AdminPOS() {
                     min="0"
                     value={item.unitPrice}
                     onChange={(e) =>
-                      handlePriceChange(item.productId, Number(e.target.value))
+                      handlePriceChange(
+                        item.productId,
+                        item.size,
+                        Number(e.target.value),
+                      )
                     }
                     className="w-20 border border-slate-300 rounded px-1.5 py-0.5 text-sm"
                   />
@@ -359,7 +452,7 @@ function AdminPOS() {
                 </p>
                 <button
                   type="button"
-                  onClick={() => handleRemove(item.productId)}
+                  onClick={() => handleRemove(item.productId, item.size)}
                   className="text-xs text-red-600 hover:underline"
                 >
                   Remove

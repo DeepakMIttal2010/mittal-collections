@@ -7,6 +7,11 @@
 
 const STORAGE_KEY = "posCartItems";
 
+// A variant product's two different sizes need to sit in the cart as
+// separate lines (same as the customer-facing cart), so items are keyed
+// by product id + size together, not just product id.
+const lineKey = (productId, size) => `${productId}::${size || ""}`;
+
 export const getPosCart = () => {
   const saved = localStorage.getItem(STORAGE_KEY);
   return saved ? JSON.parse(saved) : [];
@@ -16,17 +21,26 @@ const savePosCart = (items) => {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
 };
 
-// Adds a scanned product to the cart, or increments its quantity by 1
-// if it's already in there. Returns the updated cart.
-export const addToPosCart = (product) => {
+// Adds a scanned product (optionally a specific size variant) to the
+// cart, or increments its quantity by 1 if that exact product+size is
+// already in there. `variant`, when given, is the specific entry from
+// product.variants the staff picked a size for — its own price/stock
+// are used instead of the product's top-level price/stock, same as the
+// customer-facing size selector.
+export const addToPosCart = (product, variant = null) => {
   const items = getPosCart();
-  const existing = items.find((item) => item.productId === product._id);
+  const size = variant?.size || "";
+  const key = lineKey(product._id, size);
+  const existing = items.find(
+    (item) => lineKey(item.productId, item.size) === key,
+  );
+  const maxStock = variant ? variant.stock : product.stock;
 
   let updated;
   if (existing) {
     updated = items.map((item) =>
-      item.productId === product._id
-        ? { ...item, quantity: Math.min(item.quantity + 1, product.stock) }
+      lineKey(item.productId, item.size) === key
+        ? { ...item, quantity: Math.min(item.quantity + 1, maxStock) }
         : item,
     );
   } else {
@@ -36,9 +50,10 @@ export const addToPosCart = (product) => {
         productId: product._id,
         name: product.name,
         image: product.image,
-        unitPrice: product.price,
+        size,
+        unitPrice: variant ? variant.price : product.price,
         quantity: 1,
-        maxStock: product.stock,
+        maxStock,
       },
     ];
   }
@@ -47,9 +62,10 @@ export const addToPosCart = (product) => {
   return updated;
 };
 
-export const updatePosCartQuantity = (productId, quantity) => {
+export const updatePosCartQuantity = (productId, size, quantity) => {
+  const key = lineKey(productId, size);
   const items = getPosCart().map((item) =>
-    item.productId === productId
+    lineKey(item.productId, item.size) === key
       ? { ...item, quantity: Math.max(1, Math.min(quantity, item.maxStock)) }
       : item,
   );
@@ -58,17 +74,21 @@ export const updatePosCartQuantity = (productId, quantity) => {
   return items;
 };
 
-export const updatePosCartPrice = (productId, unitPrice) => {
+export const updatePosCartPrice = (productId, size, unitPrice) => {
+  const key = lineKey(productId, size);
   const items = getPosCart().map((item) =>
-    item.productId === productId ? { ...item, unitPrice } : item,
+    lineKey(item.productId, item.size) === key ? { ...item, unitPrice } : item,
   );
 
   savePosCart(items);
   return items;
 };
 
-export const removeFromPosCart = (productId) => {
-  const items = getPosCart().filter((item) => item.productId !== productId);
+export const removeFromPosCart = (productId, size) => {
+  const key = lineKey(productId, size);
+  const items = getPosCart().filter(
+    (item) => lineKey(item.productId, item.size) !== key,
+  );
   savePosCart(items);
   return items;
 };

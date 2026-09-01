@@ -20,6 +20,14 @@ const offlineSaleItemSchema = new mongoose.Schema(
       required: true,
     },
 
+    // Which size variant was sold, if the product has variants — see
+    // Product.js's variants field. Empty string for a non-variant product,
+    // same convention Order.orderItems uses.
+    size: {
+      type: String,
+      default: "",
+    },
+
     quantity: {
       type: Number,
       required: true,

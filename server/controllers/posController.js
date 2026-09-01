@@ -11,7 +11,7 @@ import {
 export const getProductForPOS = async (req, res) => {
   try {
     const product = await Product.findById(req.params.id).select(
-      "name image price stock",
+      "name image price stock variants",
     );
 
     if (!product) {
@@ -54,37 +54,64 @@ export const lookupCustomerByMobile = async (req, res) => {
 };
 
 // Atomic-ish stock reservation across every item in the cart — mirrors
-// orderController's reserveStock: decrement each item, and if any one
-// fails (not enough stock), roll back the ones already decremented
-// rather than leaving a partial sale's worth of stock gone.
+// orderController's reserveStock/restoreStock: decrement each item, and if
+// any one fails (not enough stock), roll back the ones already decremented
+// rather than leaving a partial sale's worth of stock gone. For a variant
+// item (item.size set), both the specific variant's stock AND the
+// top-level stock (kept as a sum-of-variants rollup, see Product.js) are
+// decremented in the same update — POS previously only ever touched
+// top-level stock, which let a variant product be sold in-store without
+// its specific size's stock ever changing (still oversellable online) and
+// then have the deduction silently erased the next time the product was
+// edited (updateProduct recomputes top-level stock from the variants sum).
 const reserveStockForItems = async (items) => {
   const reserved = [];
 
   for (const item of items) {
-    const updated = await Product.findOneAndUpdate(
-      { _id: item.productId, stock: { $gte: item.quantity } },
-      { $inc: { stock: -item.quantity } },
-      { new: true },
-    );
+    const updated = item.size
+      ? await Product.findOneAndUpdate(
+          {
+            _id: item.productId,
+            stock: { $gte: item.quantity },
+            variants: {
+              $elemMatch: { size: item.size, stock: { $gte: item.quantity } },
+            },
+          },
+          { $inc: { stock: -item.quantity, "variants.$[v].stock": -item.quantity } },
+          { new: true, arrayFilters: [{ "v.size": item.size }] },
+        )
+      : await Product.findOneAndUpdate(
+          { _id: item.productId, stock: { $gte: item.quantity } },
+          { $inc: { stock: -item.quantity } },
+          { new: true },
+        );
 
     if (!updated) {
       for (const r of reserved) {
-        await Product.findByIdAndUpdate(r.product._id, {
-          $inc: { stock: r.quantity },
-        });
+        if (r.size) {
+          await Product.findOneAndUpdate(
+            { _id: r.product._id, "variants.size": r.size },
+            { $inc: { stock: r.quantity, "variants.$[v].stock": r.quantity } },
+            { arrayFilters: [{ "v.size": r.size }] },
+          );
+        } else {
+          await Product.findByIdAndUpdate(r.product._id, {
+            $inc: { stock: r.quantity },
+          });
+        }
       }
 
       return { success: false, failedProductId: item.productId, product: null };
     }
 
-    reserved.push({ product: updated, quantity: item.quantity });
+    reserved.push({ product: updated, quantity: item.quantity, size: item.size || "" });
   }
 
   return { success: true, products: reserved.map((r) => r.product) };
 };
 
 // POST /api/admin/pos/sale
-// body: { items: [{ productId, quantity, unitPrice }], paymentMethod, customerMobile, customerName }
+// body: { items: [{ productId, quantity, unitPrice, size? }], paymentMethod, customerMobile, customerName }
 export const recordOfflineSale = async (req, res) => {
   try {
     const { paymentMethod, customerMobile, customerName } = req.body;
@@ -148,6 +175,7 @@ export const recordOfflineSale = async (req, res) => {
       return {
         product: product._id,
         productName: product.name,
+        size: item.size || "",
         quantity: qty,
         unitPrice: price,
         subtotal: qty * price,
