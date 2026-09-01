@@ -462,7 +462,7 @@ function ProductUsersModal({ productId, productName, type, dateRange, onClose })
         Mobile: u.mobile || "",
         Email: u.email || "",
         [dateLabel]: u[dateKey]
-          ? new Date(u[dateKey]).toLocaleDateString("en-IN")
+          ? new Date(u[dateKey]).toLocaleString("en-IN")
           : "",
       })),
     );
@@ -544,10 +544,12 @@ function ProductUsersModal({ productId, productName, type, dateRange, onClose })
                     </td>
                     <td className="py-2 pl-2 text-slate-600 whitespace-nowrap">
                       {u[dateKey]
-                        ? new Date(u[dateKey]).toLocaleDateString("en-IN", {
+                        ? new Date(u[dateKey]).toLocaleString("en-IN", {
                             day: "numeric",
                             month: "short",
                             year: "numeric",
+                            hour: "numeric",
+                            minute: "2-digit",
                           })
                         : "—"}
                     </td>
