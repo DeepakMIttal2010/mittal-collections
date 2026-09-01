@@ -1,3 +1,5 @@
+import mongoose from "mongoose";
+
 import Wishlist from "../models/Wishlist.js";
 import Product from "../models/Product.js";
 import { sendEmail } from "../config/mailer.js";
@@ -32,6 +34,13 @@ export const getWishlist = async (req, res) => {
 export const addToWishlist = async (req, res) => {
   try {
     const { productId } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(productId)) {
+      return res.status(400).json({
+        success: false,
+        message: "A valid productId is required",
+      });
+    }
 
     const exists = await Wishlist.findOne({
       user: req.user.id,
@@ -142,6 +151,13 @@ export const addToGuestWishlist = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "visitorId is required",
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(productId)) {
+      return res.status(400).json({
+        success: false,
+        message: "A valid productId is required",
       });
     }
 
