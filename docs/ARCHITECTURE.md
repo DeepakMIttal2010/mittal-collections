@@ -1,8 +1,8 @@
 # System Architecture
 
 **Project:** Mittal Collections
-**Document version:** 1.2
-**Last updated:** 2026-08-25
+**Document version:** 1.3
+**Last updated:** 2026-09-01
 
 ## 1. High-Level Overview
 
@@ -153,9 +153,10 @@ JWT-based, stateless. `authMiddleware` verifies the token, loads the
 user, and attaches it to `req.user`. `adminMiddleware` (chained after
 `authMiddleware`) additionally checks `req.user.role === "admin"`.
 A small set of endpoints intended for an external scheduler (not a
-logged-in user) — abandoned-cart reminders, loyalty points expiry, and
-(added 2026-08-24) post-delivery review-request emails — instead check
-a shared secret (`CRON_SECRET`) passed as a query parameter. Each of
+logged-in user) — abandoned-cart reminders, loyalty points expiry,
+post-delivery review-request emails (added 2026-08-24), and (added
+2026-08-26) wishlist price-drop alerts — instead check a shared secret
+(`CRON_SECRET`) passed as a query parameter. Each of
 these routes accepts both `GET` and `POST` (cron-job.org defaults to
 `GET` and offers no reliable way to change it — a real production bug
 where two of these jobs silently 404'd for months was traced to this
@@ -196,6 +197,7 @@ a secret-protected endpoint:
 | Abandoned cart reminders | `GET/POST /api/cart/send-abandoned-reminders?secret=...` | Hourly |
 | Loyalty points expiry | `GET/POST /api/rewards/expire-points?secret=...` | Daily |
 | Post-delivery review-request emails | `GET/POST /api/orders/send-review-requests?secret=...` | Daily |
+| Wishlist price-drop alerts | `GET/POST /api/wishlist/send-price-drop-alerts?secret=...` | Confirm cron-job.org scheduling status in `DEPLOYMENT.md` — added 2026-08-26, not verified as independently set up there yet |
 
 The review-request job (added 2026-08-24) follows the exact same
 pattern as the two pre-existing jobs: it queries for `Delivered`
@@ -312,6 +314,86 @@ renames no longer require any manual redirect bookkeeping to stay
 canonical-clean. `render.js` also returns a genuine HTTP 404 (not a
 soft-200) when it confidently resolves "not found" for a product or
 category.
+
+### 4.10 Guest Cart/Wishlist + Merge-on-Login
+Added 2026-08-26/27. `CartSnapshot` and `Wishlist` documents can now be
+keyed by an anonymous `visitorId` instead of a logged-in `user`, so a
+shopper's cart and wishlist survive across visits without requiring an
+account. `POST /api/cart/merge-guest` and `POST /api/wishlist/merge-guest`
+are each called once, right after login, to fold the just-identified
+visitor's guest-tracked items into their account. Guest entries are
+never dropped from admin-facing counts/reports either — see §4.11.
+
+### 4.11 Product Engagement Reporting
+Added 2026-08-26, with several follow-ups through 2026-09-01 (guest
+viewers included in the "Viewed by" drill-down, a date-range filter
+with a "Today" quick preset, and full date+time instead of a bare date
+on every drill-down row). A dedicated admin Reports section
+(`AdminReports.jsx`) showing per-product view/wishlist/cart counts,
+each with a drill-down modal listing exactly who — logged-in or guest —
+and when. Full endpoint list in `API.md`'s Admin section.
+
+### 4.12 Review Media, Moderation & Bonus Points
+Reviews (2026-08-26) moved from a title+text form to photo/video
+uploads (up to 3 images + one short video, via the same
+multer→imageOptimizer→Cloudinary pipeline as product images) with a
+plain rating + free-text body; new reviews no longer collect a
+separate title (the schema field is kept, optional, only so older
+reviews that already have one keep displaying correctly — see
+`DATABASE.md`). An approved review tied to a Delivered order earns the
+reviewer bonus loyalty points, capped per order so several reviews from
+one order can't each claim the full bonus. Three follow-up fixes the
+same week hardened this: a review needed a genuine matching Delivered
+order to earn the bonus (a fabricated/unlinked review previously could
+too), deleting and resubmitting a review could bypass the cap (now
+claws back points on delete), and two admins approving different
+reviews from the same order at nearly the same instant could both
+squeeze past the per-order cap (now race-safe). Deleting a review also
+cleans up its Cloudinary image/video assets.
+
+### 4.13 Concurrent-Edit Protection (Optimistic Concurrency)
+Added 2026-08-27, fixing a real data-loss bug: two admins with the same
+product's Edit page open at once, both saving, could have the second
+save silently overwrite fields the first admin had just changed
+("last write wins"). `Product` now has Mongoose's `optimisticConcurrency`
+enabled (compares `__v` on save), so the second `PUT /api/products/:id`
+in that scenario now fails with a conflict instead of silently
+discarding the first admin's edit.
+
+### 4.14 Checkout & Order-Status Security Hardening
+Two exploits were found and fixed 2026-08-26, both in the order-placement
+and order-management path:
+- **Client-trusted price/quantity (critical).** `createOrder` used to
+  compute the order total directly from `req.body.orderItems`' own
+  `price`/`quantity` fields, never checked against the real `Product`
+  record — confirmed exploitable in UAT (a ₹390 item ordered for ₹1;
+  a negative quantity zeroing a whole order's total while still
+  deducting real stock, or even *increasing* stock via `reserveStock`'s
+  unguarded `$inc`). Fixed by `verifyOrderItems()`, which re-fetches
+  every ordered product (and size variant, if any) server-side and
+  rebuilds name/image/price from there — the client still chooses
+  *what* and *how many* to buy, but nothing that affects money or
+  inventory is ever taken from the request body again.
+- **Illegal order-status transitions.** Status could previously be set
+  to any value regardless of the current one, letting an admin action
+  (or a crafted request) chain `Cancelled → Delivered → Pending →
+  Cancelled` to trigger `restoreStock()` twice and permanently inflate
+  a product's stock count. Status changes are now restricted to moving
+  forward through `Pending → Processing → Shipped → Delivered`, to
+  `Cancelled` from any active stage, or re-applying the same status as
+  a no-op — nothing may leave `Cancelled` or jump backward.
+
+### 4.15 Pincode Delivery Checker
+Added 2026-09-01. A product-page widget (`PincodeChecker.jsx`) lets a
+customer type their pincode and get an immediate fast-delivery
+yes/no. `GET /api/delivery/check-pincode/:pincode` proxies India Post's
+free public pincode-lookup API (which has no CORS headers, so it can't
+be called directly from the browser) and matches the returned
+post-office name(s)/district against the site's own delivery-area list
+(`server/utils/deliveryAreas.js`, mirrored at
+`client/src/utils/deliveryAreas.js` since client/server are separate
+npm packages here) — no hardcoded pincode-to-area table to author or
+keep accurate by hand.
 
 ## 5. Data Flow — Order Placement (representative example)
 

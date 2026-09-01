@@ -1,8 +1,8 @@
 # Software Requirements Specification (SRS)
 
 **Project:** Mittal Collections
-**Document version:** 1.3
-**Last updated:** 2026-08-25
+**Document version:** 1.4
+**Last updated:** 2026-09-01
 
 This document covers technical and non-functional requirements. For
 feature-level functional requirements, see `FRS.md`.
@@ -67,12 +67,14 @@ feature-level functional requirements, see `FRS.md`.
 - NFR-S4: Standard security headers via `helmet` (HSTS, X-Frame-Options, X-Content-Type-Options, etc.); CSP disabled (pure JSON API, no HTML to protect) and `Cross-Origin-Resource-Policy` explicitly set to `cross-origin` so the frontend can still load legacy same-server-hosted images.
 - NFR-S5: `/api/auth/*` is rate-limited (20 requests / 15 minutes / IP) to slow credential brute-forcing.
 - NFR-S6: File uploads are restricted by MIME type (images: jpg/jpeg/png/webp; product media additionally allows mp4/webm/mov) and size (5MB images, 20MB product video).
-- NFR-S7: Scheduler-only endpoints (abandoned-cart reminders, points expiry) are protected by a shared secret query parameter, not JWT, since they're called by an external cron service rather than a logged-in user.
+- NFR-S7: Scheduler-only endpoints (abandoned-cart reminders, points expiry, post-delivery review requests, wishlist price-drop alerts) are protected by a shared secret query parameter, not JWT, since they're called by an external cron service rather than a logged-in user.
 - NFR-S8: No secrets committed to the repository; all credentials live in `.env` (gitignored) / hosting-provider environment variables.
 - NFR-S9: Razorpay order amounts are always computed server-side from the current cart/order contents, never accepted from the client; payment authenticity is confirmed by verifying the Razorpay payment signature (HMAC-SHA256) server-side, using `RAZORPAY_KEY_SECRET`, before an order is marked paid.
 - NFR-S10: The WhatsApp Cloud API webhook is gated by a verify token (`WHATSAPP_VERIFY_TOKEN`) matched against Meta's dashboard configuration on `GET` requests, rather than JWT (Meta is not a logged-in session). Payload signature verification on incoming `POST` events is not yet implemented — flagged as a gap to close before this endpoint is trusted for anything beyond acknowledgment.
 - NFR-S11: Order permanent-delete and soft-delete/restore are admin-only; soft-delete is only permitted once an order is Cancelled, and permanent delete is blocked while a return request or support ticket still references the order.
 - **Resolved (2026-08-08):** `cloudinary` was pinned at v1.41.3, which had a disclosed high-severity vulnerability (GHSA-g4mf-96x5-5m2c). Upgraded to v2.10.0 — `npm audit` now reports 0 vulnerabilities. All real upload flows (product, category, banner, article) were manually re-verified against real Cloudinary credentials on local dev before deploying; production is deployed and healthy but a real upload wasn't independently re-tested there. Full record in `docs/CLOUDINARY_MIGRATION_PLAN.md` §6.
+- **Resolved (2026-08-26):** UAT found a critical checkout exploit — `createOrder` computed the order total directly from the client-submitted `orderItems`' own `price`/`quantity` fields instead of the real `Product` record, confirmed exploitable (a ₹390 item ordered for ₹1; a negative quantity zeroing a whole order's total while still deducting, or even *increasing*, real stock). Fixed by `verifyOrderItems()`, which re-derives price/name/image (and stock reservation) from the database for every order item server-side; the client's chosen product id/quantity/size are still honored, but nothing affecting money or inventory is ever taken from the request body again.
+- **Resolved (2026-08-26):** Order status could be set to any value regardless of the current one, letting a crafted sequence (`Cancelled → Delivered → Pending → Cancelled`) trigger stock restoration twice and permanently inflate a product's stock count. Status transitions are now restricted to the forward path `Pending → Processing → Shipped → Delivered`, to `Cancelled` from any active stage, or re-applying the same status as a no-op; nothing may leave `Cancelled` or move backward.
 
 ### 2.3 Availability / Reliability
 - NFR-A1: Backend runs on Render's free tier, which sleeps after inactivity and cold-starts on the next request — acceptable for current traffic; noted as a constraint, not a defect.

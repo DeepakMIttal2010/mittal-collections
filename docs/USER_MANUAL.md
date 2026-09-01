@@ -1,8 +1,8 @@
 # User Manual (Customer Guide)
 
 **Site:** https://www.mittalcollections.com
-**Document version:** 1.2
-**Last updated:** 2026-08-25
+**Document version:** 1.3
+**Last updated:** 2026-09-01
 
 This guide walks through the site as a shopper. For store-management
 instructions, see `ADMIN_MANUAL.md`.
@@ -74,7 +74,7 @@ way.
 
 Below that:
 - **Loyalty points preview** — how many points you'll earn if you buy this now.
-- **Reviews** — real customer ratings and comments.
+- **Reviews** — real customer ratings and comments, with real customer photos/video where shared. Reviewing a product from a delivered order earns you a small loyalty-point bonus once the store approves your review.
 - **Questions & Answers** — ask the seller a question, or read answers to others'.
 - **Compare with similar products** — an automatic side-by-side table against similar items in the same category.
 
@@ -82,6 +82,10 @@ Buttons: **Add to Cart**, **Buy it now** (skips straight to checkout),
 and **Order on WhatsApp** (opens a WhatsApp chat pre-filled with this
 product — disabled if it's out of stock). If a product is out of
 stock, you can leave your email to be notified the moment it's back.
+
+- **Check delivery at your pincode**: enter your pincode to instantly
+  see whether your area qualifies for 24-hour fast delivery, or gets
+  standard delivery (3-7 days) instead — no account or login needed.
 
 ## 3. Cart & Checkout
 
@@ -97,7 +101,8 @@ stock, you can leave your email to be notified the moment it's back.
    small fee that gets lower the closer your order is to the free
    threshold.
 4. Click **Proceed to Checkout**. You'll be asked to log in if you
-   aren't already (you're returned to checkout automatically after).
+   aren't already (you're returned to checkout automatically after) —
+   items already in your cart aren't lost by logging in at this point.
 5. Choose or add a delivery address.
 6. Apply a coupon code if you have one — first-time customers are
    automatically shown an eligible welcome coupon.
@@ -141,7 +146,7 @@ Sign in, then visit **Account** for:
 - **Support Tickets** (`/tickets`) — raise a support request and reply
   in a message thread with the store; you'll be notified (email + bell)
   whenever they reply.
-- **Wishlist** — save products for later.
+- **Wishlist** — save products for later. You don't need to be logged in to start one — anything you wishlist before signing up or logging in carries over into your account wishlist automatically the next time you log in. You'll also get an email if a wishlisted product's price drops.
 - **Your Addresses** — manage saved delivery addresses.
 - **Edit Profile** / **Change Password**.
 - **Loyalty points balance** and **full points history** (every earn,
@@ -168,12 +173,12 @@ history at `/notifications`.
 Click the ⇄ icon on any product card or quick-view popup to add it to
 your comparison list (up to 4 at once). A floating bar appears at the
 bottom of the screen — tap **Compare** to see them side by side
-(price, rating, specs, availability), with an Add to Cart button for
-each.
+(price, MRP, category, availability, description), with an Add to Cart
+button for each.
 
 ## 7. Guides & Tools
 
-- **Guides & Ideas** (`/articles`) — buying guides and styling tips.
+- **Guides & Ideas** (`/articles`) — buying guides and styling tips. Some articles are also available in Hindi (`/hi/articles/...`) — switch the site to Hindi with **EN | हिं** in the header to see them.
 - **Curtain Size Calculator** — enter your window measurements and
   preferences to get the exact rod length, fabric width, and curtain
   length to buy, plus the closest standard size available.

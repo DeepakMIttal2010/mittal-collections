@@ -1,8 +1,8 @@
 # Database Schema
 
 **Database:** MongoDB (Mongoose ODM)
-**Document version:** 1.2
-**Last updated:** 2026-08-25
+**Document version:** 1.3
+**Last updated:** 2026-09-01
 
 All models live in `server/models/`, one file per collection. All use
 Mongoose's `{ timestamps: true }` (adds `createdAt`/`updatedAt`) unless
@@ -25,7 +25,7 @@ required fields marked **(required)**.
 | videos | [String] | up to 2 |
 | stock | Number | |
 | fabric, size, gsm, washCare, brand, countryOfOrigin | String | optional specs; each defaults `""` and is only shown on the product page when non-empty |
-| rating | Number | 0–5 |
+| rating | Number | 0–5, default `5` — legacy field, no longer shown anywhere on the site (hidden 2026-09-01, it was a fake-looking static default unconnected to real reviews); the real customer rating comes from `Review` documents (average + count computed live), used in Product structured data when `totalReviews > 0` |
 | featured, isTrending, isActive | Boolean | |
 | trendingRank | Number | manual sort order within "Trending" |
 | isReturnable | Boolean | default `true` |
@@ -33,7 +33,7 @@ required fields marked **(required)**.
 | variants | [{ size, price, oldPrice, stock, purchasePrice }] | optional (added 2026-08-20) — per-size pricing/stock for products sold in multiple sizes at different prices (e.g. Curtains 7x4/9x4). When set, the top-level `price`/`oldPrice` mirror the first variant and top-level `stock` is the sum across variants — both recomputed server-side on every write, never trusted from the client |
 | colorVariesNote | String | optional (added 2026-08-19) — when set, shown as a highlighted product-page notice directing customers who want a specific colour to Contact Us first |
 
-**Indexes:** `{isActive, category}`, `{isActive, subcategory}`, `{isActive, createdAt:-1}`.
+**Indexes:** `{isActive, category}`, `{isActive, subcategory}`, `{isActive, createdAt:-1}`. Uses Mongoose's `optimisticConcurrency` (added 2026-08-27) — a `save()` against a stale in-memory copy (checked via `__v`) is rejected instead of silently overwriting whatever another admin saved in between, closing a last-write-wins data-loss bug where two admins editing the same product at once could have one save quietly revert the other's fields.
 
 ### `Category` / `Subcategory`
 name, slug (both unique), description, image, banner (Category only),
@@ -111,13 +111,34 @@ discountValue, maxDiscount, firstOrderOnly, description, showAsBanner,
 isActive.
 
 ### `CartSnapshot`
-Server-side mirror of a logged-in user's cart, written by a debounced
-client sync — **not** the cart's source of truth (that's
-`localStorage`), used only to detect and email abandoned carts.
+Server-side mirror of a cart, written by a debounced client sync —
+**not** the cart's source of truth (that's `localStorage`), used to
+detect abandoned carts and to feed the admin Product Engagement
+report's cart counts. Exactly one of `user` (logged-in) or `visitorId`
+(guest, added 2026-08-26) is ever set, never both — each has its own
+sparse-unique index. Guest snapshots feed engagement counts and get
+folded into the account snapshot on login (`POST
+/api/cart/merge-guest`), but abandoned-cart **reminder emails** remain
+logged-in-only, since there's no email address to send a guest one.
+Fields: `items[]` (`{product, name, image, price, quantity}`,
+denormalized at sync time — not live-joined to the current `Product`),
+`reminderSentAt`.
 
 ### `Wishlist`
-`{user, product}` pairs. **Unique compound index** `{user, product}`
-prevents duplicate entries.
+One document per `{user or visitorId, product}` pair — exactly one of
+`user` (logged-in) or `visitorId` (guest, added 2026-08-26) is ever
+set, never both, each with its own unique compound index
+(`{user, product}` / `{visitorId, product}`, both using
+`partialFilterExpression` rather than plain `sparse` — a compound
+sparse index only skips a document where *every* indexed field is
+missing, and `product` is always present, so a plain `sparse` index
+would still collide every guest doc against every other guest's).
+Also carries `priceWhenAdded` and `lastAlertedPrice` (both nullable,
+added 2026-08-26) — the price snapshotted when wishlisted and the
+price last alerted for, used by the price-drop-alert job to catch a
+genuine drop without re-notifying the same drop on every run. Guest
+wishlist items get folded into the account wishlist on login (`POST
+/api/wishlist/merge-guest`).
 
 ### `StockAlert`
 `{product, email}` — a back-in-stock subscription. **Unique compound
@@ -208,7 +229,12 @@ Audit trail for admin-configurable settings changes.
 
 ### `Article`
 title, slug (unique), excerpt, content (rich-text HTML), coverImage,
-isActive.
+isActive. Also `titleHi`/`excerptHi`/`contentHi` (added 2026-08-27, all
+optional, default `""`) — a Hindi version of the same article, served
+at a separate `/hi/articles/:slug` URL once `titleHi` is actually
+filled in (left blank, the article just has no Hindi page — avoids
+indexing a page that's really just the English content again under a
+different URL).
 
 ### `Page`
 slug, title, content (rich-text) — used for Shipping Policy, Returns &

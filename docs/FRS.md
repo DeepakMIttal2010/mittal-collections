@@ -2,8 +2,8 @@
 
 **Project:** Mittal Collections — Home Furnishing E-commerce Platform
 **Live site:** https://www.mittalcollections.com
-**Document version:** 1.3
-**Last updated:** 2026-08-25
+**Document version:** 1.4
+**Last updated:** 2026-09-01
 
 ## 1. Purpose
 
@@ -43,6 +43,7 @@ tools) for SEO-driven organic traffic.
 - FR-1.10: A "Clearance Sale" homepage carousel and dedicated `/clearance-sale` page auto-surface any category containing a product discounted 35%+ off MRP, grouped by category and ordered by discount-item count — not admin-curated, so it stays current automatically without maintenance.
 - FR-1.11: An optional colour-variation notice may be shown on a product page directing customers who want a specific colour to Contact Us first.
 - FR-1.12: An optional "What's Included" line (e.g. "Set of 5 Cushion Covers") is shown as the first row of the specs table when set.
+- FR-1.13: A pincode delivery checker on the product page lets a customer enter their pincode and get an immediate answer on whether the area qualifies for 24-hour fast delivery, or standard delivery otherwise, or an "invalid pincode" message. No account required.
 
 ### 4.2 Search
 - FR-2.1: Header search bar with live autocomplete suggestions (debounced, min 2 characters).
@@ -50,9 +51,10 @@ tools) for SEO-driven organic traffic.
 - FR-2.3: "No results" fallback suggests categories to browse instead.
 - FR-2.4: Voice search input (browser SpeechRecognition API) on the header search bar.
 - FR-2.5: An "All ▾" dropdown on the search bar lets a customer scope search to one category before typing; the chosen category carries through the `/search` URL and pre-fills the results-page category filter.
+- FR-2.6: Search matches Hindi/Hinglish terms against their English catalog equivalent (e.g. a Hindi/transliterated term for "bedsheet" or "curtain" finds the same results as the English word), not just exact English text.
 
 ### 4.3 Cart & Checkout
-- FR-3.1: Client-side cart (localStorage), usable while logged out; a debounced snapshot syncs to the server for logged-in users (used only for abandoned-cart detection, never read back into the UI).
+- FR-3.1: Client-side cart (localStorage), usable while logged out; a debounced snapshot syncs to the server (for logged-in users and, separately, for guests via an anonymous id) — used only for abandoned-cart detection, never read back into the UI. A guest's server-side cart snapshot is folded into their account snapshot the next time they log in.
 - FR-3.2: Cart drawer (slide-out) and full `/cart` page, both showing live subtotal, delivery fee, and loyalty-points-earned preview.
 - FR-3.3: Delivery fee is tiered: free above an admin-set threshold, and a graduated fee below it (e.g. lower fee as the order value approaches the threshold) — fully admin-configurable, no hardcoded tiers.
 - FR-3.4: Checkout requires login (redirects with a `?redirect=` return path). Requires a saved delivery address.
@@ -84,12 +86,13 @@ tools) for SEO-driven organic traffic.
 - FR-4b.2: Admin replies email the customer and post an in-app notification; a customer reply on a Resolved/Closed ticket automatically reopens it to Open.
 
 ### 4.5 Wishlist & Compare
-- FR-5.1: Logged-in customers can add/remove products to a server-persisted wishlist.
+- FR-5.1: Customers can add/remove products to a server-persisted wishlist. Logged-in customers get an account-linked wishlist; a logged-out visitor gets one tracked by an anonymous id, which is automatically folded into their account wishlist the next time they log in (nothing is lost by wishlisting before signing up).
 - FR-5.2: Any visitor can add up to 4 products to a client-side (localStorage) "Compare" list via an icon on product cards/quick view, see a floating compare bar, and view a side-by-side comparison table at `/compare`.
 - FR-5.3: Every product detail page also shows an automatic comparison table against similar products in the same category (no manual selection needed), with an Add to Cart button per row.
+- FR-5.4: A scheduled job emails a logged-in customer whenever a wishlisted product's price drops below whatever price it last alerted for (or the price when added, if never alerted) — so a genuine drop is caught, but the same drop is never re-notified on every subsequent run. Guest wishlist items have no account to email and are skipped.
 
 ### 4.6 Reviews & Questions
-- FR-6.1: Customers can submit a star rating + review per product; reviews are shown on the product page (rating average + count feed into the page's Product structured data).
+- FR-6.1: Customers can submit a star rating + review per product, optionally with up to 3 photos and one short video; reviews are shown on the product page (rating average + count feed into the page's Product structured data) and a curated cross-product selection appears in a site-wide showcase. A review tied to a Delivered order earns the reviewer a small loyalty-point bonus once approved, capped per order so multiple reviews from one order can't each claim the full bonus; deleting an approved review claws the points back.
 - FR-6.2: Customers can ask a product-specific question; published Q&A pairs are shown publicly and also power FAQPage structured data on that product's page.
 
 ### 4.7 Loyalty Points Program
@@ -114,7 +117,7 @@ tools) for SEO-driven organic traffic.
 - FR-9.8: A scheduled job emails a customer a post-delivery review request, per item, approximately 8 days after delivery (deliberately past the 7-day return window, so it targets orders the customer has genuinely kept). Each order is only ever emailed once for this, tracked on the order itself.
 
 ### 4.10 Content Hub (SEO)
-- FR-10.1: "Guides & Ideas" articles section (`/articles`) — admin-authored, rich-text, with cover images.
+- FR-10.1: "Guides & Ideas" articles section (`/articles`) — admin-authored, rich-text, with cover images. Articles can additionally have a Hindi title/excerpt/body, served at a separate, search-indexable `/hi/articles/:slug` URL.
 - FR-10.2: Curtain Size Calculator (`/curtain-size-calculator`) — interactive tool converting window measurements + preferences into a recommended rod length, fabric width, curtain length, and closest standard size to buy.
 - FR-10.3: Homepage FAQ accordion (site-wide policy questions, sourced from live settings so numbers can't go stale) with FAQPage structured data.
 
@@ -142,6 +145,7 @@ tools) for SEO-driven organic traffic.
 - FR-A1.7: Purchase-price entry on Add/Edit Product auto-suggests Misc Expenses, MRP, and Price from admin-configured per-category/subcategory pricing rules (falling back to a default 10%/×2/−15% formula); auto-fill never overwrites a field the admin already filled in by hand.
 - FR-A1.8: Per-product and bulk QR/print labels (thumbnail, category, MRP struck through, product ID, an internal cost-cipher "product number" decodable only by admin) support an in-store QR/POS sale flow: scanning a label opens a persistent multi-item cart for that sale, and "Complete Sale" records an offline sale, optionally awarding loyalty points if the customer's mobile matches a registered account, and can generate a printed/WhatsApp receipt with an optional discount and payment-proof photo.
 - FR-A1.9: A "Share" feature on each product generates a branded 1080x1920 image (photo, name, discounted price, CTA, QR code) or a short branded video (Ken Burns zoom, crossfade transitions, optional background music, discount-badge animation) with an Instagram-style caption, for sharing to WhatsApp/Instagram/Facebook via the native share sheet or clipboard-copy. Sharing is blocked (with an explanation) for offline-only products, since they have no public product link to share.
+- FR-A1.10: If two admins have the same product's Edit page open at once, the second one to save gets a conflict error instead of silently overwriting the first admin's changes (optimistic concurrency check).
 
 ### 5.2 Orders, Returns & Support
 - FR-A2.1: View all orders, mark seen, update status (triggers customer email + loyalty point crediting/clawback/referral payout as applicable). Status can no longer be changed on a deleted (soft-deleted) order.
@@ -168,6 +172,7 @@ tools) for SEO-driven organic traffic.
 - FR-A6.1: Customer list/detail, block/unblock.
 - FR-A6.2: Dashboard summary (recent orders, revenue, traffic).
 - FR-A6.3: Reports page (`/admin/reports`) — date range selectable via 7/30/90-day presets or a custom start/end date; every metric is scoped consistently to the selected range (with one deliberate exception: "Total Customers" is shown all-time). Includes: revenue/orders with period-over-period growth %, sales & visits trend charts, a conversion funnel (Visitors → Product Viewers → Cart Viewers → Checkout Viewers → Orders Placed, explicitly labeled as approximate since visits are tracked by an anonymous ID not linked to accounts), top/zero-result search queries, a live (not date-scoped) cart-abandonment snapshot, orders by status, top pages, device breakdown, top-selling products, revenue by category, visitor locations, and loyalty/referral performance (points earned/redeemed/expired with redemption rate, referral signups/conversions/bonus paid out — "Points Earned" nets out clawback, i.e. points reversed when a delivered order is later cancelled, so it reflects genuinely retained points rather than gross issuance). The whole report exports to a single multi-section CSV. Total Sales/Revenue figures site-wide (dashboard and Reports) exclude Cancelled orders.
+- FR-A6.4: A Product Engagement table on the Reports page — per-product views, current wishlist count, and current cart count, with its own date-range control (All time/Today/Yesterday/Custom, scoping only the Views figure). Each number drills down into who — including guest visitors, shown as "Guest (not logged in)" alongside named customers — and the exact date and time, exportable to CSV per-product or for the whole table.
 - FR-A6.4: A "Google Analytics & Search Console" section on the same Reports page, showing live data pulled server-side via a Google service account: Active Users, Sessions, Page Views, Engagement Rate, and Top Pages from GA4; Clicks, Impressions, CTR, Average Position, and Top Search Queries from Search Console. Only supports the 7/30/90-day presets (not the custom date picker); shows a quiet "unavailable" message rather than an error if the service account isn't configured.
 
 ### 5.7 Notification Bell (Admin)

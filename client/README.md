@@ -1,16 +1,53 @@
-# React + Vite
+# Mittal Collections — Client
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React 19 + Vite storefront and admin panel. See `../docs/` for the
+full documentation set (`ARCHITECTURE.md` for how this fits together
+with the backend, `DEPLOYMENT.md` for environment variables and the
+release process).
 
-Currently, two official plugins are available:
+## Setup
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+```bash
+npm install
+npm run dev   # http://localhost:5173
+```
 
-## React Compiler
+`VITE_API_URL` (set via `.env.local`, gitignored — no `.env.example`
+template exists yet) controls which backend the app talks to; it falls
+back to `http://localhost:5000` (`src/services/api.js`) if unset.
+Pointing it at the
+production API instead (`https://mittal-collections-api.onrender.com`)
+is also a valid local setup — useful for browsing real data without
+seeding a local database — but be aware any write actions (login,
+adding to cart, submitting a review, etc.) then hit the real production
+backend and database, not a disposable local one.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Scripts
 
-## Expanding the ESLint configuration
+| Command | What it does |
+|---|---|
+| `npm run dev` | Start the Vite dev server |
+| `npm run build` | Production build (also regenerates `public/sitemap.xml` via the `prebuild` step, see `scripts/generate-sitemap.js`) |
+| `npm run lint` | ESLint over the whole project |
+| `npm run preview` | Serve the last production build locally |
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Structure
+
+See `../docs/ARCHITECTURE.md` §2-3 for the full repository layout and
+frontend architecture (routing/code-splitting, state management via
+React Context, data fetching, SEO layer). Briefly:
+
+- `src/pages/` — one component per route; `src/pages/admin/` for the
+  admin panel (lazy-loaded as its own bundle, never reaches a regular
+  shopper's browser)
+- `src/components/` — reusable UI pieces
+- `src/context/` — `AuthContext`, `CartContext`, `WishlistContext`,
+  `CompareContext`, `LanguageContext`
+- `src/services/` — one file per backend resource, thin `fetch()` wrappers
+- `src/utils/` — pure helpers with no React/DOM dependency
+
+## Testing
+
+Unit/integration tests live on the backend (`../server/tests/`).
+Browser-level testing of this app is a separate Playwright package at
+`../e2e/` — see `../e2e/README.md` for setup and running instructions.

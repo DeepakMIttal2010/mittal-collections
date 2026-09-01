@@ -1,7 +1,7 @@
 # Deployment Guide
 
-**Document version:** 1.3
-**Last updated:** 2026-08-25
+**Document version:** 1.4
+**Last updated:** 2026-09-01
 
 ## 1. Hosting Summary
 
@@ -50,7 +50,7 @@ network blip, not a real failure; simply retry the same command.
 | `BREVO_API_KEY` | Transactional email HTTP API |
 | `MAIL_FROM_EMAIL` / `MAIL_FROM_NAME` | Sender identity for outgoing email |
 | `CLIENT_URL` | Used to build links inside emails (e.g. "View your order") |
-| `CRON_SECRET` | Shared secret checked by the scheduler-only endpoints. **Usage expanded 2026-08-24**: now guards three endpoints, not two — `/api/cart/send-abandoned-reminders`, `/api/rewards/expire-points`, and `/api/orders/send-review-requests` — see §4.4. |
+| `CRON_SECRET` | Shared secret checked by the scheduler-only endpoints. **Usage expanded 2026-08-24, then again 2026-08-26**: now guards four endpoints — `/api/cart/send-abandoned-reminders`, `/api/rewards/expire-points`, `/api/orders/send-review-requests`, and `/api/wishlist/send-price-drop-alerts` — see §4.4. |
 | `GOOGLE_SERVICE_ACCOUNT_KEY` | Single-line JSON service-account key, powers `/api/admin/reports/google` (GA4 + Search Console data in Admin Reports). Optional — the endpoint degrades to a quiet "unavailable" message if unset. See §4.6. |
 | `GOOGLE_OAUTH_CLIENT_ID` | Verifies Google ID tokens server-side for `POST /api/auth/google` (Google Sign-In / Sign-Up). **Required** for Google Sign-In to work; added 2026-08-08. |
 | `RAZORPAY_KEY_ID` | Razorpay Standard Checkout — creates the Razorpay order server-side and is served to the frontend at order-creation time to open the checkout modal (not baked into the client build). **Required** for online payments. Added 2026-08-22. See §4.7 — confirmed working in **test mode** only as of that date; verify live-mode credentials before relying on this in production. |
@@ -92,19 +92,23 @@ which works fine since it's a normal HTTPS request. The sending domain
 the domain registrar.
 
 ### 4.4 cron-job.org (Scheduled Jobs)
-Three jobs. **Method no longer matters** — all three endpoints accept
-both GET and POST as of 2026-08-13. (History: the first two were
-originally POST-only, and cron-job.org defaults every new job to GET
-with no reliable way to change it, so both jobs had likely 404'd on
-every single scheduled run since inception without anyone noticing.
-Fixed by making the endpoints accept either method, so this class of
-bug can't recur — new jobs can be left on cron-job.org's GET default.)
+Four jobs (three confirmed set up on the cron-job.org dashboard; the
+fourth is new and needs the same one-time dashboard setup + a real
+triggered-run confirmation before relying on it). **Method no longer
+matters** — every endpoint accepts both GET and POST as of 2026-08-13.
+(History: the first two were originally POST-only, and cron-job.org
+defaults every new job to GET with no reliable way to change it, so
+both jobs had likely 404'd on every single scheduled run since
+inception without anyone noticing. Fixed by making the endpoints
+accept either method, so this class of bug can't recur — new jobs can
+be left on cron-job.org's GET default.)
 
 | Job name | URL | Schedule | Notes |
 |---|---|---|---|
 | Abandoned Cart Reminders | `https://mittal-collections-api.onrender.com/api/cart/send-abandoned-reminders?secret=<CRON_SECRET>` | Hourly | |
 | Rewards Expire Points | `https://mittal-collections-api.onrender.com/api/rewards/expire-points?secret=<CRON_SECRET>` | Daily | |
 | Post-Delivery Review Request | `https://mittal-collections-api.onrender.com/api/orders/send-review-requests?secret=<CRON_SECRET>` | Daily | **New 2026-08-24, confirmed set up on cron-job.org 2026-08-25.** Emails a review request for each Delivered order 8+ days past delivery that hasn't been emailed yet. |
+| Wishlist Price-Drop Alerts | `https://mittal-collections-api.onrender.com/api/wishlist/send-price-drop-alerts?secret=<CRON_SECRET>` | Daily (suggested — matches the other content-driven jobs above) | **New 2026-08-26. Not yet confirmed set up on the cron-job.org dashboard** — the endpoint itself works (verified server-side), but someone with dashboard access needs to add the job and trigger one real run to confirm end-to-end, same as the review-request row above. |
 
 If a run shows "Failed (output too large)" in cron-job.org's execution
 history, check the endpoint directly with `curl` first — both

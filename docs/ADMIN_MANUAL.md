@@ -1,8 +1,8 @@
 # Admin Manual
 
 **Admin login:** https://www.mittalcollections.com/admin/login
-**Document version:** 1.3
-**Last updated:** 2026-08-25
+**Document version:** 1.4
+**Last updated:** 2026-09-01
 
 This guide covers every section of the admin panel
 (`/admin/*`). All admin routes require an admin-role login and are
@@ -256,6 +256,13 @@ answer them — nothing customer-submitted appears publicly until you
 act on it. Answering a question publishes it and it also becomes part
 of that product's FAQ rich-result data for Google.
 
+Reviews can include up to 3 customer photos and one short video, shown
+alongside the rating and text — review them the same way as text-only
+reviews before approving. Approving a review tied to a Delivered order
+also credits the customer a small loyalty-point bonus (capped per
+order, so several reviews from one order can't each claim it) —
+deleting an approved review claws those points back automatically.
+
 ## 6. Marketing & Content
 
 | Section | What it's for |
@@ -373,6 +380,26 @@ range, except **Total Customers** which is always shown all-time.
   custom date range. If it shows "data isn't available," the server's
   Google credentials need attention — see `DEPLOYMENT.md` §4.6.
 
+### 10.1 Product Engagement
+
+A separate table, further down the Reports page, one row per product:
+how many times it's been viewed, how many people currently have it
+wishlisted, and how many currently have it in their cart. Its own
+date-range control sits above the table — **All time**, **Today**,
+**Yesterday**, or **Custom** — and scopes only the Views column;
+wishlist/cart counts are always a live current-state snapshot ("how
+many people have it right now"), never a historical total for the
+selected range.
+
+Click any of the three numbers to open a drill-down listing exactly
+who — name, mobile, email where known, and when. All three
+drill-downs (**Wishlisted by**, **Currently in cart of**, **Viewed
+by**) include guest visitors as well as logged-in customers, shown as
+"Guest (not logged in)" with no contact details, each with the exact
+date and time. Use **Export CSV** at the top of the table for the
+whole product list, or the **Export CSV** inside a drill-down modal
+for just that product's list of people.
+
 ## 11. Things That Run on Their Own (no admin action needed)
 
 - **Abandoned cart emails** — hourly, automatic.
@@ -387,6 +414,10 @@ range, except **Total Customers** which is always shown all-time.
   bought (timed to land after the return window, so it only reaches
   customers who genuinely kept the item). Each order is only emailed
   once.
+- **Wishlist price-drop email** — sent automatically whenever a
+  logged-in customer's wishlisted product's price drops (guest
+  wishlist items have no account to email, so they're skipped); the
+  same drop is never re-sent on a later run.
 - **In-app notifications** — fire alongside the emails above (order
   status, ticket replies, return status, back-in-stock, points
   expiry) so a customer sees them in the site bell too, no separate
