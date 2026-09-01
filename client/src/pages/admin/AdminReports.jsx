@@ -739,7 +739,16 @@ function ProductEngagementTable({ items, loading, onSelectUsers }) {
   );
 }
 
-const todayISO = () => new Date().toISOString().slice(0, 10);
+// The store's calendar day, in IST — not the browser's/server's UTC day.
+// toISOString() is always UTC, so between 00:00-05:29 IST every date
+// picker's "today" would otherwise silently mean the previous day.
+// Shifting the timestamp by IST's fixed +5:30 offset before slicing off
+// the UTC date string gives the IST calendar date without needing a
+// timezone library (India has no DST, so this fixed offset is exact).
+const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+const istDateString = (date = new Date()) =>
+  new Date(date.getTime() + IST_OFFSET_MS).toISOString().slice(0, 10);
+const todayISO = () => istDateString();
 
 function AdminReports() {
   const [loading, setLoading] = useState(true);
@@ -885,15 +894,13 @@ function AdminReports() {
   };
 
   const selectEngagementToday = () => {
-    const iso = new Date().toISOString().slice(0, 10);
+    const iso = todayISO();
     setEngagementRange({ startDate: iso, endDate: iso });
     setShowEngagementPicker(false);
   };
 
   const selectEngagementYesterday = () => {
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const iso = yesterday.toISOString().slice(0, 10);
+    const iso = istDateString(new Date(Date.now() - 24 * 60 * 60 * 1000));
     setEngagementRange({ startDate: iso, endDate: iso });
     setShowEngagementPicker(false);
   };

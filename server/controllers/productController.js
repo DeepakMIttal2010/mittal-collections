@@ -1,4 +1,5 @@
 import Product from "../models/Product.js";
+import { istDayStart, istDayEnd } from "../utils/istDate.js";
 import NewArrivalsSection from "../models/NewArrivalsSection.js";
 import TrendingSection from "../models/TrendingSection.js";
 import Order from "../models/Order.js";
@@ -325,12 +326,8 @@ export const getAllProductsAdmin = async (req, res) => {
 
     if (dateFrom || dateTo) {
       filter.purchaseDate = {};
-      if (dateFrom) filter.purchaseDate.$gte = new Date(dateFrom);
-      if (dateTo) {
-        const end = new Date(dateTo);
-        end.setHours(23, 59, 59, 999);
-        filter.purchaseDate.$lte = end;
-      }
+      if (dateFrom) filter.purchaseDate.$gte = istDayStart(dateFrom);
+      if (dateTo) filter.purchaseDate.$lte = istDayEnd(dateTo);
     }
 
     const page = Math.max(parseInt(req.query.page, 10) || 1, 1);

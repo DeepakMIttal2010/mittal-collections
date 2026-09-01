@@ -1,3 +1,5 @@
+import mongoose from "mongoose";
+
 import Product from "../models/Product.js";
 import Order from "../models/Order.js";
 import User from "../models/User.js";
@@ -11,6 +13,7 @@ import Wishlist from "../models/Wishlist.js";
 import LoyaltyTransaction from "../models/LoyaltyTransaction.js";
 import Ticket from "../models/Ticket.js";
 import ReturnRequest from "../models/ReturnRequest.js";
+import { istDayStart, istDayEnd } from "../utils/istDate.js";
 
 // Matches the customer-facing "Only X left in stock!" threshold in
 // client/src/utils/stock.js — kept in sync manually since one lives on
@@ -334,11 +337,8 @@ export const getReportsData = async (req, res) => {
     let days;
 
     if (req.query.startDate && req.query.endDate) {
-      since = new Date(req.query.startDate);
-      since.setHours(0, 0, 0, 0);
-
-      until = new Date(req.query.endDate);
-      until.setHours(23, 59, 59, 999);
+      since = istDayStart(req.query.startDate);
+      until = istDayEnd(req.query.endDate);
 
       days = Math.max(
         Math.round((until - since) / (1000 * 60 * 60 * 24)) + 1,
@@ -874,15 +874,11 @@ export const getProductEngagement = async (req, res) => {
       viewsMatch.createdAt = {};
 
       if (req.query.startDate) {
-        const since = new Date(req.query.startDate);
-        since.setHours(0, 0, 0, 0);
-        viewsMatch.createdAt.$gte = since;
+        viewsMatch.createdAt.$gte = istDayStart(req.query.startDate);
       }
 
       if (req.query.endDate) {
-        const until = new Date(req.query.endDate);
-        until.setHours(23, 59, 59, 999);
-        viewsMatch.createdAt.$lte = until;
+        viewsMatch.createdAt.$lte = istDayEnd(req.query.endDate);
       }
     }
 
@@ -1038,6 +1034,15 @@ export const getProductViewUsers = async (req, res) => {
     // Same optional startDate/endDate as getProductEngagement, so a
     // drill-down opened while a range is applied only shows viewers from
     // that range instead of all-time.
+    if (!mongoose.Types.ObjectId.isValid(req.params.productId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid product id",
+      });
+    }
+
+    // Built from a validated ObjectId above, not raw user input, so no
+    // regex-metacharacter escaping is needed here.
     const viewsMatch = {
       path: new RegExp(`^/product/${req.params.productId}(/|$)`),
     };
@@ -1046,15 +1051,11 @@ export const getProductViewUsers = async (req, res) => {
       viewsMatch.createdAt = {};
 
       if (req.query.startDate) {
-        const since = new Date(req.query.startDate);
-        since.setHours(0, 0, 0, 0);
-        viewsMatch.createdAt.$gte = since;
+        viewsMatch.createdAt.$gte = istDayStart(req.query.startDate);
       }
 
       if (req.query.endDate) {
-        const until = new Date(req.query.endDate);
-        until.setHours(23, 59, 59, 999);
-        viewsMatch.createdAt.$lte = until;
+        viewsMatch.createdAt.$lte = istDayEnd(req.query.endDate);
       }
     }
 
