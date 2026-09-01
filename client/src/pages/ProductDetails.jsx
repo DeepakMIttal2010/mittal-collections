@@ -724,7 +724,7 @@ function ProductDetails() {
           )}
 
           <div className="flex items-center gap-3 mb-4">
-            <span className="text-3xl font-bold text-slate-900">
+            <span className="text-3xl font-bold text-[#2e7d32]">
               ₹{displayPrice}
             </span>
             {displayOldPrice > displayPrice && (
