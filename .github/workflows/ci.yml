@@ -1,0 +1,57 @@
+name: CI
+
+# Runs on every push/PR against main. Scoped to what needs zero
+# secrets: server/ unit tests (vitest, self-contained via
+# mongodb-memory-server — see server/tests/setup.js) and the client
+# lint + production build. The Playwright e2e suite in e2e/ needs a
+# real MongoDB plus Razorpay/Cloudinary/Brevo/Google secrets and isn't
+# wired into CI yet — see e2e/README.md to run it locally.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  server-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - name: Install server dependencies
+        working-directory: server
+        run: npm ci
+
+      - name: Run server tests
+        working-directory: server
+        run: npm test
+
+  client-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+
+      - name: Install client dependencies
+        working-directory: client
+        run: npm ci
+
+      - name: Lint
+        working-directory: client
+        run: npm run lint
+
+      - name: Build
+        working-directory: client
+        run: npm run build
