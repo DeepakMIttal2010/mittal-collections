@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { toast } from "react-toastify";
 import {
   FaUser,
   FaShoppingCart,
@@ -13,7 +12,7 @@ import { getCategories } from "../../services/categoryService";
 import { useCart } from "../../context/CartContext";
 import { useAuth } from "../../context/AuthContext";
 import { useLanguage } from "../../context/LanguageContext";
-import { useInstallPrompt } from "../../hooks/useInstallPrompt";
+import AccountMenuContent from "../AccountMenu/AccountMenuContent";
 import { getSearchSuggestions } from "../../services/productService";
 import { getMyLocation } from "../../services/analyticsService";
 import {
@@ -28,7 +27,6 @@ function Header() {
   const { totalItems, openCart } = useCart();
   const { user, logout, isLoggedIn } = useAuth();
   const { language, setLanguage, t } = useLanguage();
-  const { canPromptNatively, promptInstall } = useInstallPrompt();
   const navigate = useNavigate();
 
   const [query, setQuery] = useState("");
@@ -131,50 +129,6 @@ function Header() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [showSuggestions]);
-
-  const handleInstallClick = async () => {
-    if (canPromptNatively) {
-      await promptInstall();
-      return;
-    }
-
-    // No `beforeinstallprompt` yet (Chrome hasn't decided to offer it) or
-    // never will (iOS Safari has no such API) — give people the manual
-    // path via a toast instead of doing nothing on click.
-    toast.info(
-      t(
-        'From your browser\'s menu, choose "Add to Home Screen" or "Install App".',
-        'अपने ब्राउज़र के मेनू से "Add to Home Screen" या "Install App" चुनें।',
-      ),
-      { autoClose: 6000 },
-    );
-  };
-
-  // The Recently Viewed section only exists on Home, and only once it
-  // has products to show (it renders null while empty/loading — see
-  // RecentlyViewed.jsx), so a plain `#recently-viewed` link can't rely
-  // on the element already being there. Navigate first, then poll
-  // briefly for the section to mount before scrolling to it.
-  const goToRecentlyViewed = (e) => {
-    e.preventDefault();
-    setAccountOpen(false);
-
-    const scrollIfPresent = () => {
-      const el = document.getElementById("recently-viewed");
-      if (!el) return false;
-      el.scrollIntoView({ behavior: "smooth", block: "start" });
-      return true;
-    };
-
-    if (window.location.pathname === "/" && scrollIfPresent()) return;
-
-    navigate("/");
-    let attempts = 0;
-    const interval = setInterval(() => {
-      attempts += 1;
-      if (scrollIfPresent() || attempts > 20) clearInterval(interval);
-    }, 100);
-  };
 
   // Always a "Deliver to [Name] / [Place]" pair — the real name + saved
   // address for logged-in customers, "Guest" + a geo-IP guess otherwise.
@@ -586,12 +540,12 @@ function Header() {
           </div>
 
 
-          {isLoggedIn ? (
-            <div
-              className="hidden md:block relative"
-              onMouseEnter={openAccountMenu}
-              onMouseLeave={scheduleCloseAccountMenu}
-            >
+          <div
+            className="hidden md:block relative"
+            onMouseEnter={openAccountMenu}
+            onMouseLeave={scheduleCloseAccountMenu}
+          >
+            {isLoggedIn ? (
               <button
                 type="button"
                 className="flex items-center gap-1.5 text-slate-600 hover:text-blue-700 transition-colors"
@@ -601,65 +555,7 @@ function Header() {
                 </span>
                 <span className="text-sm">{t("Account", "खाता")}</span>
               </button>
-
-              {accountOpen && (
-                <div className="absolute top-full right-0 z-50 mt-1 w-48 bg-white border border-slate-200 rounded-lg shadow-lg py-2">
-                  <div className="px-4 py-2 text-sm text-slate-500 border-b border-slate-100 truncate">
-                    {t("Hi, ", "नमस्ते, ")}{user?.name}
-                  </div>
-
-                  <Link
-                    to="/account"
-                    className="block px-4 py-2 text-sm font-medium text-slate-800 hover:bg-slate-50 hover:text-amber-600"
-                  >
-                    {t("My Account", "मेरा खाता")}
-                  </Link>
-
-                  <Link
-                    to="/my-orders"
-                    className="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-amber-600"
-                  >
-                    {t("My Orders", "मेरे ऑर्डर")}
-                  </Link>
-
-                  <Link
-                    to="/wishlist"
-                    className="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-amber-600"
-                  >
-                    {t("Wishlist", "विशलिस्ट")}
-                  </Link>
-
-                  <Link
-                    to="/change-password"
-                    className="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-amber-600"
-                  >
-                    {t("Change Password", "पासवर्ड बदलें")}
-                  </Link>
-
-                  <button
-                    type="button"
-                    onClick={handleInstallClick}
-                    className="block w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-amber-600"
-                  >
-                    {t("Download the App", "ऐप डाउनलोड करें")}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={logout}
-                    className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-slate-50"
-                  >
-                    {t("Logout", "लॉगआउट")}
-                  </button>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div
-              className="hidden md:block relative"
-              onMouseEnter={openAccountMenu}
-              onMouseLeave={scheduleCloseAccountMenu}
-            >
+            ) : (
               <Link
                 to="/login"
                 className="flex items-center gap-1.5 text-slate-600 hover:text-blue-700 transition-colors"
@@ -667,87 +563,23 @@ function Header() {
                 <FaUser className="text-lg" />
                 <span className="text-sm">{t("Sign In", "लॉगिन")}</span>
               </Link>
+            )}
 
-              {accountOpen && (
-                <div className="absolute top-full right-0 z-50 mt-1 w-56 bg-white border border-slate-200 rounded-lg shadow-lg py-3">
-                  <div className="px-4 flex flex-col gap-2 pb-3 border-b border-slate-100">
-                    <Link
-                      to="/login"
-                      className="block text-center bg-blue-900 hover:bg-blue-950 text-white text-sm font-semibold rounded-full py-2 transition-colors"
-                    >
-                      {t("Sign In", "लॉगिन करें")}
-                    </Link>
-                    <Link
-                      to="/register"
-                      className="block text-center text-sm font-medium text-blue-900 hover:underline"
-                    >
-                      {t("Create an Account", "खाता बनाएं")}
-                    </Link>
-                  </div>
-
-                  <Link
-                    to="/login?redirect=/account"
-                    className="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-amber-600"
-                  >
-                    {t("My Account", "मेरा खाता")}
-                  </Link>
-
-                  <Link
-                    to="/login?redirect=/my-orders"
-                    className="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-amber-600"
-                  >
-                    {t("My Orders", "मेरे ऑर्डर")}
-                  </Link>
-
-                  <Link
-                    to="/wishlist"
-                    className="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-amber-600"
-                  >
-                    {t("Wishlist", "विशलिस्ट")}
-                  </Link>
-
-                  <Link
-                    to="/login?redirect=/my-orders"
-                    className="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-amber-600"
-                  >
-                    {t("Review My Purchases", "अपनी खरीद की समीक्षा करें")}
-                  </Link>
-
-                  <Link
-                    to="/#recently-viewed"
-                    onClick={goToRecentlyViewed}
-                    className="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-amber-600"
-                  >
-                    {t("Recently Viewed", "हाल ही में देखे गए")}
-                  </Link>
-
-                  <Link
-                    to="/contact"
-                    className="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-amber-600"
-                  >
-                    {t("Help & Contact", "सहायता और संपर्क")}
-                  </Link>
-
-                  <div className="mt-2 pt-2 border-t border-slate-100">
-                    <button
-                      type="button"
-                      onClick={handleInstallClick}
-                      className="block w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-amber-600"
-                    >
-                      {t("Download the App", "ऐप डाउनलोड करें")}
-                    </button>
-
-                    <Link
-                      to="/login?redirect=/loyalty-history"
-                      className="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-amber-600"
-                    >
-                      {t("Loyalty Points", "लॉयल्टी पॉइंट्स")}
-                    </Link>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
+            {accountOpen && (
+              <div
+                className={`absolute top-full right-0 z-50 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg ${
+                  isLoggedIn ? "w-48 py-2" : "w-56 py-3"
+                }`}
+              >
+                <AccountMenuContent
+                  isLoggedIn={isLoggedIn}
+                  user={user}
+                  logout={logout}
+                  t={t}
+                />
+              </div>
+            )}
+          </div>
 
           <button
             type="button"

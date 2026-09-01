@@ -2,15 +2,13 @@ import { NavLink } from "react-router-dom";
 import { FaHome, FaTh, FaShoppingCart, FaUser } from "react-icons/fa";
 
 import { useCart } from "../../context/CartContext";
-import { useAuth } from "../../context/AuthContext";
 import { useLanguage } from "../../context/LanguageContext";
 
 // Persistent mobile bottom tab bar (Flipkart/Amazon-style) — replaces the
 // old "☰ Menu" row that used to sit inside Navbar. Thumb-reachable nav
 // beats a menu link buried at the top of a tall scrolling page.
-function BottomNav({ onOpenCategories, categoriesOpen }) {
+function BottomNav({ onOpenCategories, categoriesOpen, onOpenAccount, accountOpen }) {
   const { totalItems, openCart } = useCart();
-  const { isLoggedIn } = useAuth();
   const { t } = useLanguage();
 
   const tabClass = (active) =>
@@ -53,13 +51,14 @@ function BottomNav({ onOpenCategories, categoriesOpen }) {
         {t("Cart", "कार्ट")}
       </button>
 
-      <NavLink
-        to={isLoggedIn ? "/account" : "/login"}
-        className={({ isActive }) => tabClass(isActive) + " py-2"}
+      <button
+        type="button"
+        onClick={onOpenAccount}
+        className={tabClass(accountOpen) + " py-2"}
       >
         <FaUser className="text-lg" />
         {t("Account", "खाता")}
-      </NavLink>
+      </button>
     </nav>
   );
 }

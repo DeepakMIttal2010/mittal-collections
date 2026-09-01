@@ -10,6 +10,7 @@ import DeliveryOfferBanner from "../components/DeliveryOfferBanner";
 import WelcomeBenefitsPopup from "../components/WelcomeBenefitsPopup";
 import ErrorBoundary from "../components/ErrorBoundary";
 import MobileMenu from "../components/MobileMenu";
+import MobileAccountMenu from "../components/AccountMenu/MobileAccountMenu";
 import BottomNav from "../components/BottomNav/BottomNav";
 
 // If the header ever crashes (it has, before — a missing translation
@@ -28,6 +29,7 @@ function HeaderFallback() {
 function MainLayout() {
   const { pathname } = useLocation();
   const [categoriesOpen, setCategoriesOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
 
   return (
     <>
@@ -53,9 +55,15 @@ function MainLayout() {
         isOpen={categoriesOpen}
         onClose={() => setCategoriesOpen(false)}
       />
+      <MobileAccountMenu
+        isOpen={accountOpen}
+        onClose={() => setAccountOpen(false)}
+      />
       <BottomNav
         categoriesOpen={categoriesOpen}
         onOpenCategories={() => setCategoriesOpen(true)}
+        accountOpen={accountOpen}
+        onOpenAccount={() => setAccountOpen(true)}
       />
     </>
   );
