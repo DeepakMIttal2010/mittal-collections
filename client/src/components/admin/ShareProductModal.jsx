@@ -505,8 +505,17 @@ function ShareProductModal({ product, onClose }) {
     allImages.slice(0, MAX_SLIDES),
   );
 
+  // Which single photo the static image share uses — defaults to the
+  // cover photo, same as the old hardcoded behavior, but now the admin
+  // can pick a different one from the product's gallery instead of being
+  // stuck with whichever photo happens to be product.image.
+  const [selectedImage, setSelectedImage] = useState(
+    () => product.image || allImages[0],
+  );
+
   useEffect(() => {
     setSelectedImages(allImages.slice(0, MAX_SLIDES));
+    setSelectedImage(product.image || allImages[0]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [product._id]);
 
@@ -545,7 +554,7 @@ function ShareProductModal({ product, onClose }) {
         canvas.width = CANVAS_W;
         canvas.height = CANVAS_H;
 
-        const productImg = await loadImage(imgUrl(product.image));
+        const productImg = await loadImage(imgUrl(selectedImage || product.image));
         drawBackground(ctx, productImg);
 
         const qrDataUrl = await QRCode.toDataURL(productLink, {
@@ -570,7 +579,7 @@ function ShareProductModal({ product, onClose }) {
 
     render();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [product, productLink, hasDiscount, discountPct]);
+  }, [product, productLink, hasDiscount, discountPct, selectedImage]);
 
   useEffect(() => {
     return () => {
@@ -1023,6 +1032,43 @@ function ShareProductModal({ product, onClose }) {
             <div className="space-y-2">
               {mode === "image" ? (
                 <>
+                  {allImages.length > 1 && (
+                    <div className="mb-1">
+                      <label className="block text-xs font-medium text-slate-500 mb-1">
+                        Photo
+                      </label>
+                      <div className="grid grid-cols-5 gap-2 max-h-40 overflow-y-auto pr-0.5">
+                        {allImages.map((src) => {
+                          const checked = src === selectedImage;
+                          const isCover = src === product.image;
+                          return (
+                            <button
+                              key={src}
+                              type="button"
+                              onClick={() => setSelectedImage(src)}
+                              className={`relative aspect-square rounded-lg overflow-hidden border-2 ${
+                                checked
+                                  ? "border-slate-900"
+                                  : "border-transparent opacity-50"
+                              }`}
+                            >
+                              <img
+                                src={imgUrl(src, "w_120,h_120,c_fill")}
+                                alt=""
+                                className="w-full h-full object-cover"
+                              />
+                              {isCover && (
+                                <span className="absolute top-1 left-1 bg-slate-900/80 text-white text-[9px] font-semibold px-1.5 py-0.5 rounded">
+                                  Main
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
                   {canShareFiles && (
                     <div className="flex items-center justify-center gap-2 text-xs text-slate-500 mb-1">
                       <span>Share via</span>
