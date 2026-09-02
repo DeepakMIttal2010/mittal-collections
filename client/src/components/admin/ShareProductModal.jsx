@@ -134,6 +134,13 @@ const ZOOM_END_SCALE = 1.12;
 // never eats a meaningful chunk of a very short slide's own screen time.
 const CROSSFADE_MS = 300;
 
+// Branded closer tacked onto the end of the video, after every photo
+// slide has played — see drawCtaCard. 2.5s is enough to read "Shop Now"
+// and register the QR without the video overstaying its welcome once the
+// actual product pitch is done.
+const CTA_MS = 2500;
+const CTA_FADE_MS = 400;
+
 // The opening beat is a big Hinglish hook line and nothing else — every
 // frame showing price/CTA/QR from the very first instant read as a
 // static ad card rather than something worth watching. The hook then
@@ -142,6 +149,22 @@ const HOOK_SHOW_MS = 1600;
 const HOOK_FADE_MS = 400;
 const INFO_FADE_IN_START_MS = 1300;
 const INFO_FADE_MS = 500;
+
+// From slide 2 onward, each photo gets its own short caption line instead
+// of the video going quiet after the opening hook — cycles if there are
+// more slides than lines. Slide 1 keeps the category hook (see
+// getCategoryContent) rather than one of these, so the opening beat stays
+// product-specific.
+const CAPTION_LINES = [
+  "Upgrade your space ✨",
+  "Premium • Elegant • Beautiful",
+  "Made for a beautiful home 🏡",
+  "Which one is your favourite?",
+];
+// How much of a (non-opening) slide's own duration its caption spends
+// fading in/out at each end — keeps the line from popping in/out abruptly
+// against the crossfade already happening on the photo underneath it.
+const CAPTION_FADE_FRACTION = 0.15;
 
 const clamp01 = (v) => Math.max(0, Math.min(1, v));
 
@@ -288,32 +311,54 @@ const drawOverlay = (
   ctx.fillStyle = "#f59e0b";
   ctx.fillText("COLLECTIONS", 60 + ctx.measureText("MITTAL ").width, 100);
 
-  // Opening beat: just the hook line, nothing else — every frame showing
-  // price/CTA/QR from the very first instant read as a static ad card.
-  // The hook fades out right as the product info fades in below, so
-  // there's no dead gap in the middle.
-  const hookOpacity =
-    elapsedMs < HOOK_SHOW_MS
-      ? 1
-      : clamp01(1 - (elapsedMs - HOOK_SHOW_MS) / HOOK_FADE_MS);
+  // Opening beat (slide 1): the category hook line, nothing else — every
+  // frame showing price/CTA/QR from the very first instant read as a
+  // static ad card. It fades out right as the product info fades in
+  // below, so there's no dead gap in the middle. From slide 2 onward, a
+  // shorter rotating caption plays instead, fading in/out at that slide's
+  // own boundaries — so the video keeps saying something new as it goes,
+  // rather than going quiet for the rest of its length.
+  const isOpeningSlide = currentIndex === 0;
+  const captionText = isOpeningSlide
+    ? hookText
+    : CAPTION_LINES[(currentIndex - 1) % CAPTION_LINES.length];
 
-  if (hookText && hookOpacity > 0) {
+  let captionOpacity;
+  if (isOpeningSlide) {
+    captionOpacity =
+      elapsedMs < HOOK_SHOW_MS
+        ? 1
+        : clamp01(1 - (elapsedMs - HOOK_SHOW_MS) / HOOK_FADE_MS);
+  } else {
+    const fadeInEnd = CAPTION_FADE_FRACTION;
+    const fadeOutStart = 1 - CAPTION_FADE_FRACTION;
+    captionOpacity =
+      slideProgress < fadeInEnd
+        ? slideProgress / fadeInEnd
+        : slideProgress > fadeOutStart
+          ? clamp01((1 - slideProgress) / CAPTION_FADE_FRACTION)
+          : 1;
+  }
+
+  if (captionText && captionOpacity > 0) {
     ctx.save();
-    ctx.globalAlpha = hookOpacity;
+    ctx.globalAlpha = captionOpacity;
     ctx.textAlign = "center";
     ctx.shadowColor = "rgba(0,0,0,0.6)";
     ctx.shadowBlur = 16;
     ctx.fillStyle = "#ffffff";
-    ctx.font = "800 64px system-ui, sans-serif";
-    const hookLines = wrapText(ctx, hookText, CANVAS_W - 140);
-    const lineH = 74;
-    let hookY = CANVAS_H * 0.44 - ((hookLines.length - 1) * lineH) / 2;
-    // Rises in slightly rather than sitting still while it fades, so the
-    // opening beat still reads as motion even before the next photo cuts.
-    const riseOffset = (1 - hookOpacity) * 16;
-    hookLines.forEach((line) => {
-      ctx.fillText(line, CANVAS_W / 2, hookY + riseOffset);
-      hookY += lineH;
+    ctx.font = isOpeningSlide
+      ? "800 64px system-ui, sans-serif"
+      : "700 52px system-ui, sans-serif";
+    const captionLines = wrapText(ctx, captionText, CANVAS_W - 140);
+    const lineH = isOpeningSlide ? 74 : 62;
+    let captionY = CANVAS_H * 0.44 - ((captionLines.length - 1) * lineH) / 2;
+    // Rises in slightly rather than sitting still while it fades, so each
+    // beat still reads as motion even before the next photo cuts.
+    const riseOffset = (1 - captionOpacity) * 16;
+    captionLines.forEach((line) => {
+      ctx.fillText(line, CANVAS_W / 2, captionY + riseOffset);
+      captionY += lineH;
     });
     ctx.restore();
     ctx.textAlign = "left";
@@ -432,6 +477,59 @@ const drawOverlay = (
   ctx.textAlign = "left";
 
   ctx.restore();
+};
+
+// Video-only — a short branded closer that plays after every photo slide
+// has had its turn, instead of the video just ending mid-product. Gives
+// the Reel a deliberate "that's the pitch, here's how to act on it" beat
+// rather than cutting off right as the last photo's info fades in.
+const drawCtaCard = (ctx, { qrImg }) => {
+  ctx.fillStyle = "#0f172a";
+  ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+
+  ctx.textAlign = "center";
+  ctx.shadowColor = "rgba(0,0,0,0.4)";
+  ctx.shadowBlur = 10;
+
+  ctx.font = "800 78px system-ui, sans-serif";
+  ctx.fillStyle = "#ffffff";
+  ctx.fillText("MITTAL", CANVAS_W / 2, CANVAS_H * 0.36);
+  ctx.fillStyle = "#f59e0b";
+  ctx.fillText("COLLECTIONS", CANVAS_W / 2, CANVAS_H * 0.36 + 88);
+
+  ctx.font = "500 34px system-ui, sans-serif";
+  ctx.fillStyle = "rgba(255,255,255,0.8)";
+  ctx.fillText("Shop Home Furnishing Online", CANVAS_W / 2, CANVAS_H * 0.36 + 150);
+
+  ctx.shadowBlur = 0;
+  ctx.font = "700 40px system-ui, sans-serif";
+  const shopText = "Shop Now →";
+  const shopW = ctx.measureText(shopText).width + 80;
+  const shopX = CANVAS_W / 2 - shopW / 2;
+  const shopY = CANVAS_H * 0.5;
+  ctx.fillStyle = "#f59e0b";
+  ctx.beginPath();
+  ctx.roundRect(shopX, shopY, shopW, 78, 39);
+  ctx.fill();
+  ctx.fillStyle = "#0f172a";
+  ctx.fillText(shopText, CANVAS_W / 2, shopY + 52);
+
+  const qrSize = 260;
+  const qrX = CANVAS_W / 2 - qrSize / 2;
+  const qrY = CANVAS_H * 0.62;
+  ctx.fillStyle = "#ffffff";
+  ctx.beginPath();
+  ctx.roundRect(qrX - 16, qrY - 16, qrSize + 32, qrSize + 32, 16);
+  ctx.fill();
+  ctx.drawImage(qrImg, qrX, qrY, qrSize, qrSize);
+
+  ctx.font = "500 28px system-ui, sans-serif";
+  ctx.fillStyle = "rgba(255,255,255,0.75)";
+  ctx.shadowColor = "rgba(0,0,0,0.4)";
+  ctx.shadowBlur = 8;
+  ctx.fillText("📷 Scan to Shop", CANVAS_W / 2, qrY + qrSize + 60);
+
+  ctx.textAlign = "left";
 };
 
 // Real Safari only — Chrome/Edge/Android WebView all also contain
@@ -686,7 +784,10 @@ function ShareProductModal({ product, onClose }) {
       const ctx = canvas.getContext("2d");
 
       const slideMs = Math.max(SLIDE_MS, MIN_VIDEO_MS / loadedImages.length);
-      const totalMs = slideMs * loadedImages.length;
+      const photosMs = slideMs * loadedImages.length;
+      // Total recording length includes the branded CTA closer tacked on
+      // after the last photo — see drawCtaCard.
+      const totalMs = photosMs + CTA_MS;
 
       // captureStream(30) ("auto" mode) samples the canvas on its own
       // internal clock, independent of when drawFrame below actually
@@ -762,47 +863,70 @@ function ShareProductModal({ product, onClose }) {
       const drawFrame = () => {
         try {
           const elapsed = performance.now() - startedAt;
-          const index = Math.min(
-            Math.floor(elapsed / slideMs),
-            loadedImages.length - 1,
-          );
-          const slideProgress = Math.min(
-            (elapsed - index * slideMs) / slideMs,
-            1,
-          );
-          // Zoom is one continuous motion across the *whole* video, not
-          // reset to 1x at the start of every photo — a per-slide zoom
-          // that snaps back down at each transition read as the movement
-          // stopping instead of a slideshow of several photos still inside
-          // one smooth cinematic zoom.
-          const overallProgress = Math.min(elapsed / totalMs, 1);
-          const zoom = 1 + (ZOOM_END_SCALE - 1) * overallProgress;
 
-          const crossfadeMs = Math.min(CROSSFADE_MS, slideMs * 0.3);
-          const crossfadeT =
-            index > 0 ? (elapsed - index * slideMs) / crossfadeMs : 1;
-
-          if (crossfadeT < 1) {
-            // Still dissolving in from the previous slide — both images
-            // share the same current zoom level, since the zoom belongs to
-            // the video's timeline, not to either individual photo.
-            drawBackground(ctx, loadedImages[index - 1], zoom);
-            ctx.save();
-            ctx.globalAlpha = Math.max(crossfadeT, 0);
-            drawBackground(ctx, loadedImages[index], zoom);
-            ctx.restore();
+          if (elapsed >= photosMs) {
+            // Branded closer — fades in from the last photo frame instead
+            // of hard-cutting to it.
+            const ctaOpacity = clamp01((elapsed - photosMs) / CTA_FADE_MS);
+            drawCtaCard(ctx, { qrImg });
+            if (ctaOpacity < 1) {
+              ctx.save();
+              ctx.globalAlpha = 1 - ctaOpacity;
+              drawBackground(ctx, loadedImages[loadedImages.length - 1], ZOOM_END_SCALE);
+              drawOverlay(ctx, {
+                ...overlayInfo,
+                qrImg,
+                elapsedMs: photosMs,
+                totalSlides: loadedImages.length,
+                currentIndex: loadedImages.length - 1,
+                slideProgress: 1,
+              });
+              ctx.restore();
+            }
           } else {
-            drawBackground(ctx, loadedImages[index], zoom);
-          }
+            const index = Math.min(
+              Math.floor(elapsed / slideMs),
+              loadedImages.length - 1,
+            );
+            const slideProgress = Math.min(
+              (elapsed - index * slideMs) / slideMs,
+              1,
+            );
+            // Zoom is one continuous motion across the photo portion of the
+            // video, not reset to 1x at the start of every photo — a
+            // per-slide zoom that snaps back down at each transition read
+            // as the movement stopping instead of a slideshow of several
+            // photos still inside one smooth cinematic zoom. It also
+            // doesn't run into the CTA card, which has its own static look.
+            const overallProgress = Math.min(elapsed / photosMs, 1);
+            const zoom = 1 + (ZOOM_END_SCALE - 1) * overallProgress;
 
-          drawOverlay(ctx, {
-            ...overlayInfo,
-            qrImg,
-            elapsedMs: elapsed,
-            totalSlides: loadedImages.length,
-            currentIndex: index,
-            slideProgress,
-          });
+            const crossfadeMs = Math.min(CROSSFADE_MS, slideMs * 0.3);
+            const crossfadeT =
+              index > 0 ? (elapsed - index * slideMs) / crossfadeMs : 1;
+
+            if (crossfadeT < 1) {
+              // Still dissolving in from the previous slide — both images
+              // share the same current zoom level, since the zoom belongs to
+              // the video's timeline, not to either individual photo.
+              drawBackground(ctx, loadedImages[index - 1], zoom);
+              ctx.save();
+              ctx.globalAlpha = Math.max(crossfadeT, 0);
+              drawBackground(ctx, loadedImages[index], zoom);
+              ctx.restore();
+            } else {
+              drawBackground(ctx, loadedImages[index], zoom);
+            }
+
+            drawOverlay(ctx, {
+              ...overlayInfo,
+              qrImg,
+              elapsedMs: elapsed,
+              totalSlides: loadedImages.length,
+              currentIndex: index,
+              slideProgress,
+            });
+          }
 
           if (elapsed < totalMs) {
             frameHandle = requestAnimationFrame(drawFrame);
