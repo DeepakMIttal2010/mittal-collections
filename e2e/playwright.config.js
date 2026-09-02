@@ -8,13 +8,19 @@ import { defineConfig, devices } from "@playwright/test";
 export default defineConfig({
   testDir: "./tests",
   fullyParallel: false, // several tests share seeded fixture data via the API
-  // One retry on CI only — this suite runs against `vite dev`, not a
-  // production build, so the first hit to any given route pays Vite's
-  // on-demand compile cost; occasionally that pushes a single test past
-  // its timeout (confirmed 2026-09-02: a test that took 42s and timed
-  // out cold took 5.8s once the route was already compiled). A retry
-  // absorbs that one-off cost without masking a genuinely broken
-  // assertion, which fails the same way on retry too.
+  // Hard-pinned rather than left to Playwright's own CPU-based default
+  // — this suite runs against `vite dev`, not a production build, so
+  // concurrent workers each trigger Vite's on-demand compile for
+  // whatever route they hit first, and the dev server chokes trying to
+  // compile several routes at once. Confirmed 2026-09-02: GitHub
+  // Actions' runner picked 2 workers on its own and nearly the entire
+  // suite failed/timed out from that pileup, retries included (a retry
+  // doesn't help when the other worker is still hammering the dev
+  // server) — pinning to 1 worker fixed it.
+  workers: 1,
+  // One retry on CI only, for the rare one-off blip that isn't a
+  // concurrency pileup — a genuinely broken assertion fails the same
+  // way on retry too, so this doesn't mask real bugs.
   retries: process.env.CI ? 1 : 0,
   reporter: [["list"]],
   use: {
