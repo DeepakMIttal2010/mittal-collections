@@ -73,8 +73,8 @@ function ProductQuickView({ product, onClose }) {
 
             <p className="text-sm text-slate-500 mb-4">
               {product.category?.name || "Uncategorized"}
-              {product.subcategory?.name
-                ? ` / ${product.subcategory.name}`
+              {product.subcategories?.length
+                ? ` / ${product.subcategories.map((sub) => sub.name).join(", ")}`
                 : ""}
             </p>
 

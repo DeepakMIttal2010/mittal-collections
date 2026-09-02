@@ -204,7 +204,12 @@ function AdminBulkImport() {
       data.append("name", row.name);
       data.append("description", row.description);
       data.append("category", row.categoryId);
-      data.append("subcategory", row.subcategoryId || "");
+      // CSV import still supports one subcategory per row — wrapped into
+      // the array addProduct now expects (see Product.js subcategories).
+      data.append(
+        "subcategories",
+        JSON.stringify(row.subcategoryId ? [row.subcategoryId] : []),
+      );
       data.append("price", row.price);
       data.append("oldPrice", row.oldPrice || "0");
       data.append("stock", row.stock || "0");

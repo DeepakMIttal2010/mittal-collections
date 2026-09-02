@@ -70,6 +70,29 @@ const parseVariants = (raw) => {
   }
 };
 
+// Accepts either a JSON-array string (multipart form field, matching the
+// `variants` convention above) or an already-parsed array (some callers,
+// e.g. duplicateProduct, pass the array directly) — always a plain array
+// of subcategory id strings, never containing a null/empty entry.
+const parseSubcategories = (raw) => {
+  if (!raw) return [];
+
+  let parsed = raw;
+  if (typeof raw === "string") {
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      return [];
+    }
+  }
+
+  if (!Array.isArray(parsed)) return [];
+
+  return parsed
+    .map((id) => String(id).trim())
+    .filter(Boolean);
+};
+
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const slugify = (text) =>
@@ -187,7 +210,7 @@ export const getProducts = async (req, res) => {
       filter.category = category.trim();
     }
     if (subcategory && subcategory.trim()) {
-      filter.subcategory = subcategory.trim();
+      filter.subcategories = subcategory.trim();
     }
     if (maxPrice && !Number.isNaN(Number(maxPrice))) {
       filter.price = { ...filter.price, $lte: Number(maxPrice) };
@@ -199,7 +222,7 @@ export const getProducts = async (req, res) => {
     let products = await Product.find(filter)
       .select(COST_FIELDS)
       .populate("category", "name nameHi slug image")
-      .populate("subcategory", "name nameHi slug")
+      .populate("subcategories", "name nameHi slug")
       .sort({ createdAt: -1 })
       .lean();
 
@@ -315,7 +338,7 @@ export const getAllProductsAdmin = async (req, res) => {
       filter.category = category.trim();
     }
     if (subcategory && subcategory.trim()) {
-      filter.subcategory = subcategory.trim();
+      filter.subcategories = subcategory.trim();
     }
 
     if (stockStatus === "inStock") {
@@ -375,12 +398,12 @@ export const getAllProductsAdmin = async (req, res) => {
 
       products = await Product.populate(raw, [
         { path: "category", select: "name slug image" },
-        { path: "subcategory", select: "name slug" },
+        { path: "subcategories", select: "name slug" },
       ]);
     } else {
       products = await Product.find(filter)
         .populate("category", "name nameHi slug image")
-        .populate("subcategory", "name nameHi slug")
+        .populate("subcategories", "name nameHi slug")
         .sort({ [sortBy]: sortOrder })
         .skip((page - 1) * limit)
         .limit(limit);
@@ -425,7 +448,7 @@ export const getProductByIdAdmin = async (req, res) => {
   try {
     const product = await Product.findById(req.params.id)
       .populate("category", "name nameHi slug image")
-      .populate("subcategory", "name nameHi slug");
+      .populate("subcategories", "name nameHi slug");
 
     if (!product) {
       return res.status(404).json({
@@ -480,7 +503,7 @@ export const duplicateProduct = async (req, res) => {
       price: source.price,
       oldPrice: source.oldPrice,
       category: source.category,
-      subcategory: source.subcategory,
+      subcategories: [...source.subcategories],
       stock: source.stock,
       variants: source.variants,
 
@@ -571,7 +594,7 @@ export const getTrendingProducts = async (req, res) => {
     })
       .select(COST_FIELDS)
       .populate("category", "name nameHi slug image")
-      .populate("subcategory", "name nameHi slug")
+      .populate("subcategories", "name nameHi slug")
       .sort({ trendingRank: 1, updatedAt: -1 })
       .limit(limit);
 
@@ -626,7 +649,7 @@ export const getTrendingProductsByCategory = async (req, res) => {
           })
             .select(COST_FIELDS)
             .populate("category", "name nameHi slug image")
-            .populate("subcategory", "name nameHi slug")
+            .populate("subcategories", "name nameHi slug")
             .sort({ trendingRank: 1, updatedAt: -1 })
             .limit(perCategoryLimit);
 
@@ -687,7 +710,7 @@ export const getNewArrivalProducts = async (req, res) => {
     })
       .select(COST_FIELDS)
       .populate("category", "name nameHi slug image")
-      .populate("subcategory", "name nameHi slug")
+      .populate("subcategories", "name nameHi slug")
       .sort({ createdAt: -1 })
       .limit(limit);
 
@@ -740,7 +763,7 @@ export const getNewArrivalsByCategory = async (req, res) => {
           })
             .select(COST_FIELDS)
             .populate("category", "name nameHi slug image")
-            .populate("subcategory", "name nameHi slug")
+            .populate("subcategories", "name nameHi slug")
             .sort({ createdAt: -1 })
             .limit(perCategoryLimit);
 
@@ -804,7 +827,7 @@ export const getBestSellers = async (req, res) => {
     })
       .select(COST_FIELDS)
       .populate("category", "name nameHi slug image")
-      .populate("subcategory", "name nameHi slug");
+      .populate("subcategories", "name nameHi slug");
 
     const soldCountById = new Map(
       salesByProduct.map((entry) => [entry._id.toString(), entry.totalSold]),
@@ -882,7 +905,7 @@ export const getBigSavingsProducts = async (req, res) => {
     })
       .select(COST_FIELDS)
       .populate("category", "name nameHi slug image isActive")
-      .populate("subcategory", "name nameHi slug");
+      .populate("subcategories", "name nameHi slug");
 
     const discountById = new Map(
       candidates.map((entry) => [entry._id.toString(), entry.discountPercent]),
@@ -952,7 +975,7 @@ export const getProductById = async (req, res) => {
     const product = await Product.findById(req.params.id)
       .select(COST_FIELDS)
       .populate("category", "name nameHi slug image")
-      .populate("subcategory", "name nameHi slug");
+      .populate("subcategories", "name nameHi slug");
 
     if (!product || product.visibility === "offline") {
       return res.status(404).json({
@@ -988,7 +1011,6 @@ export const addProduct = async (req, res) => {
       price,
       oldPrice,
       category,
-      subcategory,
       stock,
       featured,
       isActive,
@@ -1046,7 +1068,7 @@ export const addProduct = async (req, res) => {
       price: hasVariants ? variants[0].price : price,
       oldPrice: hasVariants ? variants[0].oldPrice : oldPrice,
       category,
-      subcategory: subcategory || null,
+      subcategories: parseSubcategories(req.body.subcategories),
       stock: hasVariants
         ? variants.reduce((sum, v) => sum + v.stock, 0)
         : stock,
@@ -1144,7 +1166,7 @@ export const updateProduct = async (req, res) => {
     product.price = hasVariants ? variants[0].price : req.body.price;
     product.oldPrice = hasVariants ? variants[0].oldPrice : req.body.oldPrice;
     product.category = req.body.category;
-    product.subcategory = req.body.subcategory || null;
+    product.subcategories = parseSubcategories(req.body.subcategories);
     product.stock = hasVariants
       ? variants.reduce((sum, v) => sum + v.stock, 0)
       : req.body.stock;

@@ -70,7 +70,7 @@ function EditProduct() {
     oldPrice: "",
     stock: "",
     category: "",
-    subcategory: "",
+    subcategories: [],
     featured: false,
     isActive: true,
     isTrending: false,
@@ -133,7 +133,7 @@ function EditProduct() {
         oldPrice: product.oldPrice ?? "",
         stock: product.stock ?? "",
         category: product.category?._id || "",
-        subcategory: product.subcategory?._id || "",
+        subcategories: (product.subcategories || []).map((sub) => sub._id),
         featured: product.featured,
         isActive: product.isActive,
         isTrending: product.isTrending || false,
@@ -206,19 +206,23 @@ function EditProduct() {
     (sub) => sub.category?._id === formData.category,
   );
 
-  // Subcategory-specific rule wins over its category's rule; falls back to
-  // a hardcoded default when nothing is configured (see AdminSettings.jsx).
-  const resolvePricingRule = (categoryId, subcategoryId) => {
+  // A subcategory-specific rule wins over its category's rule; falls back
+  // to a hardcoded default when nothing is configured (see
+  // AdminSettings.jsx). A product can have several subcategories now —
+  // the first one (in selection order) with its own configured rule
+  // wins, so picking a more specific subcategory first lets an admin
+  // control which rule drives the cost auto-fill.
+  const resolvePricingRule = (categoryId, subcategoryIds = []) => {
     const active = pricingRules.filter((r) => r.isActive !== false);
 
-    const subMatch =
-      subcategoryId &&
-      active.find(
+    for (const subcategoryId of subcategoryIds) {
+      const subMatch = active.find(
         (r) =>
           (r.category?._id || r.category) === categoryId &&
           (r.subcategory?._id || r.subcategory) === subcategoryId,
       );
-    if (subMatch) return subMatch;
+      if (subMatch) return subMatch;
+    }
 
     const catMatch = active.find(
       (r) =>
@@ -242,7 +246,7 @@ function EditProduct() {
 
       let suggestions = {};
       if (shouldSuggestCost) {
-        const rule = resolvePricingRule(prev.category, prev.subcategory);
+        const rule = resolvePricingRule(prev.category, prev.subcategories);
         const purchasePrice = Number(value);
         const miscExpenses = Math.round(
           (purchasePrice * rule.miscExpensesPercent) / 100,
@@ -262,10 +266,19 @@ function EditProduct() {
       return {
         ...prev,
         [name]: type === "checkbox" ? checked : value,
-        ...(name === "category" ? { subcategory: "" } : {}),
+        ...(name === "category" ? { subcategories: [] } : {}),
         ...suggestions,
       };
     });
+  };
+
+  const handleSubcategoryToggle = (subcategoryId) => {
+    setFormData((prev) => ({
+      ...prev,
+      subcategories: prev.subcategories.includes(subcategoryId)
+        ? prev.subcategories.filter((id) => id !== subcategoryId)
+        : [...prev.subcategories, subcategoryId],
+    }));
   };
 
   const handleAddImages = (e) => {
@@ -346,11 +359,17 @@ function EditProduct() {
     const data = new FormData();
 
     Object.keys(formData).forEach((key) => {
+      // Arrays need JSON.stringify, not FormData's default (which just
+      // calls .toString() on the array — a comma-joined string, not
+      // JSON the server can parse) — handled explicitly below instead.
+      if (key === "subcategories") return;
+
       if (formData[key] !== null) {
         data.append(key, formData[key]);
       }
     });
 
+    data.append("subcategories", JSON.stringify(formData.subcategories));
     data.append("variants", JSON.stringify(cleanVariants));
     if (productVersionRef.current !== null) {
       data.append("version", productVersionRef.current);
@@ -503,24 +522,26 @@ function EditProduct() {
           </div>
 
           <div className="form-group">
-            <label>Subcategory</label>
+            <label>Subcategories</label>
 
-            <select
-              name="subcategory"
-              value={formData.subcategory}
-              onChange={handleChange}
-              disabled={!formData.category}
-            >
-              <option value="">
-                {formData.category ? "None" : "Select category first"}
-              </option>
-
-              {subcategoryOptions.map((sub) => (
-                <option key={sub._id} value={sub._id}>
-                  {sub.name}
-                </option>
-              ))}
-            </select>
+            {!formData.category ? (
+              <p className="subcategory-hint">Select category first</p>
+            ) : subcategoryOptions.length === 0 ? (
+              <p className="subcategory-hint">None for this category</p>
+            ) : (
+              <div className="subcategory-checkbox-list">
+                {subcategoryOptions.map((sub) => (
+                  <label key={sub._id} className="subcategory-checkbox">
+                    <input
+                      type="checkbox"
+                      checked={formData.subcategories.includes(sub._id)}
+                      onChange={() => handleSubcategoryToggle(sub._id)}
+                    />
+                    {sub.groupLabel}: {sub.name}
+                  </label>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 

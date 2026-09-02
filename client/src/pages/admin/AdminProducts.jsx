@@ -210,15 +210,17 @@ function AdminProducts() {
       (r) => r.isActive !== false,
     );
 
-    const resolveRule = (categoryId, subcategoryId) => {
-      const subMatch =
-        subcategoryId &&
-        pricingRules.find(
+    // Matches AddProduct.jsx/EditProduct.jsx's resolvePricingRule — first
+    // subcategory (in array order) with its own configured rule wins.
+    const resolveRule = (categoryId, subcategoryIds = []) => {
+      for (const subcategoryId of subcategoryIds) {
+        const subMatch = pricingRules.find(
           (r) =>
             (r.category?._id || r.category) === categoryId &&
             (r.subcategory?._id || r.subcategory) === subcategoryId,
         );
-      if (subMatch) return subMatch;
+        if (subMatch) return subMatch;
+      }
 
       const catMatch = pricingRules.find(
         (r) => (r.category?._id || r.category) === categoryId && !r.subcategory,
@@ -260,7 +262,10 @@ function AdminProducts() {
 
     const rows = response.products.map((p) => {
       const hasVariants = p.variants?.length > 0;
-      const rule = resolveRule(p.category?._id, p.subcategory?._id);
+      const rule = resolveRule(
+        p.category?._id,
+        (p.subcategories || []).map((s) => s._id),
+      );
 
       const allSizes = hasVariants
         ? p.variants
@@ -314,7 +319,7 @@ function AdminProducts() {
       return [
         p.name,
         p.category?.name || "",
-        p.subcategory?.name || "",
+        (p.subcategories || []).map((s) => s.name).join("; "),
         p.price,
         p.oldPrice || "",
         discountDisplay,
@@ -419,7 +424,7 @@ function AdminProducts() {
       const common = [
         p.name,
         p.category?.name || "",
-        p.subcategory?.name || "",
+        (p.subcategories || []).map((s) => s.name).join("; "),
       ];
 
       const tail = [

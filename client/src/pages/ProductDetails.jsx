@@ -500,11 +500,11 @@ function ProductDetails() {
           },
         ]
       : []),
-    ...(product.subcategory && product.category
+    ...(product.subcategories?.[0] && product.category
       ? [
           {
-            name: product.subcategory.name,
-            path: `/category/${product.category.slug}/${product.subcategory.slug}`,
+            name: product.subcategories[0].name,
+            path: `/category/${product.category.slug}/${product.subcategories[0].slug}`,
           },
         ]
       : []),
@@ -521,11 +521,14 @@ function ProductDetails() {
           },
         ]
       : []),
-    ...(product.subcategory && product.category
+    ...(product.subcategories?.[0] && product.category
       ? [
           {
-            name: t(product.subcategory.name, product.subcategory.nameHi),
-            path: `/category/${product.category.slug}/${product.subcategory.slug}`,
+            name: t(
+              product.subcategories[0].name,
+              product.subcategories[0].nameHi,
+            ),
+            path: `/category/${product.category.slug}/${product.subcategories[0].slug}`,
           },
         ]
       : []),
@@ -706,8 +709,10 @@ function ProductDetails() {
         <div className="min-w-0">
           <p className="text-sm text-slate-500 mb-1">
             {t(product.category?.name, product.category?.nameHi)}
-            {product.subcategory?.name
-              ? ` / ${t(product.subcategory.name, product.subcategory.nameHi)}`
+            {product.subcategories?.length
+              ? ` / ${product.subcategories
+                  .map((sub) => t(sub.name, sub.nameHi))
+                  .join(", ")}`
               : ""}
           </p>
 

@@ -281,7 +281,7 @@ export const permanentlyDeleteSubcategory = async (req, res) => {
     }
 
     const hasProducts = await Product.exists({
-      subcategory: subcategory._id,
+      subcategories: subcategory._id,
     });
 
     if (hasProducts) {

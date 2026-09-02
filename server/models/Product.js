@@ -52,10 +52,13 @@ const productSchema = new mongoose.Schema(
       required: [true, "Category is required"],
     },
 
-    subcategory: {
-      type: mongoose.Schema.Types.ObjectId,
+    // A product can belong to more than one subcategory at once (e.g.
+    // both a "By Material > Cotton Covers" and a "By Size > 48x72 Inches"
+    // subcategory under the same category) — added 2026-09-02.
+    subcategories: {
+      type: [mongoose.Schema.Types.ObjectId],
       ref: "Subcategory",
-      default: null,
+      default: [],
     },
 
     // Required for a normal add/edit (enforced in the controller, since
@@ -259,7 +262,7 @@ const productSchema = new mongoose.Schema(
 // Matches the common getProducts filter (category + subcategory,
 // always scoped to isActive) and the default newest-first sort.
 productSchema.index({ isActive: 1, category: 1 });
-productSchema.index({ isActive: 1, subcategory: 1 });
+productSchema.index({ isActive: 1, subcategories: 1 });
 productSchema.index({ isActive: 1, createdAt: -1 });
 
 const Product = mongoose.model("Product", productSchema);
