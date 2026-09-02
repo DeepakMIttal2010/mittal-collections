@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { NavLink } from "react-router-dom";
 import { FaChevronDown } from "react-icons/fa";
@@ -82,16 +82,32 @@ function useHoverDropdown() {
 // of the trigger rather than CSS top/left, same fix already used for
 // QuickViewModal's own "escape the containing block" problem.
 function DropdownPortal({ rect, onMouseEnter, onMouseLeave, children }) {
+  const panelRef = useRef(null);
+  const [left, setLeft] = useState(rect ? rect.left : 0);
+
+  // Clamps the panel's left offset so it never spills past the right edge
+  // of the viewport (it otherwise always opened flush with the trigger's
+  // left edge, which pushed wider panels — e.g. 3+ subcategory groups —
+  // off-screen). Runs before paint, so there's no visible jump.
+  useLayoutEffect(() => {
+    if (!rect || !panelRef.current) return;
+    const margin = 12;
+    const panelWidth = panelRef.current.offsetWidth;
+    const maxLeft = window.innerWidth - panelWidth - margin;
+    setLeft(Math.max(margin, Math.min(rect.left, maxLeft)));
+  }, [rect]);
+
   if (!rect) return null;
 
   return createPortal(
     <div
+      ref={panelRef}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
       style={{
         position: "fixed",
         top: rect.bottom,
-        left: rect.left,
+        left,
         zIndex: 50,
       }}
     >
@@ -105,10 +121,10 @@ function SubmenuPanel({ category, groups }) {
   const { t } = useLanguage();
 
   return (
-    <div className="bg-white border border-slate-200 shadow-lg rounded-b-lg p-6 flex gap-10 min-w-max">
+    <div className="bg-white border border-slate-200 shadow-lg rounded-b-lg p-5 flex gap-6 max-w-[90vw] overflow-x-auto">
       {Object.entries(groups).map(([groupLabel, items]) => (
-        <div key={groupLabel} className="min-w-[160px]">
-          <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2 border-b border-slate-100 pb-1">
+        <div key={groupLabel} className="min-w-[130px] shrink-0">
+          <h4 className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2 border-b border-slate-100 pb-1 whitespace-nowrap">
             {groupLabel}
           </h4>
 
@@ -119,7 +135,7 @@ function SubmenuPanel({ category, groups }) {
                 <li key={item._id}>
                   <NavLink
                     to={`/category/${category.slug}/${item.slug}`}
-                    className="text-sm text-slate-600 hover:text-amber-600 transition-colors block"
+                    className="text-xs text-slate-600 hover:text-amber-600 transition-colors block whitespace-nowrap"
                   >
                     {t(item.name, item.nameHi)}
                   </NavLink>
@@ -203,14 +219,14 @@ function MoreCategoriesMenu({ categories, getGroupedSubcategories, linkClassName
 
       {isOpen && (
         <DropdownPortal rect={rect} onMouseEnter={open} onMouseLeave={close}>
-          <div className="bg-white border border-slate-200 shadow-lg rounded-b-lg flex min-w-[560px]">
-            <div className="w-48 border-r border-slate-100 py-2 shrink-0">
+          <div className="bg-white border border-slate-200 shadow-lg rounded-b-lg flex max-w-[90vw]">
+            <div className="w-40 border-r border-slate-100 py-2 shrink-0">
               {categories.map((category) => (
                 <NavLink
                   key={category._id}
                   to={`/category/${category.slug}`}
                   onMouseEnter={() => setActiveCategoryId(category._id)}
-                  className={`block px-4 py-2.5 text-sm transition-colors ${
+                  className={`block px-4 py-2 text-sm transition-colors whitespace-nowrap ${
                     category._id === activeCategoryId
                       ? "bg-amber-50 text-amber-700 font-medium"
                       : "text-slate-700 hover:bg-slate-50"
@@ -221,11 +237,11 @@ function MoreCategoriesMenu({ categories, getGroupedSubcategories, linkClassName
               ))}
             </div>
 
-            <div className="flex-1 p-6 flex gap-10">
+            <div className="flex-1 p-5 flex gap-6 overflow-x-auto">
               {hasSubmenu ? (
                 Object.entries(groups).map(([groupLabel, items]) => (
-                  <div key={groupLabel} className="min-w-[160px]">
-                    <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2 border-b border-slate-100 pb-1">
+                  <div key={groupLabel} className="min-w-[130px] shrink-0">
+                    <h4 className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2 border-b border-slate-100 pb-1 whitespace-nowrap">
                       {groupLabel}
                     </h4>
 
@@ -236,7 +252,7 @@ function MoreCategoriesMenu({ categories, getGroupedSubcategories, linkClassName
                           <li key={item._id}>
                             <NavLink
                               to={`/category/${activeCategory.slug}/${item.slug}`}
-                              className="text-sm text-slate-600 hover:text-amber-600 transition-colors block"
+                              className="text-xs text-slate-600 hover:text-amber-600 transition-colors block whitespace-nowrap"
                             >
                               {t(item.name, item.nameHi)}
                             </NavLink>
