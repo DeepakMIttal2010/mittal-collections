@@ -793,15 +793,11 @@ function ShareProductModal({ product, onClose }) {
       // internal clock, independent of when drawFrame below actually
       // paints — under any real CPU hiccup (decoding a large photo, GC,
       // a slow frame) the two clocks drift apart and the recording comes
-      // out with uneven-feeling pacing: whichever slide was on-screen
-      // during the hiccup gets over- or under-sampled relative to the
-      // others, even though drawFrame's own slide-switching math is
-      // correct. captureStream(0) ("manual" mode) instead only produces
-      // a frame when explicitly told to via requestFrame() — driving
-      // that from its own steady setInterval below decouples "how often
-      // do we push a frame" from "how often did drawFrame happen to run",
-      // giving a consistent recorded frame rate regardless of drawing
-      // hiccups.
+      // out with uneven-feeling pacing. captureStream(0) ("manual" mode)
+      // instead only produces a frame when explicitly told to via
+      // requestFrame() — called at the end of drawFrame below, right
+      // after that same tick's drawing, so every pushed frame reflects
+      // what was actually just painted.
       let audioCtx = null;
       const videoStream = canvas.captureStream(0);
       const [videoTrack] = videoStream.getVideoTracks();
@@ -842,8 +838,7 @@ function ShareProductModal({ product, onClose }) {
       };
       recorder.onerror = (event) => {
         console.error("MediaRecorder error:", event.error || event);
-        cancelAnimationFrame(frameHandle);
-        clearInterval(pushTimer);
+        clearInterval(frameTimer);
         if (recorder.state !== "inactive") recorder.stop();
       };
 
@@ -853,13 +848,21 @@ function ShareProductModal({ product, onClose }) {
 
       recorder.start();
 
-      let frameHandle;
+      let frameTimer;
       const startedAt = performance.now();
 
-      // Steady 30fps frame push, independent of drawFrame's own actual
-      // cadence — see the captureStream(0) comment above.
-      const pushTimer = setInterval(() => videoTrack.requestFrame(), 1000 / 30);
-
+      // Drawing AND pushing the frame both happen inside this one
+      // setInterval tick (not requestAnimationFrame) — rAF is throttled to
+      // near-zero, or fully paused, the instant this tab loses focus or
+      // visibility (e.g. the admin switches to another tab while a video
+      // is generating), while the audio track and MediaRecorder keep
+      // running on real wall-clock time regardless. That mismatch is
+      // exactly what produces a recording whose audio/duration is correct
+      // but whose picture freezes on one frame for however long the tab
+      // was backgrounded. setInterval keeps running in a background tab
+      // (Chrome clamps it to a minimum ~1s period there, not zero), so
+      // driving both draw and push from it keeps the visible frame
+      // advancing — just less smoothly — instead of freezing outright.
       const drawFrame = () => {
         try {
           const elapsed = performance.now() - startedAt;
@@ -928,9 +931,10 @@ function ShareProductModal({ product, onClose }) {
             });
           }
 
-          if (elapsed < totalMs) {
-            frameHandle = requestAnimationFrame(drawFrame);
-          } else {
+          videoTrack.requestFrame();
+
+          if (elapsed >= totalMs) {
+            clearInterval(frameTimer);
             recorder.stop();
           }
         } catch (frameError) {
@@ -939,15 +943,15 @@ function ShareProductModal({ product, onClose }) {
           // now so this at least ends with a (short) video instead of
           // hanging with "Recording video..." shown indefinitely.
           console.error("Video frame draw error:", frameError);
+          clearInterval(frameTimer);
           recorder.stop();
         }
       };
 
-      frameHandle = requestAnimationFrame(drawFrame);
+      frameTimer = setInterval(drawFrame, 1000 / 30);
 
       await stopped;
-      cancelAnimationFrame(frameHandle);
-      clearInterval(pushTimer);
+      clearInterval(frameTimer);
       if (audioCtx) await audioCtx.close();
 
       const rawBlob = new Blob(chunks, { type: mimeType.split(";")[0] });
