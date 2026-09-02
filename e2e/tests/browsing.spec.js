@@ -48,10 +48,18 @@ test.describe("Search", () => {
 
   test("autocomplete suggestions appear after typing and navigate on click", async ({
     page,
-  }) => {
+  }, testInfo) => {
+    // The desktop header search bar is hidden (not just resized) under
+    // the mobile-only search form at ≤375px, so .fill() below would just
+    // hang waiting for a non-actionable element until timeout.
+    test.skip(
+      testInfo.project.name !== "desktop-chrome",
+      "targets the desktop-only search bar",
+    );
+
     await page.goto("/");
-    // The desktop header search bar — specific placeholder text to
-    // avoid also matching the mobile-only search form in the DOM.
+    // Specific placeholder text to avoid also matching the mobile-only
+    // search form in the DOM.
     const searchInput = page.getByPlaceholder(/search bedsheets/i);
     await searchInput.fill("bed");
     // Debounced (250ms) suggestions dropdown — scoped to role="button"

@@ -17,11 +17,12 @@ test.describe("Welcome popup", () => {
       name: /welcome to mittal collections/i,
     });
 
-    // Shows after ~2.5s.
-    await expect(popup).toBeVisible({ timeout: 4000 });
+    // Shows after ~2.5s — generous timeout since this is the first
+    // navigation in the file and can pay Vite's cold-compile cost.
+    await expect(popup).toBeVisible({ timeout: 10000 });
 
     // Auto-closes after ~5s from appearing.
-    await expect(popup).toBeHidden({ timeout: 7000 });
+    await expect(popup).toBeHidden({ timeout: 12000 });
   });
 
   test("does not appear for a logged-in visitor", async ({

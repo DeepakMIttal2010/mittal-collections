@@ -8,7 +8,14 @@ import { defineConfig, devices } from "@playwright/test";
 export default defineConfig({
   testDir: "./tests",
   fullyParallel: false, // several tests share seeded fixture data via the API
-  retries: 0,
+  // One retry on CI only — this suite runs against `vite dev`, not a
+  // production build, so the first hit to any given route pays Vite's
+  // on-demand compile cost; occasionally that pushes a single test past
+  // its timeout (confirmed 2026-09-02: a test that took 42s and timed
+  // out cold took 5.8s once the route was already compiled). A retry
+  // absorbs that one-off cost without masking a genuinely broken
+  // assertion, which fails the same way on retry too.
+  retries: process.env.CI ? 1 : 0,
   reporter: [["list"]],
   use: {
     baseURL: "http://localhost:5173",

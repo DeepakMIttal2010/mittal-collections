@@ -51,7 +51,7 @@ test.beforeAll(async ({ request }) => {
   adminUser = await createTestAdmin(request);
 });
 
-test("bell shows an unread count, dropdown lists it, click marks read and navigates", async ({
+test("account bell shows an unread count; clicking a notification marks it read and navigates", async ({
   page,
   context,
   request,
@@ -60,26 +60,24 @@ test("bell shows an unread count, dropdown lists it, click marks read and naviga
 
   await triggerOrderStatusNotification(request, testUser, adminUser);
 
-  await page.goto("/");
+  // No header bell/dropdown anymore — the alerts link lives on the
+  // Account page and goes straight to /notifications (see Account.jsx).
+  await page.goto("/account");
 
-  const bell = page.getByRole("button", { name: /alerts/i });
-  await expect(bell).toBeVisible();
-
-  // Poll interval is 30s, but the bell also loads on mount — reload to
-  // pick up the notification created just now via the API.
-  await page.reload();
+  const bell = page.getByTitle(/alerts/i);
   await expect(bell.getByText("1")).toBeVisible({ timeout: 10000 });
 
-  await bell.hover();
-  const dropdownItem = page.getByText(/your order is being processed/i);
-  await expect(dropdownItem).toBeVisible();
+  await bell.click();
+  await expect(page).toHaveURL(/\/notifications/);
 
-  await dropdownItem.click();
+  const item = page.getByText(/your order is being processed/i);
+  await expect(item).toBeVisible();
+  await item.click();
   await expect(page).toHaveURL(/\/my-orders\//);
 
   // Clicking marked it read — badge should be gone now.
-  await page.goto("/");
-  await expect(bell.getByText("1")).toHaveCount(0);
+  await page.goto("/account");
+  await expect(page.getByTitle(/alerts/i).getByText("1")).toHaveCount(0);
 });
 
 test("/notifications page lists history and mark-all-read clears unread state", async ({
@@ -104,7 +102,9 @@ test("/notifications page lists history and mark-all-read clears unread state", 
   ).toHaveCount(0);
 });
 
-test("bell does not render for a logged-out visitor", async ({ page }) => {
-  await page.goto("/");
-  await expect(page.getByRole("button", { name: /alerts/i })).toHaveCount(0);
+test("the alerts bell lives on the account page, which requires login", async ({
+  page,
+}) => {
+  await page.goto("/account");
+  await expect(page).toHaveURL(/\/login/);
 });

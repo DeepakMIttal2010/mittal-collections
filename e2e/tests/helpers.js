@@ -79,12 +79,20 @@ export const createTestAdmin = async (request) => {
 };
 
 // Injects a logged-in session into the browser context before any page
-// script runs, so AuthContext picks it up on first render.
+// script runs, so AuthContext picks it up on first render. Sets both the
+// customer keys (token/user, read by AuthContext) and the admin keys
+// (adminToken/adminUser, read by AdminProtectedRoute — see
+// authService.js's saveAdminLogin) since the app keeps two entirely
+// separate localStorage namespaces for customer vs admin sessions.
+// Setting both is harmless for a non-admin user: AdminProtectedRoute
+// still checks user.role === "admin" and redirects otherwise.
 export const loginAs = async (context, { token, user }) => {
   await context.addInitScript(
     ({ token, user }) => {
       localStorage.setItem("token", token);
       localStorage.setItem("user", JSON.stringify(user));
+      localStorage.setItem("adminToken", token);
+      localStorage.setItem("adminUser", JSON.stringify(user));
     },
     { token, user },
   );

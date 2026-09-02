@@ -21,14 +21,16 @@ test("a non-admin account cannot reach the admin panel", async ({
   await loginAs(context, sharedCustomer);
 
   await page.goto("/admin");
-  await expect(page).toHaveURL("/admin/login");
+  // AdminProtectedRoute appends ?redirect= so a login can send the user
+  // back to where they were headed — match the path, not the full URL.
+  await expect(page).toHaveURL(/\/admin\/login(\?|$)/);
 });
 
 test("an unauthenticated visitor is redirected to admin login", async ({
   page,
 }) => {
   await page.goto("/admin");
-  await expect(page).toHaveURL("/admin/login");
+  await expect(page).toHaveURL(/\/admin\/login(\?|$)/);
 });
 
 test("admin login form rejects a non-admin account with an alert, not a silent failure", async ({
