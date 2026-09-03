@@ -50,6 +50,14 @@ Once all three checks pass, merge the PR from GitHub's UI — that push
 to `main` is what triggers the real Vercel + Render production
 deploy.
 
+Dependabot (`.github/dependabot.yml`) opens its own PRs weekly for
+outdated/vulnerable dependencies across `server/`, `client/`, `e2e/`,
+the root `package.json`, and the GitHub Actions versions in
+`.github/workflows/*.yml` — these go through the exact same flow
+above (CI-gated, no special-casing), so reviewing one just means
+checking that CI is green and skimming the changelog for anything
+that looks risky before merging.
+
 `feature/deployment` predates this ruleset (it used to be where
 day-to-day work happened, merged into `main` directly) and remains
 unprotected — pushable directly, no PR needed — but no longer has a
