@@ -1,0 +1,39 @@
+name: CodeQL
+
+# Free on public repos (this one is public) — scans actual code for
+# real vulnerability patterns (injection, XSS, etc.), which Dependabot
+# doesn't cover since that only watches dependency versions. Findings
+# show up under the repo's Security tab, not as a required PR check —
+# this doesn't block merges, it just surfaces things worth a look.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Catches anything newly discovered in existing code, not just what
+    # changed in a given push/PR.
+    - cron: "30 1 * * 1"
+
+jobs:
+  analyze:
+    name: Analyze
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+
+      # No separate build step — the JS/TS extractor parses source
+      # directly, nothing to compile first.
+      - uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:javascript-typescript"

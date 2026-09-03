@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import request from "supertest";
+import mongoose from "mongoose";
 
 import "./setup.js";
 import app from "../app.js";
@@ -263,8 +264,16 @@ describe("POST /api/orders", () => {
     it("rejects an order item for a product that doesn't exist", async () => {
       const user = await createUser();
       const token = signToken(user);
-      const product = await createProduct();
-      const fakeId = product._id.toString().replace(/.$/, "0");
+      // A freshly minted ObjectId, not a real product's id with one
+      // character swapped — that mutation had a real (if small) chance
+      // of landing back on the original id unchanged (whenever its last
+      // hex character already was "0"), which made this test flaky:
+      // the "fake" id would then belong to a real, existing product,
+      // and the order would legitimately succeed instead of being
+      // rejected. Confirmed as the actual cause of an intermittent CI
+      // failure, 2026-09-03 — nothing to do with whatever change the PR
+      // that surfaced it actually contained.
+      const fakeId = new mongoose.Types.ObjectId().toString();
 
       const res = await request(app)
         .post("/api/orders")
