@@ -1,0 +1,45 @@
+name: Lighthouse
+
+# Performance/SEO/accessibility budget check — builds the client SPA and
+# runs Lighthouse against the built homepage (client/lighthouserc.json).
+# No pass/fail assertions yet: this first rollout only collects and
+# reports scores (via a shareable report link posted to the run's
+# summary), so we have a real baseline before deciding what thresholds
+# are actually worth enforcing. Not a required PR check for that same
+# reason — informational only, doesn't block merges.
+#
+# Only tests the homepage's static shell, not logged-in/product-detail
+# pages — those pull real data from the live API at runtime, which
+# isn't available against a locally-built static bundle in CI.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lighthouse:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+
+      - name: Install client dependencies
+        working-directory: client
+        run: npm ci
+
+      - name: Build
+        working-directory: client
+        run: npm run build
+
+      - name: Run Lighthouse CI
+        working-directory: client
+        run: |
+          npm install -g @lhci/cli
+          lhci autorun --config=./lighthouserc.json

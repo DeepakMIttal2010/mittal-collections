@@ -66,6 +66,17 @@ repo's **Security → Code scanning alerts** tab, not as a required PR
 check, so it never blocks a merge — it's worth a glance there
 periodically rather than something to react to per-PR.
 
+Lighthouse (`.github/workflows/lighthouse.yml` +
+`client/lighthouserc.json`) builds the client and runs a performance/
+SEO/accessibility check against the homepage on every push/PR to
+`main`, posting a shareable report link — not a required PR check yet,
+since this first rollout is only establishing a real baseline before
+deciding what score thresholds are worth actually enforcing.
+
+Every PR opened also gets a description template
+(`.github/PULL_REQUEST_TEMPLATE.md`) — what changed and why, how it
+was tested, screenshots if it's a UI change.
+
 `feature/deployment` predates this ruleset (it used to be where
 day-to-day work happened, merged into `main` directly) and remains
 unprotected — pushable directly, no PR needed — but no longer has a
