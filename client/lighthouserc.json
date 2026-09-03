@@ -1,7 +1,9 @@
 {
   "ci": {
     "collect": {
-      "staticDistDir": "./dist",
+      "startServerCommand": "npm run preview -- --port 4173 --strictPort",
+      "startServerReadyPattern": "Local:",
+      "url": ["http://localhost:4173/"],
       "numberOfRuns": 1
     },
     "upload": {
