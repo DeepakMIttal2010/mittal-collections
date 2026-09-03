@@ -12,7 +12,7 @@ import {
 } from "react-icons/fa";
 
 import "./Hero.css";
-import heroBanner from "../../assets/images/hero-banner.jpg";
+import heroBanner from "../../assets/images/hero-banner.webp";
 import { getBanners } from "../../services/bannerService";
 import { getPublicRewardsInfo } from "../../services/rewardsService";
 import { getBannerCoupon } from "../../services/couponService";
@@ -181,7 +181,13 @@ function Hero() {
   }, [allSlides.length]);
 
   const slide = allSlides[Math.min(activeIndex, allSlides.length - 1)];
-  const backgroundImage = slide.image ? `${imgUrl(slide.image)}` : heroBanner;
+  // Full-bleed LCP element (.hero-bg-image covers the whole viewport
+  // width) — q_auto,f_auto lets Cloudinary pick the smallest format the
+  // browser actually supports (WebP/AVIF) at a sensible quality,
+  // instead of serving whatever the admin originally uploaded as-is.
+  const backgroundImage = slide.image
+    ? imgUrl(slide.image, "w_1920,q_auto,f_auto")
+    : heroBanner;
   const slideTitle = t(slide.title, slide.titleHi);
   const imageAlt = slide.title
     ? slideTitle.replace(/\n/g, " ")
