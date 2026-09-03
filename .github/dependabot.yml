@@ -1,0 +1,46 @@
+version: 2
+updates:
+  # GitHub Actions used by .github/workflows/*.yml (e.g. actions/checkout,
+  # actions/setup-node) — keeping these current matters for security too,
+  # not just npm packages.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+
+  - package-ecosystem: "npm"
+    directory: "/server"
+    schedule:
+      interval: "weekly"
+    # Minor/patch bumps land as one grouped PR instead of one per package
+    # — CI (server-tests) gates all of them the same way regardless, so
+    # there's no safety lost, just far fewer PRs to individually review.
+    # Majors stay ungrouped since those are the ones actually worth
+    # looking at individually before merging.
+    groups:
+      minor-and-patch:
+        update-types: ["minor", "patch"]
+
+  - package-ecosystem: "npm"
+    directory: "/client"
+    schedule:
+      interval: "weekly"
+    groups:
+      minor-and-patch:
+        update-types: ["minor", "patch"]
+
+  - package-ecosystem: "npm"
+    directory: "/e2e"
+    schedule:
+      interval: "weekly"
+    groups:
+      minor-and-patch:
+        update-types: ["minor", "patch"]
+
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      minor-and-patch:
+        update-types: ["minor", "patch"]
