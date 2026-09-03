@@ -1,21 +1,26 @@
 import { test, expect } from "@playwright/test";
 
-import { createTestUser, createTestAdmin, loginAs } from "./helpers.js";
+import {
+  createTestAdmin,
+  createTestUser,
+  getSeededProductPath,
+  loginAs,
+} from "./helpers.js";
 
 const API_BASE = "http://localhost:5000/api";
-const PRODUCT_ID = "6a64556a561a6d5a63017fb2";
 
 // Places a real order for the given user (via API) and moves it to
 // Processing as admin, which triggers a real order_status notification
 // — the same code path server/tests/notifications.test.js exercises,
 // but here we're checking the actual bell UI renders it correctly.
 const triggerOrderStatusNotification = async (request, testUser, adminUser) => {
+  const { id: productId } = await getSeededProductPath();
   const orderRes = await request.post(`${API_BASE}/orders`, {
     headers: { Authorization: `Bearer ${testUser.token}` },
     data: {
       orderItems: [
         {
-          product: PRODUCT_ID,
+          product: productId,
           name: "Luxury Cotton Bedsheet",
           image: "bedsheet-1.jpg",
           price: 1499,

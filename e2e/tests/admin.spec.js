@@ -1,6 +1,11 @@
 import { test, expect } from "@playwright/test";
 
-import { createTestUser, createTestAdmin, loginAs } from "./helpers.js";
+import {
+  createTestAdmin,
+  createTestUser,
+  getSeededProductPath,
+  loginAs,
+} from "./helpers.js";
 
 // Shared across every test in this file (rather than one fresh
 // register+login per test) to stay well under the 20-req/15min auth
@@ -63,12 +68,13 @@ test("admin notification bell shows a new order and clicking navigates to Orders
   context,
   request,
 }) => {
+  const { id: productId } = await getSeededProductPath();
   await request.post("http://localhost:5000/api/orders", {
     headers: { Authorization: `Bearer ${sharedCustomer.token}` },
     data: {
       orderItems: [
         {
-          product: "6a64556a561a6d5a63017fb2",
+          product: productId,
           name: "Luxury Cotton Bedsheet",
           image: "bedsheet-1.jpg",
           price: 1499,

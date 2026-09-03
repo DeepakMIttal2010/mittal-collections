@@ -1,8 +1,9 @@
 import { test, expect } from "@playwright/test";
 
+import { getSeededProductPath } from "./helpers.js";
+
 // Fixture data seeded in the local dev database (server/seeder.js).
 const CATEGORY_SLUG = "bedsheets";
-const PRODUCT_PATH = "/product/6a64556a561a6d5a63017fb2/luxury-cotton-bedsheet";
 
 test.describe("Category page", () => {
   test("loads products for a real category", async ({ page }) => {
@@ -78,7 +79,8 @@ test.describe("Product detail page", () => {
   test("renders gallery, price, description, and trust badges without errors", async ({
     page,
   }) => {
-    await page.goto(PRODUCT_PATH);
+    const { path } = await getSeededProductPath();
+    await page.goto(path);
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible({
       timeout: 10000,
     });
@@ -94,7 +96,8 @@ test.describe("Product detail page", () => {
   test("shows the auto-compare table against similar products", async ({
     page,
   }) => {
-    await page.goto(PRODUCT_PATH);
+    const { path } = await getSeededProductPath();
+    await page.goto(path);
     await expect(
       page.getByText(/compare with similar products/i),
     ).toBeVisible({ timeout: 10000 });

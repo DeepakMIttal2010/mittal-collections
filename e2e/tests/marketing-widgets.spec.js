@@ -1,11 +1,12 @@
 import { test, expect } from "@playwright/test";
 
-import { createTestUser, loginAs } from "./helpers.js";
-
-const OUT_OF_STOCK_PRODUCT_PATH =
-  "/product/6a704911f58e74c67c50b590/bricks-design-cotton-doormat";
-const IN_STOCK_PRODUCT_PATH =
-  "/product/6a64556a561a6d5a63017fb2/luxury-cotton-bedsheet";
+import {
+  createOutOfStockProductPath,
+  createTestUser,
+  ensureSiteSettingsPhone,
+  getSeededProductPath,
+  loginAs,
+} from "./helpers.js";
 
 test.describe("Welcome popup", () => {
   test("appears for a guest after the delay, and auto-closes", async ({
@@ -47,6 +48,14 @@ test.describe("Welcome popup", () => {
 });
 
 test.describe("WhatsApp buttons", () => {
+  // Every button in this block renders nothing at all without a phone
+  // number configured (SiteSettings.phone) — nothing seeds one, so a
+  // freshly seeded/never-configured site legitimately shows none of
+  // them (see ensureSiteSettingsPhone's comment).
+  test.beforeAll(async () => {
+    await ensureSiteSettingsPhone();
+  });
+
   test("site-wide floating button links to a generic WhatsApp chat", async ({
     page,
   }) => {
@@ -61,7 +70,8 @@ test.describe("WhatsApp buttons", () => {
   test("product-page WhatsApp button is pre-filled and enabled for an in-stock product", async ({
     page,
   }) => {
-    await page.goto(IN_STOCK_PRODUCT_PATH);
+    const { path } = await getSeededProductPath();
+    await page.goto(path);
     const button = page.getByRole("link", { name: /order on whatsapp/i });
     await expect(button).toBeVisible();
     const href = await button.getAttribute("href");
@@ -72,7 +82,8 @@ test.describe("WhatsApp buttons", () => {
   test("product-page WhatsApp button is a disabled <button>, not a clickable link, for an out-of-stock product", async ({
     page,
   }) => {
-    await page.goto(OUT_OF_STOCK_PRODUCT_PATH);
+    const outOfStockPath = await createOutOfStockProductPath();
+    await page.goto(outOfStockPath);
     const button = page.getByRole("button", { name: /order on whatsapp/i });
     await expect(button).toBeVisible();
     await expect(button).toBeDisabled();

@@ -1,14 +1,12 @@
 import { test, expect } from "@playwright/test";
 
-import { createTestUser, loginAs } from "./helpers.js";
-
-const IN_STOCK_PRODUCT_PATH =
-  "/product/6a64556a561a6d5a63017fb2/luxury-cotton-bedsheet";
+import { createTestUser, getSeededProductPath, loginAs } from "./helpers.js";
 
 test("adding to cart from the product page updates the cart drawer with matching totals", async ({
   page,
 }) => {
-  await page.goto(IN_STOCK_PRODUCT_PATH);
+  const { path } = await getSeededProductPath();
+  await page.goto(path);
 
   await page.getByRole("button", { name: /add to cart/i }).first().click();
 
@@ -30,7 +28,8 @@ test("adding to cart from the product page updates the cart drawer with matching
 test("logged-out checkout redirects to login and returns to checkout after logging in", async ({
   page,
 }) => {
-  await page.goto(IN_STOCK_PRODUCT_PATH);
+  const { path } = await getSeededProductPath();
+  await page.goto(path);
   await page.getByRole("button", { name: /add to cart/i }).first().click();
   await page.goto("/checkout");
 
@@ -45,7 +44,8 @@ test("a logged-in customer with an item in cart reaches the checkout page (not r
   const testUser = await createTestUser(request);
   await loginAs(context, testUser);
 
-  await page.goto(IN_STOCK_PRODUCT_PATH);
+  const { path } = await getSeededProductPath();
+  await page.goto(path);
   await page.getByRole("button", { name: /add to cart/i }).first().click();
   await page.goto("/checkout");
 

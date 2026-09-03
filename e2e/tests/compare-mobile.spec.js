@@ -1,10 +1,19 @@
 import { test, expect } from "@playwright/test";
 
+import { ensureSiteSettingsPhone } from "./helpers.js";
+
 test.describe("Compare", () => {
   test("adding products shows the floating compare bar with the right count, and clearing removes it", async ({
     page,
   }) => {
-    await page.goto("/");
+    // Not "/" — the homepage's product carousels are driven by
+    // admin-configured TrendingSection entries and isTrending-flagged
+    // products, neither of which server/seeder.js creates, so a freshly
+    // seeded/never-configured site legitimately shows zero product cards
+    // there (not a bug — matches real production behavior for a site
+    // where no admin has set up trending sections yet). A category page
+    // always has product cards once products are seeded.
+    await page.goto("/category/bedsheets");
 
     const toggleButtons = page.getByRole("button", { name: "Toggle compare" });
     await expect(toggleButtons.first()).toBeVisible({ timeout: 10000 });
@@ -26,10 +35,26 @@ test.describe("Compare", () => {
 test.describe("Mobile viewport (≤375px)", () => {
   test.use({ viewport: { width: 375, height: 740 } });
 
+  // The floating WhatsApp button this test checks against renders
+  // nothing without SiteSettings.phone set — don't rely on some other
+  // spec file (marketing-widgets.spec.js) happening to have already set
+  // it earlier in file-execution order (that's what let this test pass
+  // by accident in one project's run while failing in another's).
+  test.beforeAll(async () => {
+    await ensureSiteSettingsPhone();
+  });
+
   test("compare bar does not overflow or overlap the WhatsApp button", async ({
     page,
   }) => {
-    await page.goto("/");
+    // Not "/" — the homepage's product carousels are driven by
+    // admin-configured TrendingSection entries and isTrending-flagged
+    // products, neither of which server/seeder.js creates, so a freshly
+    // seeded/never-configured site legitimately shows zero product cards
+    // there (not a bug — matches real production behavior for a site
+    // where no admin has set up trending sections yet). A category page
+    // always has product cards once products are seeded.
+    await page.goto("/category/bedsheets");
 
     const toggleButtons = page.getByRole("button", { name: "Toggle compare" });
     await expect(toggleButtons.first()).toBeVisible({ timeout: 10000 });

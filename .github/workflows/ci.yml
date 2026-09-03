@@ -82,6 +82,18 @@ jobs:
         working-directory: server
         run: npm ci
 
+      # The mongo:7 service above starts completely empty — several e2e
+      # tests assume real catalog data exists (e.g. browsing.spec.js
+      # hardcodes the "bedsheets" category slug) rather than creating
+      # their own fixtures for it, the same way createTestUser/
+      # createTestAdmin do for accounts. Without this, every one of
+      # those tests fails with "element not found" on a category/product
+      # page that's actually just empty — confirmed as the root cause of
+      # this job failing on every run since it was added (2026-09-01/02).
+      - name: Seed test catalog data
+        working-directory: server
+        run: npm run seed:all
+
       - name: Install client dependencies
         working-directory: client
         run: npm ci

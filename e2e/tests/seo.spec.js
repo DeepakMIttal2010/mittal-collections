@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 
-const PRODUCT_PATH = "/product/6a64556a561a6d5a63017fb2/luxury-cotton-bedsheet";
+import { ensureSiteSettingsAddress, getSeededProductPath } from "./helpers.js";
 
 const getJsonLdBlocks = async (page) => {
   const scripts = await page
@@ -21,10 +21,13 @@ const gotoAndWaitForContent = async (page, path) => {
 };
 
 test.describe("Unique titles and meta descriptions", () => {
+  // Product path is resolved per-test below (async, so it can't be a
+  // plain string in this array — see getSeededProductPath's comment on
+  // why it can't be hardcoded either).
   const pages = [
     { path: "/", label: "Home" },
     { path: "/category/bedsheets", label: "Category" },
-    { path: PRODUCT_PATH, label: "Product" },
+    { path: null, label: "Product" },
     { path: "/articles", label: "Articles" },
   ];
 
@@ -32,7 +35,9 @@ test.describe("Unique titles and meta descriptions", () => {
     test(`${label} page has a title and exactly one meta description`, async ({
       page,
     }) => {
-      await gotoAndWaitForContent(page, path);
+      const resolvedPath =
+        path ?? (await getSeededProductPath()).path;
+      await gotoAndWaitForContent(page, resolvedPath);
 
       const title = await page.title();
       expect(title.length).toBeGreaterThan(0);
@@ -56,7 +61,8 @@ test.describe("Unique titles and meta descriptions", () => {
       .locator('meta[name="description"]')
       .getAttribute("content");
 
-    await gotoAndWaitForContent(page, PRODUCT_PATH);
+    const { path: productPath } = await getSeededProductPath();
+    await gotoAndWaitForContent(page, productPath);
     const productTitle = await page.title();
     const productDescription = await page
       .locator('meta[name="description"]')
@@ -72,7 +78,8 @@ test.describe("Structured data", () => {
   test("product page includes Product and BreadcrumbList JSON-LD", async ({
     page,
   }) => {
-    await gotoAndWaitForContent(page, PRODUCT_PATH);
+    const { path: productPath } = await getSeededProductPath();
+    await gotoAndWaitForContent(page, productPath);
 
     const blocks = await getJsonLdBlocks(page);
     const types = blocks.map((b) => b["@type"]);
@@ -87,7 +94,8 @@ test.describe("Structured data", () => {
   test("visible breadcrumb trail matches the BreadcrumbList JSON-LD exactly", async ({
     page,
   }) => {
-    await gotoAndWaitForContent(page, PRODUCT_PATH);
+    const { path: productPath } = await getSeededProductPath();
+    await gotoAndWaitForContent(page, productPath);
 
     const visibleCrumbs = await page
       .getByLabel("Breadcrumb")
@@ -106,6 +114,10 @@ test.describe("Structured data", () => {
   test("homepage includes LocalBusiness/HomeGoodsStore structured data", async ({
     page,
   }) => {
+    // Home.jsx only emits this JSON-LD once SiteSettings.address is
+    // set — nothing seeds it, so ensure it here rather than assume a
+    // freshly seeded site already has one configured.
+    await ensureSiteSettingsAddress();
     await gotoAndWaitForContent(page, "/");
     const blocks = await getJsonLdBlocks(page);
     const types = blocks.map((b) => b["@type"]);
