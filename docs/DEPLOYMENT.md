@@ -1,7 +1,7 @@
 # Deployment Guide
 
-**Document version:** 1.4
-**Last updated:** 2026-09-01
+**Document version:** 1.5
+**Last updated:** 2026-09-03
 
 ## 1. Hosting Summary
 
@@ -20,20 +20,42 @@ pushed.
 
 ## 2. Git Workflow
 
-Day-to-day work happens on `feature/deployment`; `main` is what's
-actually live. The standard release sequence:
+`main` is protected by a GitHub ruleset (Settings → Rules → `main`,
+added 2026-09-03) — direct pushes are rejected outright
+(`GH013: Repository rule violations`). Every change lands via a pull
+request, gated on three required status checks — `server-tests`,
+`client-build`, `e2e-tests` (see `.github/workflows/ci.yml`) — all
+passing. Required approvals is set to 0: the PR requirement itself is
+the gate, not a second reviewer, so whoever opens the PR can merge it
+themselves once CI is green.
+
+Standard flow for a change:
 
 ```bash
-git checkout feature/deployment
-# ...make changes, commit...
-git push origin feature/deployment
-
 git checkout main
-git merge --ff-only feature/deployment
-git push origin main        # triggers Vercel + Render auto-deploy
-
-git checkout feature/deployment   # return to working branch
+git pull origin main
+git checkout -b feat/short-description   # or fix/short-description
+# ...make changes, commit...
+git push origin feat/short-description
 ```
+
+Then open a pull request against `main` on GitHub. This does two
+things automatically:
+- Triggers CI on the PR itself (the same three checks).
+- Triggers a Vercel preview deployment at its own throwaway URL, so
+  the frontend change can be reviewed live before it ever reaches
+  production — look for Vercel's bot comment on the PR with the link.
+
+Once all three checks pass, merge the PR from GitHub's UI — that push
+to `main` is what triggers the real Vercel + Render production
+deploy.
+
+`feature/deployment` predates this ruleset (it used to be where
+day-to-day work happened, merged into `main` directly) and remains
+unprotected — pushable directly, no PR needed — but no longer has a
+real purpose under the PR-based flow above; it's being kept in sync
+for continuity rather than actively relied on. Worth revisiting
+whether to retire it once the new flow has proven itself for a while.
 
 `git push` to GitHub occasionally fails with a transient
 `Could not resolve host: github.com` DNS error — this is a local
