@@ -58,6 +58,14 @@ above (CI-gated, no special-casing), so reviewing one just means
 checking that CI is green and skimming the changelog for anything
 that looks risky before merging.
 
+CodeQL (`.github/workflows/codeql.yml`) scans the actual code —
+not dependency versions like Dependabot, but real vulnerability
+patterns (injection, XSS, etc.) — on every push/PR to `main` and
+weekly on a schedule. Free on public repos. Findings show up under the
+repo's **Security → Code scanning alerts** tab, not as a required PR
+check, so it never blocks a merge — it's worth a glance there
+periodically rather than something to react to per-PR.
+
 `feature/deployment` predates this ruleset (it used to be where
 day-to-day work happened, merged into `main` directly) and remains
 unprotected — pushable directly, no PR needed — but no longer has a
