@@ -122,7 +122,14 @@ export const createOutOfStockProductPath = async () => {
     await mongoose.connect(LOCAL_MONGODB_URI);
   }
 
-  const category = await mongoose.connection.collection("categories").findOne({});
+  // Deliberately NOT "Bedsheets" — compare-mobile.spec.js relies on that
+  // category having exactly the 3 products server/data/products.js
+  // seeds, no more; dropping a throwaway product into it here would
+  // silently inflate that count for whichever test happens to run
+  // after this one (exactly the bug a real CI run caught, 2026-09-03).
+  const category = await mongoose.connection
+    .collection("categories")
+    .findOne({ name: { $ne: "Bedsheets" } });
   if (!category) {
     throw new Error("No seeded category found — run `npm run seed:all` in server/ first.");
   }

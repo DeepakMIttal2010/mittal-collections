@@ -56,14 +56,20 @@ test.describe("Mobile viewport (≤375px)", () => {
     // always has product cards once products are seeded.
     await page.goto("/category/bedsheets");
 
+    // Exactly 3 (server/data/products.js has only 3 Bedsheets products)
+    // — not 4. This test previously clicked a 4th button that only
+    // ever existed locally by accident, from leftover throwaway
+    // products earlier same-session test runs had created in this same
+    // category; a single clean run (CI, or a freshly reseeded local DB)
+    // only ever has these 3, so nth(3) hangs waiting for a button that
+    // isn't there. Confirmed via real CI failure logs, 2026-09-03.
     const toggleButtons = page.getByRole("button", { name: "Toggle compare" });
     await expect(toggleButtons.first()).toBeVisible({ timeout: 10000 });
     await toggleButtons.nth(0).click();
     await toggleButtons.nth(1).click();
     await toggleButtons.nth(2).click();
-    await toggleButtons.nth(3).click();
 
-    const compareBar = page.getByText("4 selected").locator("..");
+    const compareBar = page.getByText("3 selected").locator("..");
     const whatsapp = page.getByRole("link", {
       name: /chat with us on whatsapp/i,
     });
