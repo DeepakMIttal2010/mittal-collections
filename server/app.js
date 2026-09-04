@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/node";
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
@@ -150,6 +151,11 @@ app.use("/api/notifications", notificationRoutes);
 app.use("/api/feed", feedRoutes);
 app.use("/api/whatsapp", whatsappRoutes);
 app.use("/api/delivery", deliveryRoutes);
+
+// Must come after all routes (so it sees their errors) and before any
+// other error-handling middleware — a no-op if SENTRY_DSN isn't set
+// (see instrument.js), same as the rest of the Sentry setup.
+Sentry.setupExpressErrorHandler(app);
 
 // Health Check
 app.get("/api/health", (req, res) => {
