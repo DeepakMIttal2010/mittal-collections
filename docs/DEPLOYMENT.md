@@ -136,6 +136,14 @@ The frontend has no required env vars beyond what's baked into
 `client/src/services/api.js` (the API base URL) — no `.env` is
 currently used client-side for environment switching.
 
+One optional frontend env var, set in Vercel's dashboard (Vite only
+bakes in vars prefixed `VITE_`, at build time — there is no runtime
+env for a static frontend):
+
+| Variable | Purpose |
+|---|---|
+| `VITE_SENTRY_DSN` | Browser-side error tracking (see `client/src/instrument.js`, imported first in `main.jsx`). Optional — no-ops if unset, so deliberately left unset in local dev; only set in Vercel's production env vars. Captured via the existing `ErrorBoundary` component's `componentDidCatch` (root + route-level + Header-specific instances all covered by the one component). Added 2026-09-04. |
+
 ## 4. External Service Setup (one-time)
 
 ### 4.1 MongoDB Atlas
