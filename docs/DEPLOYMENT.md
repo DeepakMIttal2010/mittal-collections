@@ -77,6 +77,24 @@ Every PR opened also gets a description template
 (`.github/PULL_REQUEST_TEMPLATE.md`) — what changed and why, how it
 was tested, screenshots if it's a UI change.
 
+Production monitoring is external to CI — two separate free-tier
+services, since neither replaces the other:
+- **UptimeRobot** pings the live frontend and `GET /api/health` every
+  few minutes and alerts (email) if either goes down — the only thing
+  that also happens to keep Render's free-tier backend from sleeping
+  between real visits.
+- **Sentry** (`server/instrument.js`, `SENTRY_DSN` in §3) captures
+  uncaught exceptions and unhandled promise rejections server-side and
+  reports them automatically — added 2026-09-04 specifically because
+  several real incidents this project has hit (the search crash bug,
+  the silently-empty backup, cron jobs never firing) were only
+  discovered when a person happened to notice, not by any automated
+  signal. Note this only catches truly *uncaught* errors — most
+  controllers already catch their own errors and return a clean 500
+  JSON response rather than throwing, so those don't reach Sentry
+  unless a future pass adds explicit `Sentry.captureException()` calls
+  alongside the existing `console.error()` ones.
+
 `feature/deployment` predates this ruleset (it used to be where
 day-to-day work happened, merged into `main` directly) and remains
 unprotected — pushable directly, no PR needed — but no longer has a
@@ -106,6 +124,7 @@ network blip, not a real failure; simply retry the same command.
 | `RAZORPAY_KEY_SECRET` | Verifies the Razorpay payment signature (HMAC-SHA256) on `POST /api/orders/verify-payment`. Server-side only, never exposed to the client. **Required** for online payments. Added 2026-08-22. |
 | `WHATSAPP_VERIFY_TOKEN` | Gates `GET /api/whatsapp/webhook` — must match the Verify Token entered in Meta's dashboard Callback URL setup. **Required** once the Meta webhook is configured (live and verified as of 2026-08-25). See §4.8. |
 | `ADMIN_NOTIFICATION_EMAIL` | BCC destination on the registration OTP email, the post-verification welcome email, and every order-status-change email; also implicitly the audience for review-request send activity. Optional — emails still send fine without it, the admin just loses BCC visibility into what customers are receiving. Added 2026-08-24. |
+| `SENTRY_DSN` | Production error tracking (see `instrument.js` — must load before any other import). Optional — Sentry no-ops entirely if unset, so this is deliberately left unset in local dev and CI; only set it in Render's production env vars. Added 2026-09-04. |
 
 **Not yet used by any code in this repo** (reserved for a future WhatsApp *sending* integration, not required today — see §4.8): `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_BUSINESS_ACCOUNT_ID`. Do not set these expecting current behavior to change; only `WHATSAPP_VERIFY_TOKEN` is actually read by the server as of 2026-08-25.
 
