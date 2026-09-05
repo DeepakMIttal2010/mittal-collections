@@ -806,7 +806,7 @@ function ProductDetails() {
           {product.colorVariesNote && (
             <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mb-4">
               <FaPalette className="text-amber-600 mt-0.5 shrink-0" />
-              <p className="text-sm text-amber-800 font-medium">
+              <p className="text-xs text-amber-800 font-medium">
                 {product.colorVariesNote}
               </p>
             </div>
