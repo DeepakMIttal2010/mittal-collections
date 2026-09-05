@@ -4,7 +4,6 @@ import request from "supertest";
 import "./setup.js";
 import app from "../app.js";
 import User from "../models/User.js";
-import Order from "../models/Order.js";
 import LoyaltyTransaction from "../models/LoyaltyTransaction.js";
 import { expireInactivePoints } from "../utils/loyaltyPoints.js";
 import {
