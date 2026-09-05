@@ -27,10 +27,14 @@ const normalize = (text) =>
   (text || "")
     .toLowerCase()
     .trim()
-    // Keeps Devanagari (ऀ-ॿ) alongside Latin/digits, not just
-    // a-z0-9 — otherwise a Hindi-script query gets stripped to nothing
-    // before it ever reaches the synonym lookup below.
-    .replace(/[^a-z0-9ऀ-ॿ\s]/g, " ")
+    // Keeps Devanagari alongside Latin/digits, not just a-z0-9 —
+    // otherwise a Hindi-script query gets stripped to nothing before it
+    // ever reaches the synonym lookup below. A \p{Script=...} property
+    // escape rather than a hardcoded ऀ-ॿ range — several code
+    // points in that block are combining marks, which eslint's
+    // no-misleading-character-class rule (rightly) flags as ambiguous
+    // when spelled out as a literal range.
+    .replace(/[^a-z0-9\s\p{Script=Devanagari}]/gu, " ")
     .split(/\s+/)
     .filter(Boolean);
 

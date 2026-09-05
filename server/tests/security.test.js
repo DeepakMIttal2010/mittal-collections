@@ -54,7 +54,6 @@ describe("Auth rate limiting", () => {
     let lastStatus;
 
     for (let i = 0; i < 21; i += 1) {
-      // eslint-disable-next-line no-await-in-loop
       const res = await request(app).get("/api/auth/__rate_limit_probe__");
       lastStatus = res.status;
     }
