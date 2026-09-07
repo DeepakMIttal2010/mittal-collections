@@ -41,21 +41,15 @@ function WhatsAppButton() {
   const waLink = `https://wa.me/${toWhatsAppNumber(phone)}?text=${encodeURIComponent(message)}`;
 
   return (
-    <div className="fixed bottom-20 md:bottom-6 left-4 sm:left-6 z-50 flex flex-col items-start gap-2">
-      <span className="bg-white text-slate-700 text-xs font-medium px-3 py-1.5 rounded-lg shadow-md">
-        {t("Need Help?", "मदद चाहिए?")}
-      </span>
-
-      <a
-        href={waLink}
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label={t("Chat with us on WhatsApp", "WhatsApp पर हमसे बात करें")}
-        className="flex items-center justify-center w-12 h-12 sm:w-14 sm:h-14 bg-[#25D366] hover:bg-[#1ebe5a] text-white shadow-lg rounded-full transition-colors"
-      >
-        <FaWhatsapp className="text-2xl" />
-      </a>
-    </div>
+    <a
+      href={waLink}
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label={t("Chat with us on WhatsApp", "WhatsApp पर हमसे बात करें")}
+      className="fixed bottom-20 md:bottom-6 left-4 sm:left-6 z-50 flex items-center justify-center w-11 h-11 bg-[#25D366] hover:bg-[#1ebe5a] text-white shadow-lg rounded-full transition-colors"
+    >
+      <FaWhatsapp className="text-lg" />
+    </a>
   );
 }
 
