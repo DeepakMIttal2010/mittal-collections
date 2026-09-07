@@ -263,6 +263,37 @@ export const getProducts = async (req, res) => {
       products = products.slice(0, parsedLimit);
     }
 
+    // Real review stats, not the static Product.rating placeholder
+    // (defaults to 5 for every product) — same source of truth as the
+    // product detail page's rating line, just batched for a whole list
+    // in one aggregation instead of a per-product query.
+    const reviewStats = await Review.aggregate([
+      {
+        $match: {
+          product: { $in: products.map((p) => p._id) },
+          isApproved: true,
+        },
+      },
+      {
+        $group: {
+          _id: "$product",
+          averageRating: { $avg: "$rating" },
+          totalReviews: { $sum: 1 },
+        },
+      },
+    ]);
+    const statsByProductId = new Map(
+      reviewStats.map((s) => [s._id.toString(), s]),
+    );
+    products = products.map((p) => {
+      const stats = statsByProductId.get(p._id.toString());
+      return {
+        ...p,
+        averageRating: stats ? stats.averageRating : 0,
+        totalReviews: stats ? stats.totalReviews : 0,
+      };
+    });
+
     res.status(200).json({
       success: true,
       count: products.length,
