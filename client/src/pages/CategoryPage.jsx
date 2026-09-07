@@ -79,7 +79,8 @@ function getSizeHelpLinks(t) {
 function friendlyGroupLabel(groupLabel) {
   if (groupLabel === "By Type") return "Type";
   if (groupLabel === "By Material") return "Material";
-  if (groupLabel === "Size") return "Popular Sizes";
+  if (groupLabel === "Size") return "Popular Dimensions";
+  if (groupLabel === "Bed Size") return "Bed Type";
 
   return groupLabel;
 }
@@ -87,8 +88,8 @@ function friendlyGroupLabel(groupLabel) {
 function friendlyGroupLabelHi(groupLabel) {
   if (groupLabel === "By Type") return "प्रकार";
   if (groupLabel === "By Material") return "मटीरियल";
-  if (groupLabel === "Size") return "लोकप्रिय साइज़";
-  if (groupLabel === "Bed Size") return "बेड साइज़";
+  if (groupLabel === "Size") return "लोकप्रिय आयाम";
+  if (groupLabel === "Bed Size") return "बेड टाइप";
 
   return groupLabel;
 }
@@ -247,10 +248,23 @@ function CategoryPage() {
           discountPercent: rule.discountPercent,
         }));
 
+      // A pill click on a Material/Size/etc. subcategory (anything but
+      // the primary group) is really applying that one facet — the
+      // Filter panel should show it pre-checked instead of looking like
+      // no filter is active while the customer is standing on that
+      // exact page (reported after seeing an unchecked "15 x 22 Inches"
+      // box while already on /doormats/15-x-22-inches).
+      const primaryGroupLabel = categorySubcategories[0]?.groupLabel;
+      const isFacetSubcategory =
+        matchedSubcategory && matchedSubcategory.groupLabel !== primaryGroupLabel;
+
       if (cancelled) return;
       setCategory(matchedCategory);
       setSubcategoryList(categorySubcategories);
       setActiveSubcategory(matchedSubcategory);
+      setSelectedFacetIds(
+        isFacetSubcategory ? new Set([matchedSubcategory._id]) : new Set(),
+      );
       setProducts(productsRes.products);
       setBundlePartners(matchedRules);
       setStatus("ready");
@@ -286,6 +300,9 @@ function CategoryPage() {
 
   const primaryGroup = subcategoryGroups[0] || null;
   const facetGroups = subcategoryGroups.slice(1);
+  const activeSubcategoryIsFacet = facetGroups.some((group) =>
+    group.items.some((item) => item._id === activeSubcategory?._id),
+  );
 
   const matchesFacets = (product) => {
     if (selectedFacetIds.size === 0) return true;
@@ -340,7 +357,18 @@ function CategoryPage() {
     setIsFilterOpen(true);
   };
 
+  // The active-subcategory pill (e.g. "15 x 22 Inches") is also the URL —
+  // products were already fetched scoped to it server-side, so unchecking
+  // it in the panel can't just update local state (nothing would actually
+  // broaden the results). It has to navigate back to the plain category
+  // URL instead, same as clicking "All".
   const applyFilters = () => {
+    if (activeSubcategoryIsFacet && !draftFacetIds.has(activeSubcategory._id)) {
+      navigate(`/category/${categorySlug}`);
+      setIsFilterOpen(false);
+      return;
+    }
+
     setPriceRangeId(draftPriceRangeId);
     setSelectedFacetIds(new Set(draftFacetIds));
     setMinRating(draftMinRating);
@@ -355,6 +383,10 @@ function CategoryPage() {
     setDraftMinRating(null);
     setMinRating(null);
     setIsFilterOpen(false);
+
+    if (activeSubcategoryIsFacet) {
+      navigate(`/category/${categorySlug}`);
+    }
   };
 
   const toggleDraftFacet = (id) => {
@@ -368,6 +400,11 @@ function CategoryPage() {
   };
 
   const removeFacet = (id) => {
+    if (activeSubcategoryIsFacet && id === activeSubcategory._id) {
+      navigate(`/category/${categorySlug}`);
+      return;
+    }
+
     setSelectedFacetIds((prev) => {
       const next = new Set(prev);
       next.delete(id);

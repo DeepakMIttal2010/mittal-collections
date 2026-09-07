@@ -120,12 +120,19 @@
   overflow: hidden;
 }
 
+.size-line {
+  color: #777;
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+
 .rating {
   display: flex;
   align-items: center;
   gap: 6px;
   color: #555;
   margin-bottom: 15px;
+  font-size: 14px;
 }
 
 .star {

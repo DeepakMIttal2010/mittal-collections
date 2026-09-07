@@ -8,6 +8,7 @@ import {
   FaEye,
   FaShoppingCart,
   FaExchangeAlt,
+  FaStar,
 } from "react-icons/fa";
 import { useWishlist } from "../../context/WishlistContext";
 import { useCart } from "../../context/CartContext";
@@ -100,6 +101,19 @@ function ProductCard({ product }) {
           <p className="category">{product.category?.name}</p>
 
           <h3>{t(product.name, product.nameHi)}</h3>
+
+          {product.size && <p className="size-line">{product.size}</p>}
+
+          {/* Same real-review source as the product detail page's rating
+              line — Product.rating is a static default (5 for every
+              product), never shown here, since that would look like every
+              product has a perfect rating regardless of actual reviews. */}
+          {product.totalReviews > 0 && (
+            <p className="rating">
+              <FaStar className="star" />
+              {product.averageRating.toFixed(1)} ({product.totalReviews})
+            </p>
+          )}
 
           <div className="price">
             <span className="new-price">₹{product.price}</span>
