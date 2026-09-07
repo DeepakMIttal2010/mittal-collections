@@ -1,14 +1,21 @@
 import API_BASE_URL from "./api";
+import { cachedFetchJson } from "./requestCache";
 
 const getToken = () => localStorage.getItem("token");
 const getAdminToken = () => localStorage.getItem("adminToken");
 
+// Same fix as getCategories in categoryService.js — a real network trace
+// showed 5 duplicate /api/rewards/public requests on one homepage load
+// (Hero, getEarnRate below, and others each fetch it independently).
+// See requestCache.js.
 export const getPublicRewardsInfo = async () => {
   try {
-    const response = await fetch(`${API_BASE_URL}/rewards/public`);
-    return await response.json();
+    return await cachedFetchJson("public-rewards-info", () =>
+      fetch(`${API_BASE_URL}/rewards/public`).then((r) => r.json()),
+    );
   } catch (error) {
     console.error("Get Public Rewards Info Error:", error);
+
     return { success: false };
   }
 };

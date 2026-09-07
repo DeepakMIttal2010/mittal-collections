@@ -1,10 +1,14 @@
 import API_BASE_URL from "./api";
+import { cachedFetchJson } from "./requestCache";
 
+// Same fix as getCategories in categoryService.js — several homepage
+// sections call this independently on mount (4 duplicate requests
+// confirmed via a real network trace). See requestCache.js.
 export const getSubcategories = async () => {
   try {
-    const response = await fetch(`${API_BASE_URL}/subcategories`);
-
-    const data = await response.json();
+    const data = await cachedFetchJson("subcategories", () =>
+      fetch(`${API_BASE_URL}/subcategories`).then((r) => r.json()),
+    );
 
     return {
       success: true,
