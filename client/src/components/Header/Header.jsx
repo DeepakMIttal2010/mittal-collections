@@ -584,7 +584,6 @@ function Header() {
           <button
             type="button"
             onClick={openCart}
-            aria-label={t("Cart", "कार्ट")}
             className="flex items-center gap-1.5 text-slate-600 hover:text-blue-700 transition-colors"
           >
             <span className="relative">
@@ -595,11 +594,16 @@ function Header() {
                 </span>
               )}
             </span>
-            {/* Text is hidden below the sm breakpoint (display:none, not
-                just visually hidden) — the aria-label above is the only
-                accessible name at that width; a screen reader would
-                otherwise announce this as an unlabeled "button". */}
-            <span className="hidden sm:inline text-sm">{t("Cart", "कार्ट")}</span>
+            {/* sr-only (not hidden/display:none) below the sm breakpoint —
+                keeps this in the accessible name at every width, so the
+                button is never just an unlabeled icon for a screen
+                reader. A static aria-label would work too but would
+                replace, not supplement, the badge count that's also part
+                of the accessible name (see cart-checkout.spec.js, which
+                asserts on that combined "N Cart" name). */}
+            <span className="sr-only sm:not-sr-only sm:inline text-sm">
+              {t("Cart", "कार्ट")}
+            </span>
           </button>
         </div>
       </div>
