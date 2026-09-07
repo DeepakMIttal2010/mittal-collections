@@ -22,8 +22,14 @@ function PolicyPage() {
       if (data.success) {
         setPage(data.page);
         setStatus("ready");
-      } else {
+      } else if (data.notFound) {
         setStatus("not-found");
+      } else {
+        // A fetch failure, not a confirmed 404 — the page may well
+        // exist, so this must not render the same noindex state (see
+        // getPageBySlug's comment). A real visitor gets a retry instead
+        // of a permanent dead end.
+        setStatus("load-failed");
       }
     };
 
@@ -42,9 +48,30 @@ function PolicyPage() {
     );
   }
 
+  if (status === "load-failed") {
+    return (
+      <div className="max-w-3xl mx-auto px-4 py-16 text-center">
+        <h1 className="text-xl font-semibold text-slate-800 mb-4">
+          {t(
+            "Something went wrong loading this page",
+            "इस पेज को लोड करने में समस्या हुई",
+          )}
+        </h1>
+        <button
+          type="button"
+          onClick={() => window.location.reload()}
+          className="text-blue-600 hover:underline"
+        >
+          {t("Try again", "फिर से कोशिश करें")}
+        </button>
+      </div>
+    );
+  }
+
   if (status === "not-found") {
     return (
       <div className="max-w-3xl mx-auto px-4 py-16">
+        <Seo title="Page Not Found" noindex />
         <h1 className="text-2xl font-bold text-slate-900 mb-2">
           {t("Page not found", "पेज नहीं मिला")}
         </h1>

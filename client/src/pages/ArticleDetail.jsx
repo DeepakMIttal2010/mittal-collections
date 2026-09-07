@@ -39,8 +39,14 @@ function ArticleDetail() {
       if (response.success) {
         setArticle(response.article);
         setStatus("ready");
-      } else {
+      } else if (response.notFound) {
         setStatus("not-found");
+      } else {
+        // A fetch failure, not a confirmed 404 — the article may well
+        // exist, so this must not render the same noindex state (see
+        // getArticleBySlug's comment). A real visitor gets a retry
+        // instead of a permanent dead end.
+        setStatus("load-failed");
       }
     };
 
@@ -72,9 +78,29 @@ function ArticleDetail() {
     );
   }
 
+  if (status === "load-failed") {
+    return (
+      <div className="max-w-3xl mx-auto px-4 py-16 text-center">
+        <h1 className="text-xl font-semibold text-slate-800 mb-4">
+          {isHindi
+            ? "यह लेख लोड करने में समस्या हुई"
+            : "Something went wrong loading this article"}
+        </h1>
+        <button
+          type="button"
+          onClick={() => window.location.reload()}
+          className="text-blue-600 hover:underline"
+        >
+          {isHindi ? "फिर से कोशिश करें" : "Try again"}
+        </button>
+      </div>
+    );
+  }
+
   if (status === "not-found") {
     return (
       <div className="max-w-3xl mx-auto px-4 py-16">
+        <Seo title="Article Not Found" noindex />
         <h1 className="text-2xl font-bold text-slate-900 mb-2">
           {isHindi ? "लेख नहीं मिला" : "Article not found"}
         </h1>
