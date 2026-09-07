@@ -1,4 +1,5 @@
 import API_BASE_URL from "./api";
+import { cachedFetchJson } from "./requestCache";
 
 export const recordVisit = async (path, visitorId, userId) => {
   try {
@@ -12,10 +13,14 @@ export const recordVisit = async (path, visitorId, userId) => {
   }
 };
 
+// Same fix as getCategories in categoryService.js — a real network trace
+// showed 3 duplicate /api/analytics/my-location requests on one homepage
+// load. See requestCache.js.
 export const getMyLocation = async () => {
   try {
-    const response = await fetch(`${API_BASE_URL}/analytics/my-location`);
-    const data = await response.json();
+    const data = await cachedFetchJson("my-location", () =>
+      fetch(`${API_BASE_URL}/analytics/my-location`).then((r) => r.json()),
+    );
 
     return {
       success: data.success,

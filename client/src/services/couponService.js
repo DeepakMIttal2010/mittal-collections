@@ -1,12 +1,16 @@
 import API_BASE_URL from "./api";
+import { cachedFetchJson } from "./requestCache";
 
 const getToken = () => localStorage.getItem("token");
 
+// Same fix as getCategories in categoryService.js — a real network trace
+// showed 3 duplicate /api/coupons/banner requests on one homepage load.
+// See requestCache.js.
 export const getBannerCoupon = async () => {
   try {
-    const response = await fetch(`${API_BASE_URL}/coupons/banner`);
-
-    return await response.json();
+    return await cachedFetchJson("banner-coupon", () =>
+      fetch(`${API_BASE_URL}/coupons/banner`).then((r) => r.json()),
+    );
   } catch (error) {
     console.error("Get Banner Coupon Error:", error);
 
