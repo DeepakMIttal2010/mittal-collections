@@ -75,7 +75,7 @@ function Testimonials() {
                 <p className="text-slate-600 italic mb-6">"{item.review}"</p>
               )}
 
-              <h4 className="font-semibold text-slate-800">{item.name}</h4>
+              <h3 className="font-semibold text-slate-800">{item.name}</h3>
               <span className="text-sm text-slate-500">{item.city}</span>
             </div>
           ))}

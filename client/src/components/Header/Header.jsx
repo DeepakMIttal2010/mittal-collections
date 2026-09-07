@@ -289,7 +289,7 @@ function Header() {
         {/* Logo */}
         <Link to="/" className="shrink-0">
           <h2 className="text-base sm:text-2xl font-bold sm:tracking-wide text-slate-800 whitespace-nowrap">
-            MITTAL <span className="text-amber-600">COLLECTIONS</span>
+            MITTAL <span className="text-amber-700">COLLECTIONS</span>
           </h2>
         </Link>
 
@@ -410,7 +410,7 @@ function Header() {
               <button
                 type="button"
                 onClick={() => setCategoryMenuOpen((prev) => !prev)}
-                aria-label={t("Search category", "सर्च श्रेणी")}
+                aria-label={`${selectedCategoryName} — ${t("Search category", "सर्च श्रेणी")}`}
                 aria-expanded={categoryMenuOpen}
                 className="flex items-center gap-1 h-full bg-slate-100 rounded-l-full text-xs font-medium text-slate-600 border-r border-slate-300 pl-4 pr-2.5 py-2 hover:bg-slate-200 transition-colors"
               >
@@ -520,7 +520,7 @@ function Header() {
               onClick={() => setLanguage("en")}
               className={`px-2.5 py-1 transition-colors ${
                 language === "en"
-                  ? "bg-amber-600 text-white"
+                  ? "bg-amber-700 text-white"
                   : "text-slate-500 hover:bg-slate-50"
               }`}
             >
@@ -531,7 +531,7 @@ function Header() {
               onClick={() => setLanguage("hi")}
               className={`px-2.5 py-1 transition-colors ${
                 language === "hi"
-                  ? "bg-amber-600 text-white"
+                  ? "bg-amber-700 text-white"
                   : "text-slate-500 hover:bg-slate-50"
               }`}
             >
@@ -584,6 +584,7 @@ function Header() {
           <button
             type="button"
             onClick={openCart}
+            aria-label={t("Cart", "कार्ट")}
             className="flex items-center gap-1.5 text-slate-600 hover:text-blue-700 transition-colors"
           >
             <span className="relative">
@@ -594,6 +595,10 @@ function Header() {
                 </span>
               )}
             </span>
+            {/* Text is hidden below the sm breakpoint (display:none, not
+                just visually hidden) — the aria-label above is the only
+                accessible name at that width; a screen reader would
+                otherwise announce this as an unlabeled "button". */}
             <span className="hidden sm:inline text-sm">{t("Cart", "कार्ट")}</span>
           </button>
         </div>
@@ -610,7 +615,7 @@ function Header() {
             <button
               type="button"
               onClick={() => setMobileCategoryMenuOpen((prev) => !prev)}
-              aria-label={t("Search category", "सर्च श्रेणी")}
+              aria-label={`${selectedCategoryName} — ${t("Search category", "सर्च श्रेणी")}`}
               aria-expanded={mobileCategoryMenuOpen}
               className="flex items-center gap-1 h-full bg-slate-100 rounded-l-full text-xs font-medium text-slate-600 border-r border-slate-300 pl-3 pr-1.5 py-2"
             >
