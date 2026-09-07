@@ -13,7 +13,7 @@ import Breadcrumbs from "../components/Breadcrumbs";
 import { buildBreadcrumbJsonLd } from "../utils/breadcrumbJsonLd";
 import { getSiteSettings } from "../services/settingsService";
 import { useLanguage } from "../context/LanguageContext";
-import { FaRulerCombined, FaGift, FaFilter, FaTimes } from "react-icons/fa";
+import { FaGift, FaFilter, FaTimes } from "react-icons/fa";
 
 // Sizing/buying help callouts shown on the matching category's product
 // listing — curtains gets the interactive calculator (real measurement
@@ -23,62 +23,74 @@ import { FaRulerCombined, FaGift, FaFilter, FaTimes } from "react-icons/fa";
 // can list more than one guide (e.g. doormats: size AND buying-guide) —
 // each entry also doubles as an internal link that helps these articles
 // get discovered/indexed, since they otherwise only sit on /articles.
+// shortLabel is the compact link text used in the single combined guide
+// line below the category header (see CategoryPage's render) — the
+// longer label/cta pair was the full sentence each of these used to get
+// its own full-width card for, which pushed the product grid too far
+// down a page whose entire job is to show products fast.
 function getSizeHelpLinks(t) {
   return {
     curtains: [
       {
         to: "/curtain-size-calculator",
-        label: t("Not sure what size to buy?", "पक्का नहीं कि कौन सा साइज़ खरीदें?"),
-        cta: t("Use our free Curtain Size Calculator →", "हमारा मुफ़्त कर्टन साइज़ कैलकुलेटर इस्तेमाल करें →"),
+        shortLabel: t("Size Calculator", "साइज़ कैलकुलेटर"),
       },
     ],
     bedsheets: [
       {
         to: "/articles/bedsheet-size-guide-which-size-fits-single-double-queen-king-beds",
-        label: t("Confused about bed sizes?", "बेड साइज़ को लेकर उलझन में हैं?"),
-        cta: t(
-          "See our Bedsheet Size Guide (Single/Double/Queen/King) →",
-          "हमारी बेडशीट साइज़ गाइड देखें (सिंगल/डबल/क्वीन/किंग) →",
-        ),
+        shortLabel: t("Size Guide", "साइज़ गाइड"),
       },
     ],
     doormats: [
       {
         to: "/articles/doormat-size-guide-which-size-for-entrance-bedroom-bathroom-kitchen",
-        label: t("Not sure which size fits where?", "पक्का नहीं किस जगह कौन सा साइज़ फिट होगा?"),
-        cta: t("See our Doormat Size Guide →", "हमारी डोरमैट साइज़ गाइड देखें →"),
+        shortLabel: t("Size Guide", "साइज़ गाइड"),
       },
       {
         to: "/articles/how-to-choose-the-right-doormat",
-        label: t("Not sure which doormat to pick?", "पक्का नहीं कौन सा डोरमैट चुनें?"),
-        cta: t("See our Doormat Buying Guide →", "हमारी डोरमैट खरीद गाइड देखें →"),
+        shortLabel: t("Buying Guide", "खरीद गाइड"),
       },
     ],
     towels: [
       {
         to: "/articles/towel-size-guide-which-size-for-face-hand-bath-cleaning",
-        label: t("Face, hand or bath towel?", "फेस, हैंड या बाथ टॉवल?"),
-        cta: t("See our Towel Size Guide →", "हमारी टॉवल साइज़ गाइड देखें →"),
+        shortLabel: t("Size Guide", "साइज़ गाइड"),
       },
     ],
     "cushion-covers": [
       {
         to: "/articles/cushion-cover-size-guide-standard-sizes-what-we-stock",
-        label: t("Not sure which cushion cover size fits?", "पक्का नहीं कौन सा कुशन कवर साइज़ फिट होगा?"),
-        cta: t("See our Cushion Cover Size Guide →", "हमारी कुशन कवर साइज़ गाइड देखें →"),
+        shortLabel: t("Size Guide", "साइज़ गाइड"),
       },
     ],
     cushions: [
       {
         to: "/articles/pillows-vs-cushions-fill-and-firmness-guide",
-        label: t("Not sure what filling to pick?", "पक्का नहीं कौन सी फिलिंग चुनें?"),
-        cta: t(
-          "See our Pillows vs Cushions Fill & Firmness Guide →",
-          "हमारी पिलो बनाम कुशन फिल एंड फर्मनेस गाइड देखें →",
-        ),
+        shortLabel: t("Fill Guide", "फिल गाइड"),
       },
     ],
   };
+}
+
+// The raw groupLabel values ("By Type", "By Material", ...) come straight
+// from the admin-managed Subcategory records — friendlier for a section
+// heading than showing "By Material" verbatim.
+function friendlyGroupLabel(groupLabel) {
+  if (groupLabel === "By Type") return "Type";
+  if (groupLabel === "By Material") return "Material";
+  if (groupLabel === "Size") return "Popular Sizes";
+
+  return groupLabel;
+}
+
+function friendlyGroupLabelHi(groupLabel) {
+  if (groupLabel === "By Type") return "प्रकार";
+  if (groupLabel === "By Material") return "मटीरियल";
+  if (groupLabel === "Size") return "लोकप्रिय साइज़";
+  if (groupLabel === "Bed Size") return "बेड साइज़";
+
+  return groupLabel;
 }
 
 // min/max in rupees; max: null means "no upper bound" (the "1,500+" row).
@@ -161,6 +173,16 @@ function CategoryPage() {
   // opening the panel, changing your mind, and tapping outside to close
   // it doesn't silently apply a filter you never confirmed.
   const [draftPriceRangeId, setDraftPriceRangeId] = useState(null);
+  // Material/Size (and any other non-primary subcategory group) as
+  // checkbox facets in the filter panel — a Set of subcategory _ids,
+  // OR'd within a group ("Cotton" or "Microfiber"), AND'd across groups
+  // (must match a selected Material AND a selected Size if both are set).
+  // Separate from the primary group's pills above, which keep their
+  // existing single-select navigate-to-a-URL behaviour unchanged.
+  const [selectedFacetIds, setSelectedFacetIds] = useState(new Set());
+  const [draftFacetIds, setDraftFacetIds] = useState(new Set());
+  const [minRating, setMinRating] = useState(null);
+  const [draftMinRating, setDraftMinRating] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -244,35 +266,114 @@ function CategoryPage() {
   const priceRanges = useMemo(() => getPriceRanges(t), [t]);
   const activePriceRange = priceRanges.find((r) => r.id === priceRangeId) || null;
 
-  const filteredProducts = useMemo(() => {
-    if (!activePriceRange) return products;
+  // subcategoryList is already sorted by displayOrder (see the load
+  // effect) — the first group in that order is treated as "primary" and
+  // keeps its existing pill/navigate behaviour; every other group
+  // (Material, Size, Bed Size, ...) becomes a checkbox facet instead, so
+  // it doesn't need its own dedicated page per value.
+  const subcategoryGroups = useMemo(() => {
+    const groups = [];
+    for (const sub of subcategoryList) {
+      let group = groups.find((g) => g.label === sub.groupLabel);
+      if (!group) {
+        group = { label: sub.groupLabel, items: [] };
+        groups.push(group);
+      }
+      group.items.push(sub);
+    }
+    return groups;
+  }, [subcategoryList]);
 
-    return products.filter(
-      (p) =>
-        p.price >= activePriceRange.min &&
-        (activePriceRange.max === null || p.price <= activePriceRange.max),
+  const primaryGroup = subcategoryGroups[0] || null;
+  const facetGroups = subcategoryGroups.slice(1);
+
+  const matchesFacets = (product) => {
+    if (selectedFacetIds.size === 0) return true;
+
+    const productSubIds = new Set(
+      (product.subcategories || []).map((s) => s._id || s),
     );
-  }, [products, activePriceRange]);
+
+    return facetGroups.every((group) => {
+      const selectedInGroup = group.items.filter((item) =>
+        selectedFacetIds.has(item._id),
+      );
+      // No box checked in this group -> this group imposes no constraint.
+      if (selectedInGroup.length === 0) return true;
+
+      return selectedInGroup.some((item) => productSubIds.has(item._id));
+    });
+  };
+
+  const filteredProducts = useMemo(() => {
+    return products.filter((p) => {
+      if (activePriceRange) {
+        if (
+          p.price < activePriceRange.min ||
+          (activePriceRange.max !== null && p.price > activePriceRange.max)
+        ) {
+          return false;
+        }
+      }
+
+      if (minRating !== null && (p.rating || 0) < minRating) return false;
+
+      return matchesFacets(p);
+    });
+    // matchesFacets closes over facetGroups/selectedFacetIds, both listed
+    // below, so it doesn't need to be a dependency itself.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [products, activePriceRange, minRating, selectedFacetIds, facetGroups]);
 
   const sortedProducts = useMemo(
     () => sortProducts(filteredProducts, sortBy),
     [filteredProducts, sortBy],
   );
 
+  const activeFilterCount =
+    (activePriceRange ? 1 : 0) + (minRating !== null ? 1 : 0) + selectedFacetIds.size;
+
   const openFilterPanel = () => {
     setDraftPriceRangeId(priceRangeId);
+    setDraftFacetIds(new Set(selectedFacetIds));
+    setDraftMinRating(minRating);
     setIsFilterOpen(true);
   };
 
   const applyFilters = () => {
     setPriceRangeId(draftPriceRangeId);
+    setSelectedFacetIds(new Set(draftFacetIds));
+    setMinRating(draftMinRating);
     setIsFilterOpen(false);
   };
 
   const clearAllFilters = () => {
     setDraftPriceRangeId(null);
     setPriceRangeId(null);
+    setDraftFacetIds(new Set());
+    setSelectedFacetIds(new Set());
+    setDraftMinRating(null);
+    setMinRating(null);
     setIsFilterOpen(false);
+  };
+
+  const toggleDraftFacet = (id) => {
+    setDraftFacetIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+
+      return next;
+    });
+  };
+
+  const removeFacet = (id) => {
+    setSelectedFacetIds((prev) => {
+      const next = new Set(prev);
+      next.delete(id);
+
+      return next;
+    });
   };
 
   if (status === "loading") {
@@ -380,52 +481,51 @@ function CategoryPage() {
           : ""}
       </h1>
 
-      {bundlePartners.map(({ partner, discountPercent }) => (
+      {/* Was one full-width card per bundle partner and per guide link —
+          on a category with 2 of each (e.g. Doormats: Bedsheets + Cushion
+          Covers bundles, Size + Buying guides) that pushed the product
+          grid nearly a full screen down on mobile, on a page whose whole
+          job is to show products fast. Both are now a single slim line
+          each, regardless of how many partners/guides exist. */}
+      {bundlePartners.length > 0 && (
         <Link
-          key={partner.slug}
-          to={`/category/${partner.slug}`}
-          className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-6 hover:border-amber-400 transition-colors"
+          to={`/category/${bundlePartners[0].partner.slug}`}
+          className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3 text-sm hover:border-amber-400 transition-colors"
         >
-          <span className="w-9 h-9 shrink-0 rounded-full bg-amber-600 text-white flex items-center justify-center text-sm">
-            <FaGift />
+          <FaGift className="text-amber-600 shrink-0" />
+          <span className="text-amber-800">
+            {t(
+              `Buy ${category.name} + ${bundlePartners.map((b) => b.partner.name).join(" or ")} → Get Extra ${bundlePartners[0].discountPercent}% Off`,
+              `${t(category.name, category.nameHi)} + ${bundlePartners.map((b) => t(b.partner.name, b.partner.nameHi)).join(" या ")} खरीदें → अतिरिक्त ${bundlePartners[0].discountPercent}% छूट पाएं`,
+            )}
           </span>
-          <span className="text-sm">
-            <span className="font-semibold text-amber-800">
-              {t(
-                `Buy ${category.name} + ${partner.name} together`,
-                `${t(category.name, category.nameHi)} + ${t(partner.name, partner.nameHi)} एक साथ खरीदें`,
-              )}
-            </span>{" "}
-            <span className="text-amber-700">
-              {t(
-                `and get ${discountPercent}% off automatically at checkout →`,
-                `और चेकआउट पर अपने आप ${discountPercent}% छूट पाएं →`,
-              )}
+        </Link>
+      )}
+
+      {(sizeHelpLinks[categorySlug] || []).length > 0 && (
+        <p className="text-sm text-slate-600 mb-4">
+          {t("Not sure what to buy?", "पक्का नहीं क्या खरीदें?")}{" "}
+          {sizeHelpLinks[categorySlug].map((guide, i) => (
+            <span key={guide.to}>
+              {i > 0 && " | "}
+              <Link to={guide.to} className="text-blue-700 hover:underline">
+                {guide.shortLabel}
+              </Link>
             </span>
-          </span>
-        </Link>
-      ))}
+          ))}
+        </p>
+      )}
 
-      {(sizeHelpLinks[categorySlug] || []).map((guide) => (
-        <Link
-          key={guide.to}
-          to={guide.to}
-          className="flex items-center gap-3 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 mb-6 hover:border-blue-400 transition-colors"
-        >
-          <span className="w-9 h-9 shrink-0 rounded-full bg-blue-900 text-white flex items-center justify-center text-sm">
-            <FaRulerCombined />
-          </span>
-          <span className="text-sm">
-            <span className="font-semibold text-blue-900">
-              {guide.label}
-            </span>{" "}
-            <span className="text-blue-700">{guide.cta}</span>
-          </span>
-        </Link>
-      ))}
-
-      {subcategoryList.length > 0 && (
-        <div className="flex flex-wrap gap-3 mb-6">
+      {/* Primary group (whichever comes first by displayOrder — usually
+          "By Type" or, for a category like Doormats that has no type
+          split, "By Material") stays visible at every width: it's the
+          main way to narrow down which kind of product this is. Every
+          other group (Material when it isn't primary, Size, Bed Size)
+          becomes a checkbox facet in the Filter panel below instead —
+          hidden here on mobile to keep the page product-first, still
+          shown as their own labelled row on desktop where there's room. */}
+      {primaryGroup && (
+        <div className="flex flex-wrap gap-3 mb-4">
           <button
             type="button"
             className={pillClass(!activeSubcategory)}
@@ -434,7 +534,7 @@ function CategoryPage() {
             {t("All", "सभी")}
           </button>
 
-          {subcategoryList.map((sub) => (
+          {primaryGroup.items.map((sub) => (
             <button
               key={sub._id}
               type="button"
@@ -449,6 +549,28 @@ function CategoryPage() {
         </div>
       )}
 
+      {facetGroups.map((group) => (
+        <div key={group.label} className="hidden sm:block mb-4">
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">
+            {t(friendlyGroupLabel(group.label), friendlyGroupLabelHi(group.label))}
+          </p>
+          <div className="flex flex-wrap gap-3">
+            {group.items.map((sub) => (
+              <button
+                key={sub._id}
+                type="button"
+                className={pillClass(activeSubcategory?._id === sub._id)}
+                onClick={() =>
+                  navigate(`/category/${categorySlug}/${sub.slug}`)
+                }
+              >
+                {t(sub.name, sub.nameHi)}
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
+
       <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
         <p className="text-sm text-slate-500">
           {t(
@@ -462,13 +584,18 @@ function CategoryPage() {
             type="button"
             onClick={openFilterPanel}
             className={`flex items-center gap-2 border rounded-lg text-sm font-medium px-3 py-2 transition-colors ${
-              activePriceRange
+              activeFilterCount > 0
                 ? "border-amber-600 text-amber-700 bg-amber-50"
                 : "border-slate-300 text-slate-700 hover:border-amber-600 hover:text-amber-600"
             }`}
           >
             <FaFilter className="text-xs" />
             {t("Filter", "फ़िल्टर")}
+            {activeFilterCount > 0 && (
+              <span className="bg-amber-600 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                {activeFilterCount}
+              </span>
+            )}
           </button>
 
           <select
@@ -485,16 +612,45 @@ function CategoryPage() {
         </div>
       </div>
 
-      {activePriceRange && (
+      {activeFilterCount > 0 && (
         <div className="flex flex-wrap gap-2 mb-6">
-          <button
-            type="button"
-            onClick={clearAllFilters}
-            className="flex items-center gap-1.5 bg-amber-50 border border-amber-200 text-amber-800 text-xs font-medium rounded-full pl-3 pr-2 py-1.5"
-          >
-            {activePriceRange.label}
-            <FaTimes className="text-[10px]" />
-          </button>
+          {activePriceRange && (
+            <button
+              type="button"
+              onClick={() => setPriceRangeId(null)}
+              className="flex items-center gap-1.5 bg-amber-50 border border-amber-200 text-amber-800 text-xs font-medium rounded-full pl-3 pr-2 py-1.5"
+            >
+              {activePriceRange.label}
+              <FaTimes className="text-[10px]" />
+            </button>
+          )}
+
+          {minRating !== null && (
+            <button
+              type="button"
+              onClick={() => setMinRating(null)}
+              className="flex items-center gap-1.5 bg-amber-50 border border-amber-200 text-amber-800 text-xs font-medium rounded-full pl-3 pr-2 py-1.5"
+            >
+              {minRating}★ {t("& above", "और ऊपर")}
+              <FaTimes className="text-[10px]" />
+            </button>
+          )}
+
+          {facetGroups.flatMap((group) =>
+            group.items
+              .filter((item) => selectedFacetIds.has(item._id))
+              .map((item) => (
+                <button
+                  key={item._id}
+                  type="button"
+                  onClick={() => removeFacet(item._id)}
+                  className="flex items-center gap-1.5 bg-amber-50 border border-amber-200 text-amber-800 text-xs font-medium rounded-full pl-3 pr-2 py-1.5"
+                >
+                  {t(item.name, item.nameHi)}
+                  <FaTimes className="text-[10px]" />
+                </button>
+              )),
+          )}
         </div>
       )}
 
@@ -522,29 +678,83 @@ function CategoryPage() {
               </button>
             </div>
 
-            <div className="overflow-y-auto px-5 py-4">
-              <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
-                {t("Price", "कीमत")}
-              </h3>
+            <div className="overflow-y-auto px-5 py-4 space-y-6">
+              <div>
+                <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
+                  {t("Price", "कीमत")}
+                </h3>
 
-              <div className="space-y-3">
-                {priceRanges.map((range) => (
-                  <label
-                    key={range.id}
-                    className="flex items-center gap-3 cursor-pointer"
-                  >
-                    <input
-                      type="radio"
-                      name="price-range"
-                      checked={draftPriceRangeId === range.id}
-                      onChange={() => setDraftPriceRangeId(range.id)}
-                      className="w-4 h-4 accent-amber-600"
-                    />
-                    <span className="text-sm text-slate-700">
-                      {range.label}
-                    </span>
-                  </label>
-                ))}
+                <div className="space-y-3">
+                  {priceRanges.map((range) => (
+                    <label
+                      key={range.id}
+                      className="flex items-center gap-3 cursor-pointer"
+                    >
+                      <input
+                        type="radio"
+                        name="price-range"
+                        checked={draftPriceRangeId === range.id}
+                        onChange={() => setDraftPriceRangeId(range.id)}
+                        className="w-4 h-4 accent-amber-600"
+                      />
+                      <span className="text-sm text-slate-700">
+                        {range.label}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Same Material/Size/Bed Size groups as the desktop pill
+                  rows above (see facetGroups) — this is how a mobile
+                  visitor reaches them at all, since those rows are
+                  hidden below sm. Checkboxes here are OR'd within a
+                  group and AND'd across groups (matchesFacets). */}
+              {facetGroups.map((group) => (
+                <div key={group.label}>
+                  <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
+                    {t(friendlyGroupLabel(group.label), friendlyGroupLabelHi(group.label))}
+                  </h3>
+
+                  <div className="space-y-3">
+                    {group.items.map((item) => (
+                      <label
+                        key={item._id}
+                        className="flex items-center gap-3 cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={draftFacetIds.has(item._id)}
+                          onChange={() => toggleDraftFacet(item._id)}
+                          className="w-4 h-4 accent-amber-600"
+                        />
+                        <span className="text-sm text-slate-700">
+                          {t(item.name, item.nameHi)}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              ))}
+
+              <div>
+                <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
+                  {t("Rating", "रेटिंग")}
+                </h3>
+
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={draftMinRating === 4}
+                    onChange={() =>
+                      setDraftMinRating((prev) => (prev === 4 ? null : 4))
+                    }
+                    className="w-4 h-4 accent-amber-600"
+                  />
+                  <span className="text-sm text-slate-700">
+                    ⭐⭐⭐⭐ {t("4★ & above", "4★ और ऊपर")}
+                  </span>
+                </label>
               </div>
             </div>
 
