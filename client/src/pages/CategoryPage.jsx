@@ -413,6 +413,26 @@ function CategoryPage() {
     });
   };
 
+  // EXPERIMENTAL (desktop sidebar preview, not yet shipped) — the sidebar
+  // applies instantly on click, Amazon-style, so it skips the draft/Apply
+  // flow the mobile bottom-sheet uses (that flow exists so a tap-to-open
+  // panel doesn't silently filter before you confirm; a persistent
+  // always-visible sidebar has no such "did I mean to open this" moment).
+  const toggleSidebarFacet = (id) => {
+    if (activeSubcategoryIsFacet && id === activeSubcategory._id) {
+      navigate(`/category/${categorySlug}`);
+      return;
+    }
+
+    setSelectedFacetIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+
+      return next;
+    });
+  };
+
   if (status === "loading") {
     return (
       <div className="max-w-7xl mx-auto px-4 py-8">
@@ -587,7 +607,7 @@ function CategoryPage() {
       )}
 
       {facetGroups.map((group) => (
-        <div key={group.label} className="hidden sm:block mb-4">
+        <div key={group.label} className="hidden sm:block lg:hidden mb-4">
           <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">
             {t(friendlyGroupLabel(group.label), friendlyGroupLabelHi(group.label))}
           </p>
@@ -608,90 +628,199 @@ function CategoryPage() {
         </div>
       ))}
 
-      <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
-        <p className="text-sm text-slate-500">
-          {t(
-            `${sortedProducts.length} product${sortedProducts.length === 1 ? "" : "s"}`,
-            `${sortedProducts.length} प्रोडक्ट`,
-          )}
-        </p>
-
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={openFilterPanel}
-            className={`flex items-center gap-2 border rounded-lg text-sm font-medium px-3 py-2 transition-colors ${
-              activeFilterCount > 0
-                ? "border-amber-600 text-amber-700 bg-amber-50"
-                : "border-slate-300 text-slate-700 hover:border-amber-600 hover:text-amber-600"
-            }`}
-          >
-            <FaFilter className="text-xs" />
-            {t("Filter", "फ़िल्टर")}
-            {activeFilterCount > 0 && (
-              <span className="bg-amber-600 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
-                {activeFilterCount}
-              </span>
-            )}
-          </button>
-
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value)}
-            className="border border-slate-300 rounded-lg text-sm text-slate-700 px-3 py-2 outline-none"
-          >
-            {sortOptions.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {t("Sort by: ", "इसके अनुसार क्रमबद्ध करें: ")}{opt.label}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      {activeFilterCount > 0 && (
-        <div className="flex flex-wrap gap-2 mb-6">
-          {activePriceRange && (
-            <button
-              type="button"
-              onClick={() => setPriceRangeId(null)}
-              className="flex items-center gap-1.5 bg-amber-50 border border-amber-200 text-amber-800 text-xs font-medium rounded-full pl-3 pr-2 py-1.5"
-            >
-              {activePriceRange.label}
-              <FaTimes className="text-[10px]" />
-            </button>
-          )}
-
-          {minRating !== null && (
-            <button
-              type="button"
-              onClick={() => setMinRating(null)}
-              className="flex items-center gap-1.5 bg-amber-50 border border-amber-200 text-amber-800 text-xs font-medium rounded-full pl-3 pr-2 py-1.5"
-            >
-              {minRating}★ {t("& above", "और ऊपर")}
-              <FaTimes className="text-[10px]" />
-            </button>
-          )}
-
-          {facetGroups.flatMap((group) =>
-            group.items
-              .filter((item) => selectedFacetIds.has(item._id))
-              .map((item) => (
+      <div className="lg:flex lg:gap-8 lg:items-start">
+        {/* EXPERIMENTAL — Amazon-style persistent desktop sidebar, preview
+            only (not wired up for mobile/tablet, which keep the existing
+            Filter-button + bottom-sheet below). Applies every change
+            instantly instead of the sheet's draft+Apply flow — see
+            toggleSidebarFacet's comment for why that's the right call for
+            an always-visible panel. Reuses every bit of existing filter
+            state/logic (priceRangeId, selectedFacetIds, minRating) — same
+            source of truth as the mobile panel, so switching between
+            screen widths never desyncs the two. */}
+        <aside className="hidden lg:block w-64 shrink-0 sticky top-24 self-start">
+          <div className="border border-slate-200 rounded-lg p-4 space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="font-semibold text-slate-900">
+                {t("Filters", "फ़िल्टर")}
+              </h2>
+              {activeFilterCount > 0 && (
                 <button
-                  key={item._id}
                   type="button"
-                  onClick={() => removeFacet(item._id)}
+                  onClick={clearAllFilters}
+                  className="text-xs text-blue-700 hover:underline"
+                >
+                  {t("Clear All", "सभी हटाएं")}
+                </button>
+              )}
+            </div>
+
+            <div>
+              <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
+                {t("Price", "कीमत")}
+              </h3>
+
+              <div className="space-y-2.5">
+                {priceRanges.map((range) => (
+                  <label
+                    key={range.id}
+                    className="flex items-center gap-3 cursor-pointer"
+                  >
+                    <input
+                      type="radio"
+                      name="sidebar-price-range"
+                      checked={priceRangeId === range.id}
+                      onChange={() =>
+                        setPriceRangeId((prev) =>
+                          prev === range.id ? null : range.id,
+                        )
+                      }
+                      className="w-4 h-4 accent-amber-600"
+                    />
+                    <span className="text-sm text-slate-700">
+                      {range.label}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {facetGroups.map((group) => (
+              <div key={group.label}>
+                <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
+                  {t(friendlyGroupLabel(group.label), friendlyGroupLabelHi(group.label))}
+                </h3>
+
+                <div className="space-y-2.5">
+                  {group.items.map((item) => (
+                    <label
+                      key={item._id}
+                      className="flex items-center gap-3 cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedFacetIds.has(item._id)}
+                        onChange={() => toggleSidebarFacet(item._id)}
+                        className="w-4 h-4 accent-amber-600"
+                      />
+                      <span className="text-sm text-slate-700">
+                        {t(item.name, item.nameHi)}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            ))}
+
+            <div>
+              <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
+                {t("Rating", "रेटिंग")}
+              </h3>
+
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={minRating === 4}
+                  onChange={() =>
+                    setMinRating((prev) => (prev === 4 ? null : 4))
+                  }
+                  className="w-4 h-4 accent-amber-600"
+                />
+                <span className="text-sm text-slate-700">
+                  ⭐⭐⭐⭐ {t("4★ & above", "4★ और ऊपर")}
+                </span>
+              </label>
+            </div>
+          </div>
+        </aside>
+
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
+            <p className="text-sm text-slate-500">
+              {t(
+                `${sortedProducts.length} product${sortedProducts.length === 1 ? "" : "s"}`,
+                `${sortedProducts.length} प्रोडक्ट`,
+              )}
+            </p>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={openFilterPanel}
+                className={`flex items-center gap-2 border rounded-lg text-sm font-medium px-3 py-2 transition-colors lg:hidden ${
+                  activeFilterCount > 0
+                    ? "border-amber-600 text-amber-700 bg-amber-50"
+                    : "border-slate-300 text-slate-700 hover:border-amber-600 hover:text-amber-600"
+                }`}
+              >
+                <FaFilter className="text-xs" />
+                {t("Filter", "फ़िल्टर")}
+                {activeFilterCount > 0 && (
+                  <span className="bg-amber-600 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                    {activeFilterCount}
+                  </span>
+                )}
+              </button>
+
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="border border-slate-300 rounded-lg text-sm text-slate-700 px-3 py-2 outline-none"
+              >
+                {sortOptions.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {t("Sort by: ", "इसके अनुसार क्रमबद्ध करें: ")}{opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {activeFilterCount > 0 && (
+            <div className="flex flex-wrap gap-2 mb-6">
+              {activePriceRange && (
+                <button
+                  type="button"
+                  onClick={() => setPriceRangeId(null)}
                   className="flex items-center gap-1.5 bg-amber-50 border border-amber-200 text-amber-800 text-xs font-medium rounded-full pl-3 pr-2 py-1.5"
                 >
-                  {t(item.name, item.nameHi)}
+                  {activePriceRange.label}
                   <FaTimes className="text-[10px]" />
                 </button>
-              )),
-          )}
-        </div>
-      )}
+              )}
 
-      <ProductGrid products={sortedProducts} />
+              {minRating !== null && (
+                <button
+                  type="button"
+                  onClick={() => setMinRating(null)}
+                  className="flex items-center gap-1.5 bg-amber-50 border border-amber-200 text-amber-800 text-xs font-medium rounded-full pl-3 pr-2 py-1.5"
+                >
+                  {minRating}★ {t("& above", "और ऊपर")}
+                  <FaTimes className="text-[10px]" />
+                </button>
+              )}
+
+              {facetGroups.flatMap((group) =>
+                group.items
+                  .filter((item) => selectedFacetIds.has(item._id))
+                  .map((item) => (
+                    <button
+                      key={item._id}
+                      type="button"
+                      onClick={() => removeFacet(item._id)}
+                      className="flex items-center gap-1.5 bg-amber-50 border border-amber-200 text-amber-800 text-xs font-medium rounded-full pl-3 pr-2 py-1.5"
+                    >
+                      {t(item.name, item.nameHi)}
+                      <FaTimes className="text-[10px]" />
+                    </button>
+                  )),
+              )}
+            </div>
+          )}
+
+          <ProductGrid products={sortedProducts} />
+        </div>
+      </div>
 
       {isFilterOpen && (
         <>
