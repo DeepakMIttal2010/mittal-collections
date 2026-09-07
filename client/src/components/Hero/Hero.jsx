@@ -227,7 +227,7 @@ function Hero() {
                   </span>
                   {t(slide.subtitle, slide.subtitleHi)}
                 </span>
-                <h2>{slideTitle}</h2>
+                <h1>{slideTitle}</h1>
               </div>
 
               <div className="hero-rewards-cards">

@@ -47,9 +47,14 @@ function Compare() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-12">
+      {/* noindex — compareItems is entirely localStorage-driven (see
+          CompareContext), so a first-time visitor or crawler always sees
+          an empty "no products to compare" state with nothing unique to
+          index. Same reasoning as PriceRangePage.jsx's noindex. */}
       <Seo
         title="Compare Products"
         description="Compare bedsheets, curtains, towels and more side by side before you buy."
+        noindex
       />
 
       <div className="flex items-center justify-between flex-wrap gap-3 mb-8">
