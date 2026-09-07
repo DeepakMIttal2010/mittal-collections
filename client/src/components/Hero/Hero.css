@@ -147,13 +147,18 @@
 }
 
 .hero-dot {
+  /* Visual dot stays 10x10 (background-clip keeps the color inside that
+     box), but the touch target grows to 24x24 via padding — a
+     Lighthouse accessibility audit flagged the old 10x10 hit area as
+     too small to tap reliably. */
   width: 10px;
   height: 10px;
+  padding: 7px;
+  background-clip: content-box;
   border-radius: 50%;
   border: none;
-  background: rgba(255, 255, 255, 0.5);
+  background-color: rgba(255, 255, 255, 0.5);
   cursor: pointer;
-  padding: 0;
   transition: background 0.3s;
 }
 
@@ -382,7 +387,10 @@
 .shop-btn {
   background: #d4af37;
   border: none;
-  color: white;
+  /* Dark text, not white — white-on-gold was 2.1:1 (needs 4.5:1) per a
+     Lighthouse accessibility audit; dark text on this same gold clears
+     6.9:1, so the gold itself didn't need to change. */
+  color: #0f172a;
 }
 
 .shop-btn:hover {

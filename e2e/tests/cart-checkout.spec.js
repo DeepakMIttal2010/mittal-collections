@@ -20,8 +20,15 @@ test("adding to cart from the product page updates the cart drawer with matching
   // The badge count renders before the "Cart" label in the DOM (see
   // Header.jsx), so the accessible name is "1 Cart", not "Cart 1" — and
   // a bare /Cart/ also matches every "Add to Cart" button on the page,
-  // so anchor to the header button's exact name shape instead.
-  const cartButton = page.getByRole("button", { name: /^\d*\s*Cart$/ });
+  // so anchor to the header button's exact name shape instead. Scoped
+  // to the "banner" landmark since the mobile bottom tab bar (a
+  // separate, always-visible nav — see BottomNav.jsx) has its own
+  // "Cart" tab with the same accessible name; both are real, both are
+  // meant to say "Cart", so disambiguating by landmark is the fix here,
+  // not making either name unique.
+  const cartButton = page
+    .getByRole("banner")
+    .getByRole("button", { name: /^\d*\s*Cart$/ });
   await expect(cartButton).toContainText("1");
 });
 
