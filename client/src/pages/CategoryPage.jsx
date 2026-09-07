@@ -13,7 +13,7 @@ import Breadcrumbs from "../components/Breadcrumbs";
 import { buildBreadcrumbJsonLd } from "../utils/breadcrumbJsonLd";
 import { getSiteSettings } from "../services/settingsService";
 import { useLanguage } from "../context/LanguageContext";
-import { FaRulerCombined, FaGift, FaFilter, FaTimes } from "react-icons/fa";
+import { FaGift, FaFilter, FaTimes } from "react-icons/fa";
 
 // Sizing/buying help callouts shown on the matching category's product
 // listing — curtains gets the interactive calculator (real measurement
@@ -23,59 +23,51 @@ import { FaRulerCombined, FaGift, FaFilter, FaTimes } from "react-icons/fa";
 // can list more than one guide (e.g. doormats: size AND buying-guide) —
 // each entry also doubles as an internal link that helps these articles
 // get discovered/indexed, since they otherwise only sit on /articles.
+// shortLabel is the compact link text used in the single combined guide
+// line below the category header (see CategoryPage's render) — the
+// longer label/cta pair was the full sentence each of these used to get
+// its own full-width card for, which pushed the product grid too far
+// down a page whose entire job is to show products fast.
 function getSizeHelpLinks(t) {
   return {
     curtains: [
       {
         to: "/curtain-size-calculator",
-        label: t("Not sure what size to buy?", "पक्का नहीं कि कौन सा साइज़ खरीदें?"),
-        cta: t("Use our free Curtain Size Calculator →", "हमारा मुफ़्त कर्टन साइज़ कैलकुलेटर इस्तेमाल करें →"),
+        shortLabel: t("Size Calculator", "साइज़ कैलकुलेटर"),
       },
     ],
     bedsheets: [
       {
         to: "/articles/bedsheet-size-guide-which-size-fits-single-double-queen-king-beds",
-        label: t("Confused about bed sizes?", "बेड साइज़ को लेकर उलझन में हैं?"),
-        cta: t(
-          "See our Bedsheet Size Guide (Single/Double/Queen/King) →",
-          "हमारी बेडशीट साइज़ गाइड देखें (सिंगल/डबल/क्वीन/किंग) →",
-        ),
+        shortLabel: t("Size Guide", "साइज़ गाइड"),
       },
     ],
     doormats: [
       {
         to: "/articles/doormat-size-guide-which-size-for-entrance-bedroom-bathroom-kitchen",
-        label: t("Not sure which size fits where?", "पक्का नहीं किस जगह कौन सा साइज़ फिट होगा?"),
-        cta: t("See our Doormat Size Guide →", "हमारी डोरमैट साइज़ गाइड देखें →"),
+        shortLabel: t("Size Guide", "साइज़ गाइड"),
       },
       {
         to: "/articles/how-to-choose-the-right-doormat",
-        label: t("Not sure which doormat to pick?", "पक्का नहीं कौन सा डोरमैट चुनें?"),
-        cta: t("See our Doormat Buying Guide →", "हमारी डोरमैट खरीद गाइड देखें →"),
+        shortLabel: t("Buying Guide", "खरीद गाइड"),
       },
     ],
     towels: [
       {
         to: "/articles/towel-size-guide-which-size-for-face-hand-bath-cleaning",
-        label: t("Face, hand or bath towel?", "फेस, हैंड या बाथ टॉवल?"),
-        cta: t("See our Towel Size Guide →", "हमारी टॉवल साइज़ गाइड देखें →"),
+        shortLabel: t("Size Guide", "साइज़ गाइड"),
       },
     ],
     "cushion-covers": [
       {
         to: "/articles/cushion-cover-size-guide-standard-sizes-what-we-stock",
-        label: t("Not sure which cushion cover size fits?", "पक्का नहीं कौन सा कुशन कवर साइज़ फिट होगा?"),
-        cta: t("See our Cushion Cover Size Guide →", "हमारी कुशन कवर साइज़ गाइड देखें →"),
+        shortLabel: t("Size Guide", "साइज़ गाइड"),
       },
     ],
     cushions: [
       {
         to: "/articles/pillows-vs-cushions-fill-and-firmness-guide",
-        label: t("Not sure what filling to pick?", "पक्का नहीं कौन सी फिलिंग चुनें?"),
-        cta: t(
-          "See our Pillows vs Cushions Fill & Firmness Guide →",
-          "हमारी पिलो बनाम कुशन फिल एंड फर्मनेस गाइड देखें →",
-        ),
+        shortLabel: t("Fill Guide", "फिल गाइड"),
       },
     ],
   };
@@ -380,49 +372,40 @@ function CategoryPage() {
           : ""}
       </h1>
 
-      {bundlePartners.map(({ partner, discountPercent }) => (
+      {/* Was one full-width card per bundle partner and per guide link —
+          on a category with 2 of each (e.g. Doormats: Bedsheets + Cushion
+          Covers bundles, Size + Buying guides) that pushed the product
+          grid nearly a full screen down on mobile, on a page whose whole
+          job is to show products fast. Both are now a single slim line
+          each, regardless of how many partners/guides exist. */}
+      {bundlePartners.length > 0 && (
         <Link
-          key={partner.slug}
-          to={`/category/${partner.slug}`}
-          className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-6 hover:border-amber-400 transition-colors"
+          to={`/category/${bundlePartners[0].partner.slug}`}
+          className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3 text-sm hover:border-amber-400 transition-colors"
         >
-          <span className="w-9 h-9 shrink-0 rounded-full bg-amber-600 text-white flex items-center justify-center text-sm">
-            <FaGift />
-          </span>
-          <span className="text-sm">
-            <span className="font-semibold text-amber-800">
-              {t(
-                `Buy ${category.name} + ${partner.name} together`,
-                `${t(category.name, category.nameHi)} + ${t(partner.name, partner.nameHi)} एक साथ खरीदें`,
-              )}
-            </span>{" "}
-            <span className="text-amber-700">
-              {t(
-                `and get ${discountPercent}% off automatically at checkout →`,
-                `और चेकआउट पर अपने आप ${discountPercent}% छूट पाएं →`,
-              )}
-            </span>
+          <FaGift className="text-amber-600 shrink-0" />
+          <span className="text-amber-800">
+            {t(
+              `Buy ${category.name} + ${bundlePartners.map((b) => b.partner.name).join(" or ")} → Get Extra ${bundlePartners[0].discountPercent}% Off`,
+              `${t(category.name, category.nameHi)} + ${bundlePartners.map((b) => t(b.partner.name, b.partner.nameHi)).join(" या ")} खरीदें → अतिरिक्त ${bundlePartners[0].discountPercent}% छूट पाएं`,
+            )}
           </span>
         </Link>
-      ))}
+      )}
 
-      {(sizeHelpLinks[categorySlug] || []).map((guide) => (
-        <Link
-          key={guide.to}
-          to={guide.to}
-          className="flex items-center gap-3 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 mb-6 hover:border-blue-400 transition-colors"
-        >
-          <span className="w-9 h-9 shrink-0 rounded-full bg-blue-900 text-white flex items-center justify-center text-sm">
-            <FaRulerCombined />
-          </span>
-          <span className="text-sm">
-            <span className="font-semibold text-blue-900">
-              {guide.label}
-            </span>{" "}
-            <span className="text-blue-700">{guide.cta}</span>
-          </span>
-        </Link>
-      ))}
+      {(sizeHelpLinks[categorySlug] || []).length > 0 && (
+        <p className="text-sm text-slate-600 mb-4">
+          {t("Not sure what to buy?", "पक्का नहीं क्या खरीदें?")}{" "}
+          {sizeHelpLinks[categorySlug].map((guide, i) => (
+            <span key={guide.to}>
+              {i > 0 && " | "}
+              <Link to={guide.to} className="text-blue-700 hover:underline">
+                {guide.shortLabel}
+              </Link>
+            </span>
+          ))}
+        </p>
+      )}
 
       {subcategoryList.length > 0 && (
         <div className="flex flex-wrap gap-3 mb-6">
