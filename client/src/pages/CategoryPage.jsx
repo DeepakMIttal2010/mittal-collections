@@ -13,7 +13,7 @@ import Breadcrumbs from "../components/Breadcrumbs";
 import { buildBreadcrumbJsonLd } from "../utils/breadcrumbJsonLd";
 import { getSiteSettings } from "../services/settingsService";
 import { useLanguage } from "../context/LanguageContext";
-import { FaRulerCombined, FaGift } from "react-icons/fa";
+import { FaRulerCombined, FaGift, FaFilter, FaTimes } from "react-icons/fa";
 
 // Sizing/buying help callouts shown on the matching category's product
 // listing — curtains gets the interactive calculator (real measurement
@@ -81,6 +81,16 @@ function getSizeHelpLinks(t) {
   };
 }
 
+// min/max in rupees; max: null means "no upper bound" (the "1,500+" row).
+function getPriceRanges(t) {
+  return [
+    { id: "under-499", label: t("Under ₹499", "₹499 से कम"), min: 0, max: 499 },
+    { id: "500-999", label: "₹500 – ₹999", min: 500, max: 999 },
+    { id: "1000-1499", label: "₹1,000 – ₹1,499", min: 1000, max: 1499 },
+    { id: "1500-plus", label: t("₹1,500 and above", "₹1,500 और ऊपर"), min: 1500, max: null },
+  ];
+}
+
 function getSortOptions(t) {
   return [
     { value: "featured", label: t("Featured", "फ़ीचर्ड") },
@@ -141,6 +151,16 @@ function CategoryPage() {
   const [products, setProducts] = useState([]);
   const [sortBy, setSortBy] = useState("featured");
   const [bundlePartners, setBundlePartners] = useState([]);
+  // priceRangeId is the selected row's `id` (see getPriceRanges), or null
+  // for "no price filter applied". isFilterOpen controls the bottom-sheet
+  // panel visibility — separate from the selection itself so opening the
+  // panel doesn't immediately re-filter anything until Apply is pressed.
+  const [priceRangeId, setPriceRangeId] = useState(null);
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  // A draft copy, only committed to priceRangeId on "Apply Filters" — so
+  // opening the panel, changing your mind, and tapping outside to close
+  // it doesn't silently apply a filter you never confirmed.
+  const [draftPriceRangeId, setDraftPriceRangeId] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -221,10 +241,39 @@ function CategoryPage() {
     };
   }, [categorySlug, subcategorySlug]);
 
+  const priceRanges = useMemo(() => getPriceRanges(t), [t]);
+  const activePriceRange = priceRanges.find((r) => r.id === priceRangeId) || null;
+
+  const filteredProducts = useMemo(() => {
+    if (!activePriceRange) return products;
+
+    return products.filter(
+      (p) =>
+        p.price >= activePriceRange.min &&
+        (activePriceRange.max === null || p.price <= activePriceRange.max),
+    );
+  }, [products, activePriceRange]);
+
   const sortedProducts = useMemo(
-    () => sortProducts(products, sortBy),
-    [products, sortBy],
+    () => sortProducts(filteredProducts, sortBy),
+    [filteredProducts, sortBy],
   );
+
+  const openFilterPanel = () => {
+    setDraftPriceRangeId(priceRangeId);
+    setIsFilterOpen(true);
+  };
+
+  const applyFilters = () => {
+    setPriceRangeId(draftPriceRangeId);
+    setIsFilterOpen(false);
+  };
+
+  const clearAllFilters = () => {
+    setDraftPriceRangeId(null);
+    setPriceRangeId(null);
+    setIsFilterOpen(false);
+  };
 
   if (status === "loading") {
     return (
@@ -400,21 +449,124 @@ function CategoryPage() {
         </div>
       )}
 
-      <div className="flex justify-end mb-6">
-        <select
-          value={sortBy}
-          onChange={(e) => setSortBy(e.target.value)}
-          className="border border-slate-300 rounded-lg text-sm text-slate-700 px-3 py-2 outline-none"
-        >
-          {sortOptions.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {t("Sort by: ", "इसके अनुसार क्रमबद्ध करें: ")}{opt.label}
-            </option>
-          ))}
-        </select>
+      <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
+        <p className="text-sm text-slate-500">
+          {t(
+            `${sortedProducts.length} product${sortedProducts.length === 1 ? "" : "s"}`,
+            `${sortedProducts.length} प्रोडक्ट`,
+          )}
+        </p>
+
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={openFilterPanel}
+            className={`flex items-center gap-2 border rounded-lg text-sm font-medium px-3 py-2 transition-colors ${
+              activePriceRange
+                ? "border-amber-600 text-amber-700 bg-amber-50"
+                : "border-slate-300 text-slate-700 hover:border-amber-600 hover:text-amber-600"
+            }`}
+          >
+            <FaFilter className="text-xs" />
+            {t("Filter", "फ़िल्टर")}
+          </button>
+
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            className="border border-slate-300 rounded-lg text-sm text-slate-700 px-3 py-2 outline-none"
+          >
+            {sortOptions.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {t("Sort by: ", "इसके अनुसार क्रमबद्ध करें: ")}{opt.label}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
+      {activePriceRange && (
+        <div className="flex flex-wrap gap-2 mb-6">
+          <button
+            type="button"
+            onClick={clearAllFilters}
+            className="flex items-center gap-1.5 bg-amber-50 border border-amber-200 text-amber-800 text-xs font-medium rounded-full pl-3 pr-2 py-1.5"
+          >
+            {activePriceRange.label}
+            <FaTimes className="text-[10px]" />
+          </button>
+        </div>
+      )}
+
       <ProductGrid products={sortedProducts} />
+
+      {isFilterOpen && (
+        <>
+          <div
+            className="fixed inset-0 bg-black/40 z-[100]"
+            onClick={() => setIsFilterOpen(false)}
+          />
+
+          <div className="fixed bottom-0 inset-x-0 z-[101] bg-white rounded-t-2xl shadow-xl max-h-[80vh] flex flex-col sm:max-w-sm sm:left-auto sm:right-6 sm:bottom-6 sm:rounded-2xl">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+              <h2 className="font-semibold text-slate-900">
+                {t("Filter", "फ़िल्टर")}
+              </h2>
+              <button
+                type="button"
+                onClick={() => setIsFilterOpen(false)}
+                aria-label={t("Close", "बंद करें")}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                <FaTimes />
+              </button>
+            </div>
+
+            <div className="overflow-y-auto px-5 py-4">
+              <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
+                {t("Price", "कीमत")}
+              </h3>
+
+              <div className="space-y-3">
+                {priceRanges.map((range) => (
+                  <label
+                    key={range.id}
+                    className="flex items-center gap-3 cursor-pointer"
+                  >
+                    <input
+                      type="radio"
+                      name="price-range"
+                      checked={draftPriceRangeId === range.id}
+                      onChange={() => setDraftPriceRangeId(range.id)}
+                      className="w-4 h-4 accent-amber-600"
+                    />
+                    <span className="text-sm text-slate-700">
+                      {range.label}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex gap-3 px-5 py-4 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={clearAllFilters}
+                className="flex-1 border border-slate-300 text-slate-700 font-medium rounded-full py-2.5 text-sm"
+              >
+                {t("Clear All", "सभी हटाएं")}
+              </button>
+              <button
+                type="button"
+                onClick={applyFilters}
+                className="flex-1 bg-amber-600 hover:bg-amber-700 text-white font-medium rounded-full py-2.5 text-sm"
+              >
+                {t("Apply Filters", "फ़िल्टर लागू करें")}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
