@@ -401,6 +401,8 @@ function AdminProducts() {
       "Product Name",
       "Category",
       "Subcategory",
+      "Fabric",
+      "Brand",
       "Size / Variant",
       "Stock",
       "Restock Alert Threshold",
@@ -408,9 +410,46 @@ function AdminProducts() {
       "Status",
       "Show Product",
       "Purchase Price",
-      "Stock Value",
+      "Misc Expenses",
+      "Total Cost", // = Purchase Price + Misc Expenses
+      "Stock Value (At Cost)", // = Total Cost x Stock
+      "Selling Price",
+      "MRP",
+      "Potential Sale Value", // = Selling Price x Stock
+      "Potential Profit", // = (Selling Price - Total Cost) x Stock
+      "Margin %", // = (Selling Price - Total Cost) / Selling Price x 100
       "Product ID",
     ];
+
+    // Every per-unit cost/price figure below is rounded before use so the
+    // calculated columns (Total Cost, Stock Value, Potential Sale Value,
+    // Potential Profit) always foot exactly against the whole-rupee inputs
+    // a reader can see elsewhere in the row — no silent fractional drift.
+    const buildRow = (common, sizeLabel, stock, purchasePrice, miscExpenses, price, oldPrice, tail, id) => {
+      const totalCost = purchasePrice + miscExpenses;
+      const stockValue = totalCost * stock;
+      const saleValue = price * stock;
+      const profit = (price - totalCost) * stock;
+      const marginPercent = price > 0 ? Math.round(((price - totalCost) / price) * 1000) / 10 : 0;
+
+      return [
+        ...common,
+        sizeLabel,
+        stock,
+        ...tail.threshold,
+        ...tail.status,
+        purchasePrice,
+        miscExpenses,
+        totalCost,
+        stockValue,
+        price,
+        oldPrice,
+        saleValue,
+        profit,
+        marginPercent,
+        id,
+      ];
+    };
 
     // One row per size for variant products (e.g. Curtains 7x4/9x4), since
     // stock/purchase price/value are all size-specific — a single summed
@@ -425,54 +464,61 @@ function AdminProducts() {
         p.name,
         p.category?.name || "",
         (p.subcategories || []).map((s) => s.name).join("; "),
+        p.fabric || "",
+        p.brand || "",
       ];
 
-      const tail = [
-        p.willRestock === false ? "No" : "Yes",
-        p.isActive ? "Active" : "Inactive",
-        VISIBILITY_LABELS[p.visibility || "both"],
-      ];
+      const tail = {
+        threshold: [restockAlertThreshold],
+        status: [
+          p.willRestock === false ? "No" : "Yes",
+          p.isActive ? "Active" : "Inactive",
+          VISIBILITY_LABELS[p.visibility || "both"],
+        ],
+      };
 
       if (hasVariants) {
-        return p.variants.map((v) => {
-          const purchasePrice = Math.round(Number(v.purchasePrice) || 0);
-          const stock = Number(v.stock) || 0;
-
-          return [
-            ...common,
+        return p.variants.map((v) =>
+          buildRow(
+            common,
             v.size,
-            stock,
-            restockAlertThreshold,
-            ...tail,
-            purchasePrice,
-            purchasePrice * stock,
+            Number(v.stock) || 0,
+            Math.round(Number(v.purchasePrice) || 0),
+            Math.round(Number(p.miscExpenses) || 0),
+            Math.round(Number(v.price) || 0),
+            Math.round(Number(v.oldPrice) || 0),
+            tail,
             p._id,
-          ];
-        });
+          ),
+        );
       }
 
-      const purchasePrice = Math.round(Number(p.purchasePrice) || 0);
-      const stock = Number(p.stock) || 0;
-
       return [
-        [
-          ...common,
+        buildRow(
+          common,
           p.size || "",
-          stock,
-          restockAlertThreshold,
-          ...tail,
-          purchasePrice,
-          purchasePrice * stock,
+          Number(p.stock) || 0,
+          Math.round(Number(p.purchasePrice) || 0),
+          Math.round(Number(p.miscExpenses) || 0),
+          Math.round(Number(p.price) || 0),
+          Math.round(Number(p.oldPrice) || 0),
+          tail,
           p._id,
-        ],
+        ),
       ];
     });
 
-    // Stock is column index 4, Stock Value is index 10 (see `columns` above).
-    const totalStock = rows.reduce((sum, row) => sum + (Number(row[4]) || 0), 0);
-    const totalAmount = rows.reduce((sum, row) => sum + (Number(row[10]) || 0), 0);
+    // Column indices per the `columns` array above: Stock=6, Stock
+    // Value=14, Potential Sale Value=17, Potential Profit=18.
+    const sumColumn = (index) =>
+      rows.reduce((sum, row) => sum + (Number(row[index]) || 0), 0);
+    const totalStock = sumColumn(6);
+    const totalStockValue = sumColumn(14);
+    const totalSaleValue = sumColumn(17);
+    const totalProfit = sumColumn(18);
     const totalRow = [
-      "TOTAL", "", "", "", totalStock, "", "", "", "", "", totalAmount, "",
+      "TOTAL", "", "", "", "", "", totalStock, "", "", "", "", "", "", "",
+      totalStockValue, "", "", totalSaleValue, totalProfit, "", "",
     ];
 
     const csv =
