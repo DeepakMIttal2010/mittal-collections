@@ -16,13 +16,47 @@ const generateSlug = (name) =>
 // ============================
 export const getCategories = async (req, res) => {
   try {
-    const categories = await Category.find({ isActive: true }).sort({
-      displayOrder: 1,
+    const categories = await Category.find({ isActive: true }).lean();
+
+    // Same "browsable" definition getProducts uses for its own listing —
+    // a category's nav weight comes from how many products a customer
+    // could actually find there, not raw document count.
+    const counts = await Product.aggregate([
+      {
+        $match: {
+          isActive: true,
+          visibility: { $ne: "offline" },
+          $or: [{ stock: { $gt: 0 } }, { willRestock: { $ne: false } }],
+        },
+      },
+      { $group: { _id: "$category", count: { $sum: 1 } } },
+    ]);
+    const countByCategoryId = new Map(
+      counts.map((c) => [c._id.toString(), c.count]),
+    );
+
+    // Pinned categories keep manual control (displayOrder, ascending) and
+    // sort ahead of every unpinned one; unpinned categories default to
+    // product count, richest first, so the nav reflects actual catalog
+    // depth instead of whatever order they happened to be created in.
+    const withCounts = categories.map((c) => ({
+      ...c,
+      // .lean() skips schema defaults, so a category saved before this
+      // field existed comes back with isPinned undefined rather than
+      // false — normalize it here so the API always returns a real
+      // boolean and undefined can't slip through the sort below.
+      isPinned: c.isPinned ?? false,
+      productCount: countByCategoryId.get(c._id.toString()) || 0,
+    }));
+    withCounts.sort((a, b) => {
+      if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
+      if (a.isPinned) return a.displayOrder - b.displayOrder;
+      return b.productCount - a.productCount;
     });
 
     res.status(200).json({
       success: true,
-      categories,
+      categories: withCounts,
     });
   } catch (error) {
     console.error("Get Categories Error:", error);
@@ -114,8 +148,15 @@ export const getCategoryById = async (req, res) => {
 // ============================
 export const addCategory = async (req, res) => {
   try {
-    const { name, nameHi, description, featured, displayOrder, isActive } =
-      req.body;
+    const {
+      name,
+      nameHi,
+      description,
+      featured,
+      displayOrder,
+      isActive,
+      isPinned,
+    } = req.body;
 
     if (!name) {
       return res.status(400).json({
@@ -151,6 +192,7 @@ export const addCategory = async (req, res) => {
       featured: featured === "true" || featured === true,
       displayOrder: displayOrder || 0,
       isActive: isActive === "true" || isActive === true,
+      isPinned: isPinned === "true" || isPinned === true,
     });
 
     res.status(201).json({
@@ -182,8 +224,15 @@ export const updateCategory = async (req, res) => {
       });
     }
 
-    const { name, nameHi, description, featured, displayOrder, isActive } =
-      req.body;
+    const {
+      name,
+      nameHi,
+      description,
+      featured,
+      displayOrder,
+      isActive,
+      isPinned,
+    } = req.body;
 
     if (name && name !== category.name) {
       category.name = name;
@@ -197,6 +246,8 @@ export const updateCategory = async (req, res) => {
     if (displayOrder !== undefined) category.displayOrder = displayOrder;
     if (isActive !== undefined)
       category.isActive = isActive === "true" || isActive === true;
+    if (isPinned !== undefined)
+      category.isPinned = isPinned === "true" || isPinned === true;
 
     let oldImage = null;
     if (req.file) {

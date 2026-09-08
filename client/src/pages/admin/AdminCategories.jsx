@@ -282,10 +282,15 @@ function AdminCategories() {
                   <td className="px-4 py-3 text-slate-500 max-w-xs truncate">
                     {category.description || "No description"}
                   </td>
-                  <td className="px-4 py-3 text-center">
+                  <td className="px-4 py-3 text-center space-x-1">
                     {category.featured && (
                       <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-100 text-amber-700">
                         Featured
+                      </span>
+                    )}
+                    {category.isPinned && (
+                      <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-blue-100 text-blue-700">
+                        Pinned
                       </span>
                     )}
                   </td>

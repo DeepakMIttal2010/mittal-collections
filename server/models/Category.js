@@ -46,6 +46,15 @@ const categorySchema = new mongoose.Schema(
       default: false,
     },
 
+    // Nav/footer/homepage category order defaults to live product count
+    // (deepest categories first) — see getCategories. Pinning is the
+    // manual escape hatch: a pinned category ignores its product count
+    // and sorts by displayOrder instead, ahead of every unpinned one.
+    isPinned: {
+      type: Boolean,
+      default: false,
+    },
+
     displayOrder: {
       type: Number,
       default: 0,
