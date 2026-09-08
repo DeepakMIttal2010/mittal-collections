@@ -1,11 +1,14 @@
 import { Helmet } from "react-helmet-async";
 
 const SITE_NAME = "Mittal Collections";
-// TODO: placeholder real-product photo (doormat) picked 2026-08-31 as a
-// stand-in for the generic stock photo this used to be — user asked to be
-// reminded to swap it for a more representative one later.
+// The homepage hero banner (styled bedroom scene) — same asset Hero.jsx
+// already shows, just cropped to the 1200x630 (1.91:1) size social
+// platforms expect for a link-preview image, via a Cloudinary URL
+// transform rather than a separately uploaded file. Replaces an earlier
+// placeholder doormat photo picked 2026-08-31 as a stand-in for the
+// generic stock photo this used to be.
 const DEFAULT_IMAGE =
-  "https://res.cloudinary.com/y2gghpvz/image/upload/q_auto,f_auto,w_1200/v1786455968/mittal-collections/eyh3ckt24w8hf7gu3aop.jpg";
+  "https://res.cloudinary.com/y2gghpvz/image/upload/w_1200,h_630,c_fill,g_auto,q_auto,f_auto/v1788778399/mittal-collections/b7qfxz8qsnqigmpttuyb.jpg";
 
 // alternateLangs: [{ lang: "en"|"hi"|"x-default", url }] — a page that
 // exists in more than one language links to every version (itself

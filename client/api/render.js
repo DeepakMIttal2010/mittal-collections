@@ -14,12 +14,12 @@ const SITE_NAME = "Mittal Collections";
 const SITE_URL = "https://www.mittalcollections.com";
 const API_BASE =
   process.env.VITE_API_URL || "https://mittal-collections-api.onrender.com";
-// TODO: placeholder real-product photo (doormat) picked 2026-08-31 as a
-// stand-in for the generic stock photo this used to be — user asked to be
-// reminded to swap it for a more representative one later. Mirrors
-// client/src/components/Seo.jsx's own DEFAULT_IMAGE.
+// The homepage hero banner, cropped to the 1200x630 link-preview size —
+// mirrors client/src/components/Seo.jsx's own DEFAULT_IMAGE (same asset,
+// same reasoning: keep the two in sync since this file is the client-side
+// component's server-rendered-for-bots counterpart).
 const DEFAULT_IMAGE =
-  "https://res.cloudinary.com/y2gghpvz/image/upload/q_auto,f_auto,w_1200/v1786455968/mittal-collections/eyh3ckt24w8hf7gu3aop.jpg";
+  "https://res.cloudinary.com/y2gghpvz/image/upload/w_1200,h_630,c_fill,g_auto,q_auto,f_auto/v1788778399/mittal-collections/b7qfxz8qsnqigmpttuyb.jpg";
 
 const escapeHtml = (value) =>
   String(value ?? "")
@@ -52,16 +52,14 @@ const buildMeta = async (path) => {
 
   if (parts.length === 0) {
     // Homepage — mirrors Home.jsx's <Seo> call and HomeGoodsStore schema.
-    // NOTE: unreachable via the real "/" URL in production — Vercel serves
-    // the static index.html straight from its filesystem/edge cache for an
-    // exact "/" match, which takes precedence over vercel.json's `rewrites`
-    // regardless of the bot user-agent `has` condition (confirmed live;
-    // /category and /articles don't have this problem since no static file
-    // exists at those paths to collide with). Fixing this needs Vercel Edge
-    // Middleware instead of a rewrite rule — left as-is for now since a
-    // bare-domain share is rare next to a product/category/article link.
-    // This branch still works correctly if hit directly via
-    // /api/render?path=/, so it's kept rather than removed.
+    // A bare "/" is unreachable through vercel.json's `rewrites` no matter
+    // the bot user-agent `has` condition — Vercel serves the static
+    // index.html straight from its filesystem/edge cache for an exact "/"
+    // match, ahead of `rewrites` (/category and /articles don't have this
+    // problem since no static file exists at those paths to collide with).
+    // /client/middleware.js is what actually routes a bot's "/" request
+    // here now, since Edge Middleware runs ahead of that static-file
+    // lookup — this branch is what it lands on.
     const settingsData = await fetch(`${API_BASE}/api/settings`).then((r) =>
       r.json(),
     );
