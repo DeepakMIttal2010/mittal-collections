@@ -1,32 +1,21 @@
-import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 
 import { getProductsByMaxPrice } from "../services/productService";
-import ProductGrid from "../components/ProductGrid/ProductGrid";
+import VirtualizedProductGrid from "../components/ProductGrid/VirtualizedProductGrid";
 import ProductGridSkeleton from "../components/ProductGrid/ProductGridSkeleton";
 import Seo from "../components/Seo";
 import { useLanguage } from "../context/LanguageContext";
+import { useInfiniteProducts } from "../hooks/useInfiniteProducts";
 
 function PriceRangePage() {
   const { maxPrice } = useParams();
   const { t } = useLanguage();
 
-  const [products, setProducts] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-
-      const response = await getProductsByMaxPrice(maxPrice);
-
-      if (response.success) setProducts(response.products);
-
-      setLoading(false);
-    };
-
-    load();
-  }, [maxPrice]);
+  const { products, loading, loadingMore, hasMore, totalCount, loadMore } =
+    useInfiniteProducts(
+      (page) => getProductsByMaxPrice(maxPrice, { page }),
+      [maxPrice],
+    );
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-12">
@@ -50,15 +39,20 @@ function PriceRangePage() {
         {loading
           ? t("Loading products...", "प्रोडक्ट लोड हो रहे हैं...")
           : t(
-              `${products.length} product${products.length !== 1 ? "s" : ""} found`,
-              `${products.length} प्रोडक्ट मिले`,
+              `${totalCount} product${totalCount !== 1 ? "s" : ""} found`,
+              `${totalCount} प्रोडक्ट मिले`,
             )}
       </p>
 
       {loading ? (
         <ProductGridSkeleton />
       ) : (
-        <ProductGrid products={products} />
+        <VirtualizedProductGrid
+          products={products}
+          hasMore={hasMore}
+          loadingMore={loadingMore}
+          onLoadMore={loadMore}
+        />
       )}
     </div>
   );

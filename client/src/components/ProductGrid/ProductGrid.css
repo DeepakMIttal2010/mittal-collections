@@ -33,3 +33,28 @@
     gap: 18px;
   }
 }
+
+/* Manual fallback for VirtualizedProductGrid's scroll-triggered loadMore —
+   keyboard/screen-reader users and anyone whose scroll position never
+   quite crosses the auto-load threshold both need an explicit way to
+   reach the next page. */
+.load-more-btn {
+  background: #111;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 32px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+.load-more-btn:hover:not(:disabled) {
+  background: #2e7d32;
+}
+
+.load-more-btn:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+}
