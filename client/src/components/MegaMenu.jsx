@@ -8,10 +8,16 @@ import { getSubcategories } from "../services/subcategoryService";
 import { useLanguage } from "../context/LanguageContext";
 
 // How many categories show as their own top-level nav link (in the
-// admin-set displayOrder/priority the categories API already returns)
-// before the rest collapse into a "More" dropdown — keeps the navbar
-// width stable as the category count grows.
-const VISIBLE_COUNT = 5;
+// priority order the categories API already returns — product count
+// by default, pinned categories first) before the rest collapse into a
+// "More" dropdown. 5 plus the fixed Home/Top Trending/Clearance
+// Sale/New Arrivals/Guides links overflowed a common 1366px laptop
+// width once the visible 5 became longer names (Table Covers, Cushion
+// Covers, Table Runners) than whatever short ones used to be there —
+// the row's own overflow-x-auto (see Navbar.jsx) caught it rather than
+// clipping anything, but needing to scroll the main nav at all on a
+// perfectly normal width is exactly what this cap exists to avoid.
+const VISIBLE_COUNT = 4;
 
 function useGroupedSubcategories(subcategories) {
   return (categoryId) => {
