@@ -1058,6 +1058,7 @@ export const addProduct = async (req, res) => {
       countryOfOrigin,
       whatsIncluded,
       colorVariesNote,
+      adminRemarks,
       isReturnable,
       returnPeriodDays,
       restockAlertEnabled,
@@ -1123,6 +1124,8 @@ export const addProduct = async (req, res) => {
       countryOfOrigin: countryOfOrigin || "",
       whatsIncluded: whatsIncluded || "",
       colorVariesNote: colorVariesNote || "",
+      adminRemarks: adminRemarks || "",
+      adminRemarksUpdatedAt: adminRemarks ? new Date() : null,
 
       isReturnable: isReturnable === undefined ? true : isReturnable === "true",
       returnPeriodDays: returnPeriodDays || 0,
@@ -1229,6 +1232,21 @@ export const updateProduct = async (req, res) => {
     product.countryOfOrigin = req.body.countryOfOrigin || "";
     product.whatsIncluded = req.body.whatsIncluded || "";
     product.colorVariesNote = req.body.colorVariesNote || "";
+
+    // Only bump the timestamp when the note itself actually changed —
+    // otherwise re-saving the product for an unrelated edit (price,
+    // stock, ...) would silently make a stale remark look freshly
+    // reviewed. undefined here means the caller didn't send the field
+    // at all (e.g. an older admin script) — leave the note untouched
+    // rather than wiping it, same convention as the other optional
+    // fields above already default to "" rather than staying undefined.
+    if (req.body.adminRemarks !== undefined) {
+      const nextRemarks = req.body.adminRemarks || "";
+      if (nextRemarks !== product.adminRemarks) {
+        product.adminRemarksUpdatedAt = new Date();
+      }
+      product.adminRemarks = nextRemarks;
+    }
 
     product.isReturnable =
       req.body.isReturnable === undefined

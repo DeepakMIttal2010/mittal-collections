@@ -87,6 +87,7 @@ function EditProduct() {
     countryOfOrigin: "",
     whatsIncluded: "",
     colorVariesNote: "",
+    adminRemarks: "",
     isReturnable: true,
     returnPeriodDays: "",
     restockAlertEnabled: false,
@@ -97,6 +98,11 @@ function EditProduct() {
   });
 
   const [productNumber, setProductNumber] = useState("");
+
+  // Read-only display, not part of formData/the submitted payload — the
+  // server sets this itself (see updateProduct) only when adminRemarks
+  // actually changes, so there's nothing for this form to send back.
+  const [adminRemarksUpdatedAt, setAdminRemarksUpdatedAt] = useState(null);
 
   // The __v this form was loaded with, so the server can detect (and
   // reject) a save based on a copy that's gone stale because someone
@@ -154,6 +160,7 @@ function EditProduct() {
         countryOfOrigin: product.countryOfOrigin || "",
         whatsIncluded: product.whatsIncluded || "",
         colorVariesNote: product.colorVariesNote || "",
+        adminRemarks: product.adminRemarks || "",
         isReturnable:
           product.isReturnable === undefined ? true : product.isReturnable,
         returnPeriodDays: product.returnPeriodDays ?? "",
@@ -167,6 +174,7 @@ function EditProduct() {
       });
 
       setProductNumber(product.productNumber || "");
+      setAdminRemarksUpdatedAt(product.adminRemarksUpdatedAt || null);
 
       if (product.variants?.length > 0) {
         setHasVariants(true);
@@ -738,6 +746,33 @@ function EditProduct() {
             value={formData.colorVariesNote}
             onChange={handleChange}
           />
+        </div>
+
+        <div className="form-group">
+          <label>
+            Admin Remarks / Audit Note (optional, not shown to customers)
+          </label>
+
+          <textarea
+            name="adminRemarks"
+            rows="3"
+            placeholder="e.g. Verified pricing and photos on 8 Sep 2026 - OK from my side."
+            value={formData.adminRemarks}
+            onChange={handleChange}
+          />
+
+          {adminRemarksUpdatedAt && (
+            <p className="field-hint">
+              Last updated{" "}
+              {new Date(adminRemarksUpdatedAt).toLocaleString("en-IN", {
+                day: "numeric",
+                month: "short",
+                year: "numeric",
+                hour: "numeric",
+                minute: "2-digit",
+              })}
+            </p>
+          )}
         </div>
 
         <div className="form-group">
