@@ -22,6 +22,7 @@ function EditCategory() {
     displayOrder: 0,
     featured: false,
     isActive: true,
+    isPinned: false,
     optimizeImages: true,
     image: null,
   });
@@ -41,6 +42,7 @@ function EditCategory() {
         displayOrder: category.displayOrder || 0,
         featured: category.featured,
         isActive: category.isActive,
+        isPinned: category.isPinned || false,
         optimizeImages: true,
         image: null,
       });
@@ -91,6 +93,7 @@ function EditCategory() {
     data.append("displayOrder", formData.displayOrder);
     data.append("featured", formData.featured);
     data.append("isActive", formData.isActive);
+    data.append("isPinned", formData.isPinned);
     data.append("optimizeImages", formData.optimizeImages);
 
     if (formData.image) {
@@ -177,6 +180,11 @@ function EditCategory() {
             onChange={handleChange}
             className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
+          <p className="text-xs text-slate-400 mt-1">
+            Only used when "Pin to top" (below) is checked — an unpinned
+            category sorts by its live product count instead, so this
+            number has no effect on where it appears in the nav.
+          </p>
         </div>
 
         <div>
@@ -233,6 +241,17 @@ function EditCategory() {
               className="w-4 h-4"
             />
             Active
+          </label>
+
+          <label className="flex items-center gap-2 text-sm text-slate-700">
+            <input
+              type="checkbox"
+              name="isPinned"
+              checked={formData.isPinned}
+              onChange={handleChange}
+              className="w-4 h-4"
+            />
+            Pin to top (use Display Order, ignore product count)
           </label>
         </div>
 

@@ -44,9 +44,15 @@ import deliveryRoutes from "./routes/deliveryRoutes.js";
 
 const app = express();
 
-// Render sits behind a reverse proxy — trust X-Forwarded-For so req.ip
-// reflects the real visitor IP (needed for geo-location lookups)
-app.set("trust proxy", true);
+// Render sits behind exactly one reverse proxy — trust X-Forwarded-For
+// so req.ip reflects the real visitor IP (needed for geo-location
+// lookups). `true` (trust every hop, no matter how many) lets a client
+// spoof its own X-Forwarded-For and pick whatever req.ip it wants,
+// which trivially defeats every IP-keyed rate limiter below (auth
+// brute-force protection included) — express-rate-limit's own startup
+// check flags this. `1` trusts exactly the nearest hop (Render's LB)
+// and ignores anything further down the chain, i.e. attacker-supplied.
+app.set("trust proxy", 1);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -105,6 +111,20 @@ const authLimiter = rateLimit({
   },
 });
 app.use("/api/auth", authLimiter);
+
+// getCategories now runs a Product.aggregate() (for the live product-count
+// nav sort) on top of the plain find() it used to do — a heavier query on
+// a public, unauthenticated, every-page-load route, which CodeQL flagged
+// as unrated-limited. Generous limit (this is normal browsing traffic,
+// not a sensitive endpoint like auth) — just enough to blunt a scripted
+// flood rather than genuinely constrain anyone browsing the site.
+const categoryReadLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: process.env.DISABLE_AUTH_RATE_LIMIT === "true" ? 10000 : 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use("/api/categories", categoryReadLimiter);
 
 // Static Upload Folder — these are legacy uploads only, never overwritten
 // in place (new uploads go to Cloudinary), so a long cache is safe.
