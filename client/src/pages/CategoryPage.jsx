@@ -639,7 +639,14 @@ function CategoryPage() {
             source of truth as the mobile panel, so switching between
             screen widths never desyncs the two. */}
         <aside className="hidden lg:block w-64 shrink-0 sticky top-24 self-start">
-          <div className="border border-slate-200 rounded-lg p-4 space-y-6">
+          {/* pb-16 (not the usual p-4 all round) — on a category with few
+              filter groups this card is short enough that, at the top of
+              the page before the sticky offset kicks in, its last row can
+              land right where the fixed WhatsApp button sits (bottom-left
+              corner). Reserving extra space at the bottom keeps the two
+              apart without touching WhatsAppButton itself, which floats
+              on every page and can't know this one card's height. */}
+          <div className="border border-slate-200 rounded-lg p-4 pb-16 space-y-6">
             <div className="flex items-center justify-between">
               <h2 className="font-semibold text-slate-900">
                 {t("Filters", "फ़िल्टर")}
