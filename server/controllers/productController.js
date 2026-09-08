@@ -25,6 +25,11 @@ import { deleteCloudinaryAssetsByUrl } from "../utils/cloudinaryCleanup.js";
 const COST_FIELDS =
   "-purchasePrice -miscExpenses -purchaseDate -variants.purchasePrice";
 
+// getProducts' page size when a caller opts into pagination (`page` sent)
+// without also specifying `limit` — Amazon/Flipkart-style listing density,
+// and divides cleanly across the product grid's 2/3/4-column breakpoints.
+const DEFAULT_PAGE_SIZE = 24;
+
 // Product has optimisticConcurrency enabled, so a save() against a
 // stale copy (someone else saved changes to this product in between
 // this request's load and its own save) throws VersionError instead
@@ -254,12 +259,29 @@ export const getProducts = async (req, res) => {
       (a, b) => Number(b.stock > 0) - Number(a.stock > 0),
     );
 
-    // limit is applied last, after every sort pass above, so a capped
-    // request still gets the correctly-ordered top N rather than an
-    // arbitrary DB-order slice. No caller currently sends this param, so
-    // omitting it keeps today's "return everything" behavior unchanged.
+    // limit/page are applied last, after every sort pass above, so a
+    // trimmed response still gets the correctly-ordered slice rather than
+    // an arbitrary DB-order one.
+    //
+    // Pagination is opt-in via `page` specifically (not just `limit`) so
+    // every existing caller that doesn't send it — search, admin tools,
+    // CategoryPage, and PriceRangePage before this — keeps getting every
+    // matching product back, unchanged. Only a caller built against the
+    // new page param (PriceRangePage's infinite-scroll grid, for now —
+    // CategoryPage's client-side facet filters need their own filtering
+    // moved server-side first, since they currently assume every matching
+    // product is already in memory to filter/count against) gets a
+    // trimmed page + the metadata below to drive it.
+    const totalCount = products.length;
     const parsedLimit = parseInt(req.query.limit, 10);
-    if (parsedLimit > 0) {
+    const requestedPage = parseInt(req.query.page, 10);
+    const isPaginated = Number.isInteger(requestedPage) && requestedPage > 0;
+    const pageSize = parsedLimit > 0 ? parsedLimit : DEFAULT_PAGE_SIZE;
+
+    if (isPaginated) {
+      const start = (requestedPage - 1) * pageSize;
+      products = products.slice(start, start + pageSize);
+    } else if (parsedLimit > 0) {
       products = products.slice(0, parsedLimit);
     }
 
@@ -297,6 +319,12 @@ export const getProducts = async (req, res) => {
     res.status(200).json({
       success: true,
       count: products.length,
+      ...(isPaginated && {
+        totalCount,
+        page: requestedPage,
+        limit: pageSize,
+        hasMore: requestedPage * pageSize < totalCount,
+      }),
       products,
     });
   } catch (error) {

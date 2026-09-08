@@ -274,11 +274,17 @@ export const getSearchSuggestions = async (query, category = "") => {
 // ==========================
 // Get Products By Max Price
 // ==========================
-export const getProductsByMaxPrice = async (maxPrice) => {
+// page is optional — omit it (or the whole options arg) to get every
+// matching product back in one response, same as before pagination
+// existed. Pass it to get a single page plus the metadata
+// (totalCount/hasMore) an infinite-scroll grid needs to know when to
+// stop asking for more.
+export const getProductsByMaxPrice = async (maxPrice, { page } = {}) => {
   try {
-    const response = await fetch(
-      `${API_BASE_URL}/products?maxPrice=${encodeURIComponent(maxPrice)}`,
-    );
+    const params = new URLSearchParams({ maxPrice });
+    if (page) params.set("page", page);
+
+    const response = await fetch(`${API_BASE_URL}/products?${params}`);
 
     if (!response.ok) {
       throw new Error("Failed to fetch products");
@@ -289,6 +295,8 @@ export const getProductsByMaxPrice = async (maxPrice) => {
     return {
       success: data.success,
       products: data.products || [],
+      totalCount: data.totalCount,
+      hasMore: data.hasMore,
     };
   } catch (error) {
     console.error("Get Products By Max Price Error:", error);
@@ -303,11 +311,12 @@ export const getProductsByMaxPrice = async (maxPrice) => {
 // ==========================
 // Get Products By Category
 // ==========================
-export const getProductsByCategory = async (categoryId) => {
+export const getProductsByCategory = async (categoryId, { page } = {}) => {
   try {
-    const response = await fetch(
-      `${API_BASE_URL}/products?category=${encodeURIComponent(categoryId)}`,
-    );
+    const params = new URLSearchParams({ category: categoryId });
+    if (page) params.set("page", page);
+
+    const response = await fetch(`${API_BASE_URL}/products?${params}`);
 
     if (!response.ok) {
       throw new Error("Failed to fetch products");
@@ -318,6 +327,8 @@ export const getProductsByCategory = async (categoryId) => {
     return {
       success: data.success,
       products: data.products || [],
+      totalCount: data.totalCount,
+      hasMore: data.hasMore,
     };
   } catch (error) {
     console.error("Get Products By Category Error:", error);
