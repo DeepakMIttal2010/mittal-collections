@@ -35,10 +35,17 @@ function DeliveryOfferBanner() {
           <>
             <span>
               <strong>{t("FAST DELIVERY within 24 Hours", "24 घंटे में तेज़ डिलीवरी")}</strong>{" "}
-              {t(
-                "— Ghaziabad*: Vasundhara, Vaishali, Indirapuram & आसपास",
-                "— गाज़ियाबाद*: वसुंधरा, वैशाली, इंदिरापुरम & आसपास",
-              )}
+              {/* The area list is the part that pushed this to 3 wrapped
+                  lines on a phone-width screen, eating real above-the-fold
+                  space before anything else on the page — "Check your
+                  area" already covers the same information on tap, so
+                  mobile only gets the headline + that link. */}
+              <span className="hidden sm:inline">
+                {t(
+                  "— Ghaziabad*: Vasundhara, Vaishali, Indirapuram & आसपास",
+                  "— गाज़ियाबाद*: वसुंधरा, वैशाली, इंदिरापुरम & आसपास",
+                )}
+              </span>
             </span>
             <a
               href="#delivery-areas"
@@ -51,10 +58,12 @@ function DeliveryOfferBanner() {
         ) : (
           <span>
             <strong>{t("PAN-INDIA DELIVERY", "पूरे भारत में डिलीवरी")}</strong>{" "}
-            {t(
-              "— usually 3-7 business days (same-day within 24 Hours in Ghaziabad)",
-              "— आमतौर पर 3-7 कार्य दिवस (गाज़ियाबाद में 24 घंटे में सेम-डे)",
-            )}
+            <span className="hidden sm:inline">
+              {t(
+                "— usually 3-7 business days (same-day within 24 Hours in Ghaziabad)",
+                "— आमतौर पर 3-7 कार्य दिवस (गाज़ियाबाद में 24 घंटे में सेम-डे)",
+              )}
+            </span>
           </span>
         )}
       </div>
