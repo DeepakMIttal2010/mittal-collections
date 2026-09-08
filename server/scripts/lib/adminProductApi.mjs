@@ -140,6 +140,12 @@ export function buildProductUpdateFormData(product, overrides = {}) {
   fd.append("countryOfOrigin", get("countryOfOrigin", product.countryOfOrigin || ""));
   fd.append("whatsIncluded", get("whatsIncluded", product.whatsIncluded || ""));
   fd.append("colorVariesNote", get("colorVariesNote", product.colorVariesNote || ""));
+  // Preserving by default (not resetting to "") matters here specifically:
+  // updateProduct only bumps adminRemarksUpdatedAt when this value actually
+  // changes, so a script that didn't know about this field and blindly
+  // sent "" would silently wipe out an admin's review note *and* make it
+  // look like nobody has ever verified this listing.
+  fd.append("adminRemarks", get("adminRemarks", product.adminRemarks || ""));
   fd.append("featured", String(!!get("featured", product.featured)));
   fd.append("isActive", String(!!get("isActive", product.isActive)));
   fd.append("isTrending", String(!!get("isTrending", product.isTrending)));

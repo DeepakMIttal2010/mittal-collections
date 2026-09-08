@@ -82,6 +82,7 @@ function AddProduct() {
     countryOfOrigin: "",
     whatsIncluded: "",
     colorVariesNote: "",
+    adminRemarks: "",
     isReturnable: true,
     returnPeriodDays: "",
     restockAlertEnabled: false,
@@ -265,6 +266,7 @@ function AddProduct() {
     data.append("countryOfOrigin", formData.countryOfOrigin);
     data.append("whatsIncluded", formData.whatsIncluded);
     data.append("colorVariesNote", formData.colorVariesNote);
+    data.append("adminRemarks", formData.adminRemarks);
     data.append("isReturnable", formData.isReturnable);
     data.append("returnPeriodDays", formData.returnPeriodDays);
     data.append("restockAlertEnabled", formData.restockAlertEnabled);
@@ -627,6 +629,20 @@ function AddProduct() {
             name="colorVariesNote"
             placeholder="e.g. Available in multiple colours - same quality. We'll send any available colour unless you confirm a specific one via Contact Us."
             value={formData.colorVariesNote}
+            onChange={handleChange}
+          />
+        </div>
+
+        <div className="form-group">
+          <label>
+            Admin Remarks / Audit Note (optional, not shown to customers)
+          </label>
+
+          <textarea
+            name="adminRemarks"
+            rows="3"
+            placeholder="e.g. Verified pricing and photos on 8 Sep 2026 - OK from my side."
+            value={formData.adminRemarks}
             onChange={handleChange}
           />
         </div>

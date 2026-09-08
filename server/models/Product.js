@@ -135,6 +135,16 @@ const productSchema = new mongoose.Schema(
     // to confirm via Contact Us before ordering, instead of assuming.
     colorVariesNote: { type: String, default: "", trim: true },
 
+    // Admin-only note, never shown to customers — a place to write "this
+    // listing is verified/OK from my side" or similar review comments.
+    // adminRemarksUpdatedAt only moves when adminRemarks itself actually
+    // changes (see updateProduct), not on every unrelated field edit, so
+    // it reads as "when this note was last written/confirmed", not "when
+    // the product was last touched" (Product already has that via its
+    // own timestamps).
+    adminRemarks: { type: String, default: "", trim: true },
+    adminRemarksUpdatedAt: { type: Date, default: null },
+
     rating: {
       type: Number,
       default: 5,
