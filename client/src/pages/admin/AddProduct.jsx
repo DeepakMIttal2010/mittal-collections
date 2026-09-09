@@ -201,13 +201,27 @@ function AddProduct() {
     }));
   };
 
+  // Matches the server's multer field limits (uploadMiddleware.js /
+  // productMediaFields) — catching this here gives an immediate,
+  // specific message instead of a failed save after filling out the
+  // whole form (confirmed happening in production via Sentry: a
+  // MulterError "Unexpected field", which is multer's — confusing —
+  // wording for exceeding a field's maxCount).
+  const MAX_IMAGES = 6;
+  const MAX_VIDEOS = 2;
+
   const handleImages = (e) => {
     const files = Array.from(e.target.files);
 
     if (files.length === 0) return;
 
-    setImages(files);
-    setPreviews(files.map((file) => URL.createObjectURL(file)));
+    const accepted = files.slice(0, MAX_IMAGES);
+    if (files.length > accepted.length) {
+      alert(`Only the first ${MAX_IMAGES} images were kept — max ${MAX_IMAGES} per product.`);
+    }
+
+    setImages(accepted);
+    setPreviews(accepted.map((file) => URL.createObjectURL(file)));
     setMainImageIndex(0);
   };
 
@@ -216,8 +230,13 @@ function AddProduct() {
 
     if (files.length === 0) return;
 
-    setVideos(files);
-    setVideoPreviews(files.map((file) => URL.createObjectURL(file)));
+    const accepted = files.slice(0, MAX_VIDEOS);
+    if (files.length > accepted.length) {
+      alert(`Only the first ${MAX_VIDEOS} videos were kept — max ${MAX_VIDEOS} per product.`);
+    }
+
+    setVideos(accepted);
+    setVideoPreviews(accepted.map((file) => URL.createObjectURL(file)));
   };
 
   const handleSubmit = async (e) => {

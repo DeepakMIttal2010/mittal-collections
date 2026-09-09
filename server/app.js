@@ -41,6 +41,7 @@ import notificationRoutes from "./routes/notificationRoutes.js";
 import feedRoutes from "./routes/feedRoutes.js";
 import whatsappRoutes from "./routes/whatsappRoutes.js";
 import deliveryRoutes from "./routes/deliveryRoutes.js";
+import { classifyKnownErrors, jsonErrorHandler } from "./middleware/errorHandler.js";
 
 const app = express();
 
@@ -172,10 +173,21 @@ app.use("/api/feed", feedRoutes);
 app.use("/api/whatsapp", whatsappRoutes);
 app.use("/api/delivery", deliveryRoutes);
 
-// Must come after all routes (so it sees their errors) and before any
-// other error-handling middleware — a no-op if SENTRY_DSN isn't set
-// (see instrument.js), same as the rest of the Sentry setup.
+// Error handling — must come after all routes (so it sees their
+// errors). classifyKnownErrors runs first so Sentry's own
+// status->=500 filtering already skips known-benign cases (a client
+// hitting the upload file-count limit, or disconnecting mid-upload);
+// jsonErrorHandler runs last so every error, however it started,
+// still reaches the client as the `{success, message}` JSON shape the
+// frontend's service functions expect instead of Express's default
+// HTML error page.
+app.use(classifyKnownErrors);
+
+// A no-op if SENTRY_DSN isn't set (see instrument.js), same as the
+// rest of the Sentry setup.
 Sentry.setupExpressErrorHandler(app);
+
+app.use(jsonErrorHandler);
 
 // Health Check
 app.get("/api/health", (req, res) => {
