@@ -289,16 +289,40 @@ function EditProduct() {
     }));
   };
 
+  // Matches the server's multer field limits (uploadMiddleware.js /
+  // productMediaFields) — catching this here gives an immediate,
+  // specific message instead of a failed save after filling out the
+  // whole form (confirmed happening in production via Sentry: a
+  // MulterError "Unexpected field", which is multer's — confusing —
+  // wording for exceeding a field's maxCount).
+  const MAX_NEW_IMAGES = 6;
+  const MAX_NEW_VIDEOS = 2;
+
   const handleAddImages = (e) => {
     const files = Array.from(e.target.files);
 
     if (files.length === 0) return;
 
-    setNewImages((prev) => [...prev, ...files]);
+    const room = MAX_NEW_IMAGES - newImages.length;
+    if (room <= 0) {
+      alert(`You can add at most ${MAX_NEW_IMAGES} new images per save.`);
+      e.target.value = "";
+      return;
+    }
+
+    const accepted = files.slice(0, room);
+    if (files.length > accepted.length) {
+      alert(
+        `Only ${room} more image${room === 1 ? "" : "s"} can be added (max ${MAX_NEW_IMAGES} new images per save) — the rest were skipped.`,
+      );
+    }
+
+    setNewImages((prev) => [...prev, ...accepted]);
     setNewPreviews((prev) => [
       ...prev,
-      ...files.map((file) => URL.createObjectURL(file)),
+      ...accepted.map((file) => URL.createObjectURL(file)),
     ]);
+    e.target.value = "";
   };
 
   const handleRemoveExisting = (index) => {
@@ -329,11 +353,26 @@ function EditProduct() {
 
     if (files.length === 0) return;
 
-    setNewVideos((prev) => [...prev, ...files]);
+    const room = MAX_NEW_VIDEOS - newVideos.length;
+    if (room <= 0) {
+      alert(`You can add at most ${MAX_NEW_VIDEOS} new videos per save.`);
+      e.target.value = "";
+      return;
+    }
+
+    const accepted = files.slice(0, room);
+    if (files.length > accepted.length) {
+      alert(
+        `Only ${room} more video${room === 1 ? "" : "s"} can be added (max ${MAX_NEW_VIDEOS} new videos per save) — the rest were skipped.`,
+      );
+    }
+
+    setNewVideos((prev) => [...prev, ...accepted]);
     setNewVideoPreviews((prev) => [
       ...prev,
-      ...files.map((file) => URL.createObjectURL(file)),
+      ...accepted.map((file) => URL.createObjectURL(file)),
     ]);
+    e.target.value = "";
   };
 
   const handleRemoveExistingVideo = (index) => {
