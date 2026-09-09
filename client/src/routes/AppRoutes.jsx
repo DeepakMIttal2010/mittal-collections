@@ -6,112 +6,144 @@ import NotFound from "../pages/NotFound";
 import MainLayout from "../layouts/MainLayout";
 import PageLoader from "../components/PageLoader";
 
-const About = lazy(() => import("../pages/About"));
-const Contact = lazy(() => import("../pages/Contact"));
-const Cart = lazy(() => import("../pages/Cart"));
-const Wishlist = lazy(() => import("../pages/Wishlist"));
-const Login = lazy(() => import("../pages/Login"));
-const Register = lazy(() => import("../pages/Register"));
-const ForgotPassword = lazy(() => import("../pages/ForgotPassword"));
-const ResetPassword = lazy(() => import("../pages/ResetPassword"));
-const ChangePassword = lazy(() => import("../pages/ChangePassword"));
-const Account = lazy(() => import("../pages/Account"));
-const LoyaltyHistory = lazy(() => import("../pages/LoyaltyHistory"));
-const EditProfile = lazy(() => import("../pages/EditProfile"));
-const Addresses = lazy(() => import("../pages/Addresses"));
-const AddressForm = lazy(() => import("../pages/AddressForm"));
-const ProductDetails = lazy(() => import("../pages/ProductDetails"));
-const TrendingPage = lazy(() => import("../pages/TrendingPage"));
-const ClearanceSalePage = lazy(() => import("../pages/ClearanceSalePage"));
-const NewArrivalsPage = lazy(() => import("../pages/NewArrivalsPage"));
-const PriceRangePage = lazy(() => import("../pages/PriceRangePage"));
-const SearchResults = lazy(() => import("../pages/SearchResults"));
-const CategoryPage = lazy(() => import("../pages/CategoryPage"));
-const Checkout = lazy(() => import("../pages/Checkout"));
-const MyOrders = lazy(() => import("../pages/MyOrders"));
-const OrderDetails = lazy(() => import("../pages/OrderDetails"));
-const PolicyPage = lazy(() => import("../pages/PolicyPage"));
-const Articles = lazy(() => import("../pages/Articles"));
-const ArticleDetail = lazy(() => import("../pages/ArticleDetail"));
-const CurtainSizeCalculator = lazy(
+// Every route below this point is code-split, so its JS chunk is only
+// fetched from the CDN the first time someone navigates there. If a
+// deploy has happened since the tab was opened (or since the browser
+// cached the page), that chunk's hashed filename no longer exists and
+// the import rejects with "Failed to fetch dynamically imported
+// module" — confirmed as a real, escalating Sentry issue (12 events
+// over 2 days on /admin/products alone) rather than a one-off. The fix
+// is the standard one for Vite SPAs: on a failed chunk load, reload
+// the page once (picking up the new build's correct references)
+// instead of leaving the user stuck on a route that can never resolve.
+// The sessionStorage guard stops a genuinely broken chunk from causing
+// an infinite reload loop — it gets one retry, then the real error
+// surfaces to the ErrorBoundary.
+function lazyWithReload(importer) {
+  return lazy(async () => {
+    try {
+      const mod = await importer();
+      sessionStorage.removeItem("chunk-reload-attempted");
+      return mod;
+    } catch (err) {
+      if (!sessionStorage.getItem("chunk-reload-attempted")) {
+        sessionStorage.setItem("chunk-reload-attempted", "1");
+        window.location.reload();
+        // Block the lazy() promise forever — the reload is about to
+        // replace this whole page, so there's nothing useful to render.
+        return new Promise(() => {});
+      }
+      throw err;
+    }
+  });
+}
+
+const About = lazyWithReload(() => import("../pages/About"));
+const Contact = lazyWithReload(() => import("../pages/Contact"));
+const Cart = lazyWithReload(() => import("../pages/Cart"));
+const Wishlist = lazyWithReload(() => import("../pages/Wishlist"));
+const Login = lazyWithReload(() => import("../pages/Login"));
+const Register = lazyWithReload(() => import("../pages/Register"));
+const ForgotPassword = lazyWithReload(() => import("../pages/ForgotPassword"));
+const ResetPassword = lazyWithReload(() => import("../pages/ResetPassword"));
+const ChangePassword = lazyWithReload(() => import("../pages/ChangePassword"));
+const Account = lazyWithReload(() => import("../pages/Account"));
+const LoyaltyHistory = lazyWithReload(() => import("../pages/LoyaltyHistory"));
+const EditProfile = lazyWithReload(() => import("../pages/EditProfile"));
+const Addresses = lazyWithReload(() => import("../pages/Addresses"));
+const AddressForm = lazyWithReload(() => import("../pages/AddressForm"));
+const ProductDetails = lazyWithReload(() => import("../pages/ProductDetails"));
+const TrendingPage = lazyWithReload(() => import("../pages/TrendingPage"));
+const ClearanceSalePage = lazyWithReload(() => import("../pages/ClearanceSalePage"));
+const NewArrivalsPage = lazyWithReload(() => import("../pages/NewArrivalsPage"));
+const PriceRangePage = lazyWithReload(() => import("../pages/PriceRangePage"));
+const SearchResults = lazyWithReload(() => import("../pages/SearchResults"));
+const CategoryPage = lazyWithReload(() => import("../pages/CategoryPage"));
+const Checkout = lazyWithReload(() => import("../pages/Checkout"));
+const MyOrders = lazyWithReload(() => import("../pages/MyOrders"));
+const OrderDetails = lazyWithReload(() => import("../pages/OrderDetails"));
+const PolicyPage = lazyWithReload(() => import("../pages/PolicyPage"));
+const Articles = lazyWithReload(() => import("../pages/Articles"));
+const ArticleDetail = lazyWithReload(() => import("../pages/ArticleDetail"));
+const CurtainSizeCalculator = lazyWithReload(
   () => import("../pages/CurtainSizeCalculator"),
 );
-const Rewards = lazy(() => import("../pages/Rewards"));
-const Compare = lazy(() => import("../pages/Compare"));
-const Tickets = lazy(() => import("../pages/Tickets"));
-const TicketDetail = lazy(() => import("../pages/TicketDetail"));
-const Returns = lazy(() => import("../pages/Returns"));
-const Notifications = lazy(() => import("../pages/Notifications"));
+const Rewards = lazyWithReload(() => import("../pages/Rewards"));
+const Compare = lazyWithReload(() => import("../pages/Compare"));
+const Tickets = lazyWithReload(() => import("../pages/Tickets"));
+const TicketDetail = lazyWithReload(() => import("../pages/TicketDetail"));
+const Returns = lazyWithReload(() => import("../pages/Returns"));
+const Notifications = lazyWithReload(() => import("../pages/Notifications"));
 
-const AdminProtectedRoute = lazy(() => import("./AdminProtectedRoute"));
-const AdminLogin = lazy(() => import("../pages/admin/AdminLogin"));
-const AdminDashboard = lazy(() => import("../pages/admin/AdminDashboard"));
-const AdminProducts = lazy(() => import("../pages/admin/AdminProducts"));
-const AdminLayout = lazy(() => import("../layouts/AdminLayout"));
+const AdminProtectedRoute = lazyWithReload(() => import("./AdminProtectedRoute"));
+const AdminLogin = lazyWithReload(() => import("../pages/admin/AdminLogin"));
+const AdminDashboard = lazyWithReload(() => import("../pages/admin/AdminDashboard"));
+const AdminProducts = lazyWithReload(() => import("../pages/admin/AdminProducts"));
+const AdminLayout = lazyWithReload(() => import("../layouts/AdminLayout"));
 
-const AddProduct = lazy(() => import("../pages/admin/AddProduct"));
-const EditProduct = lazy(() => import("../pages/admin/EditProduct"));
-const AdminBulkImport = lazy(() => import("../pages/admin/AdminBulkImport"));
+const AddProduct = lazyWithReload(() => import("../pages/admin/AddProduct"));
+const EditProduct = lazyWithReload(() => import("../pages/admin/EditProduct"));
+const AdminBulkImport = lazyWithReload(() => import("../pages/admin/AdminBulkImport"));
 
-const AdminCategories = lazy(() => import("../pages/admin/AdminCategories"));
-const AddCategory = lazy(() => import("../pages/admin/AddCategory"));
-const EditCategory = lazy(() => import("../pages/admin/EditCategory"));
-const AdminNewArrivalsSections = lazy(
+const AdminCategories = lazyWithReload(() => import("../pages/admin/AdminCategories"));
+const AddCategory = lazyWithReload(() => import("../pages/admin/AddCategory"));
+const EditCategory = lazyWithReload(() => import("../pages/admin/EditCategory"));
+const AdminNewArrivalsSections = lazyWithReload(
   () => import("../pages/admin/AdminNewArrivalsSections"),
 );
-const AdminTrendingByCategory = lazy(
+const AdminTrendingByCategory = lazyWithReload(
   () => import("../pages/admin/AdminTrendingByCategory"),
 );
 
-const AdminSubcategories = lazy(
+const AdminSubcategories = lazyWithReload(
   () => import("../pages/admin/AdminSubcategories"),
 );
-const AdminTestimonials = lazy(
+const AdminTestimonials = lazyWithReload(
   () => import("../pages/admin/AdminTestimonials"),
 );
-const AdminReviews = lazy(() => import("../pages/admin/AdminReviews"));
-const AdminQuestions = lazy(() => import("../pages/admin/AdminQuestions"));
-const AdminPages = lazy(() => import("../pages/admin/AdminPages"));
-const AdminArticles = lazy(() => import("../pages/admin/AdminArticles"));
-const AdminArticleForm = lazy(
+const AdminReviews = lazyWithReload(() => import("../pages/admin/AdminReviews"));
+const AdminQuestions = lazyWithReload(() => import("../pages/admin/AdminQuestions"));
+const AdminPages = lazyWithReload(() => import("../pages/admin/AdminPages"));
+const AdminArticles = lazyWithReload(() => import("../pages/admin/AdminArticles"));
+const AdminArticleForm = lazyWithReload(
   () => import("../pages/admin/AdminArticleForm"),
 );
-const AdminSettings = lazy(() => import("../pages/admin/AdminSettings"));
-const AdminNewsletter = lazy(() => import("../pages/admin/AdminNewsletter"));
-const AdminRewardsSettings = lazy(
+const AdminSettings = lazyWithReload(() => import("../pages/admin/AdminSettings"));
+const AdminNewsletter = lazyWithReload(() => import("../pages/admin/AdminNewsletter"));
+const AdminRewardsSettings = lazyWithReload(
   () => import("../pages/admin/AdminRewardsSettings"),
 );
-const AdminMessages = lazy(() => import("../pages/admin/AdminMessages"));
-const AdminFooterLinks = lazy(
+const AdminMessages = lazyWithReload(() => import("../pages/admin/AdminMessages"));
+const AdminFooterLinks = lazyWithReload(
   () => import("../pages/admin/AdminFooterLinks"),
 );
-const AdminBanners = lazy(() => import("../pages/admin/AdminBanners"));
-const AdminPriceRanges = lazy(
+const AdminBanners = lazyWithReload(() => import("../pages/admin/AdminBanners"));
+const AdminPriceRanges = lazyWithReload(
   () => import("../pages/admin/AdminPriceRanges"),
 );
-const AdminCoupons = lazy(() => import("../pages/admin/AdminCoupons"));
+const AdminCoupons = lazyWithReload(() => import("../pages/admin/AdminCoupons"));
 
-const AdminOrders = lazy(() => import("../pages/admin/AdminOrders"));
+const AdminOrders = lazyWithReload(() => import("../pages/admin/AdminOrders"));
 
-const AdminProfile = lazy(() => import("../pages/admin/AdminProfile"));
-const AdminChangePassword = lazy(
+const AdminProfile = lazyWithReload(() => import("../pages/admin/AdminProfile"));
+const AdminChangePassword = lazyWithReload(
   () => import("../pages/admin/AdminChangePassword"),
 );
 
-const AdminCustomers = lazy(() => import("../pages/admin/AdminCustomers"));
-const CustomerDetails = lazy(
+const AdminCustomers = lazyWithReload(() => import("../pages/admin/AdminCustomers"));
+const CustomerDetails = lazyWithReload(
   () => import("../pages/admin/CustomerDetails"),
 );
-const AdminReports = lazy(() => import("../pages/admin/AdminReports"));
-const AdminTickets = lazy(() => import("../pages/admin/AdminTickets"));
-const AdminTicketDetail = lazy(
+const AdminReports = lazyWithReload(() => import("../pages/admin/AdminReports"));
+const AdminTickets = lazyWithReload(() => import("../pages/admin/AdminTickets"));
+const AdminTicketDetail = lazyWithReload(
   () => import("../pages/admin/AdminTicketDetail"),
 );
-const AdminReturns = lazy(() => import("../pages/admin/AdminReturns"));
-const AdminPOS = lazy(() => import("../pages/admin/AdminPOS"));
-const AdminWalkthrough = lazy(() => import("../pages/admin/AdminWalkthrough"));
-const PrintLabels = lazy(() => import("../pages/admin/PrintLabels"));
-const ProductQRLabel = lazy(() => import("../pages/admin/ProductQRLabel"));
+const AdminReturns = lazyWithReload(() => import("../pages/admin/AdminReturns"));
+const AdminPOS = lazyWithReload(() => import("../pages/admin/AdminPOS"));
+const AdminWalkthrough = lazyWithReload(() => import("../pages/admin/AdminWalkthrough"));
+const PrintLabels = lazyWithReload(() => import("../pages/admin/PrintLabels"));
+const ProductQRLabel = lazyWithReload(() => import("../pages/admin/ProductQRLabel"));
 
 function AppRoutes() {
   return (
