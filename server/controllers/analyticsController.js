@@ -11,6 +11,22 @@ const getDeviceType = (userAgent = "") => {
   return "Desktop";
 };
 
+// Traffic/conversion reports (getReportsData) exist to answer "how many
+// real people visited, and how many of them acted" — a scraper or
+// SEO/AI-crawl tool hitting /login or /checkout with no cart, no order,
+// ever, silently inflates the visitor count and drags the funnel
+// numbers toward zero without being a real customer at all. Confirmed
+// this was happening in production 2026-09-09 (/login getting more
+// PageVisit rows than every product page combined, visits from
+// countries this Ghaziabad-only business has no real customers in).
+// This can't catch everything — a bot that fully spoofs a real
+// browser's UA slips through — but it removes the obvious, high-volume
+// majority for free.
+const BOT_USER_AGENT_PATTERN =
+  /bot|crawl|spider|slurp|scraper|headless|phantomjs|selenium|puppeteer|playwright|python-requests|python-urllib|go-http-client|okhttp|java\/|curl\/|wget\/|postman|ahrefs|semrush|mj12bot|dotbot|bytespider|gptbot|chatgpt|claude-web|ccbot|perplexity|facebookexternalhit|linkedinbot|whatsapp|telegrambot|discordbot|uptimerobot/i;
+
+const isBotUserAgent = (userAgent = "") => BOT_USER_AGENT_PATTERN.test(userAgent);
+
 const getLocation = (rawIp = "") => {
   const ip = rawIp.replace("::ffff:", "");
   const geo = geoip.lookup(ip);
@@ -140,6 +156,14 @@ export const recordVisit = async (req, res) => {
         success: false,
         message: "path and visitorId are required",
       });
+    }
+
+    // Silently accept-and-drop rather than 4xx/5xx — a bot doesn't care
+    // either way, and there's no reason to spend a Mongo write (or spend
+    // any effort distinguishing further) on traffic these reports are
+    // explicitly trying to exclude.
+    if (isBotUserAgent(req.headers["user-agent"])) {
+      return res.status(201).json({ success: true });
     }
 
     const device = getDeviceType(req.headers["user-agent"]);
