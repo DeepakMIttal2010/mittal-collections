@@ -26,6 +26,17 @@ export const register = async (req, res) => {
       });
     }
 
+    // A JSON body can carry an object where a string is expected (e.g.
+    // {"email": {"$ne": null}}) — passed straight into a Mongoose query
+    // filter unchecked, that's a NoSQL operator-injection vector rather
+    // than a genuine "no such user" lookup.
+    if (typeof email !== "string") {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid email",
+      });
+    }
+
     const existingUser = await User.findOne({ email });
 
     if (existingUser) {
@@ -190,6 +201,15 @@ export const login = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Email and password are required",
+      });
+    }
+
+    // See the same check in register() — a non-string email (e.g. a
+    // NoSQL operator object) must never reach the query filter below.
+    if (typeof email !== "string") {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid email or password",
       });
     }
 

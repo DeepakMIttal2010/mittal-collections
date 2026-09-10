@@ -1,4 +1,5 @@
 import bcrypt from "bcryptjs";
+import mongoose from "mongoose";
 
 import User from "../models/User.js";
 import Role from "../models/Role.js";
@@ -47,6 +48,16 @@ export const addStaffUser = async (req, res) => {
       });
     }
 
+    // A JSON body can carry an object where a string is expected —
+    // passed straight into a Mongoose query filter unchecked, that's a
+    // NoSQL operator-injection vector, not a genuine email/password.
+    if (typeof email !== "string" || typeof password !== "string") {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid email or password",
+      });
+    }
+
     if (password.length < 6) {
       return res.status(400).json({
         success: false,
@@ -63,9 +74,17 @@ export const addStaffUser = async (req, res) => {
     }
 
     // "" / undefined from the client's "Full Admin" option both mean
-    // unrestricted — normalize to null (Role model default).
+    // unrestricted — normalize to null (Role model default). Validating
+    // the id shape before findById also closes off a NoSQL
+    // operator-injection vector the same way the email check above does.
     let roleId = null;
     if (adminRole) {
+      if (!mongoose.Types.ObjectId.isValid(adminRole)) {
+        return res.status(400).json({
+          success: false,
+          message: "Selected role not found",
+        });
+      }
       const role = await Role.findById(adminRole);
       if (!role) {
         return res.status(400).json({
@@ -140,6 +159,12 @@ export const updateStaffUser = async (req, res) => {
 
     if (adminRole !== undefined) {
       if (adminRole) {
+        if (!mongoose.Types.ObjectId.isValid(adminRole)) {
+          return res.status(400).json({
+            success: false,
+            message: "Selected role not found",
+          });
+        }
         const role = await Role.findById(adminRole);
         if (!role) {
           return res.status(400).json({

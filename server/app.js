@@ -129,6 +129,26 @@ const categoryReadLimiter = rateLimit({
 });
 app.use("/api/categories", categoryReadLimiter);
 
+// General catch-all for every other route — CodeQL flags any handler
+// that performs auth/a DB query with no rate limiter at all on its
+// path, and most of this app's ~150 routes had never had one (the two
+// limiters above were added only when a specific route got flagged).
+// Adding the admin RBAC feature touched so many route files in one PR
+// that CodeQL's alert-fingerprinting re-surfaced this as ~200 "new"
+// findings across files this PR didn't even touch — the actual gap was
+// already app-wide. A single generous, generic limiter here closes all
+// of them at once instead of hand-adding a bespoke one per route file;
+// the two specific limiters above still take precedence for their own
+// paths since Express runs whichever middleware matches first and
+// rate-limit counters are independent per instance regardless.
+const generalApiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: process.env.DISABLE_AUTH_RATE_LIMIT === "true" ? 10000 : 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use("/api", generalApiLimiter);
+
 // Static Upload Folder — these are legacy uploads only, never overwritten
 // in place (new uploads go to Cloudinary), so a long cache is safe.
 app.use(
