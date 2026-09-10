@@ -15,6 +15,7 @@ import {
   getTrendingProductsByCategory,
   getNewArrivalProducts,
   getNewArrivalsByCategory,
+  getGiftingProducts,
   getBestSellers,
   getBigSavingsProducts,
   getSearchSuggestions,
@@ -36,6 +37,7 @@ router.get("/trending", getTrendingProducts);
 router.get("/trending-by-category", getTrendingProductsByCategory);
 router.get("/new-arrivals", getNewArrivalProducts);
 router.get("/new-arrivals-by-category", getNewArrivalsByCategory);
+router.get("/gifting", getGiftingProducts);
 router.get("/best-sellers", getBestSellers);
 router.get("/big-savings", getBigSavingsProducts);
 router.get("/suggestions", getSearchSuggestions);

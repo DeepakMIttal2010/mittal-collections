@@ -1,5 +1,5 @@
 import { NavLink } from "react-router-dom";
-import { FaBell, FaFire, FaTag } from "react-icons/fa";
+import { FaBell, FaFire, FaGift, FaTag } from "react-icons/fa";
 import MegaMenu from "../MegaMenu";
 import { useLanguage } from "../../context/LanguageContext";
 
@@ -69,6 +69,16 @@ function Navbar() {
           >
             <FaBell className="text-xs text-amber-500" />
             {t("New Arrivals", "नई आवक")}
+          </NavLink>
+
+          <NavLink
+            to="/gifting"
+            className={({ isActive }) =>
+              `flex items-center gap-1.5 ${linkClass({ isActive })}`
+            }
+          >
+            <FaGift className="text-xs text-rose-500" />
+            {t("Gifting", "गिफ्टिंग")}
           </NavLink>
 
           <NavLink to={guidesPath} className={linkClass}>

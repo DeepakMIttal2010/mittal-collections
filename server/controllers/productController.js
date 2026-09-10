@@ -212,7 +212,14 @@ export const getProducts = async (req, res) => {
       req.query;
 
     if (category && category.trim()) {
-      filter.category = category.trim();
+      const categoryId = category.trim();
+      // filter.$or is already taken by the stock/willRestock condition
+      // above — can't reuse the key here, that would silently replace it
+      // instead of adding a second condition. $and keeps both.
+      filter.$and = [
+        ...(filter.$and || []),
+        { $or: [{ category: categoryId }, { additionalCategories: categoryId }] },
+      ];
     }
     if (subcategory && subcategory.trim()) {
       filter.subcategories = subcategory.trim();
@@ -355,7 +362,11 @@ export const getSearchSuggestions = async (req, res) => {
     };
 
     if (category && category.trim()) {
-      filter.category = category.trim();
+      const categoryId = category.trim();
+      filter.$and = [
+        ...(filter.$and || []),
+        { $or: [{ category: categoryId }, { additionalCategories: categoryId }] },
+      ];
     }
 
     const products = await Product.find(filter).select(
@@ -394,7 +405,13 @@ export const getAllProductsAdmin = async (req, res) => {
     }
 
     if (category && category.trim()) {
-      filter.category = category.trim();
+      const categoryId = category.trim();
+      // filter.$or may already be taken by the search condition above —
+      // $and keeps both instead of one silently replacing the other.
+      filter.$and = [
+        ...(filter.$and || []),
+        { $or: [{ category: categoryId }, { additionalCategories: categoryId }] },
+      ];
     }
     if (subcategory && subcategory.trim()) {
       filter.subcategories = subcategory.trim();
@@ -563,6 +580,7 @@ export const duplicateProduct = async (req, res) => {
       oldPrice: source.oldPrice,
       category: source.category,
       subcategories: [...source.subcategories],
+      additionalCategories: [...(source.additionalCategories || [])],
       stock: source.stock,
       variants: source.variants,
 
@@ -579,6 +597,7 @@ export const duplicateProduct = async (req, res) => {
       isTrending: false,
       trendingRank: 0,
       showInNewArrivals: source.showInNewArrivals,
+      isGiftingItem: source.isGiftingItem,
       willRestock: source.willRestock,
       isActive: false,
 
@@ -701,7 +720,14 @@ export const getTrendingProductsByCategory = async (req, res) => {
         .map(async (section) => {
           const products = await Product.find({
             isActive: true,
-            category: section.category._id,
+            $and: [
+              {
+                $or: [
+                  { category: section.category._id },
+                  { additionalCategories: section.category._id },
+                ],
+              },
+            ],
             isTrending: true,
             visibility: { $ne: "offline" },
             $or: [{ stock: { $gt: 0 } }, { willRestock: { $ne: false } }],
@@ -788,6 +814,44 @@ export const getNewArrivalProducts = async (req, res) => {
 };
 
 // ============================
+// GET GIFTING PRODUCTS (Public) — flat, site-wide list of products an
+// admin has opted in via isGiftingItem, newest first. Mirrors
+// getNewArrivalProducts's shape, but opt-in (isGiftingItem defaults
+// false) rather than opt-out, and deliberately flat/uncategorized —
+// gifting spans arbitrary categories, so there's no per-category
+// grouping the way New Arrivals/Trending have.
+// ============================
+export const getGiftingProducts = async (req, res) => {
+  try {
+    const limit = Math.max(parseInt(req.query.limit, 10) || 40, 1);
+
+    const products = await Product.find({
+      isActive: true,
+      isGiftingItem: true,
+      visibility: { $ne: "offline" },
+      $or: [{ stock: { $gt: 0 } }, { willRestock: { $ne: false } }],
+    })
+      .select(COST_FIELDS)
+      .populate("category", "name nameHi slug image")
+      .populate("subcategories", "name nameHi slug")
+      .sort({ createdAt: -1 })
+      .limit(limit);
+
+    res.status(200).json({
+      success: true,
+      products,
+    });
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};
+
+// ============================
 // GET NEW ARRIVALS BY CATEGORY (Public) — one "New Arrivals" section per
 // admin-opted-in category, each showing only that category's newest
 // products. Powers the homepage's category-wise New Arrivals sections
@@ -815,7 +879,14 @@ export const getNewArrivalsByCategory = async (req, res) => {
         .map(async (section) => {
           const products = await Product.find({
             isActive: true,
-            category: section.category._id,
+            $and: [
+              {
+                $or: [
+                  { category: section.category._id },
+                  { additionalCategories: section.category._id },
+                ],
+              },
+            ],
             showInNewArrivals: { $ne: false },
             visibility: { $ne: "offline" },
             $or: [{ stock: { $gt: 0 } }, { willRestock: { $ne: false } }],
@@ -964,6 +1035,7 @@ export const getBigSavingsProducts = async (req, res) => {
     })
       .select(COST_FIELDS)
       .populate("category", "name nameHi slug image isActive")
+      .populate("additionalCategories", "name nameHi slug image isActive")
       .populate("subcategories", "name nameHi slug");
 
     const discountById = new Map(
@@ -973,19 +1045,24 @@ export const getBigSavingsProducts = async (req, res) => {
     const byCategory = new Map();
 
     for (const product of products) {
-      // A category could have been deliberately deactivated (e.g. taken
-      // off the site temporarily) without deactivating its products —
-      // skip it here the same way getNewArrivalsByCategory does, so a
-      // hidden category doesn't resurface via this section.
-      if (!product.category || !product.category.isActive) continue;
+      // A gifting-tagged (or otherwise multi-category) product's discount
+      // should surface under every active category it belongs to, not just
+      // its primary one — mirrors getNewArrivalsByCategory's isActive skip
+      // for each candidate category.
+      const candidateCategories = [
+        product.category,
+        ...(product.additionalCategories || []),
+      ].filter((c) => c && c.isActive);
 
-      const key = product.category._id.toString();
+      for (const category of candidateCategories) {
+        const key = category._id.toString();
 
-      if (!byCategory.has(key)) {
-        byCategory.set(key, { category: product.category, products: [] });
+        if (!byCategory.has(key)) {
+          byCategory.set(key, { category, products: [] });
+        }
+
+        byCategory.get(key).products.push(product);
       }
-
-      byCategory.get(key).products.push(product);
     }
 
     const sections = [...byCategory.values()]
@@ -1076,6 +1153,7 @@ export const addProduct = async (req, res) => {
       isTrending,
       trendingRank,
       showInNewArrivals,
+      isGiftingItem,
       willRestock,
       mainImageIndex,
       fabric,
@@ -1129,6 +1207,7 @@ export const addProduct = async (req, res) => {
       oldPrice: hasVariants ? variants[0].oldPrice : oldPrice,
       category,
       subcategories: parseSubcategories(req.body.subcategories),
+      additionalCategories: parseSubcategories(req.body.additionalCategories),
       stock: hasVariants
         ? variants.reduce((sum, v) => sum + v.stock, 0)
         : stock,
@@ -1139,6 +1218,7 @@ export const addProduct = async (req, res) => {
       trendingRank: trendingRank || 0,
       showInNewArrivals:
         showInNewArrivals === undefined ? true : showInNewArrivals === "true",
+      isGiftingItem: isGiftingItem === "true",
       willRestock: willRestock === undefined ? true : willRestock === "true",
       visibility: ["both", "online", "offline"].includes(visibility)
         ? visibility
@@ -1229,6 +1309,9 @@ export const updateProduct = async (req, res) => {
     product.oldPrice = hasVariants ? variants[0].oldPrice : req.body.oldPrice;
     product.category = req.body.category;
     product.subcategories = parseSubcategories(req.body.subcategories);
+    product.additionalCategories = parseSubcategories(
+      req.body.additionalCategories,
+    );
     product.stock = hasVariants
       ? variants.reduce((sum, v) => sum + v.stock, 0)
       : req.body.stock;
@@ -1242,6 +1325,7 @@ export const updateProduct = async (req, res) => {
       req.body.showInNewArrivals === undefined
         ? true
         : req.body.showInNewArrivals === "true";
+    product.isGiftingItem = req.body.isGiftingItem === "true";
     product.willRestock =
       req.body.willRestock === undefined
         ? true

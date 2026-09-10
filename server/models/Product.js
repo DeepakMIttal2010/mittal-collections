@@ -61,6 +61,20 @@ const productSchema = new mongoose.Schema(
       default: [],
     },
 
+    // Secondary categories this product should ALSO be listed/discoverable
+    // under, in addition to its primary `category` (which stays the single
+    // canonical value for breadcrumbs, the Google feed, revenue reporting,
+    // and bundle-discount matching — see productController.js/
+    // bundleDiscount.js/feedController.js/adminController.js, all
+    // deliberately left keyed off primary category only). Mirrors
+    // `subcategories` above: same shape, same merge-not-replace bulk-script
+    // helper. Added for cross-cutting listings like "Gifting".
+    additionalCategories: {
+      type: [mongoose.Schema.Types.ObjectId],
+      ref: "Category",
+      default: [],
+    },
+
     // Required for a normal add/edit (enforced in the controller, since
     // multipart form validation doesn't belong in the schema) — but left
     // optional here so a duplicated product (see duplicateProduct) can
@@ -176,6 +190,18 @@ const productSchema = new mongoose.Schema(
       default: true,
     },
 
+    // Opposite default from showInNewArrivals — opt-IN, not opt-out.
+    // Mirrors isTrending's shape (a flat boolean, no per-category
+    // curation): a product keeps its normal `category` and also shows on
+    // the site-wide /gifting listing (getGiftingProducts) when this is
+    // true. Deliberately NOT a real Category — gifting spans arbitrary
+    // categories, so moving a product out of its real category to tag it
+    // as a gift would hide it from shoppers browsing normally.
+    isGiftingItem: {
+      type: Boolean,
+      default: false,
+    },
+
     // Defaults true — most products get restocked, so once stock hits 0
     // they still show (deprioritized to the end of listings) with a
     // "Notify Me" option. An admin can mark a one-off/discontinued
@@ -273,6 +299,7 @@ const productSchema = new mongoose.Schema(
 // always scoped to isActive) and the default newest-first sort.
 productSchema.index({ isActive: 1, category: 1 });
 productSchema.index({ isActive: 1, subcategories: 1 });
+productSchema.index({ isActive: 1, additionalCategories: 1 });
 productSchema.index({ isActive: 1, createdAt: -1 });
 
 const Product = mongoose.model("Product", productSchema);

@@ -175,6 +175,35 @@ export const getNewArrivalProducts = async (limit = 8) => {
 };
 
 // ==========================
+// Get Gifting Products
+// ==========================
+export const getGiftingProducts = async (limit = 40) => {
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/products/gifting?limit=${limit}`,
+    );
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch gifting products");
+    }
+
+    const data = await response.json();
+
+    return {
+      success: data.success,
+      products: data.products || [],
+    };
+  } catch (error) {
+    console.error("Get Gifting Products Error:", error);
+
+    return {
+      success: false,
+      products: [],
+    };
+  }
+};
+
+// ==========================
 // Get New Arrivals By Category
 // ==========================
 export const getNewArrivalsByCategory = async (limit = 8) => {

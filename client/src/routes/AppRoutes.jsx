@@ -56,6 +56,7 @@ const ProductDetails = lazyWithReload(() => import("../pages/ProductDetails"));
 const TrendingPage = lazyWithReload(() => import("../pages/TrendingPage"));
 const ClearanceSalePage = lazyWithReload(() => import("../pages/ClearanceSalePage"));
 const NewArrivalsPage = lazyWithReload(() => import("../pages/NewArrivalsPage"));
+const GiftingPage = lazyWithReload(() => import("../pages/GiftingPage"));
 const PriceRangePage = lazyWithReload(() => import("../pages/PriceRangePage"));
 const SearchResults = lazyWithReload(() => import("../pages/SearchResults"));
 const CategoryPage = lazyWithReload(() => import("../pages/CategoryPage"));
@@ -219,6 +220,7 @@ function AppRoutes() {
           <Route path="/trending" element={<TrendingPage />} />
           <Route path="/clearance-sale" element={<ClearanceSalePage />} />
           <Route path="/new-arrivals" element={<NewArrivalsPage />} />
+          <Route path="/gifting" element={<GiftingPage />} />
           <Route path="/price/:maxPrice" element={<PriceRangePage />} />
           <Route path="/search" element={<SearchResults />} />
           <Route path="/category/:categorySlug" element={<CategoryPage />} />
