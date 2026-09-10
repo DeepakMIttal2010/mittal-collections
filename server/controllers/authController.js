@@ -265,7 +265,12 @@ export const login = async (req, res) => {
         // staff account with a restricted Role assigned gets this,
         // which the client uses to filter the sidebar and gate routes.
         adminRole: user.adminRole
-          ? { id: user.adminRole._id, name: user.adminRole.name, permissions: user.adminRole.permissions }
+          ? {
+              id: user.adminRole._id,
+              name: user.adminRole.name,
+              permissions: user.adminRole.permissions,
+              writeAccess: user.adminRole.writeAccess,
+            }
           : null,
       },
     });
