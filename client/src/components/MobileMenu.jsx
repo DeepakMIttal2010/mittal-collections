@@ -175,21 +175,21 @@ function MobileMenu({ isOpen, onClose }) {
           })}
 
           <NavLink
-            to="/trending"
-            onClick={close}
-            className="flex items-center gap-2 px-5 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-amber-600 border-t border-slate-100"
-          >
-            <FaFire className="text-amber-500" />
-            {t("Top Trending", "टॉप ट्रेंडिंग")}
-          </NavLink>
-
-          <NavLink
             to="/clearance-sale"
             onClick={close}
             className="flex items-center gap-2 px-5 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-amber-600 border-t border-slate-100"
           >
             <FaTag className="text-red-600" />
             {t("Clearance Sale", "क्लियरेंस सेल")}
+          </NavLink>
+
+          <NavLink
+            to="/trending"
+            onClick={close}
+            className="flex items-center gap-2 px-5 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-amber-600 border-t border-slate-100"
+          >
+            <FaFire className="text-amber-500" />
+            {t("Top Trending", "टॉप ट्रेंडिंग")}
           </NavLink>
 
           <NavLink

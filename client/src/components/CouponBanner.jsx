@@ -40,7 +40,7 @@ function CouponBanner() {
       : t(`${coupon.discountValue}% OFF`, `${coupon.discountValue}% छूट`);
 
   return (
-    <div className="relative bg-teal-700 text-white text-sm">
+    <div className="relative bg-emerald-50 text-teal-800 text-sm border-b border-emerald-100">
       <div className="max-w-7xl mx-auto px-4 py-2 flex items-center justify-center gap-2 text-center">
         <span className="shrink-0">🎁</span>
         <span>
@@ -58,7 +58,7 @@ function CouponBanner() {
         type="button"
         onClick={handleDismiss}
         aria-label={t("Dismiss", "बंद करें")}
-        className="absolute right-3 top-1/2 -translate-y-1/2 text-white/80 hover:text-white"
+        className="absolute right-3 top-1/2 -translate-y-1/2 text-teal-800/60 hover:text-teal-800"
       >
         <FaTimes />
       </button>
