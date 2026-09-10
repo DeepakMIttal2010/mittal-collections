@@ -26,6 +26,17 @@ export const register = async (req, res) => {
       });
     }
 
+    // A JSON body can carry an object where a string is expected (e.g.
+    // {"email": {"$ne": null}}) — passed straight into a Mongoose query
+    // filter unchecked, that's a NoSQL operator-injection vector rather
+    // than a genuine "no such user" lookup.
+    if (typeof email !== "string") {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid email",
+      });
+    }
+
     const existingUser = await User.findOne({ email });
 
     if (existingUser) {
@@ -193,7 +204,16 @@ export const login = async (req, res) => {
       });
     }
 
-    const user = await User.findOne({ email });
+    // See the same check in register() — a non-string email (e.g. a
+    // NoSQL operator object) must never reach the query filter below.
+    if (typeof email !== "string") {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid email or password",
+      });
+    }
+
+    const user = await User.findOne({ email }).populate("adminRole");
 
     if (!user) {
       return res.status(401).json({
@@ -241,6 +261,12 @@ export const login = async (req, res) => {
         role: user.role,
         loyaltyPoints: user.loyaltyPoints,
         referralCode: user.referralCode,
+        // null for customers and full/unrestricted admins — only a
+        // staff account with a restricted Role assigned gets this,
+        // which the client uses to filter the sidebar and gate routes.
+        adminRole: user.adminRole
+          ? { id: user.adminRole._id, name: user.adminRole.name, permissions: user.adminRole.permissions }
+          : null,
       },
     });
   } catch (error) {

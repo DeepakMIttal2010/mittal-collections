@@ -7,10 +7,11 @@ import {
 
 import authMiddleware from "../middleware/authMiddleware.js";
 import adminMiddleware from "../middleware/adminMiddleware.js";
+import requirePermission from "../middleware/requirePermission.js";
 
 const router = express.Router();
 
 router.get("/", getSiteSettings);
-router.put("/", authMiddleware, adminMiddleware, updateSiteSettings);
+router.put("/", authMiddleware, adminMiddleware, requirePermission("settings"), updateSiteSettings);
 
 export default router;

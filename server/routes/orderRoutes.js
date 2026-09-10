@@ -2,6 +2,7 @@ import express from "express";
 
 import authMiddleware from "../middleware/authMiddleware.js";
 import adminMiddleware from "../middleware/adminMiddleware.js";
+import requirePermission from "../middleware/requirePermission.js";
 
 import {
   createOrder,
@@ -18,6 +19,7 @@ import {
 } from "../controllers/orderController.js";
 
 const router = express.Router();
+const perm = requirePermission("orders");
 
 // Create Order — koi bhi logged-in user
 router.post("/", authMiddleware, createOrder);
@@ -29,7 +31,7 @@ router.post("/verify-payment", authMiddleware, verifyRazorpayPayment);
 router.get("/myorders", authMiddleware, getMyOrders);
 
 // Get All Orders — sirf Admin
-router.get("/", authMiddleware, adminMiddleware, getAllOrders);
+router.get("/", authMiddleware, adminMiddleware, perm, getAllOrders);
 
 // Send Review Request Emails — called by an external scheduler (cron
 // secret, not JWT), registered before "/:id" so it isn't shadowed by it.
@@ -40,22 +42,23 @@ router.get("/send-review-requests", sendReviewRequestEmails);
 router.get("/:id", authMiddleware, getOrderById);
 
 // Update Order Status — sirf Admin
-router.put("/:id/status", authMiddleware, adminMiddleware, updateOrderStatus);
+router.put("/:id/status", authMiddleware, adminMiddleware, perm, updateOrderStatus);
 
 // Mark Order Seen — sirf Admin
-router.put("/:id/seen", authMiddleware, adminMiddleware, markOrderSeen);
+router.put("/:id/seen", authMiddleware, adminMiddleware, perm, markOrderSeen);
 
 // Restore Order — sirf Admin
-router.put("/:id/restore", authMiddleware, adminMiddleware, restoreOrder);
+router.put("/:id/restore", authMiddleware, adminMiddleware, perm, restoreOrder);
 
 // Delete Order (soft) — sirf Admin
-router.delete("/:id", authMiddleware, adminMiddleware, deleteOrder);
+router.delete("/:id", authMiddleware, adminMiddleware, perm, deleteOrder);
 
 // Permanently Delete Order — sirf Admin
 router.delete(
   "/:id/permanent",
   authMiddleware,
   adminMiddleware,
+  perm,
   permanentlyDeleteOrder,
 );
 

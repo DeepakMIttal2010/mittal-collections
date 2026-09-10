@@ -16,7 +16,13 @@ const authMiddleware = async (req, res, next) => {
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    const user = await User.findById(decoded.id).select("-password");
+    // .populate("adminRole") is a no-op for the vast majority of
+    // requests (customers, and every full/unrestricted admin, have
+    // adminRole: null) — cheap enough to always include rather than
+    // conditionally populate only on admin routes.
+    const user = await User.findById(decoded.id)
+      .select("-password")
+      .populate("adminRole");
 
     if (!user) {
       return res.status(401).json({
