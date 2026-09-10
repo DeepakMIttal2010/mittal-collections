@@ -291,6 +291,16 @@ function Header() {
           <h2 className="text-base sm:text-2xl font-bold sm:tracking-wide text-slate-800 whitespace-nowrap">
             MITTAL <span className="text-amber-700">COLLECTIONS</span>
           </h2>
+          {/* Was a full-width visible banner strip above the hero image
+              (removed 2026-09-10) — kept only as crawlable/screen-reader
+              text under the logo, sr-only so it takes no header space
+              (this header has a history of overflowing at narrow widths). */}
+          <p className="sr-only">
+            {t(
+              "Quality Home Furnishing at Great Prices",
+              "बेहतरीन कीमतों पर क्वालिटी होम फर्निशिंग",
+            )}
+          </p>
         </Link>
 
         {/* Delivery location — saved address if logged in, else an IP-based guess */}

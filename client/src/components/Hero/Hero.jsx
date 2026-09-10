@@ -209,13 +209,6 @@ function Hero() {
 
   return (
     <>
-      <div className="hero-value-strip">
-        {t(
-          "Mittal Collections — Quality Home Furnishing at Great Prices",
-          "मित्तल कलेक्शन्स — बेहतरीन कीमतों पर क्वालिटी होम फर्निशिंग",
-        )}
-      </div>
-
       <section className={`hero ${slide.isRewardsSlide ? "hero-rewards-slide" : ""}`}>
       {slide.isRewardsSlide ? (
         <div className="hero-bg-image hero-bg-rewards">
