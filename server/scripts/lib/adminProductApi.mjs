@@ -165,6 +165,10 @@ export function buildProductUpdateFormData(product, overrides = {}) {
   fd.append("isTrending", String(!!get("isTrending", product.isTrending)));
   fd.append("trendingRank", get("trendingRank", product.trendingRank || 0));
   fd.append(
+    "isGiftingItem",
+    String(!!get("isGiftingItem", product.isGiftingItem)),
+  );
+  fd.append(
     "showInNewArrivals",
     String(get("showInNewArrivals", product.showInNewArrivals !== false)),
   );
