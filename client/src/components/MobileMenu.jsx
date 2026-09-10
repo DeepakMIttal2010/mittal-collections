@@ -6,6 +6,7 @@ import {
   FaChevronUp,
   FaBell,
   FaFire,
+  FaGift,
   FaTag,
 } from "react-icons/fa";
 
@@ -198,6 +199,15 @@ function MobileMenu({ isOpen, onClose }) {
           >
             <FaBell className="text-amber-500" />
             {t("New Arrivals", "नई आवक")}
+          </NavLink>
+
+          <NavLink
+            to="/gifting"
+            onClick={close}
+            className="flex items-center gap-2 px-5 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-amber-600 border-t border-slate-100"
+          >
+            <FaGift className="text-rose-500" />
+            {t("Gifting", "गिफ्टिंग")}
           </NavLink>
 
           <NavLink

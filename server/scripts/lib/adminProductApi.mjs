@@ -34,6 +34,7 @@
 //   const fd = buildProductUpdateFormData(product, {
 //     colorVariesNote: "...",
 //     addSubcategories: [someSubcategoryId], // merges, doesn't replace
+//     addAdditionalCategories: [someCategoryId], // merges, doesn't replace
 //   });
 //   const { status, data } = await updateProduct(BASE, id, fd, token);
 
@@ -104,6 +105,18 @@ export function buildProductUpdateFormData(product, overrides = {}) {
       ? [...new Set([...existingSubcategoryIds, ...overrides.addSubcategories])]
       : existingSubcategoryIds;
 
+  const existingAdditionalCategoryIds = (product.additionalCategories || []).map(
+    (c) => c._id || c,
+  );
+  const additionalCategories = Object.prototype.hasOwnProperty.call(
+    overrides,
+    "additionalCategories",
+  )
+    ? overrides.additionalCategories
+    : Object.prototype.hasOwnProperty.call(overrides, "addAdditionalCategories")
+      ? [...new Set([...existingAdditionalCategoryIds, ...overrides.addAdditionalCategories])]
+      : existingAdditionalCategoryIds;
+
   const images = get("existingImages", product.images || []);
   const videos = get("existingVideos", product.videos || []);
 
@@ -127,6 +140,7 @@ export function buildProductUpdateFormData(product, overrides = {}) {
   fd.append("descriptionHi", get("descriptionHi", product.descriptionHi || ""));
   fd.append("category", get("category", product.category?._id || product.category));
   fd.append("subcategories", JSON.stringify(subcategories));
+  fd.append("additionalCategories", JSON.stringify(additionalCategories));
   fd.append("price", get("price", product.price));
   fd.append("oldPrice", get("oldPrice", product.oldPrice));
   fd.append("purchasePrice", get("purchasePrice", product.purchasePrice || 0));

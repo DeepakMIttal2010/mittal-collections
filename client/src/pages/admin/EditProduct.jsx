@@ -71,11 +71,13 @@ function EditProduct() {
     stock: "",
     category: "",
     subcategories: [],
+    additionalCategories: [],
     featured: false,
     isActive: true,
     isTrending: false,
     trendingRank: 0,
     showInNewArrivals: true,
+    isGiftingItem: false,
     willRestock: true,
     visibility: "both",
     optimizeImages: true,
@@ -140,6 +142,9 @@ function EditProduct() {
         stock: product.stock ?? "",
         category: product.category?._id || "",
         subcategories: (product.subcategories || []).map((sub) => sub._id),
+        additionalCategories: (product.additionalCategories || []).map(
+          (c) => c._id || c,
+        ),
         featured: product.featured,
         isActive: product.isActive,
         isTrending: product.isTrending || false,
@@ -148,6 +153,7 @@ function EditProduct() {
           product.showInNewArrivals === undefined
             ? true
             : product.showInNewArrivals,
+        isGiftingItem: product.isGiftingItem || false,
         willRestock:
           product.willRestock === undefined ? true : product.willRestock,
         visibility: product.visibility || "both",
@@ -212,6 +218,10 @@ function EditProduct() {
 
   const subcategoryOptions = subcategories.filter(
     (sub) => sub.category?._id === formData.category,
+  );
+
+  const additionalCategoryOptions = categories.filter(
+    (category) => category._id !== formData.category,
   );
 
   // A subcategory-specific rule wins over its category's rule; falls back
@@ -286,6 +296,17 @@ function EditProduct() {
       subcategories: prev.subcategories.includes(subcategoryId)
         ? prev.subcategories.filter((id) => id !== subcategoryId)
         : [...prev.subcategories, subcategoryId],
+    }));
+  };
+
+  // Independent of the primary category pick (unlike subcategories, this
+  // does NOT reset when `category` changes) — see AddProduct.jsx.
+  const handleAdditionalCategoryToggle = (categoryId) => {
+    setFormData((prev) => ({
+      ...prev,
+      additionalCategories: prev.additionalCategories.includes(categoryId)
+        ? prev.additionalCategories.filter((id) => id !== categoryId)
+        : [...prev.additionalCategories, categoryId],
     }));
   };
 
@@ -409,7 +430,7 @@ function EditProduct() {
       // Arrays need JSON.stringify, not FormData's default (which just
       // calls .toString() on the array — a comma-joined string, not
       // JSON the server can parse) — handled explicitly below instead.
-      if (key === "subcategories") return;
+      if (key === "subcategories" || key === "additionalCategories") return;
 
       if (formData[key] !== null) {
         data.append(key, formData[key]);
@@ -417,6 +438,10 @@ function EditProduct() {
     });
 
     data.append("subcategories", JSON.stringify(formData.subcategories));
+    data.append(
+      "additionalCategories",
+      JSON.stringify(formData.additionalCategories),
+    );
     data.append("variants", JSON.stringify(cleanVariants));
     if (productVersionRef.current !== null) {
       data.append("version", productVersionRef.current);
@@ -585,6 +610,33 @@ function EditProduct() {
                       onChange={() => handleSubcategoryToggle(sub._id)}
                     />
                     {sub.groupLabel}: {sub.name}
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="form-row">
+          <div className="form-group">
+            <label title="Also lists this product under these categories, in addition to its primary Category above — e.g. a Hotel-category product that should also show under Bedsheets.">
+              Additional Categories (optional)
+            </label>
+
+            {!formData.category ? (
+              <p className="subcategory-hint">Select a primary category first</p>
+            ) : additionalCategoryOptions.length === 0 ? (
+              <p className="subcategory-hint">No other categories</p>
+            ) : (
+              <div className="subcategory-checkbox-list">
+                {additionalCategoryOptions.map((category) => (
+                  <label key={category._id} className="subcategory-checkbox">
+                    <input
+                      type="checkbox"
+                      checked={formData.additionalCategories.includes(category._id)}
+                      onChange={() => handleAdditionalCategoryToggle(category._id)}
+                    />
+                    {category.name}
                   </label>
                 ))}
               </div>
@@ -987,6 +1039,16 @@ function EditProduct() {
               onChange={handleChange}
             />
             Show in New Arrivals
+          </label>
+
+          <label title="Also lists this product on the /gifting page, in addition to its normal category — doesn't move it out of that category.">
+            <input
+              type="checkbox"
+              name="isGiftingItem"
+              checked={formData.isGiftingItem}
+              onChange={handleChange}
+            />
+            Show in Gifting
           </label>
 
           <label title="Uncheck for a one-off/discontinued item — it disappears from the site once it sells out, instead of staying listed with a 'Notify Me' option.">
