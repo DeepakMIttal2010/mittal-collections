@@ -97,3 +97,41 @@ export function permissionForPath(pathname) {
   );
   return entry?.key ?? null;
 }
+
+// A second, smaller, additive right on top of the View-only permission
+// model above — only for the handful of high-traffic CRUD sections
+// where an owner wants to let someone see the list without being able
+// to create/edit/delete. Keep in sync with server/config/
+// adminPermissions.js's GRANULAR_MODULES.
+export const GRANULAR_MODULES = [
+  { key: "products", label: "Products & Stock", actions: ["new", "modified"] },
+  { key: "categories", label: "Categories", actions: ["new", "modified"] },
+  { key: "subcategories", label: "Sub Categories", actions: ["new", "modified"] },
+  { key: "coupons", label: "Coupons", actions: ["new", "modified"] },
+  { key: "orders", label: "Orders", actions: ["modified"] },
+];
+
+// true for a full/unrestricted admin (no adminRole) or a restricted
+// account whose role's writeAccess includes "<key>:<action>".
+export function hasWriteAccess(user, key, action) {
+  if (!user?.adminRole) return true;
+  return !!user.adminRole.writeAccess?.includes(`${key}:${action}`);
+}
+
+// Route-guard entries for the sub-routes that need a write action, not
+// just view access — only Products and Categories have real separate
+// add/edit routes (Sub Categories/Coupons/Orders use an inline
+// list+form on one page, so they only need their buttons hidden, not a
+// route guarded). Longest-path-first, same reasoning as PATH_ENTRIES.
+const WRITE_ACTION_PATHS = [
+  { to: "/admin/products/add", key: "products", action: "new" },
+  { to: "/admin/products/edit", key: "products", action: "modified" },
+  { to: "/admin/categories/add", key: "categories", action: "new" },
+  { to: "/admin/categories/edit", key: "categories", action: "modified" },
+].sort((a, b) => b.to.length - a.to.length);
+
+export function writeAccessForPath(pathname) {
+  return WRITE_ACTION_PATHS.find(
+    (item) => pathname === item.to || pathname.startsWith(`${item.to}/`),
+  );
+}

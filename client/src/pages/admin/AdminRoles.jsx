@@ -1,9 +1,13 @@
 import { useEffect, useState } from "react";
 
 import { getRoles, addRole, updateRole, deleteRole } from "../../services/roleService";
-import { PERMISSION_GROUPS } from "../../config/adminPermissions";
+import { PERMISSION_GROUPS, GRANULAR_MODULES } from "../../config/adminPermissions";
 
-const EMPTY_FORM = { name: "", description: "", permissions: [] };
+const EMPTY_FORM = { name: "", description: "", permissions: [], writeAccess: [] };
+
+const granularByKey = Object.fromEntries(
+  GRANULAR_MODULES.map((module) => [module.key, module]),
+);
 
 function AdminRoles() {
   const [roles, setRoles] = useState([]);
@@ -33,12 +37,21 @@ function AdminRoles() {
   };
 
   const togglePermission = (key) => {
-    setFormData((prev) => ({
-      ...prev,
-      permissions: prev.permissions.includes(key)
-        ? prev.permissions.filter((k) => k !== key)
-        : [...prev.permissions, key],
-    }));
+    setFormData((prev) => {
+      const nowChecked = !prev.permissions.includes(key);
+      return {
+        ...prev,
+        permissions: nowChecked
+          ? [...prev.permissions, key]
+          : prev.permissions.filter((k) => k !== key),
+        // Unchecking View also clears any New/Modified rights for that
+        // section, so a role never ends up able to create/edit in a
+        // section it can't even see.
+        writeAccess: nowChecked
+          ? prev.writeAccess
+          : prev.writeAccess.filter((entry) => !entry.startsWith(`${key}:`)),
+      };
+    });
   };
 
   const toggleGroup = (group, checkAll) => {
@@ -48,6 +61,25 @@ function AdminRoles() {
       permissions: checkAll
         ? [...new Set([...prev.permissions, ...keys])]
         : prev.permissions.filter((k) => !keys.includes(k)),
+      writeAccess: checkAll
+        ? prev.writeAccess
+        : prev.writeAccess.filter(
+            (entry) => !keys.includes(entry.split(":")[0]),
+          ),
+    }));
+  };
+
+  // Write access only ever matters alongside View — unchecking a
+  // section's View box also clears whatever New/Modified rights it had,
+  // so a role never ends up with a "can create in a section it can't
+  // see" state.
+  const toggleWriteAccess = (key, action) => {
+    const entry = `${key}:${action}`;
+    setFormData((prev) => ({
+      ...prev,
+      writeAccess: prev.writeAccess.includes(entry)
+        ? prev.writeAccess.filter((k) => k !== entry)
+        : [...prev.writeAccess, entry],
     }));
   };
 
@@ -81,6 +113,7 @@ function AdminRoles() {
       name: item.name,
       description: item.description || "",
       permissions: item.permissions || [],
+      writeAccess: item.writeAccess || [],
     });
   };
 
@@ -175,19 +208,45 @@ function AdminRoles() {
                 </div>
 
                 <div className="space-y-1.5">
-                  {group.items.map((item) => (
-                    <label
-                      key={item.key}
-                      className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={formData.permissions.includes(item.key)}
-                        onChange={() => togglePermission(item.key)}
-                      />
-                      {item.label}
-                    </label>
-                  ))}
+                  {group.items.map((item) => {
+                    const granular = granularByKey[item.key];
+                    const viewChecked = formData.permissions.includes(item.key);
+
+                    return (
+                      <div key={item.key}>
+                        <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={viewChecked}
+                            onChange={() => togglePermission(item.key)}
+                          />
+                          {item.label}
+                        </label>
+
+                        {granular && viewChecked && (
+                          <div className="flex gap-3 pl-6 mt-0.5">
+                            {granular.actions.map((action) => (
+                              <label
+                                key={action}
+                                className="flex items-center gap-1 text-xs text-slate-500 cursor-pointer"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={formData.writeAccess.includes(
+                                    `${item.key}:${action}`,
+                                  )}
+                                  onChange={() =>
+                                    toggleWriteAccess(item.key, action)
+                                  }
+                                />
+                                {action === "new" ? "New" : "Modified"}
+                              </label>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             );

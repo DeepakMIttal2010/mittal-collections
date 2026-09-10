@@ -1,7 +1,12 @@
 import { Outlet, Link, useLocation } from "react-router-dom";
 
 import { getCurrentAdminUser } from "../../services/authService";
-import { permissionForPath, PERMISSION_GROUPS } from "../../config/adminPermissions";
+import {
+  permissionForPath,
+  PERMISSION_GROUPS,
+  writeAccessForPath,
+  hasWriteAccess,
+} from "../../config/adminPermissions";
 
 // Sits inside AdminLayout, wrapping every nested admin route's <Outlet/>
 // in one place — the alternative (gating each of the ~30 individual
@@ -31,7 +36,16 @@ function RequirePermission() {
   // every admin route belongs to a section) is allowed through rather
   // than blocked, so a config gap fails open to "visible" instead of
   // silently locking out a legitimate page.
-  if (!requiredKey || permissions.includes(requiredKey)) {
+  const viewAllowed = !requiredKey || permissions.includes(requiredKey);
+
+  // Products/Categories have real /add and /edit/:id routes — typing
+  // one directly needs the matching write action, not just view access
+  // to the section's list page.
+  const writeEntry = writeAccessForPath(location.pathname);
+  const writeAllowed =
+    !writeEntry || hasWriteAccess(user, writeEntry.key, writeEntry.action);
+
+  if (viewAllowed && writeAllowed) {
     return <Outlet />;
   }
 
