@@ -145,6 +145,9 @@ const AdminWalkthrough = lazyWithReload(() => import("../pages/admin/AdminWalkth
 const PrintLabels = lazyWithReload(() => import("../pages/admin/PrintLabels"));
 const ProductQRLabel = lazyWithReload(() => import("../pages/admin/ProductQRLabel"));
 
+const AdminStaffUsers = lazyWithReload(() => import("../pages/admin/AdminStaffUsers"));
+const AdminRoles = lazyWithReload(() => import("../pages/admin/AdminRoles"));
+
 function AppRoutes() {
   return (
     <Suspense fallback={<PageLoader />}>
@@ -286,6 +289,8 @@ function AppRoutes() {
           <Route path="walkthrough" element={<AdminWalkthrough />} />
           <Route path="print-labels" element={<PrintLabels />} />
           <Route path="products/:id/qr" element={<ProductQRLabel />} />
+          <Route path="staff-users" element={<AdminStaffUsers />} />
+          <Route path="roles" element={<AdminRoles />} />
         </Route>
       </Routes>
     </Suspense>

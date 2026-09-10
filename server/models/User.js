@@ -56,6 +56,17 @@ const userSchema = new mongoose.Schema(
       default: "user",
     },
 
+    // Only meaningful when role === "admin". Absent/null = a full,
+    // unrestricted admin (every account that existed before this field
+    // was added, including the owner's own) — restriction is opt-in,
+    // applied only to staff accounts created via the admin "Staff Users"
+    // page. See middleware/requirePermission.js.
+    adminRole: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Role",
+      default: null,
+    },
+
     isBlocked: {
       type: Boolean,
       default: false,

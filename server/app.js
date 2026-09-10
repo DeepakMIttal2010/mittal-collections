@@ -41,6 +41,8 @@ import notificationRoutes from "./routes/notificationRoutes.js";
 import feedRoutes from "./routes/feedRoutes.js";
 import whatsappRoutes from "./routes/whatsappRoutes.js";
 import deliveryRoutes from "./routes/deliveryRoutes.js";
+import roleRoutes from "./routes/roleRoutes.js";
+import staffUserRoutes from "./routes/staffUserRoutes.js";
 import { classifyKnownErrors, jsonErrorHandler } from "./middleware/errorHandler.js";
 
 const app = express();
@@ -172,6 +174,8 @@ app.use("/api/notifications", notificationRoutes);
 app.use("/api/feed", feedRoutes);
 app.use("/api/whatsapp", whatsappRoutes);
 app.use("/api/delivery", deliveryRoutes);
+app.use("/api/roles", roleRoutes);
+app.use("/api/admin/staff", staffUserRoutes);
 
 // Error handling — must come after all routes (so it sees their
 // errors). classifyKnownErrors runs first so Sentry's own

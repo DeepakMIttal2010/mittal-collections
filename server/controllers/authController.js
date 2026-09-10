@@ -193,7 +193,7 @@ export const login = async (req, res) => {
       });
     }
 
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email }).populate("adminRole");
 
     if (!user) {
       return res.status(401).json({
@@ -241,6 +241,12 @@ export const login = async (req, res) => {
         role: user.role,
         loyaltyPoints: user.loyaltyPoints,
         referralCode: user.referralCode,
+        // null for customers and full/unrestricted admins — only a
+        // staff account with a restricted Role assigned gets this,
+        // which the client uses to filter the sidebar and gate routes.
+        adminRole: user.adminRole
+          ? { id: user.adminRole._id, name: user.adminRole.name, permissions: user.adminRole.permissions }
+          : null,
       },
     });
   } catch (error) {

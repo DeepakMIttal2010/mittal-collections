@@ -9,8 +9,10 @@ import {
 } from "../controllers/rewardsSettingsController.js";
 import authMiddleware from "../middleware/authMiddleware.js";
 import adminMiddleware from "../middleware/adminMiddleware.js";
+import requirePermission from "../middleware/requirePermission.js";
 
 const router = express.Router();
+const perm = requirePermission("rewards-settings");
 
 router.get("/public", getPublicRewardsInfo);
 // GET as well as POST — most external cron pingers (cron-job.org
@@ -24,17 +26,19 @@ router.get(
   getMyLoyaltyTransactions,
 );
 
-router.get("/admin", authMiddleware, adminMiddleware, getRewardsSettings);
+router.get("/admin", authMiddleware, adminMiddleware, perm, getRewardsSettings);
 router.put(
   "/admin/loyalty",
   authMiddleware,
   adminMiddleware,
+  perm,
   updateLoyaltySettings,
 );
 router.put(
   "/admin/referral",
   authMiddleware,
   adminMiddleware,
+  perm,
   updateReferralSettings,
 );
 

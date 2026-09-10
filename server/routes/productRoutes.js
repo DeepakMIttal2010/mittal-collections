@@ -3,6 +3,7 @@ import { uploadProductMedia } from "../middleware/uploadMiddleware.js";
 import imageOptimizer from "../middleware/imageOptimizer.js";
 import authMiddleware from "../middleware/authMiddleware.js";
 import adminMiddleware from "../middleware/adminMiddleware.js";
+import requirePermission from "../middleware/requirePermission.js";
 
 import {
   getProducts,
@@ -27,6 +28,7 @@ import {
 } from "../controllers/productController.js";
 
 const router = express.Router();
+const perm = requirePermission("products");
 
 // Public routes — koi bhi dekh sakta hai
 router.get("/", getProducts);
@@ -39,16 +41,17 @@ router.get("/big-savings", getBigSavingsProducts);
 router.get("/suggestions", getSearchSuggestions);
 
 // Admin-only routes — login + admin role dono zaroori (must come before /:id)
-router.get("/admin", authMiddleware, adminMiddleware, getAllProductsAdmin);
+router.get("/admin", authMiddleware, adminMiddleware, perm, getAllProductsAdmin);
 router.get(
   "/decode-number",
   authMiddleware,
   adminMiddleware,
+  perm,
   decodeProductNumberController,
 );
 
 router.get("/:id", getProductById);
-router.get("/:id/admin", authMiddleware, adminMiddleware, getProductByIdAdmin);
+router.get("/:id/admin", authMiddleware, adminMiddleware, perm, getProductByIdAdmin);
 router.post("/:id/notify", subscribeStockAlert);
 
 const productMediaFields = uploadProductMedia.fields([
@@ -60,6 +63,7 @@ router.post(
   "/",
   authMiddleware,
   adminMiddleware,
+  perm,
   productMediaFields,
   imageOptimizer,
   addProduct,
@@ -69,6 +73,7 @@ router.post(
   "/:id/duplicate",
   authMiddleware,
   adminMiddleware,
+  perm,
   duplicateProduct,
 );
 
@@ -76,6 +81,7 @@ router.put(
   "/:id",
   authMiddleware,
   adminMiddleware,
+  perm,
   productMediaFields,
   imageOptimizer,
   updateProduct,
@@ -85,14 +91,16 @@ router.put(
   "/:id/restore",
   authMiddleware,
   adminMiddleware,
+  perm,
   restoreProduct,
 );
 
-router.delete("/:id", authMiddleware, adminMiddleware, deleteProduct);
+router.delete("/:id", authMiddleware, adminMiddleware, perm, deleteProduct);
 router.delete(
   "/:id/permanent",
   authMiddleware,
   adminMiddleware,
+  perm,
   permanentlyDeleteProduct,
 );
 

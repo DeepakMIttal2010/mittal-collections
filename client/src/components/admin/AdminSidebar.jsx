@@ -31,9 +31,12 @@ import {
   FaFire,
   FaAngleDoubleLeft,
   FaAngleDoubleRight,
+  FaUserShield,
+  FaUserLock,
 } from "react-icons/fa";
 
 import { logoutAdmin, getCurrentAdminUser } from "../../services/authService";
+import { permissionForPath } from "../../config/adminPermissions";
 
 import "./AdminSidebar.css";
 
@@ -96,16 +99,42 @@ const NAV_GROUPS = [
     ],
   },
   {
+    label: "Team & Access",
+    items: [
+      { to: "/admin/staff-users", icon: FaUserShield, label: "Staff Users" },
+      { to: "/admin/roles", icon: FaUserLock, label: "Roles & Permissions" },
+    ],
+  },
+  {
     label: "Configuration",
     items: [{ to: "/admin/settings", icon: FaCog, label: "Settings" }],
   },
 ];
 
+// A user with no adminRole (full/unrestricted admin — every account
+// that existed before this feature, including the owner's own) sees
+// every group/item unchanged. A restricted staff account only sees
+// items whose permission key it was granted; a group left with zero
+// visible items is dropped entirely rather than shown as an empty
+// header.
+function visibleNavGroups(user) {
+  if (!user?.adminRole) return NAV_GROUPS;
+
+  const permissions = user.adminRole.permissions || [];
+
+  return NAV_GROUPS.map((group) => ({
+    ...group,
+    items: group.items.filter(
+      (item) => permissions.includes(permissionForPath(item.to)),
+    ),
+  })).filter((group) => group.items.length > 0);
+}
+
 // A group starts open if the page currently being viewed lives inside it —
-// otherwise the sidebar always opens on Dashboard with everything else
-// collapsed, defeating the point of grouping.
-const groupContainingPath = (pathname) =>
-  NAV_GROUPS.find((group) =>
+// otherwise the sidebar always opens on the first visible group with
+// everything else collapsed, defeating the point of grouping.
+const groupContainingPath = (groups, pathname) =>
+  groups.find((group) =>
     group.items.some((item) =>
       item.end ? pathname === item.to : pathname.startsWith(item.to),
     ),
@@ -116,9 +145,10 @@ function AdminSidebar() {
   const location = useLocation();
 
   const user = getCurrentAdminUser();
+  const groups = visibleNavGroups(user);
 
   const [openGroup, setOpenGroup] = useState(
-    () => groupContainingPath(location.pathname) || NAV_GROUPS[0].label,
+    () => groupContainingPath(groups, location.pathname) || groups[0]?.label,
   );
 
   // Persisted so it stays collapsed/expanded across page loads, not just
@@ -181,7 +211,7 @@ function AdminSidebar() {
       </div>
 
       <nav>
-        {NAV_GROUPS.map((group) => {
+        {groups.map((group) => {
           const isOpen = !collapsed && openGroup === group.label;
 
           return (
