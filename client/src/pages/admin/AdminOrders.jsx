@@ -10,6 +10,8 @@ import {
   deleteOrder,
   permanentlyDeleteOrder,
 } from "../../services/adminOrderService";
+import { getCurrentAdminUser } from "../../services/authService";
+import { hasWriteAccess } from "../../config/adminPermissions";
 
 const STATUS_OPTIONS = [
   "Pending",
@@ -68,6 +70,10 @@ const buildWhatsAppLink = (order) => {
 };
 
 function AdminOrders() {
+  // No "new" concept here — orders come from customers, not created by
+  // an admin on this page.
+  const canModify = hasWriteAccess(getCurrentAdminUser(), "orders", "modified");
+
   const [searchParams, setSearchParams] = useSearchParams();
   const highlightId = searchParams.get("highlight");
 
@@ -334,8 +340,14 @@ function AdminOrders() {
 
                 <select
                   value={order.orderStatus}
-                  disabled={updatingId === order._id || !order.isActive}
-                  title={!order.isActive ? "Restore this order to change its status" : undefined}
+                  disabled={updatingId === order._id || !order.isActive || !canModify}
+                  title={
+                    !order.isActive
+                      ? "Restore this order to change its status"
+                      : !canModify
+                        ? "You don't have permission to change order status"
+                        : undefined
+                  }
                   onClick={(e) => e.stopPropagation()}
                   onChange={(e) =>
                     handleStatusChange(order._id, e.target.value)
@@ -547,7 +559,10 @@ function AdminOrders() {
 
                   {/* Delete / Restore — only ever possible once the order
                       is Cancelled, so a live order can't be removed by
-                      mistake. */}
+                      mistake. Gated by write access same as status
+                      changes above, since deleting/restoring is itself
+                      a kind of order modification. */}
+                  {canModify && (
                   <div className="mt-6 pt-4 border-t border-slate-200 flex items-center gap-3">
                     {order.isActive ? (
                       order.orderStatus === "Cancelled" ? (
@@ -591,6 +606,7 @@ function AdminOrders() {
                       </>
                     )}
                   </div>
+                  )}
                 </div>
               )}
             </div>
