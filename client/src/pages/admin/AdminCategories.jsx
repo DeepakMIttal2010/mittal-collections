@@ -9,10 +9,16 @@ import {
   deleteCategory,
   permanentlyDeleteCategory,
 } from "../../services/adminCategoryService";
+import { getCurrentAdminUser } from "../../services/authService";
+import { hasWriteAccess } from "../../config/adminPermissions";
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
 function AdminCategories() {
+  const currentUser = getCurrentAdminUser();
+  const canCreate = hasWriteAccess(currentUser, "categories", "new");
+  const canModify = hasWriteAccess(currentUser, "categories", "modified");
+
   const [categories, setCategories] = useState([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
@@ -136,12 +142,14 @@ function AdminCategories() {
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-bold text-slate-800">Manage Categories</h2>
 
-        <Link
-          to="/admin/categories/add"
-          className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg transition-colors"
-        >
-          + Add Category
-        </Link>
+        {canCreate && (
+          <Link
+            to="/admin/categories/add"
+            className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg transition-colors"
+          >
+            + Add Category
+          </Link>
+        )}
       </div>
 
       {/* Search + View Toggle */}
@@ -315,20 +323,24 @@ function AdminCategories() {
                     <div className="flex items-center justify-center gap-2">
                       {category.isActive ? (
                         <>
-                          <Link
-                            to={`/admin/categories/edit/${category._id}`}
-                            className="text-xs font-medium px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white"
-                          >
-                            Edit
-                          </Link>
-                          <button
-                            onClick={() => handleDelete(category._id)}
-                            className="text-xs font-medium px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white"
-                          >
-                            Delete
-                          </button>
+                          {canModify && (
+                            <Link
+                              to={`/admin/categories/edit/${category._id}`}
+                              className="text-xs font-medium px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white"
+                            >
+                              Edit
+                            </Link>
+                          )}
+                          {canModify && (
+                            <button
+                              onClick={() => handleDelete(category._id)}
+                              className="text-xs font-medium px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white"
+                            >
+                              Delete
+                            </button>
+                          )}
                         </>
-                      ) : (
+                      ) : canModify ? (
                         <>
                           <button
                             onClick={() => handleRestore(category._id)}
@@ -345,7 +357,7 @@ function AdminCategories() {
                             Delete Permanently
                           </button>
                         </>
-                      )}
+                      ) : null}
                     </div>
                   </td>
                 </tr>
@@ -399,21 +411,25 @@ function AdminCategories() {
                 <div className="mt-auto flex gap-2">
                   {category.isActive ? (
                     <>
-                      <Link
-                        to={`/admin/categories/edit/${category._id}`}
-                        className="flex-1 text-center bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium py-2 rounded-lg transition-colors"
-                      >
-                        Edit
-                      </Link>
+                      {canModify && (
+                        <Link
+                          to={`/admin/categories/edit/${category._id}`}
+                          className="flex-1 text-center bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium py-2 rounded-lg transition-colors"
+                        >
+                          Edit
+                        </Link>
+                      )}
 
-                      <button
-                        onClick={() => handleDelete(category._id)}
-                        className="flex-1 text-center bg-red-600 hover:bg-red-700 text-white text-sm font-medium py-2 rounded-lg transition-colors"
-                      >
-                        Delete
-                      </button>
+                      {canModify && (
+                        <button
+                          onClick={() => handleDelete(category._id)}
+                          className="flex-1 text-center bg-red-600 hover:bg-red-700 text-white text-sm font-medium py-2 rounded-lg transition-colors"
+                        >
+                          Delete
+                        </button>
+                      )}
                     </>
-                  ) : (
+                  ) : canModify ? (
                     <>
                       <button
                         onClick={() => handleRestore(category._id)}
@@ -428,7 +444,7 @@ function AdminCategories() {
                         Delete Permanently
                       </button>
                     </>
-                  )}
+                  ) : null}
                 </div>
               </div>
             </div>

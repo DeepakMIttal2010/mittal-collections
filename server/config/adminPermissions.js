@@ -82,3 +82,21 @@ export const PERMISSION_GROUPS = [
 export const PERMISSION_KEYS = PERMISSION_GROUPS.flatMap((group) =>
   group.items.map((item) => item.key),
 );
+
+// A second, smaller, additive right on top of the View-only permission
+// model above — only for the handful of high-traffic sections where an
+// owner wants to let someone see the list without being able to
+// create/edit/delete. Entries in Role.writeAccess are shaped
+// "<key>:<action>" (e.g. "products:new"), same flat-array + .includes()
+// shape the `permissions` field already uses. Delete is intentionally
+// folded into "modified" — this models exactly the three rights asked
+// for (View / New / Modified), not four.
+export const GRANULAR_MODULES = [
+  { key: "products", label: "Products & Stock", actions: ["new", "modified"] },
+  { key: "categories", label: "Categories", actions: ["new", "modified"] },
+  { key: "subcategories", label: "Sub Categories", actions: ["new", "modified"] },
+  { key: "coupons", label: "Coupons", actions: ["new", "modified"] },
+  // No "new" here — there's no admin-created-order concept on this
+  // page, just status updates on orders customers placed.
+  { key: "orders", label: "Orders", actions: ["modified"] },
+];

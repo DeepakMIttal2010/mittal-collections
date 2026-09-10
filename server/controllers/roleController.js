@@ -1,6 +1,10 @@
 import Role from "../models/Role.js";
 import User from "../models/User.js";
-import { PERMISSION_KEYS } from "../config/adminPermissions.js";
+import { PERMISSION_KEYS, GRANULAR_MODULES } from "../config/adminPermissions.js";
+
+const WRITE_ACCESS_KEYS = GRANULAR_MODULES.flatMap((module) =>
+  module.actions.map((action) => `${module.key}:${action}`),
+);
 
 // ============================
 // GET ALL ROLES (Admin)
@@ -28,12 +32,17 @@ const cleanPermissions = (permissions) =>
     ? permissions.filter((key) => PERMISSION_KEYS.includes(key))
     : [];
 
+const cleanWriteAccess = (writeAccess) =>
+  Array.isArray(writeAccess)
+    ? writeAccess.filter((key) => WRITE_ACCESS_KEYS.includes(key))
+    : [];
+
 // ============================
 // ADD ROLE (Admin)
 // ============================
 export const addRole = async (req, res) => {
   try {
-    const { name, description, permissions } = req.body;
+    const { name, description, permissions, writeAccess } = req.body;
 
     if (!name) {
       return res.status(400).json({
@@ -46,6 +55,7 @@ export const addRole = async (req, res) => {
       name,
       description: description || "",
       permissions: cleanPermissions(permissions),
+      writeAccess: cleanWriteAccess(writeAccess),
     });
 
     res.status(201).json({
@@ -84,11 +94,12 @@ export const updateRole = async (req, res) => {
       });
     }
 
-    const { name, description, permissions } = req.body;
+    const { name, description, permissions, writeAccess } = req.body;
 
     if (name) role.name = name;
     if (description !== undefined) role.description = description;
     if (permissions !== undefined) role.permissions = cleanPermissions(permissions);
+    if (writeAccess !== undefined) role.writeAccess = cleanWriteAccess(writeAccess);
 
     await role.save();
 

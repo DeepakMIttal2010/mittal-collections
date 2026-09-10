@@ -22,6 +22,8 @@ import { getCategories } from "../../services/categoryService";
 import { getSubcategories } from "../../services/subcategoryService";
 import ProductQuickView from "../../components/admin/ProductQuickView";
 import ShareProductModal from "../../components/admin/ShareProductModal";
+import { getCurrentAdminUser } from "../../services/authService";
+import { hasWriteAccess } from "../../config/adminPermissions";
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
@@ -42,6 +44,13 @@ const VISIBILITY_LABELS = {
 
 function AdminProducts() {
   const navigate = useNavigate();
+
+  // Full/unrestricted admins (no adminRole) get true from
+  // hasWriteAccess() unconditionally — this component's own behavior
+  // is unchanged for every account that existed before this feature.
+  const currentUser = getCurrentAdminUser();
+  const canCreate = hasWriteAccess(currentUser, "products", "new");
+  const canModify = hasWriteAccess(currentUser, "products", "modified");
 
   const [products, setProducts] = useState([]);
   const [search, setSearch] = useState("");
@@ -482,12 +491,14 @@ function AdminProducts() {
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-bold text-slate-800">Manage Products</h2>
 
-        <Link
-          to="/admin/products/add"
-          className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg transition-colors"
-        >
-          + Add Product
-        </Link>
+        {canCreate && (
+          <Link
+            to="/admin/products/add"
+            className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg transition-colors"
+          >
+            + Add Product
+          </Link>
+        )}
       </div>
 
       {/* Search + View Toggle */}
@@ -814,12 +825,14 @@ function AdminProducts() {
                     <div className="flex items-center justify-center gap-2">
                       {product.isActive ? (
                         <>
-                          <Link
-                            to={`/admin/products/edit/${product._id}`}
-                            className="text-xs font-medium px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white"
-                          >
-                            Edit
-                          </Link>
+                          {canModify && (
+                            <Link
+                              to={`/admin/products/edit/${product._id}`}
+                              className="text-xs font-medium px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white"
+                            >
+                              Edit
+                            </Link>
+                          )}
                           <Link
                             to={`/admin/products/${product._id}/qr`}
                             className="text-xs font-medium px-3 py-1.5 rounded-lg bg-slate-600 hover:bg-slate-700 text-white"
@@ -832,20 +845,24 @@ function AdminProducts() {
                           >
                             Share
                           </button>
-                          <button
-                            onClick={() => handleDuplicate(product._id)}
-                            className="text-xs font-medium px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white"
-                          >
-                            Duplicate
-                          </button>
-                          <button
-                            onClick={() => handleDelete(product._id)}
-                            className="text-xs font-medium px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white"
-                          >
-                            Delete
-                          </button>
+                          {canCreate && (
+                            <button
+                              onClick={() => handleDuplicate(product._id)}
+                              className="text-xs font-medium px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white"
+                            >
+                              Duplicate
+                            </button>
+                          )}
+                          {canModify && (
+                            <button
+                              onClick={() => handleDelete(product._id)}
+                              className="text-xs font-medium px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white"
+                            >
+                              Delete
+                            </button>
+                          )}
                         </>
-                      ) : (
+                      ) : canModify ? (
                         <>
                           <button
                             onClick={() => handleRestore(product._id)}
@@ -860,7 +877,7 @@ function AdminProducts() {
                             Delete Permanently
                           </button>
                         </>
-                      )}
+                      ) : null}
                     </div>
                   </td>
                 </tr>
@@ -944,12 +961,14 @@ function AdminProducts() {
                 <div className="mt-auto grid grid-cols-2 gap-2">
                   {product.isActive ? (
                     <>
-                      <Link
-                        to={`/admin/products/edit/${product._id}`}
-                        className="text-center bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium py-2 rounded-lg transition-colors"
-                      >
-                        Edit
-                      </Link>
+                      {canModify && (
+                        <Link
+                          to={`/admin/products/edit/${product._id}`}
+                          className="text-center bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium py-2 rounded-lg transition-colors"
+                        >
+                          Edit
+                        </Link>
+                      )}
 
                       <Link
                         to={`/admin/products/${product._id}/qr`}
@@ -966,21 +985,25 @@ function AdminProducts() {
                         Share
                       </button>
 
-                      <button
-                        onClick={() => handleDuplicate(product._id)}
-                        className="text-center bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium py-2 rounded-lg transition-colors"
-                      >
-                        Duplicate
-                      </button>
+                      {canCreate && (
+                        <button
+                          onClick={() => handleDuplicate(product._id)}
+                          className="text-center bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium py-2 rounded-lg transition-colors"
+                        >
+                          Duplicate
+                        </button>
+                      )}
 
-                      <button
-                        onClick={() => handleDelete(product._id)}
-                        className="text-center bg-red-600 hover:bg-red-700 text-white text-sm font-medium py-2 rounded-lg transition-colors"
-                      >
-                        Delete
-                      </button>
+                      {canModify && (
+                        <button
+                          onClick={() => handleDelete(product._id)}
+                          className="text-center bg-red-600 hover:bg-red-700 text-white text-sm font-medium py-2 rounded-lg transition-colors"
+                        >
+                          Delete
+                        </button>
+                      )}
                     </>
-                  ) : (
+                  ) : canModify ? (
                     <>
                       <button
                         onClick={() => handleRestore(product._id)}
@@ -995,7 +1018,7 @@ function AdminProducts() {
                         Delete Permanently
                       </button>
                     </>
-                  )}
+                  ) : null}
                 </div>
               </div>
             </div>

@@ -11,10 +11,16 @@ import {
   deleteSubcategory,
   permanentlyDeleteSubcategory,
 } from "../../services/adminSubcategoryService";
+import { getCurrentAdminUser } from "../../services/authService";
+import { hasWriteAccess } from "../../config/adminPermissions";
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
 function AdminSubcategories() {
+  const currentUser = getCurrentAdminUser();
+  const canCreate = hasWriteAccess(currentUser, "subcategories", "new");
+  const canModify = hasWriteAccess(currentUser, "subcategories", "modified");
+
   const [categories, setCategories] = useState([]);
   const [subcategories, setSubcategories] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -217,7 +223,11 @@ function AdminSubcategories() {
         Manage Subcategories
       </h2>
 
-      {/* Add / Edit Form */}
+      {/* Add / Edit Form — shared between create and edit, so it's
+          shown whenever either right is granted; the submit button
+          itself is disabled for whichever specific action (create vs
+          update) the current mode needs and the role lacks. */}
+      {(canCreate || canModify) && (
       <form
         onSubmit={handleSubmit}
         className="bg-white border border-slate-200 rounded-xl p-6 mb-8 space-y-4"
@@ -349,7 +359,7 @@ function AdminSubcategories() {
           <div className="flex gap-2">
             <button
               type="submit"
-              disabled={saving}
+              disabled={saving || (editingId ? !canModify : !canCreate)}
               className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg transition-colors disabled:opacity-60"
             >
               {saving ? "Saving..." : editingId ? "Update" : "+ Add"}
@@ -367,6 +377,7 @@ function AdminSubcategories() {
           </div>
         </div>
       </form>
+      )}
 
       {/* Search */}
       <div className="mb-4">
@@ -523,20 +534,24 @@ function AdminSubcategories() {
                     <div className="flex items-center justify-center gap-2">
                       {sub.isActive ? (
                         <>
-                          <button
-                            onClick={() => handleEdit(sub)}
-                            className="text-xs font-medium px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => handleDelete(sub._id)}
-                            className="text-xs font-medium px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white"
-                          >
-                            Delete
-                          </button>
+                          {canModify && (
+                            <button
+                              onClick={() => handleEdit(sub)}
+                              className="text-xs font-medium px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white"
+                            >
+                              Edit
+                            </button>
+                          )}
+                          {canModify && (
+                            <button
+                              onClick={() => handleDelete(sub._id)}
+                              className="text-xs font-medium px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white"
+                            >
+                              Delete
+                            </button>
+                          )}
                         </>
-                      ) : (
+                      ) : canModify ? (
                         <>
                           <button
                             onClick={() => handleRestore(sub._id)}
@@ -551,7 +566,7 @@ function AdminSubcategories() {
                             Delete Permanently
                           </button>
                         </>
-                      )}
+                      ) : null}
                     </div>
                   </td>
                 </tr>
