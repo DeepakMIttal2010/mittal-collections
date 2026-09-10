@@ -209,13 +209,6 @@ function Hero() {
 
   return (
     <>
-      <div className="hero-value-strip">
-        {t(
-          "Mittal Collections — Quality Home Furnishing at Great Prices",
-          "मित्तल कलेक्शन्स — बेहतरीन कीमतों पर क्वालिटी होम फर्निशिंग",
-        )}
-      </div>
-
       <section className={`hero ${slide.isRewardsSlide ? "hero-rewards-slide" : ""}`}>
       {slide.isRewardsSlide ? (
         <div className="hero-bg-image hero-bg-rewards">
@@ -223,7 +216,23 @@ function Hero() {
           <span className="hero-bg-blob hero-bg-blob-2" />
         </div>
       ) : (
-        <img src={backgroundImage} alt={imageAlt} className="hero-bg-image" />
+        // A blurred, scaled-up copy of the same photo fills the frame as a
+        // backdrop (object-fit: cover, so IT can crop freely — nothing
+        // sharp is lost since it's blurred anyway), while the real photo
+        // sits on top uncropped (object-fit: contain). Admin-uploaded
+        // photos come in whatever aspect ratio they come in (a square
+        // product shot, a wide banner, ...) — this shows every one of them
+        // in full instead of `cover` silently cropping off whatever didn't
+        // fit a fixed wide hero shape.
+        <>
+          <img
+            src={backgroundImage}
+            alt=""
+            aria-hidden="true"
+            className="hero-bg-blur"
+          />
+          <img src={backgroundImage} alt={imageAlt} className="hero-bg-image" />
+        </>
       )}
       <div className={`hero-overlay ${slide.isRewardsSlide ? "hero-overlay-rewards" : ""}`}>
         <div className="container">
