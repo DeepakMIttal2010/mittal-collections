@@ -297,7 +297,7 @@ function Header() {
               disclosure pattern as the delivery-location block below: this
               header has a history of overflowing at narrow (360-375px)
               widths, so an extra line only shows once there's room. */}
-          <p className="hidden sm:block text-[10px] text-slate-500 tracking-wide whitespace-nowrap -mt-0.5">
+          <p className="hidden sm:block text-[10px] italic text-amber-800/70 tracking-wide whitespace-nowrap -mt-0.5">
             {t(
               "Quality Home Furnishing at Great Prices",
               "बेहतरीन कीमतों पर क्वालिटी होम फर्निशिंग",

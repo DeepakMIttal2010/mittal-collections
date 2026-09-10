@@ -41,16 +41,8 @@ function Navbar() {
           {/* Dynamic categories + subcategories mega menu */}
           <MegaMenu linkClassName={linkClass} />
 
-          <NavLink
-            to="/trending"
-            className={({ isActive }) =>
-              `flex items-center gap-1.5 ${linkClass({ isActive })}`
-            }
-          >
-            <FaFire className="text-xs text-amber-500" />
-            {t("Top Trending", "टॉप ट्रेंडिंग")}
-          </NavLink>
-
+          {/* Deal-driven items lead (highest conversion urgency), informational
+              content (Guides) trails — standard e-commerce nav ordering. */}
           <NavLink
             to="/clearance-sale"
             className={({ isActive }) =>
@@ -59,6 +51,16 @@ function Navbar() {
           >
             <FaTag className="text-xs text-red-600" />
             {t("Clearance Sale", "क्लियरेंस सेल")}
+          </NavLink>
+
+          <NavLink
+            to="/trending"
+            className={({ isActive }) =>
+              `flex items-center gap-1.5 ${linkClass({ isActive })}`
+            }
+          >
+            <FaFire className="text-xs text-amber-500" />
+            {t("Top Trending", "टॉप ट्रेंडिंग")}
           </NavLink>
 
           <NavLink
