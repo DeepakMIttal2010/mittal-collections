@@ -66,19 +66,7 @@ export const addStaffUser = async (req, res) => {
     }
 
     const existingUser = await User.findOne({ email });
-
-    // email is globally unique on User (unlike mobile, which has a
-    // role-scoped partial index specifically so one person can be both
-    // a customer and an admin with the same number) — a second document
-    // with the same email is impossible at the DB level regardless, and
-    // more importantly the same login lookup (authController.login's
-    // User.findOne({ email })) would be ambiguous if it weren't. So a
-    // customer signing up for their own shop with the email they
-    // already shop with (a completely normal case — confirmed as a
-    // real block in production, 2026-09-10) is handled by promoting
-    // their one existing account rather than rejecting it outright.
-    // Already-admin accounts still can't collide.
-    if (existingUser && existingUser.role === "admin") {
+    if (existingUser) {
       return res.status(400).json({
         success: false,
         message: "Email already exists",
@@ -105,31 +93,6 @@ export const addStaffUser = async (req, res) => {
         });
       }
       roleId = role._id;
-    }
-
-    if (existingUser) {
-      // Promote in place — their existing password keeps working for
-      // both their shopping account and admin login, so the password
-      // typed into this form is deliberately not applied here. Name/
-      // mobile are left untouched too, for the same reason: this is
-      // their own customer profile, not a fresh identity to overwrite.
-      existingUser.role = "admin";
-      existingUser.adminRole = roleId;
-      await existingUser.save();
-
-      return res.status(200).json({
-        success: true,
-        message:
-          "This email already had a customer account — it's been promoted to admin access. Their existing password still works; the password entered here was not applied.",
-        staffUser: {
-          id: existingUser._id,
-          name: existingUser.name,
-          email: existingUser.email,
-          mobile: existingUser.mobile,
-          adminRole: roleId,
-          isBlocked: existingUser.isBlocked,
-        },
-      });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
