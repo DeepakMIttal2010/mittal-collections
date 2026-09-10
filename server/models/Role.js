@@ -1,6 +1,10 @@
 import mongoose from "mongoose";
 
-import { PERMISSION_KEYS } from "../config/adminPermissions.js";
+import { PERMISSION_KEYS, GRANULAR_MODULES } from "../config/adminPermissions.js";
+
+const WRITE_ACCESS_KEYS = GRANULAR_MODULES.flatMap((module) =>
+  module.actions.map((action) => `${module.key}:${action}`),
+);
 
 const roleSchema = new mongoose.Schema(
   {
@@ -27,6 +31,19 @@ const roleSchema = new mongoose.Schema(
       validate: {
         validator: (arr) => arr.every((key) => PERMISSION_KEYS.includes(key)),
         message: "Unknown permission key",
+      },
+    },
+
+    // A second, additive right on top of `permissions` (View) — only
+    // meaningful for the handful of sections in GRANULAR_MODULES.
+    // Entries are "<moduleKey>:<action>", e.g. "products:new". See
+    // config/adminPermissions.js for the full rationale.
+    writeAccess: {
+      type: [String],
+      default: [],
+      validate: {
+        validator: (arr) => arr.every((key) => WRITE_ACCESS_KEYS.includes(key)),
+        message: "Unknown write-access key",
       },
     },
   },
