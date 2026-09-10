@@ -3,6 +3,7 @@ import express from "express";
 import authMiddleware from "../middleware/authMiddleware.js";
 import adminMiddleware from "../middleware/adminMiddleware.js";
 import requirePermission from "../middleware/requirePermission.js";
+import requireWriteAccess from "../middleware/requireWriteAccess.js";
 
 import {
   createOrder,
@@ -20,6 +21,7 @@ import {
 
 const router = express.Router();
 const perm = requirePermission("orders");
+const canModify = requireWriteAccess("orders", "modified");
 
 // Create Order — koi bhi logged-in user
 router.post("/", authMiddleware, createOrder);
@@ -42,16 +44,18 @@ router.get("/send-review-requests", sendReviewRequestEmails);
 router.get("/:id", authMiddleware, getOrderById);
 
 // Update Order Status — sirf Admin
-router.put("/:id/status", authMiddleware, adminMiddleware, perm, updateOrderStatus);
+router.put("/:id/status", authMiddleware, adminMiddleware, perm, canModify, updateOrderStatus);
 
-// Mark Order Seen — sirf Admin
+// Mark Order Seen — sirf Admin (a lightweight read-marker like the
+// notification bell, not gated by write access — see adminRoutes.js's
+// notifications routes for the same reasoning)
 router.put("/:id/seen", authMiddleware, adminMiddleware, perm, markOrderSeen);
 
 // Restore Order — sirf Admin
-router.put("/:id/restore", authMiddleware, adminMiddleware, perm, restoreOrder);
+router.put("/:id/restore", authMiddleware, adminMiddleware, perm, canModify, restoreOrder);
 
 // Delete Order (soft) — sirf Admin
-router.delete("/:id", authMiddleware, adminMiddleware, perm, deleteOrder);
+router.delete("/:id", authMiddleware, adminMiddleware, perm, canModify, deleteOrder);
 
 // Permanently Delete Order — sirf Admin
 router.delete(
@@ -59,6 +63,7 @@ router.delete(
   authMiddleware,
   adminMiddleware,
   perm,
+  canModify,
   permanentlyDeleteOrder,
 );
 

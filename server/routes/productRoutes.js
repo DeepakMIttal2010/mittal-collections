@@ -4,6 +4,7 @@ import imageOptimizer from "../middleware/imageOptimizer.js";
 import authMiddleware from "../middleware/authMiddleware.js";
 import adminMiddleware from "../middleware/adminMiddleware.js";
 import requirePermission from "../middleware/requirePermission.js";
+import requireWriteAccess from "../middleware/requireWriteAccess.js";
 
 import {
   getProducts,
@@ -30,6 +31,8 @@ import {
 
 const router = express.Router();
 const perm = requirePermission("products");
+const canCreate = requireWriteAccess("products", "new");
+const canModify = requireWriteAccess("products", "modified");
 
 // Public routes — koi bhi dekh sakta hai
 router.get("/", getProducts);
@@ -66,6 +69,7 @@ router.post(
   authMiddleware,
   adminMiddleware,
   perm,
+  canCreate,
   productMediaFields,
   imageOptimizer,
   addProduct,
@@ -76,6 +80,7 @@ router.post(
   authMiddleware,
   adminMiddleware,
   perm,
+  canCreate,
   duplicateProduct,
 );
 
@@ -84,6 +89,7 @@ router.put(
   authMiddleware,
   adminMiddleware,
   perm,
+  canModify,
   productMediaFields,
   imageOptimizer,
   updateProduct,
@@ -94,15 +100,17 @@ router.put(
   authMiddleware,
   adminMiddleware,
   perm,
+  canModify,
   restoreProduct,
 );
 
-router.delete("/:id", authMiddleware, adminMiddleware, perm, deleteProduct);
+router.delete("/:id", authMiddleware, adminMiddleware, perm, canModify, deleteProduct);
 router.delete(
   "/:id/permanent",
   authMiddleware,
   adminMiddleware,
   perm,
+  canModify,
   permanentlyDeleteProduct,
 );
 
