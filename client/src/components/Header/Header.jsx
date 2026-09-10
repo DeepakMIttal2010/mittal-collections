@@ -291,11 +291,13 @@ function Header() {
           <h2 className="text-base sm:text-2xl font-bold sm:tracking-wide text-slate-800 whitespace-nowrap">
             MITTAL <span className="text-amber-700">COLLECTIONS</span>
           </h2>
-          {/* Was a full-width visible banner strip above the hero image
-              (removed 2026-09-10) — kept only as crawlable/screen-reader
-              text under the logo, sr-only so it takes no header space
-              (this header has a history of overflowing at narrow widths). */}
-          <p className="sr-only">
+          {/* Was a full-width banner strip above the hero image (removed
+              2026-09-10) — moved here as a small tagline under the logo
+              instead. Hidden below `sm` on purpose, same progressive-
+              disclosure pattern as the delivery-location block below: this
+              header has a history of overflowing at narrow (360-375px)
+              widths, so an extra line only shows once there's room. */}
+          <p className="hidden sm:block text-[10px] text-slate-500 tracking-wide whitespace-nowrap -mt-0.5">
             {t(
               "Quality Home Furnishing at Great Prices",
               "बेहतरीन कीमतों पर क्वालिटी होम फर्निशिंग",
