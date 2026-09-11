@@ -214,6 +214,7 @@ function Hero() {
         <div className="hero-bg-image hero-bg-rewards">
           <span className="hero-bg-blob hero-bg-blob-1" />
           <span className="hero-bg-blob hero-bg-blob-2" />
+          <span className="hero-bg-blob hero-bg-blob-3" />
         </div>
       ) : (
         // A blurred, scaled-up copy of the same photo fills the frame as a
@@ -246,6 +247,7 @@ function Hero() {
                   {t(slide.subtitle, slide.subtitleHi)}
                 </span>
                 <h1>{slideTitle}</h1>
+                <span className="hero-rewards-title-accent" aria-hidden="true" />
               </div>
 
               <div className="hero-rewards-cards">
