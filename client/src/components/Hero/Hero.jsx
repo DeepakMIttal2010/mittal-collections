@@ -207,37 +207,54 @@ function Hero() {
 
   const goNext = () => setActiveIndex((prev) => (prev + 1) % allSlides.length);
 
-  return (
+  // Every slide has a light background now (the split photo-slide layout
+  // dropped the old full-bleed dark photo), so arrows/dots always use the
+  // light-background (dark-icon) styling that only the rewards slide used
+  // to need.
+  const arrowsAndDots = allSlides.length > 1 && (
     <>
-      <section className={`hero ${slide.isRewardsSlide ? "hero-rewards-slide" : ""}`}>
-      {slide.isRewardsSlide ? (
+      <button
+        type="button"
+        onClick={goPrev}
+        aria-label={t("Previous slide", "पिछली स्लाइड")}
+        className="hero-arrow hero-arrow-left hero-arrow-light"
+      >
+        <FaChevronLeft />
+      </button>
+
+      <button
+        type="button"
+        onClick={goNext}
+        aria-label={t("Next slide", "अगली स्लाइड")}
+        className="hero-arrow hero-arrow-right hero-arrow-light"
+      >
+        <FaChevronRight />
+      </button>
+
+      <div className="hero-dots hero-dots-light">
+        {allSlides.map((s, i) => (
+          <button
+            key={s._id}
+            type="button"
+            aria-label={t(`Go to slide ${i + 1}`, `स्लाइड ${i + 1} पर जाएं`)}
+            onClick={() => setActiveIndex(i)}
+            className={`hero-dot ${i === activeIndex ? "active" : ""}`}
+          />
+        ))}
+      </div>
+    </>
+  );
+
+  if (slide.isRewardsSlide) {
+    return (
+      <section className="hero hero-rewards-slide">
         <div className="hero-bg-image hero-bg-rewards">
           <span className="hero-bg-blob hero-bg-blob-1" />
           <span className="hero-bg-blob hero-bg-blob-2" />
           <span className="hero-bg-blob hero-bg-blob-3" />
         </div>
-      ) : (
-        // A blurred, scaled-up copy of the same photo fills the frame as a
-        // backdrop (object-fit: cover, so IT can crop freely — nothing
-        // sharp is lost since it's blurred anyway), while the real photo
-        // sits on top uncropped (object-fit: contain). Admin-uploaded
-        // photos come in whatever aspect ratio they come in (a square
-        // product shot, a wide banner, ...) — this shows every one of them
-        // in full instead of `cover` silently cropping off whatever didn't
-        // fit a fixed wide hero shape.
-        <>
-          <img
-            src={backgroundImage}
-            alt=""
-            aria-hidden="true"
-            className="hero-bg-blur"
-          />
-          <img src={backgroundImage} alt={imageAlt} className="hero-bg-image" />
-        </>
-      )}
-      <div className={`hero-overlay ${slide.isRewardsSlide ? "hero-overlay-rewards" : ""}`}>
-        <div className="container">
-          {slide.isRewardsSlide ? (
+        <div className="hero-overlay hero-overlay-rewards">
+          <div className="container">
             <div className="hero-rewards-content">
               <div className="hero-rewards-heading">
                 <span className="hero-rewards-badge">
@@ -273,79 +290,67 @@ function Hero() {
                 </button>
               </div>
             </div>
-          ) : (
-            <div className="hero-content">
-              {slide.subtitle && (
-                <span className="hero-subtitle">
-                  {t(slide.subtitle, slide.subtitleHi)}
-                </span>
-              )}
+          </div>
+          {arrowsAndDots}
+        </div>
+      </section>
+    );
+  }
 
-              <h1>
-                {slideTitle.split("\n").map((line, i) => (
-                  <span key={i}>
-                    {line}
-                    {i < slideTitle.split("\n").length - 1 && <br />}
-                  </span>
-                ))}
-              </h1>
-
-              {slide.description && (
-                <p>{t(slide.description, slide.descriptionHi)}</p>
-              )}
-
-              <div className="hero-buttons">
-                <HeroButton
-                  label={t(slide.button1Label, slide.button1LabelHi)}
-                  link={slide.button1Link}
-                  variant="primary"
-                />
-                <HeroButton
-                  label={t(slide.button2Label, slide.button2LabelHi)}
-                  link={slide.button2Link}
-                  variant="secondary"
-                />
-              </div>
-            </div>
-          )}
+  // Photo slides: a bounded image column + a light content column, rather
+  // than a full-bleed photo with dark-overlaid text — see Hero.css's
+  // .hero-split-* rules. Every admin-uploaded photo just does a normal
+  // object-fit: cover inside its own fixed-ratio box here, so (unlike the
+  // old full-bleed treatment) no blur-backdrop trick is needed for photos
+  // that aren't already wide/banner-shaped.
+  return (
+    <section className="hero">
+      <div className="container hero-split">
+        <div className="hero-split-media">
+          <img src={backgroundImage} alt={imageAlt} className="hero-split-image" />
         </div>
 
-        {allSlides.length > 1 && (
-          <>
-            <button
-              type="button"
-              onClick={goPrev}
-              aria-label={t("Previous slide", "पिछली स्लाइड")}
-              className={`hero-arrow hero-arrow-left ${slide.isRewardsSlide ? "hero-arrow-light" : ""}`}
-            >
-              <FaChevronLeft />
-            </button>
-
-            <button
-              type="button"
-              onClick={goNext}
-              aria-label={t("Next slide", "अगली स्लाइड")}
-              className={`hero-arrow hero-arrow-right ${slide.isRewardsSlide ? "hero-arrow-light" : ""}`}
-            >
-              <FaChevronRight />
-            </button>
-
-            <div className={`hero-dots ${slide.isRewardsSlide ? "hero-dots-light" : ""}`}>
-              {allSlides.map((s, i) => (
-                <button
-                  key={s._id}
-                  type="button"
-                  aria-label={t(`Go to slide ${i + 1}`, `स्लाइड ${i + 1} पर जाएं`)}
-                  onClick={() => setActiveIndex(i)}
-                  className={`hero-dot ${i === activeIndex ? "active" : ""}`}
-                />
-              ))}
+        <div className="hero-split-content">
+          {slide.subtitle && (
+            <div className="hero-split-eyebrow-row">
+              <span className="hero-split-divider" aria-hidden="true" />
+              <span className="hero-split-eyebrow">
+                {t(slide.subtitle, slide.subtitleHi)}
+              </span>
+              <span className="hero-split-divider" aria-hidden="true" />
             </div>
-          </>
-        )}
+          )}
+
+          <h1 className="hero-split-title">
+            {slideTitle.split("\n").map((line, i) => (
+              <span key={i}>
+                {line}
+                {i < slideTitle.split("\n").length - 1 && <br />}
+              </span>
+            ))}
+          </h1>
+
+          {slide.description && (
+            <p className="hero-split-desc">{t(slide.description, slide.descriptionHi)}</p>
+          )}
+
+          <div className="hero-split-buttons">
+            <HeroButton
+              label={t(slide.button1Label, slide.button1LabelHi)}
+              link={slide.button1Link}
+              variant="primary"
+            />
+            <HeroButton
+              label={t(slide.button2Label, slide.button2LabelHi)}
+              link={slide.button2Link}
+              variant="secondary"
+            />
+          </div>
+        </div>
       </div>
-      </section>
-    </>
+
+      {arrowsAndDots}
+    </section>
   );
 }
 

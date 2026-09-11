@@ -1,73 +1,26 @@
 .hero {
   position: relative;
-  height: 85vh;
   overflow: hidden;
+  background: #faf7f2;
 }
 
-/* Sized to its own content instead of the photo slides' fixed 85vh —
-   that height, combined with vertically-centering a taller content
-   block (icon-badge benefit row needs more room than one description
-   line), was pushing the button down into the page's fixed WhatsApp
-   button on shorter viewports.
-
-   Compound selector (.hero.hero-rewards-slide, not just
-   .hero-rewards-slide) deliberately outranks the plain .hero rule
-   inside the @media (max-width: 640px) block further down — same
-   specificity as this used to have meant cascade ORDER decided the
-   winner, and the mobile media query rule comes later in the file, so
-   it was silently reinstating a fixed 70vh (with .hero's own
-   overflow: hidden) on phones and clipping the bottom cards + CTA
-   right off. The extra specificity here wins regardless of where
-   either rule sits in the file. */
-.hero.hero-rewards-slide {
-  height: auto;
-  min-height: 0;
-}
-
-/* Blurred, scaled-up backdrop — see the comment in Hero.jsx. The scale
-   is what keeps the blur's own soft edge from ever peeking in at the
-   container's border. */
-.hero-bg-blur {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  filter: blur(50px) brightness(1.3) saturate(0.85);
-  transform: scale(1.2);
-  z-index: 0;
-}
-
+/* Only the rewards slide still uses .hero-bg-image/.hero-overlay now —
+   the split photo-slide layout (.hero-split-* below) replaced the old
+   full-bleed-photo-with-dark-overlay treatment those rules were built
+   for, so both are pared down to just what the rewards slide needs. */
 .hero-bg-image {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-  object-fit: contain;
   z-index: 0;
 }
 
-/* Was a flat rgba(0,0,0,0.45) tint across the whole photo — kept every
-   slide's title/CTA readable regardless of what an admin uploaded, but
-   also flattened lighter/pastel photos more than darker ones (visibly
-   "washed out" on a light floral bedsheet photo, 2026-09-10). The
-   content block always sits on the left (see .container/.hero-content
-   below), so a left-to-right gradient gives the same legibility exactly
-   where the text is while letting the rest of the photo — often the
-   more detailed/colorful part — show through at full color. */
 .hero-overlay {
   position: relative;
   z-index: 1;
   width: 100%;
   height: 100%;
-  background: linear-gradient(
-    90deg,
-    rgba(0, 0, 0, 0.55) 0%,
-    rgba(0, 0, 0, 0.38) 32%,
-    rgba(0, 0, 0, 0.1) 62%,
-    rgba(0, 0, 0, 0) 78%
-  );
-
   display: flex;
   align-items: center;
 }
@@ -219,28 +172,84 @@
   background: #be123c;
 }
 
-.hero-content {
-  max-width: 650px;
-  color: white;
+/* Bounded image column + light content column — see the comment in
+   Hero.jsx for why this replaced the old full-bleed-photo layout. */
+.hero-split {
+  display: flex;
+  align-items: center;
+  gap: 56px;
+  padding: 56px 0;
 }
 
-.hero-subtitle {
-  color: #d4af37;
+.hero-split-media {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.hero-split-image {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  object-fit: cover;
+  /* Slight left bias, not dead-center — this admin's product photos
+     often carry a text badge/label near the top-left corner (leftover
+     from listing photos), and a 4:5 box cropping a wider source photo
+     otherwise centers the crop and clips that corner first. */
+  object-position: 35% center;
+  border-radius: 20px;
+  box-shadow: 0 24px 48px -24px rgba(15, 23, 42, 0.25);
+}
+
+.hero-split-content {
+  flex: 1 1 0;
+  min-width: 0;
+  text-align: center;
+  color: #292018;
+}
+
+.hero-split-eyebrow-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.hero-split-divider {
+  width: 40px;
+  height: 1px;
+  background: #c99a4b;
+}
+
+.hero-split-eyebrow {
+  color: #a8763a;
   letter-spacing: 3px;
   font-weight: 600;
+  font-size: 13px;
 }
 
-.hero-content h1 {
-  font-size: 60px;
-  margin: 20px 0;
-  line-height: 1.2;
+.hero-split-title {
+  font-family: "Playfair Display", Georgia, "Times New Roman", serif;
+  font-size: 48px;
   font-weight: 700;
+  line-height: 1.2;
+  margin: 0 0 18px;
+  color: #4a2f1c;
 }
 
-.hero-content p {
-  font-size: 20px;
-  line-height: 1.8;
-  margin-bottom: 35px;
+.hero-split-desc {
+  font-size: 17px;
+  line-height: 1.7;
+  color: #6b5c4d;
+  max-width: 440px;
+  margin: 0 auto 32px;
+}
+
+.hero-split-buttons {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
 }
 
 /* Rewards slide: light background, one card per benefit — matches the
@@ -515,7 +524,7 @@
 }
 
 .shop-btn {
-  background: #d4af37;
+  background: #c99a4b;
   border: none;
   /* Dark text, not white — white-on-gold was 2.1:1 (needs 4.5:1) per a
      Lighthouse accessibility audit; dark text on this same gold clears
@@ -527,30 +536,46 @@
   background: #b8860b;
 }
 
+/* Was a white border/text meant to sit on a dark photo backdrop — the
+   split layout's content column has a light background now, so this is
+   a dark outline instead (matching the heading color, not white-on-white). */
 .explore-btn {
   background: transparent;
-  border: 2px solid white;
-  color: white;
+  border: 2px solid #4a2f1c;
+  color: #4a2f1c;
 }
 
 .explore-btn:hover {
-  background: white;
-  color: #222;
+  background: #4a2f1c;
+  color: #faf7f2;
 }
 
 @media (max-width: 640px) {
-  .hero {
-    height: 70vh;
+  /* Image first, text below — same order the old full-bleed photo slide
+     already read as on mobile (photo grabs attention first). */
+  .hero-split {
+    flex-direction: column;
+    gap: 28px;
+    padding: 32px 0 40px;
   }
 
-  .hero-content h1 {
-    font-size: 34px;
-    margin: 14px 0;
+  .hero-split-image {
+    aspect-ratio: 4 / 3;
+    border-radius: 14px;
   }
 
-  .hero-content p {
-    font-size: 16px;
-    margin-bottom: 24px;
+  .hero-split-title {
+    font-size: 30px;
+    margin-bottom: 12px;
+  }
+
+  .hero-split-desc {
+    font-size: 15px;
+    margin-bottom: 22px;
+  }
+
+  .hero-split-buttons {
+    gap: 14px;
   }
 
   .hero-overlay-rewards {
