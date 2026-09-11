@@ -48,16 +48,31 @@
   position: absolute;
   bottom: 15px;
   right: 15px;
+  /* Caps how wide any badge text can push this — "Exclusive Piece" is
+     short by design, but this is the safety net against a future label
+     stretching the pill into a banner instead of wrapping/truncating. */
+  max-width: calc(100% - 30px);
   background: #d97706;
   color: white;
   padding: 5px 11px;
   border-radius: 20px;
   font-size: 12px;
   font-weight: bold;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .out-of-stock-badge {
   background: #dc2626;
+}
+
+/* A single available piece isn't "running low" the way 2-5 left is —
+   most are one-off curated finds that were never a bigger batch, so this
+   gets its own gold tone instead of the amber "hurry" color the numeric
+   badge above uses. */
+.exclusive-badge {
+  background: linear-gradient(135deg, #b8860b, #8a5f28);
 }
 
 .product-icons {
