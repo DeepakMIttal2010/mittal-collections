@@ -56,7 +56,11 @@ function ProductCard({ product }) {
             </span>
           ) : (
             isLowStock && (
-              <span className="stock-badge">{t(`Only ${product.stock} left!`, `सिर्फ़ ${product.stock} बचे हैं!`)}</span>
+              <span className="stock-badge">
+                {product.stock === 1
+                  ? t("Exclusive — Only 1 Piece Available", "एक्सक्लूसिव — सिर्फ़ 1 पीस उपलब्ध")
+                  : t(`Only ${product.stock} left!`, `सिर्फ़ ${product.stock} बचे हैं!`)}
+              </span>
             )
           )}
 
