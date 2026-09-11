@@ -251,6 +251,7 @@ function Hero() {
         <div className="hero-bg-image hero-bg-rewards">
           <span className="hero-bg-blob hero-bg-blob-1" />
           <span className="hero-bg-blob hero-bg-blob-2" />
+          <span className="hero-bg-blob hero-bg-blob-3" />
         </div>
         <div className="hero-overlay hero-overlay-rewards">
           <div className="container">
@@ -263,6 +264,7 @@ function Hero() {
                   {t(slide.subtitle, slide.subtitleHi)}
                 </span>
                 <h1>{slideTitle}</h1>
+                <span className="hero-rewards-title-accent" aria-hidden="true" />
               </div>
 
               <div className="hero-rewards-cards">

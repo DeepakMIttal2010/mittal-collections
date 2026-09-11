@@ -30,19 +30,24 @@
    than the dark photo-overlay treatment the other slides need for
    white text to stay legible. */
 .hero-bg-rewards {
-  background: linear-gradient(180deg, #fff1f2 0%, #ffffff 100%);
+  background:
+    radial-gradient(ellipse 60% 55% at 50% 0%, #fff7ed 0%, transparent 60%),
+    linear-gradient(180deg, #fff1f2 0%, #ffffff 100%);
   overflow: hidden;
 }
 
 /* Soft, blurred color blobs for visual depth — kept purely decorative
    (aria-hidden via being empty spans, no content) and behind everything
-   else via z-index/stacking order in the DOM. */
+   else via z-index/stacking order in the DOM. A slow drift keeps them
+   feeling alive without being distracting; reduced-motion viewers get
+   the same blobs, just static. */
 .hero-bg-blob {
   position: absolute;
   border-radius: 50%;
   filter: blur(60px);
-  opacity: 0.5;
+  opacity: 0.55;
   pointer-events: none;
+  animation: hero-blob-drift 14s ease-in-out infinite;
 }
 
 .hero-bg-blob-1 {
@@ -59,6 +64,28 @@
   bottom: -180px;
   left: -80px;
   background: radial-gradient(circle, #fbcfe8 0%, transparent 70%);
+  animation-delay: -7s;
+}
+
+.hero-bg-blob-3 {
+  width: 260px;
+  height: 260px;
+  top: 30%;
+  left: 46%;
+  background: radial-gradient(circle, #fde68a 0%, transparent 70%);
+  opacity: 0.4;
+  animation-delay: -4s;
+}
+
+@keyframes hero-blob-drift {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(18px, -14px) scale(1.06); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-bg-blob {
+    animation: none;
+  }
 }
 
 .hero-overlay-rewards {
@@ -247,9 +274,11 @@
   color: #be123c;
   padding: 7px 18px 7px 7px;
   border-radius: 100px;
-  letter-spacing: 0.5px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
   font-weight: 700;
-  font-size: 13px;
+  font-size: 12.5px;
+  border: 1px solid #fecdd3;
   box-shadow: 0 4px 14px -6px rgba(190, 18, 60, 0.3);
 }
 
@@ -265,12 +294,28 @@
   font-size: 12px;
 }
 
-.hero-rewards-content h2 {
-  font-size: 34px;
-  margin: 14px 0 0;
+.hero-rewards-content h1 {
+  font-size: 38px;
+  margin: 16px 0 0;
   line-height: 1.2;
-  font-weight: 700;
-  color: #0f172a;
+  font-weight: 800;
+  letter-spacing: -0.3px;
+  background: linear-gradient(100deg, #0f172a 30%, #be123c 65%, #d4af37 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Small gradient bar under the heading — the same rose-to-gold accent
+   as the title text, used as a quiet divider instead of a plain
+   margin gap. */
+.hero-rewards-title-accent {
+  display: block;
+  width: 64px;
+  height: 4px;
+  margin: 16px auto 0;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #be123c, #d4af37);
 }
 
 .hero-rewards-cards {
@@ -281,12 +326,41 @@
 }
 
 .hero-rewards-card {
+  position: relative;
   background: white;
   border: 1px solid #fecdd3;
   border-radius: 16px;
-  padding: 22px 20px;
+  padding: 24px 20px 22px;
+  overflow: hidden;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
   transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+}
+
+/* Thin gradient cap, tinted per-card to match its own icon's accent —
+   ties the card frame back to its icon instead of every card sharing
+   one generic accent. Defaults to the rose accent; the :has() rules
+   below (matching the icon theme classes further down this file)
+   override it per card. */
+.hero-rewards-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #fb7185, #be123c);
+}
+
+.hero-rewards-card:has(.hero-rewards-icon-amber)::before {
+  background: linear-gradient(90deg, #fde68a, #fbbf24);
+}
+
+.hero-rewards-card:has(.hero-rewards-icon-indigo)::before {
+  background: linear-gradient(90deg, #c7d2fe, #818cf8);
+}
+
+.hero-rewards-card:has(.hero-rewards-icon-teal)::before {
+  background: linear-gradient(90deg, #99f6e4, #2dd4bf);
 }
 
 .hero-rewards-card:hover {
@@ -295,15 +369,20 @@
   border-color: #fda4af;
 }
 
+.hero-rewards-card:hover .hero-rewards-card-icon {
+  transform: scale(1.08) rotate(-4deg);
+}
+
 .hero-rewards-card-icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
+  width: 46px;
+  height: 46px;
   border-radius: 50%;
   font-size: 18px;
   margin-bottom: 14px;
+  transition: transform 0.3s ease;
 }
 
 /* Each benefit gets its own accent — makes the four cards read as
@@ -374,6 +453,7 @@
 }
 
 .hero-rewards-cta {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 10px;
@@ -385,6 +465,7 @@
   border-radius: 35px;
   padding: 14px 34px;
   cursor: pointer;
+  overflow: hidden;
   box-shadow: 0 8px 20px -8px rgba(190, 18, 60, 0.5);
   transition: transform 0.25s ease, box-shadow 0.25s ease;
 }
@@ -392,6 +473,37 @@
 .hero-rewards-cta:hover {
   transform: translateY(-2px);
   box-shadow: 0 12px 26px -8px rgba(190, 18, 60, 0.6);
+}
+
+/* Diagonal light sweep on hover — a light band slides across the
+   button rather than the whole button changing color, so the gradient
+   underneath (and the accessible dark-text contrast fix above) stays
+   untouched. */
+.hero-rewards-cta::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -60%;
+  width: 40%;
+  height: 100%;
+  background: linear-gradient(
+    115deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.35) 50%,
+    transparent 100%
+  );
+  transform: skewX(-20deg);
+  transition: left 0.55s ease;
+}
+
+.hero-rewards-cta:hover::after {
+  left: 130%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-rewards-cta::after {
+    display: none;
+  }
 }
 
 .hero-buttons {
@@ -474,8 +586,12 @@
     margin-bottom: 20px;
   }
 
-  .hero-rewards-content h2 {
-    font-size: 24px;
+  .hero-rewards-content h1 {
+    font-size: 26px;
+  }
+
+  .hero-bg-blob-3 {
+    display: none;
   }
 
   .hero-rewards-cards {
