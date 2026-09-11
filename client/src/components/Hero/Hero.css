@@ -94,6 +94,10 @@
   padding: 48px 0;
 }
 
+/* Every slide now has a light background (the split photo-slide layout
+   dropped the old full-bleed dark photo), so this is the only arrow
+   styling in use — there's no dark/photo backdrop left for a white-on-
+   photo variant to contrast against. */
 .hero-arrow {
   position: absolute;
   top: 50%;
@@ -102,8 +106,8 @@
   height: 44px;
   border-radius: 50%;
   border: none;
-  background: rgba(255, 255, 255, 0.2);
-  color: #fff;
+  background: rgba(15, 23, 42, 0.06);
+  color: #be123c;
   font-size: 16px;
   cursor: pointer;
   display: flex;
@@ -113,17 +117,6 @@
 }
 
 .hero-arrow:hover {
-  background: rgba(255, 255, 255, 0.35);
-}
-
-/* The rewards slide's light background needs dark arrows/dots instead
-   of the white-on-photo styling the other slides use for contrast. */
-.hero-arrow-light {
-  background: rgba(15, 23, 42, 0.06);
-  color: #be123c;
-}
-
-.hero-arrow-light:hover {
   background: rgba(15, 23, 42, 0.12);
 }
 
@@ -181,7 +174,16 @@
   padding: 56px 0;
 }
 
+/* position: relative anchors the prev/next arrows and dots (rendered
+   inside this div in Hero.jsx) to the photo itself — they used to be
+   absolutely positioned against the whole (auto-height) .hero section,
+   which vertically centered them against the image+content row's
+   combined height rather than the image, landing on top of the title/
+   description/buttons on slides where the text column is shorter than
+   the photo (the common case, since .hero-split-image is a fixed 4:5
+   box while text length varies per slide). */
 .hero-split-media {
+  position: relative;
   flex: 1 1 0;
   min-width: 0;
 }
@@ -222,7 +224,9 @@
 }
 
 .hero-split-eyebrow {
-  color: #a8763a;
+  /* #a8763a measured ~3.7:1 on this section's #faf7f2 background — below
+     the 4.5:1 AA floor for 13px text. This shade clears ~5.2:1. */
+  color: #8a5f28;
   letter-spacing: 3px;
   font-weight: 600;
   font-size: 13px;

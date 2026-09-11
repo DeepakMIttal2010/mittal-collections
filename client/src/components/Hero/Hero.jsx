@@ -190,12 +190,16 @@ function Hero() {
   }, [allSlides.length]);
 
   const slide = allSlides[Math.min(activeIndex, allSlides.length - 1)];
-  // Full-bleed LCP element (.hero-bg-image covers the whole viewport
-  // width) — q_auto,f_auto lets Cloudinary pick the smallest format the
-  // browser actually supports (WebP/AVIF) at a sensible quality,
-  // instead of serving whatever the admin originally uploaded as-is.
+  // LCP element, but bounded to the .hero-split-image column (roughly
+  // half the .container width, well under 1000px on any real viewport)
+  // rather than the old full-bleed treatment — w_1000 covers that at
+  // up to ~2x pixel density without fetching a full-viewport-wide image
+  // for a half-width slot. q_auto,f_auto lets Cloudinary pick the
+  // smallest format the browser actually supports (WebP/AVIF) at a
+  // sensible quality, instead of serving whatever the admin originally
+  // uploaded as-is.
   const backgroundImage = slide.image
-    ? imgUrl(slide.image, "w_1920,q_auto,f_auto")
+    ? imgUrl(slide.image, "w_1000,q_auto,f_auto")
     : heroBanner;
   const slideTitle = t(slide.title, slide.titleHi);
   const imageAlt = slide.title
@@ -208,16 +212,22 @@ function Hero() {
   const goNext = () => setActiveIndex((prev) => (prev + 1) % allSlides.length);
 
   // Every slide has a light background now (the split photo-slide layout
-  // dropped the old full-bleed dark photo), so arrows/dots always use the
-  // light-background (dark-icon) styling that only the rewards slide used
-  // to need.
+  // dropped the old full-bleed dark photo), so .hero-arrow/.hero-dots
+  // only ever need the one (dark-icon) styling that used to be the
+  // rewards-slide-only "-light" variant — folded into the base rules in
+  // Hero.css rather than kept as a modifier class nothing ever omits.
+  // Rendered inside .hero-split-media for photo slides (see below) so
+  // the arrows/dots anchor to the photo itself, not the whole section —
+  // the text column's height varies per slide and no longer matches the
+  // photo's, so anchoring to the outer section used to drift the arrows
+  // over the title/description on shorter-text slides.
   const arrowsAndDots = allSlides.length > 1 && (
     <>
       <button
         type="button"
         onClick={goPrev}
         aria-label={t("Previous slide", "पिछली स्लाइड")}
-        className="hero-arrow hero-arrow-left hero-arrow-light"
+        className="hero-arrow hero-arrow-left"
       >
         <FaChevronLeft />
       </button>
@@ -226,7 +236,7 @@ function Hero() {
         type="button"
         onClick={goNext}
         aria-label={t("Next slide", "अगली स्लाइड")}
-        className="hero-arrow hero-arrow-right hero-arrow-light"
+        className="hero-arrow hero-arrow-right"
       >
         <FaChevronRight />
       </button>
@@ -308,6 +318,7 @@ function Hero() {
       <div className="container hero-split">
         <div className="hero-split-media">
           <img src={backgroundImage} alt={imageAlt} className="hero-split-image" />
+          {arrowsAndDots}
         </div>
 
         <div className="hero-split-content">
@@ -348,8 +359,6 @@ function Hero() {
           </div>
         </div>
       </div>
-
-      {arrowsAndDots}
     </section>
   );
 }
