@@ -94,6 +94,29 @@ function friendlyGroupLabelHi(groupLabel) {
   return groupLabel;
 }
 
+// Which subcategory group gets the always-visible top pill row (clicking
+// a pill *replaces* the URL's subcategory — see the pill onClick below)
+// versus a checkbox facet in the Filter panel (which ANDs on top of
+// whatever subcategory is already active, via selectedFacetIds). Used to
+// matter less when every subcategory defaulted to the same displayOrder
+// (0) and ties broke on whatever order the API happened to return them
+// in — on Bedsheets that silently put "By Material" first instead of
+// "By Type" once Cotton Bedsheets (created earlier) sorted ahead of
+// Fitted Bedsheet (created later), so clicking "Cotton Bedsheets" while
+// already on /bedsheets/fitted-bedsheet replaced the URL and showed
+// every cotton bedsheet instead of narrowing the fitted ones. Type (the
+// broadest, most natural first choice while browsing) is always meant to
+// win when present; Material is deliberately last since it's the most
+// useful as a same-page facet, not its own landing page.
+const PRIMARY_GROUP_PRIORITY = ["By Type", "Bed Size", "Size", "By Material"];
+
+function pickPrimaryGroupLabel(groupLabels) {
+  for (const label of PRIMARY_GROUP_PRIORITY) {
+    if (groupLabels.includes(label)) return label;
+  }
+  return groupLabels[0];
+}
+
 // min/max in rupees; max: null means "no upper bound" (the "1,500+" row).
 function getPriceRanges(t) {
   return [
@@ -254,7 +277,9 @@ function CategoryPage() {
       // no filter is active while the customer is standing on that
       // exact page (reported after seeing an unchecked "15 x 22 Inches"
       // box while already on /doormats/15-x-22-inches).
-      const primaryGroupLabel = categorySubcategories[0]?.groupLabel;
+      const primaryGroupLabel = pickPrimaryGroupLabel(
+        categorySubcategories.map((s) => s.groupLabel),
+      );
       const isFacetSubcategory =
         matchedSubcategory && matchedSubcategory.groupLabel !== primaryGroupLabel;
 
@@ -280,11 +305,9 @@ function CategoryPage() {
   const priceRanges = useMemo(() => getPriceRanges(t), [t]);
   const activePriceRange = priceRanges.find((r) => r.id === priceRangeId) || null;
 
-  // subcategoryList is already sorted by displayOrder (see the load
-  // effect) — the first group in that order is treated as "primary" and
-  // keeps its existing pill/navigate behaviour; every other group
-  // (Material, Size, Bed Size, ...) becomes a checkbox facet instead, so
-  // it doesn't need its own dedicated page per value.
+  // Grouped by groupLabel, in whatever order they first appear — which
+  // group is "primary" (see pickPrimaryGroupLabel above) decides pill vs.
+  // checkbox-facet behaviour below, not this array's own order.
   const subcategoryGroups = useMemo(() => {
     const groups = [];
     for (const sub of subcategoryList) {
@@ -298,8 +321,12 @@ function CategoryPage() {
     return groups;
   }, [subcategoryList]);
 
-  const primaryGroup = subcategoryGroups[0] || null;
-  const facetGroups = subcategoryGroups.slice(1);
+  const primaryGroupLabel = pickPrimaryGroupLabel(
+    subcategoryGroups.map((g) => g.label),
+  );
+  const primaryGroup =
+    subcategoryGroups.find((g) => g.label === primaryGroupLabel) || null;
+  const facetGroups = subcategoryGroups.filter((g) => g !== primaryGroup);
   const activeSubcategoryIsFacet = facetGroups.some((group) =>
     group.items.some((item) => item._id === activeSubcategory?._id),
   );
