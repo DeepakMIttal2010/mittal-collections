@@ -66,6 +66,127 @@
       ],
       "destination": "/api/render?path=/hi/articles/:slug"
     },
+    {
+      "source": "/policies/:slug",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*([bB]ot|facebookexternalhit|WhatsApp|Pinterest|embedly|Quora Link Preview|Slurp|ia_archiver|Discordbot|TelegramBot|redirectionio).*"
+        }
+      ],
+      "destination": "/api/render?path=/policies/:slug"
+    },
+    {
+      "source": "/about",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*([bB]ot|facebookexternalhit|WhatsApp|Pinterest|embedly|Quora Link Preview|Slurp|ia_archiver|Discordbot|TelegramBot|redirectionio).*"
+        }
+      ],
+      "destination": "/api/render?path=/about"
+    },
+    {
+      "source": "/contact",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*([bB]ot|facebookexternalhit|WhatsApp|Pinterest|embedly|Quora Link Preview|Slurp|ia_archiver|Discordbot|TelegramBot|redirectionio).*"
+        }
+      ],
+      "destination": "/api/render?path=/contact"
+    },
+    {
+      "source": "/rewards",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*([bB]ot|facebookexternalhit|WhatsApp|Pinterest|embedly|Quora Link Preview|Slurp|ia_archiver|Discordbot|TelegramBot|redirectionio).*"
+        }
+      ],
+      "destination": "/api/render?path=/rewards"
+    },
+    {
+      "source": "/trending",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*([bB]ot|facebookexternalhit|WhatsApp|Pinterest|embedly|Quora Link Preview|Slurp|ia_archiver|Discordbot|TelegramBot|redirectionio).*"
+        }
+      ],
+      "destination": "/api/render?path=/trending"
+    },
+    {
+      "source": "/clearance-sale",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*([bB]ot|facebookexternalhit|WhatsApp|Pinterest|embedly|Quora Link Preview|Slurp|ia_archiver|Discordbot|TelegramBot|redirectionio).*"
+        }
+      ],
+      "destination": "/api/render?path=/clearance-sale"
+    },
+    {
+      "source": "/new-arrivals",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*([bB]ot|facebookexternalhit|WhatsApp|Pinterest|embedly|Quora Link Preview|Slurp|ia_archiver|Discordbot|TelegramBot|redirectionio).*"
+        }
+      ],
+      "destination": "/api/render?path=/new-arrivals"
+    },
+    {
+      "source": "/gifting",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*([bB]ot|facebookexternalhit|WhatsApp|Pinterest|embedly|Quora Link Preview|Slurp|ia_archiver|Discordbot|TelegramBot|redirectionio).*"
+        }
+      ],
+      "destination": "/api/render?path=/gifting"
+    },
+    {
+      "source": "/curtain-size-calculator",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*([bB]ot|facebookexternalhit|WhatsApp|Pinterest|embedly|Quora Link Preview|Slurp|ia_archiver|Discordbot|TelegramBot|redirectionio).*"
+        }
+      ],
+      "destination": "/api/render?path=/curtain-size-calculator"
+    },
+    {
+      "source": "/articles",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*([bB]ot|facebookexternalhit|WhatsApp|Pinterest|embedly|Quora Link Preview|Slurp|ia_archiver|Discordbot|TelegramBot|redirectionio).*"
+        }
+      ],
+      "destination": "/api/render?path=/articles"
+    },
+    {
+      "source": "/hi/articles",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*([bB]ot|facebookexternalhit|WhatsApp|Pinterest|embedly|Quora Link Preview|Slurp|ia_archiver|Discordbot|TelegramBot|redirectionio).*"
+        }
+      ],
+      "destination": "/api/render?path=/hi/articles"
+    },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
