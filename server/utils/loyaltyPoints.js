@@ -37,6 +37,18 @@ export const maxRedeemablePoints = (subtotal, availablePoints, settings) => {
 // Applies a loyalty point change to a user's balance and records it in
 // the ledger in one place, so every code path stays consistent and the
 // running balance is always accurate. `points` may be negative.
+//
+// A deduction (points < 0) must never be allowed to push the balance
+// negative. This used to be a plain $inc with no floor, so two
+// concurrent redemptions could both pass an earlier "do they have
+// enough points" check (read against the same stale balance) and both
+// deduct in full — the same class of race reserveStock's atomic
+// `stock: { $gte: quantity }` guard already prevents for inventory,
+// just missing here. The `$gte` guard below ties the update to the
+// balance actually present at write time: a caller whose deduction
+// loses this race gets null back (the same "not found" shape a bad
+// userId already produces) and must treat that as "the balance
+// changed, don't proceed" rather than silently going negative.
 export const applyLoyaltyPointsChange = async ({
   userId,
   type,
@@ -46,8 +58,11 @@ export const applyLoyaltyPointsChange = async ({
 }) => {
   if (!points) return null;
 
-  const user = await User.findByIdAndUpdate(
-    userId,
+  const filter = { _id: userId };
+  if (points < 0) filter.loyaltyPoints = { $gte: -points };
+
+  const user = await User.findOneAndUpdate(
+    filter,
     { $inc: { loyaltyPoints: points } },
     { new: true },
   );
