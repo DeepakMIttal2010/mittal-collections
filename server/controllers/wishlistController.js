@@ -5,6 +5,11 @@ import Product from "../models/Product.js";
 import { sendEmail } from "../config/mailer.js";
 import { notifyUser } from "../utils/notify.js";
 
+// Keeps a single account/guest from growing an unbounded wishlist
+// (accidental or scripted) — well above any real shopper's use, just a
+// sane ceiling.
+const MAX_WISHLIST_ITEMS = 200;
+
 // GET /api/wishlist
 export const getWishlist = async (req, res) => {
   try {
@@ -56,10 +61,26 @@ export const addToWishlist = async (req, res) => {
 
     const product = await Product.findById(productId).select("price");
 
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: "Product not found",
+      });
+    }
+
+    const itemCount = await Wishlist.countDocuments({ user: req.user.id });
+
+    if (itemCount >= MAX_WISHLIST_ITEMS) {
+      return res.status(400).json({
+        success: false,
+        message: `Wishlist is full (max ${MAX_WISHLIST_ITEMS} items) — remove something first`,
+      });
+    }
+
     const wishlistItem = await Wishlist.create({
       user: req.user.id,
       product: productId,
-      priceWhenAdded: product?.price ?? null,
+      priceWhenAdded: product.price ?? null,
     });
 
     res.status(201).json({
@@ -147,7 +168,10 @@ export const addToGuestWishlist = async (req, res) => {
   try {
     const { visitorId, productId } = req.body;
 
-    if (!visitorId) {
+    // Must be a plain string, not just truthy — an object here (e.g.
+    // { "$gt": "" }) would otherwise be passed straight into the Mongo
+    // queries below as a query operator instead of a literal value.
+    if (!visitorId || typeof visitorId !== "string") {
       return res.status(400).json({
         success: false,
         message: "visitorId is required",
@@ -172,10 +196,26 @@ export const addToGuestWishlist = async (req, res) => {
 
     const product = await Product.findById(productId).select("price");
 
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: "Product not found",
+      });
+    }
+
+    const itemCount = await Wishlist.countDocuments({ visitorId });
+
+    if (itemCount >= MAX_WISHLIST_ITEMS) {
+      return res.status(400).json({
+        success: false,
+        message: `Wishlist is full (max ${MAX_WISHLIST_ITEMS} items) — remove something first`,
+      });
+    }
+
     const wishlistItem = await Wishlist.create({
       visitorId,
       product: productId,
-      priceWhenAdded: product?.price ?? null,
+      priceWhenAdded: product.price ?? null,
     });
 
     res.status(201).json({
@@ -253,7 +293,9 @@ export const mergeGuestWishlist = async (req, res) => {
   try {
     const { visitorId } = req.body;
 
-    if (!visitorId) {
+    // Same guard as addToGuestWishlist — must be a plain string, not an
+    // object that could be interpreted as a Mongo query operator.
+    if (!visitorId || typeof visitorId !== "string") {
       return res.status(200).json({ success: true, merged: 0 });
     }
 
