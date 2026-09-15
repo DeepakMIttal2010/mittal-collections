@@ -253,8 +253,12 @@ const buildMeta = async (path) => {
       { name: p.name },
     ];
 
+    // Mirrors ProductDetails.jsx's seoTitle — search queries for this
+    // category routinely include the exact dimension.
+    const seoTitle = p.size ? `${p.name} — ${p.size}` : p.name;
+
     return {
-      title: `${p.name} | ${SITE_NAME}`,
+      title: `${seoTitle} | ${SITE_NAME}`,
       description,
       image,
       url,
