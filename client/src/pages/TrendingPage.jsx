@@ -5,7 +5,11 @@ import { getTrendingProductsByCategory } from "../services/productService";
 import ProductGrid from "../components/ProductGrid/ProductGrid";
 import ProductGridSkeleton from "../components/ProductGrid/ProductGridSkeleton";
 import Seo from "../components/Seo";
+import Breadcrumbs from "../components/Breadcrumbs";
+import { buildBreadcrumbJsonLd } from "../utils/breadcrumbJsonLd";
 import { useLanguage } from "../context/LanguageContext";
+
+const BREADCRUMB_ITEMS = [{ name: "Home", path: "/" }, { name: "Top Trending" }];
 
 // Mirrors NewArrivalsPage — each category's section shows PAGE_SIZE
 // products by default; "Show More" reveals another PAGE_SIZE at a time
@@ -46,6 +50,14 @@ function TrendingPage() {
         title="Top Trending"
         description="Handpicked by our team - the home furnishing pieces everyone's loving right now at Mittal Collections, organised by category."
         url="https://www.mittalcollections.com/trending"
+        jsonLd={buildBreadcrumbJsonLd(BREADCRUMB_ITEMS)}
+      />
+
+      <Breadcrumbs
+        items={[
+          { name: t("Home", "होम"), path: "/" },
+          { name: t("Top Trending", "सबसे ज़्यादा ट्रेंडिंग") },
+        ]}
       />
 
       <h1 className="text-3xl md:text-4xl font-bold text-slate-900 mb-2">
