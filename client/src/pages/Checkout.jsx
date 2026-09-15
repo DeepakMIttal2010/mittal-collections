@@ -19,6 +19,7 @@ import { getSiteSettings } from "../services/settingsService";
 import { getProfile } from "../services/authService";
 import { getPublicRewardsInfo } from "../services/rewardsService";
 import { calculateDeliveryFee } from "../utils/shipping";
+import Seo from "../components/Seo";
 
 // Loaded on-demand at checkout rather than globally in index.html, so
 // pages that never reach payment don't pay for it.
@@ -372,6 +373,8 @@ function Checkout() {
   if (cartItems.length === 0) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-16 text-center">
+        <Seo title="Checkout" noindex />
+
         <p className="text-slate-500 mb-4">{t("Your cart is empty.", "आपका कार्ट खाली है।")}</p>
         <Link
           to="/"
@@ -385,6 +388,12 @@ function Checkout() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
+      {/* noindex — checkout is transactional/per-visitor, and the
+          unauthenticated redirect above only fires after JS runs, so a
+          bot or non-JS request would otherwise see this with no signal
+          to skip it. Same reasoning as Cart.jsx's noindex. */}
+      <Seo title="Checkout" noindex />
+
       <h1 className="text-2xl font-bold text-slate-900 mb-6">
         {t("Place Your Order", "अपना ऑर्डर करें")}
       </h1>

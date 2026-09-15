@@ -6,6 +6,7 @@ import { useWishlist } from "../context/WishlistContext";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
+import Seo from "../components/Seo";
 
 function Wishlist() {
   const { wishlistItems, removeFromWishlist, clearWishlist } = useWishlist();
@@ -18,6 +19,11 @@ function Wishlist() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
+      {/* noindex — wishlist contents are entirely per-visitor/localStorage
+          (reachable without login), so there's nothing unique here for a
+          crawler to index, same reasoning as Compare.jsx's noindex. */}
+      <Seo title="Wishlist" description="Products you've saved to your wishlist at Mittal Collections." noindex />
+
       {isLoggedIn && (
         <div className="text-sm mb-2">
           <Link to="/account" className="text-blue-700 hover:underline">
