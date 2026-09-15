@@ -113,8 +113,21 @@ export default async function handler(req, res) {
     // "Discovered – currently not indexed" report, 2026-08-10). The pages
     // themselves still work; they're just not advertised in the sitemap.
     categoriesRes.categories.forEach((c) => urls.push(urlEntry(`/category/${c.slug}`)));
+
+    // GET /api/subcategories only filters on the subcategory's own
+    // isActive, not its parent category's — a deactivated category with
+    // still-active subcategories would otherwise list
+    // /category/{inactive-slug}/{subslug} here, a URL that 404s (see
+    // render.js's category branch, which looks the category up in this
+    // same already-filtered, active-only categories list and returns
+    // null — a real 404 — when it's not found). Cross-check against the
+    // active category slugs already fetched above instead of trusting
+    // the subcategory endpoint's own category field.
+    const activeCategorySlugs = new Set(categoriesRes.categories.map((c) => c.slug));
     (subcategoriesRes.subcategories || []).forEach((s) => {
-      if (s.category?.slug) urls.push(urlEntry(`/category/${s.category.slug}/${s.slug}`));
+      if (s.category?.slug && activeCategorySlugs.has(s.category.slug)) {
+        urls.push(urlEntry(`/category/${s.category.slug}/${s.slug}`));
+      }
     });
     products.forEach((p) => urls.push(urlEntry(productUrl(p))));
 
