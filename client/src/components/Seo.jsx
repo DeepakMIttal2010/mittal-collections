@@ -1,5 +1,7 @@
 import { Helmet } from "react-helmet-async";
 
+import { useLanguage } from "../context/LanguageContext";
+
 const SITE_NAME = "Mittal Collections";
 // The homepage hero banner (styled bedroom scene) — same asset Hero.jsx
 // already shows, just cropped to the 1200x630 (1.91:1) size social
@@ -27,10 +29,19 @@ function Seo({
   ogType = "website",
 }) {
   const fullTitle = title ? `${title} | ${SITE_NAME}` : SITE_NAME;
+  // Most pages don't pass `lang` explicitly (their content is a single
+  // English document regardless of the UI toggle — see CategoryPage.jsx's
+  // comment on why), which used to leave <html lang> stuck on whatever
+  // index.html hardcodes even after a visitor switches to Hindi. Default
+  // to the live toggle state instead; a page that DOES pass `lang`
+  // (Articles/ArticleDetail, whose URL — not the toggle — determines the
+  // real language of that document) still overrides this.
+  const { language } = useLanguage();
+  const htmlLang = lang || language;
 
   return (
     <Helmet>
-      {lang && <html lang={lang} />}
+      <html lang={htmlLang} />
       <title>{fullTitle}</title>
       {description && <meta name="description" content={description} />}
       {noindex && <meta name="robots" content="noindex, nofollow" />}
