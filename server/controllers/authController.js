@@ -511,40 +511,38 @@ export const forgotPassword = async (req, res) => {
 
     const user = await User.findOne({ email: email.toLowerCase().trim() });
 
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "No account found with this email",
+    // Always respond the same way whether or not the account exists —
+    // a distinct "no account found" response lets an attacker enumerate
+    // registered emails. Only an existing user actually gets a token/email.
+    if (user) {
+      const rawToken = crypto.randomBytes(32).toString("hex");
+      const hashedToken = crypto
+        .createHash("sha256")
+        .update(rawToken)
+        .digest("hex");
+
+      user.resetPasswordToken = hashedToken;
+      user.resetPasswordExpire = Date.now() + 30 * 60 * 1000; // 30 minutes
+
+      await user.save();
+
+      const resetUrl = `${process.env.CLIENT_URL}/reset-password/${rawToken}`;
+
+      await sendEmail({
+        to: user.email,
+        subject: "Reset your Mittal Collections password",
+        html: `
+          <p>Hi ${user.name || "there"},</p>
+          <p>We received a request to reset your password. This link expires in 30 minutes.</p>
+          <p><a href="${resetUrl}">Reset your password</a></p>
+          <p>If you didn't request this, you can safely ignore this email.</p>
+        `,
       });
     }
 
-    const rawToken = crypto.randomBytes(32).toString("hex");
-    const hashedToken = crypto
-      .createHash("sha256")
-      .update(rawToken)
-      .digest("hex");
-
-    user.resetPasswordToken = hashedToken;
-    user.resetPasswordExpire = Date.now() + 30 * 60 * 1000; // 30 minutes
-
-    await user.save();
-
-    const resetUrl = `${process.env.CLIENT_URL}/reset-password/${rawToken}`;
-
-    await sendEmail({
-      to: user.email,
-      subject: "Reset your Mittal Collections password",
-      html: `
-        <p>Hi ${user.name || "there"},</p>
-        <p>We received a request to reset your password. This link expires in 30 minutes.</p>
-        <p><a href="${resetUrl}">Reset your password</a></p>
-        <p>If you didn't request this, you can safely ignore this email.</p>
-      `,
-    });
-
     res.status(200).json({
       success: true,
-      message: "Reset link sent to your email",
+      message: "If an account exists for this email, a reset link has been sent",
     });
   } catch (error) {
     console.error("Forgot Password Error:", error);
