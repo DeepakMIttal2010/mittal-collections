@@ -554,7 +554,7 @@ function CategoryPage() {
     <div className="max-w-7xl mx-auto px-4 py-8">
       <Seo
         title={pageTitle}
-        description={`Buy ${pageTitle} online with pan-India delivery at Mittal Collections - fast 24-hour delivery in Ghaziabad. ${category.description || ""}`.trim()}
+        description={`Buy ${pageTitle} online with pan-India delivery at Mittal Collections - fast 24-hour delivery in Ghaziabad. ${category.description || ""}`.trim().slice(0, 160)}
         url={`${SITE_URL}/category/${categorySlug}${subcategorySlug ? `/${subcategorySlug}` : ""}`}
         jsonLd={buildBreadcrumbJsonLd(breadcrumbItemsForSeo)}
       />

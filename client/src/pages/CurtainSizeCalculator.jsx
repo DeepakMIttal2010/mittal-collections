@@ -214,7 +214,7 @@ function CurtainSizeCalculator() {
     <div className="max-w-5xl mx-auto px-4 py-12">
       <Seo
         title="Curtain Size & Rod Length Calculator (in Inches) — Find Your Perfect Fit"
-        description="Free curtain size calculator. Enter your window measurements in inches and instantly get the rod length, fabric width and curtain length to buy, plus a standard curtain size chart."
+        description="Free curtain size calculator — enter your window measurements and instantly get the rod length, fabric width and curtain length to buy, plus a size chart."
         url={`${SITE_URL}/curtain-size-calculator`}
         jsonLd={jsonLd}
       />
