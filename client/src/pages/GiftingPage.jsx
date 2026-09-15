@@ -7,7 +7,11 @@ import { toWhatsAppNumber } from "../utils/whatsapp";
 import ProductGrid from "../components/ProductGrid/ProductGrid";
 import ProductGridSkeleton from "../components/ProductGrid/ProductGridSkeleton";
 import Seo from "../components/Seo";
+import Breadcrumbs from "../components/Breadcrumbs";
+import { buildBreadcrumbJsonLd } from "../utils/breadcrumbJsonLd";
 import { useLanguage } from "../context/LanguageContext";
+
+const BREADCRUMB_ITEMS = [{ name: "Home", path: "/" }, { name: "Gifting" }];
 
 // Deliberately flat, not grouped by category (unlike NewArrivalsPage/
 // ClearanceSalePage) — gifting spans arbitrary categories, so there's no
@@ -56,6 +60,14 @@ function GiftingPage() {
         title="Gifting"
         description="Ready-to-gift home furnishing picks at Mittal Collections — housewarmings, weddings and festive occasions, no separate wrapping needed."
         url="https://www.mittalcollections.com/gifting"
+        jsonLd={buildBreadcrumbJsonLd(BREADCRUMB_ITEMS)}
+      />
+
+      <Breadcrumbs
+        items={[
+          { name: t("Home", "होम"), path: "/" },
+          { name: t("Gifting", "गिफ्टिंग") },
+        ]}
       />
 
       <h1 className="text-3xl md:text-4xl font-bold text-slate-900 mb-2">
