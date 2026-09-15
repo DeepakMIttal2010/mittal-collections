@@ -7,6 +7,7 @@ import Seo from "../components/Seo";
 import Breadcrumbs from "../components/Breadcrumbs";
 import { buildBreadcrumbJsonLd } from "../utils/breadcrumbJsonLd";
 import { useLanguage } from "../context/LanguageContext";
+import { SITE_URL } from "../utils/siteUrl";
 
 const BREADCRUMB_ITEMS = [{ name: "Home", path: "/" }, { name: "Clearance Sale" }];
 
@@ -50,7 +51,7 @@ function ClearanceSalePage() {
       <Seo
         title="Clearance Sale"
         description="More than 35% off select home furnishing items at Mittal Collections — limited stock, won't be restocked at this price."
-        url="https://www.mittalcollections.com/clearance-sale"
+        url={`${SITE_URL}/clearance-sale`}
         jsonLd={buildBreadcrumbJsonLd(BREADCRUMB_ITEMS)}
       />
 

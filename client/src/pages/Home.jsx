@@ -18,6 +18,7 @@ import CategoryNewArrivals from "../components/NewArrivals/CategoryNewArrivals";
 import Faq from "../components/Faq/Faq";
 import { getSiteSettings } from "../services/settingsService";
 import { DELIVERY_AREAS } from "../utils/deliveryAreas";
+import { SITE_URL } from "../utils/siteUrl";
 
 // Unconditional — unlike the HomeGoodsStore/LocalBusiness block below
 // (which needs an admin-configured address to be meaningful), this is
@@ -26,17 +27,17 @@ import { DELIVERY_AREAS } from "../utils/deliveryAreas";
 const organizationJsonLd = {
   "@context": "https://schema.org",
   "@type": "Organization",
-  "@id": "https://www.mittalcollections.com/#organization",
+  "@id": `${SITE_URL}/#organization`,
   name: "Mittal Collections",
-  url: "https://www.mittalcollections.com/",
+  url: `${SITE_URL}/`,
 };
 
 const websiteJsonLd = {
   "@context": "https://schema.org",
   "@type": "WebSite",
-  "@id": "https://www.mittalcollections.com/#website",
+  "@id": `${SITE_URL}/#website`,
   name: "Mittal Collections",
-  url: "https://www.mittalcollections.com/",
+  url: `${SITE_URL}/`,
 };
 
 function Home() {
@@ -56,9 +57,9 @@ function Home() {
     ? {
         "@context": "https://schema.org",
         "@type": "HomeGoodsStore",
-        "@id": "https://www.mittalcollections.com/#business",
+        "@id": `${SITE_URL}/#business`,
         name: "Mittal Collections",
-        url: "https://www.mittalcollections.com/",
+        url: `${SITE_URL}/`,
         telephone: settings.phone || undefined,
         priceRange: "₹₹",
         address: {
@@ -88,7 +89,7 @@ function Home() {
       <Seo
         title="Buy Bedsheets, Curtains & Towels Online — Pan-India Delivery"
         description="Shop premium cotton bedsheets, curtains, towels, cushions and doormats online with pan-India delivery — fast 24-hour delivery in Vasundhara, Indirapuram, Vaishali and nearby Ghaziabad. Genuine products, easy returns."
-        url="https://www.mittalcollections.com/"
+        url={`${SITE_URL}/`}
         jsonLd={[organizationJsonLd, websiteJsonLd, localBusinessJsonLd]}
       />
       <Hero />

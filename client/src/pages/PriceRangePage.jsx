@@ -6,6 +6,7 @@ import ProductGridSkeleton from "../components/ProductGrid/ProductGridSkeleton";
 import Seo from "../components/Seo";
 import { useLanguage } from "../context/LanguageContext";
 import { useInfiniteProducts } from "../hooks/useInfiniteProducts";
+import { SITE_URL } from "../utils/siteUrl";
 
 function PriceRangePage() {
   const { maxPrice } = useParams();
@@ -29,7 +30,7 @@ function PriceRangePage() {
       <Seo
         title={`Products Under ₹${maxPrice}`}
         description={`Shop home furnishing products under ₹${maxPrice} at Mittal Collections - bedsheets, towels, curtains and more.`}
-        url={`https://www.mittalcollections.com/price/${maxPrice}`}
+        url={`${SITE_URL}/price/${maxPrice}`}
         noindex
       />
       <h1 className="text-3xl font-bold text-slate-900 mb-2">

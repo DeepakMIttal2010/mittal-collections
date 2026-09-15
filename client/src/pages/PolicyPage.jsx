@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { getPageBySlug } from "../services/pageService";
 import Seo from "../components/Seo";
 import { useLanguage } from "../context/LanguageContext";
+import { SITE_URL } from "../utils/siteUrl";
 
 function PolicyPage() {
   const { slug } = useParams();
@@ -88,7 +89,7 @@ function PolicyPage() {
       <Seo
         title={page.title}
         description={page.content.slice(0, 160)}
-        url={`https://www.mittalcollections.com/policies/${slug}`}
+        url={`${SITE_URL}/policies/${slug}`}
       />
 
       <h1 className="text-3xl font-bold text-slate-900 mb-6">

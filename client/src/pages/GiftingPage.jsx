@@ -10,6 +10,7 @@ import Seo from "../components/Seo";
 import Breadcrumbs from "../components/Breadcrumbs";
 import { buildBreadcrumbJsonLd } from "../utils/breadcrumbJsonLd";
 import { useLanguage } from "../context/LanguageContext";
+import { SITE_URL } from "../utils/siteUrl";
 
 const BREADCRUMB_ITEMS = [{ name: "Home", path: "/" }, { name: "Gifting" }];
 
@@ -59,7 +60,7 @@ function GiftingPage() {
       <Seo
         title="Gifting"
         description="Ready-to-gift home furnishing picks at Mittal Collections — housewarmings, weddings and festive occasions, no separate wrapping needed."
-        url="https://www.mittalcollections.com/gifting"
+        url={`${SITE_URL}/gifting`}
         jsonLd={buildBreadcrumbJsonLd(BREADCRUMB_ITEMS)}
       />
 

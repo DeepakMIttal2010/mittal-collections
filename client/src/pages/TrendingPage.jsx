@@ -8,6 +8,7 @@ import Seo from "../components/Seo";
 import Breadcrumbs from "../components/Breadcrumbs";
 import { buildBreadcrumbJsonLd } from "../utils/breadcrumbJsonLd";
 import { useLanguage } from "../context/LanguageContext";
+import { SITE_URL } from "../utils/siteUrl";
 
 const BREADCRUMB_ITEMS = [{ name: "Home", path: "/" }, { name: "Top Trending" }];
 
@@ -49,7 +50,7 @@ function TrendingPage() {
       <Seo
         title="Top Trending"
         description="Handpicked by our team - the home furnishing pieces everyone's loving right now at Mittal Collections, organised by category."
-        url="https://www.mittalcollections.com/trending"
+        url={`${SITE_URL}/trending`}
         jsonLd={buildBreadcrumbJsonLd(BREADCRUMB_ITEMS)}
       />
 

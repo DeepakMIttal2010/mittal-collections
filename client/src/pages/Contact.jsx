@@ -13,6 +13,7 @@ import {
 import { submitContactMessage } from "../services/contactService";
 import { getSiteSettings } from "../services/settingsService";
 import Seo from "../components/Seo";
+import { SITE_URL } from "../utils/siteUrl";
 import { useLanguage } from "../context/LanguageContext";
 
 const SUBJECT_OPTIONS = [
@@ -88,7 +89,7 @@ function Contact() {
       <Seo
         title="Contact Us"
         description="Get in touch with Mittal Collections for order support, returns, bulk orders or general questions about our home furnishing products."
-        url="https://www.mittalcollections.com/contact"
+        url={`${SITE_URL}/contact`}
       />
 
       <h1 className="text-4xl md:text-5xl font-bold text-slate-900 mb-4">

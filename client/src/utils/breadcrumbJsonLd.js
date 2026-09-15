@@ -1,4 +1,4 @@
-const SITE_URL = "https://www.mittalcollections.com";
+import { SITE_URL } from "./siteUrl";
 
 // items: [{ name, path }] — path is relative ("/category/curtains"), omit
 // path on the last (current) item since it doesn't need to link anywhere.

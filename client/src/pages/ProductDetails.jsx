@@ -7,6 +7,7 @@ import ProductQuestions from "../components/ProductQuestions";
 import { getStockStatus } from "../utils/stock";
 import { productUrl } from "../utils/productUrl";
 import { buildBreadcrumbJsonLd } from "../utils/breadcrumbJsonLd";
+import { SITE_URL } from "../utils/siteUrl";
 import Breadcrumbs from "../components/Breadcrumbs";
 import { subscribeStockAlert } from "../services/productService";
 import { getProductQuestions } from "../services/questionService";
@@ -390,7 +391,12 @@ function ProductDetails() {
     );
   }
 
+  // Real share links reflect wherever the site is actually being viewed
+  // from (so it also works correctly off a staging/preview domain);
+  // canonicalUrl is the fixed production domain, matching every other
+  // page's <Seo url=...> convention instead of drifting with the host.
   const shareUrl = `${window.location.origin}${productUrl(product)}`;
+  const canonicalUrl = `${SITE_URL}${productUrl(product)}`;
   const shareText = product.name;
   const displayDescription = t(product.description, product.descriptionHi);
 
@@ -571,7 +577,7 @@ function ProductDetails() {
             : `Buy ${product.name} online with pan-India delivery - fast 24-hour delivery in Ghaziabad`
         }
         image={imgUrl(product.image)}
-        url={shareUrl}
+        url={canonicalUrl}
         ogType="product"
         jsonLd={[
           productJsonLd,
