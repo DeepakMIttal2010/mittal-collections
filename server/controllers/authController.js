@@ -37,6 +37,16 @@ export const register = async (req, res) => {
       });
     }
 
+    // Same minimum resetPassword/changePassword already enforce —
+    // registration was the one place a password of any length/strength
+    // went straight through.
+    if (password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: "Password must be at least 6 characters",
+      });
+    }
+
     const existingUser = await User.findOne({ email });
 
     if (existingUser) {
