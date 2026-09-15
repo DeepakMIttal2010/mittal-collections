@@ -414,13 +414,34 @@ export const createOrder = async (req, res) => {
     }
 
     if (pointsRedeemed > 0) {
-      await applyLoyaltyPointsChange({
+      const pointsResult = await applyLoyaltyPointsChange({
         userId: req.user._id,
         type: "redeemed",
         points: -pointsRedeemed,
         order: order._id,
         description: `Redeemed on order ${order._id}`,
       });
+
+      // null means the atomic balance-guard above lost the race (the
+      // user's real balance no longer covers pointsRedeemed — e.g. two
+      // tabs/requests redeeming near-simultaneously). The order was
+      // already created with this discount baked into totalPrice, so
+      // it can't just be left as-is with points never actually taken —
+      // cancel it through the same restore path used elsewhere in this
+      // function and ask the customer to retry with a fresh balance.
+      if (!pointsResult) {
+        order.orderStatus = "Cancelled";
+        order.statusHistory.push({ status: "Cancelled", changedAt: new Date() });
+        await order.save();
+
+        await restoreStock(verifiedItems);
+
+        return res.status(400).json({
+          success: false,
+          message:
+            "Your loyalty points balance changed — please review your order and try again.",
+        });
+      }
     }
 
     await CartSnapshot.deleteOne({ user: req.user._id });
