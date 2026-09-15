@@ -1,0 +1,14 @@
+# Claude Code's local session state — accumulates real secrets over time
+# (admin JWTs, cron secrets, etc. get auto-allowlisted into permissions
+# as literal command strings) and was never protected by any gitignore
+# before, since it sits at the repo root while every existing .gitignore
+# is scoped to client/, server/ or e2e/. Never commit this.
+.claude/
+
+node_modules/
+
+# Scratch/output artifacts dropped at the repo root during ad-hoc work
+# (e.g. a one-off article export) — not part of the app.
+.artifacts/
+
+server/server.log
