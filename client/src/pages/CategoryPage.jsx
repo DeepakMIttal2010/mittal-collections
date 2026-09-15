@@ -12,6 +12,7 @@ import Seo from "../components/Seo";
 import Breadcrumbs from "../components/Breadcrumbs";
 import { buildBreadcrumbJsonLd } from "../utils/breadcrumbJsonLd";
 import { getSiteSettings } from "../services/settingsService";
+import { SITE_URL } from "../utils/siteUrl";
 import { useLanguage } from "../context/LanguageContext";
 import { FaGift, FaFilter, FaTimes } from "react-icons/fa";
 
@@ -554,7 +555,7 @@ function CategoryPage() {
       <Seo
         title={pageTitle}
         description={`Buy ${pageTitle} online with pan-India delivery at Mittal Collections - fast 24-hour delivery in Ghaziabad. ${category.description || ""}`.trim()}
-        url={`https://www.mittalcollections.com/category/${categorySlug}${subcategorySlug ? `/${subcategorySlug}` : ""}`}
+        url={`${SITE_URL}/category/${categorySlug}${subcategorySlug ? `/${subcategorySlug}` : ""}`}
         jsonLd={buildBreadcrumbJsonLd(breadcrumbItemsForSeo)}
       />
       <Breadcrumbs items={breadcrumbItems} />

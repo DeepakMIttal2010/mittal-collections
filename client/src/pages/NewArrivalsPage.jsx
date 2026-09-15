@@ -8,6 +8,7 @@ import Seo from "../components/Seo";
 import Breadcrumbs from "../components/Breadcrumbs";
 import { buildBreadcrumbJsonLd } from "../utils/breadcrumbJsonLd";
 import { useLanguage } from "../context/LanguageContext";
+import { SITE_URL } from "../utils/siteUrl";
 
 const BREADCRUMB_ITEMS = [{ name: "Home", path: "/" }, { name: "New Arrivals" }];
 
@@ -52,7 +53,7 @@ function NewArrivalsPage() {
       <Seo
         title="New Arrivals"
         description="The newest home furnishing pieces at Mittal Collections, organised by category - bedsheets, cushion covers, doormats and more."
-        url="https://www.mittalcollections.com/new-arrivals"
+        url={`${SITE_URL}/new-arrivals`}
         jsonLd={buildBreadcrumbJsonLd(BREADCRUMB_ITEMS)}
       />
 

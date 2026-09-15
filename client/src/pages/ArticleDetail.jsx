@@ -7,8 +7,7 @@ import Seo from "../components/Seo";
 import Breadcrumbs from "../components/Breadcrumbs";
 import { buildBreadcrumbJsonLd } from "../utils/breadcrumbJsonLd";
 import { useLanguage } from "../context/LanguageContext";
-
-const SITE_URL = "https://www.mittalcollections.com";
+import { SITE_URL } from "../utils/siteUrl";
 
 function ArticleDetail() {
   const { slug } = useParams();
