@@ -6,14 +6,14 @@ import { syncCart, syncGuestCart, mergeGuestCart } from "../services/cartService
 import { getSiteSettings } from "../services/settingsService";
 import { useAuth } from "./AuthContext";
 import { getVisitorId } from "../utils/visitorId";
+import { readJsonFromStorage } from "../utils/safeLocalStorage";
 
 const CartContext = createContext();
 
 export function CartProvider({ children }) {
-  const [cartItems, setCartItems] = useState(() => {
-    const savedCart = localStorage.getItem("cartItems");
-    return savedCart ? JSON.parse(savedCart) : [];
-  });
+  const [cartItems, setCartItems] = useState(() =>
+    readJsonFromStorage("cartItems", []),
+  );
 
   const [isCartOpen, setIsCartOpen] = useState(false);
   const { isLoggedIn } = useAuth();

@@ -5,6 +5,8 @@
 // across scans. Mirrors the shape of the customer-facing cart
 // (context/CartContext.jsx) closely enough to stay familiar.
 
+import { readJsonFromStorage } from "./safeLocalStorage";
+
 const STORAGE_KEY = "posCartItems";
 
 // A variant product's two different sizes need to sit in the cart as
@@ -12,10 +14,7 @@ const STORAGE_KEY = "posCartItems";
 // by product id + size together, not just product id.
 const lineKey = (productId, size) => `${productId}::${size || ""}`;
 
-export const getPosCart = () => {
-  const saved = localStorage.getItem(STORAGE_KEY);
-  return saved ? JSON.parse(saved) : [];
-};
+export const getPosCart = () => readJsonFromStorage(STORAGE_KEY, []);
 
 const savePosCart = (items) => {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(items));

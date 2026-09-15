@@ -1,15 +1,16 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { toast } from "react-toastify";
 
+import { readJsonFromStorage } from "../utils/safeLocalStorage";
+
 const CompareContext = createContext();
 
 const MAX_COMPARE_ITEMS = 4;
 
 export function CompareProvider({ children }) {
-  const [compareItems, setCompareItems] = useState(() => {
-    const saved = localStorage.getItem("compareItems");
-    return saved ? JSON.parse(saved) : [];
-  });
+  const [compareItems, setCompareItems] = useState(() =>
+    readJsonFromStorage("compareItems", []),
+  );
 
   useEffect(() => {
     localStorage.setItem("compareItems", JSON.stringify(compareItems));
