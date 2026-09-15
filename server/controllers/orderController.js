@@ -110,6 +110,17 @@ const ORDER_STATUS_MESSAGES = {
 // is a genuine "they liked it" signal, not just a guess at 4 days.
 const REVIEW_REQUEST_DELAY_DAYS = 8;
 
+// A Razorpay order reserves stock and (if redeemed) loyalty points the
+// instant it's created — well before payment actually succeeds (see
+// createOrder below) — but nothing ever released them if the customer
+// simply never paid (closed the tab, payment failed, deliberately
+// abandoned it). 45 minutes gives a slow/retrying customer real room
+// (Razorpay's own checkout, UPI app switches, bank redirects) while
+// still freeing a stock=1 item within the hour instead of it being
+// silently locked away from real buyers indefinitely with no recovery
+// path short of an admin noticing and cancelling it by hand.
+const STALE_RAZORPAY_ORDER_MINUTES = 45;
+
 // Re-derives price/name/image from the database and validates quantity —
 // req.body.orderItems is never trusted for anything that affects money or
 // inventory. Without this, a client could submit an arbitrary price (get
@@ -430,6 +441,29 @@ export const createOrder = async (req, res) => {
         await order.save();
       } catch (razorpayError) {
         console.error("Razorpay Order Create Error:", razorpayError);
+
+        // Stock and any redeemed points were already committed above
+        // (reserveStock, applyLoyaltyPointsChange) before this Razorpay
+        // API call — a transient Razorpay failure here must not leave
+        // them stranded against an order that can never be paid.
+        // Cancel it through the exact same restore path
+        // updateOrderStatus uses for a real cancellation, rather than
+        // leaving a phantom "Pending" order with no razorpayOrderId.
+        order.orderStatus = "Cancelled";
+        order.statusHistory.push({ status: "Cancelled", changedAt: new Date() });
+        await order.save();
+
+        await restoreStock(verifiedItems);
+
+        if (pointsRedeemed > 0) {
+          await applyLoyaltyPointsChange({
+            userId: req.user._id,
+            type: "refunded",
+            points: pointsRedeemed,
+            order: order._id,
+            description: `Refund for failed Razorpay order ${order._id}`,
+          });
+        }
 
         return res.status(500).json({
           success: false,
@@ -1095,6 +1129,72 @@ export const sendReviewRequestEmails = async (req, res) => {
     });
   } catch (error) {
     console.error("Send Review Request Emails Error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};
+
+// ============================
+// Cancel Stale Unpaid Razorpay Orders
+// Called by an external scheduler, protected by a shared secret rather
+// than JWT auth — same pattern as sendReviewRequestEmails above. A
+// Razorpay order reserves stock (and any redeemed points) the moment
+// it's created in createOrder, before payment actually succeeds; if the
+// customer never completes payment there was previously no path back —
+// this releases that reservation the same way a real cancellation does
+// (restoreStock + points refund), once the order has clearly been
+// abandoned rather than just slow.
+// ============================
+
+export const cancelStaleRazorpayOrders = async (req, res) => {
+  try {
+    if (req.query.secret !== process.env.CRON_SECRET) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
+    const cutoff = new Date(
+      Date.now() - STALE_RAZORPAY_ORDER_MINUTES * 60 * 1000,
+    );
+
+    const staleOrders = await Order.find({
+      paymentMethod: "Razorpay",
+      orderStatus: "Pending",
+      isPaid: { $ne: true },
+      createdAt: { $lte: cutoff },
+    });
+
+    let cancelled = 0;
+
+    for (const order of staleOrders) {
+      order.orderStatus = "Cancelled";
+      order.statusHistory.push({ status: "Cancelled", changedAt: new Date() });
+      await order.save();
+
+      await restoreStock(order.orderItems);
+
+      if (order.pointsRedeemed > 0) {
+        await applyLoyaltyPointsChange({
+          userId: order.user,
+          type: "refunded",
+          points: order.pointsRedeemed,
+          order: order._id,
+          description: `Refund for abandoned Razorpay order ${order._id}`,
+        });
+      }
+
+      cancelled += 1;
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Cancelled ${cancelled} stale Razorpay order${cancelled === 1 ? "" : "s"}`,
+      cancelled,
+    });
+  } catch (error) {
+    console.error("Cancel Stale Razorpay Orders Error:", error);
 
     res.status(500).json({
       success: false,

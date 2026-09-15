@@ -17,6 +17,7 @@ import {
   deleteOrder,
   permanentlyDeleteOrder,
   sendReviewRequestEmails,
+  cancelStaleRazorpayOrders,
 } from "../controllers/orderController.js";
 
 const router = express.Router();
@@ -39,6 +40,11 @@ router.get("/", authMiddleware, adminMiddleware, perm, getAllOrders);
 // secret, not JWT), registered before "/:id" so it isn't shadowed by it.
 router.post("/send-review-requests", sendReviewRequestEmails);
 router.get("/send-review-requests", sendReviewRequestEmails);
+
+// Cancel Stale Unpaid Razorpay Orders — called by an external scheduler
+// (cron secret, not JWT), same registration-order reasoning as above.
+router.post("/cancel-stale-razorpay", cancelStaleRazorpayOrders);
+router.get("/cancel-stale-razorpay", cancelStaleRazorpayOrders);
 
 // Get Single Order — logged-in user (owner ya admin)
 router.get("/:id", authMiddleware, getOrderById);
