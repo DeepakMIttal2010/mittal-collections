@@ -1,6 +1,30 @@
 import Page from "../models/Page.js";
 
 // ============================
+// LIST ACTIVE PAGES (Public) — slug + title only, just enough for the
+// sitemap to build /policies/:slug entries without hardcoding the list.
+// ============================
+export const getActivePages = async (req, res) => {
+  try {
+    const pages = await Page.find({ isActive: true })
+      .select("slug title updatedAt")
+      .sort({ title: 1 });
+
+    res.status(200).json({
+      success: true,
+      pages,
+    });
+  } catch (error) {
+    console.error("Get Active Pages Error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};
+
+// ============================
 // GET PAGE BY SLUG (Public)
 // ============================
 export const getPageBySlug = async (req, res) => {
