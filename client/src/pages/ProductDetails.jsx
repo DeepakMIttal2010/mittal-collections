@@ -410,6 +410,11 @@ function ProductDetails() {
     ? selectedVariant.oldPrice
     : product.oldPrice;
   const displayStock = selectedVariant ? selectedVariant.stock : product.stock;
+  const displaySize = selectedVariant?.size || product.size;
+  // Search queries for this category routinely include the exact
+  // dimension ("king size bedsheet 90x108", "7x4 curtains") — appending
+  // it is a real keyword match a bare product name misses.
+  const seoTitle = displaySize ? `${product.name} — ${displaySize}` : product.name;
 
   const pointsPreview = earnRate
     ? Math.floor((displayPrice * quantity) / earnRate)
@@ -570,7 +575,7 @@ function ProductDetails() {
   return (
     <div className="w-full min-w-0 max-w-6xl mx-auto px-4 py-12">
       <Seo
-        title={product.name}
+        title={seoTitle}
         description={
           product.description
             ? `Buy online, pan-India delivery (24hr in Ghaziabad) - ${product.description}`.slice(0, 160)
