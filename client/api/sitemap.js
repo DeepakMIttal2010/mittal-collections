@@ -79,7 +79,10 @@ const fetchAllProducts = async () => {
 // Google the English and Hindi URLs are translations of each other
 // rather than separate/duplicate pages — same purpose as the hreflang
 // <link> tags render.js adds for a crawler that lands via prerender.
-const urlEntry = (loc, alternates) => {
+// `lastmod` (an updatedAt ISO string, when the caller has one — static
+// routes don't) is trimmed to a plain date, the common sitemap
+// convention, rather than the full timestamp.
+const urlEntry = (loc, alternates, lastmod) => {
   const altLinks = alternates
     ? alternates
         .map(
@@ -88,8 +91,9 @@ const urlEntry = (loc, alternates) => {
         )
         .join("")
     : "";
+  const lastmodTag = lastmod ? `<lastmod>${lastmod.slice(0, 10)}</lastmod>` : "";
 
-  return `  <url><loc>${SITE_URL}${loc}</loc>${altLinks}</url>`;
+  return `  <url><loc>${SITE_URL}${loc}</loc>${lastmodTag}${altLinks}</url>`;
 };
 
 export default async function handler(req, res) {
@@ -105,14 +109,18 @@ export default async function handler(req, res) {
         fetchJson(`${API_BASE}/api/pages`),
       ]);
 
-    (pagesRes.pages || []).forEach((p) => urls.push(urlEntry(`/policies/${p.slug}`)));
+    (pagesRes.pages || []).forEach((p) =>
+      urls.push(urlEntry(`/policies/${p.slug}`, undefined, p.updatedAt)),
+    );
 
     // /price/:maxPrice filter pages are deliberately excluded — they're
     // near-duplicate faceted views of the same small catalog, not unique
     // content worth Google's crawl budget (found while auditing GSC's
     // "Discovered – currently not indexed" report, 2026-08-10). The pages
     // themselves still work; they're just not advertised in the sitemap.
-    categoriesRes.categories.forEach((c) => urls.push(urlEntry(`/category/${c.slug}`)));
+    categoriesRes.categories.forEach((c) =>
+      urls.push(urlEntry(`/category/${c.slug}`, undefined, c.updatedAt)),
+    );
 
     // GET /api/subcategories only filters on the subcategory's own
     // isActive, not its parent category's — a deactivated category with
@@ -126,10 +134,12 @@ export default async function handler(req, res) {
     const activeCategorySlugs = new Set(categoriesRes.categories.map((c) => c.slug));
     (subcategoriesRes.subcategories || []).forEach((s) => {
       if (s.category?.slug && activeCategorySlugs.has(s.category.slug)) {
-        urls.push(urlEntry(`/category/${s.category.slug}/${s.slug}`));
+        urls.push(
+          urlEntry(`/category/${s.category.slug}/${s.slug}`, undefined, s.updatedAt),
+        );
       }
     });
-    products.forEach((p) => urls.push(urlEntry(productUrl(p))));
+    products.forEach((p) => urls.push(urlEntry(productUrl(p), undefined, p.updatedAt)));
 
     // A Hindi version is only advertised (and only gets its own sitemap
     // entry) once titleHi is actually filled in — see Article.js and
@@ -139,7 +149,7 @@ export default async function handler(req, res) {
       const enPath = `/articles/${a.slug}`;
 
       if (!a.titleHi) {
-        urls.push(urlEntry(enPath));
+        urls.push(urlEntry(enPath, undefined, a.updatedAt));
         return;
       }
 
@@ -150,8 +160,8 @@ export default async function handler(req, res) {
         { lang: "x-default", href: enPath },
       ];
 
-      urls.push(urlEntry(enPath, alternates));
-      urls.push(urlEntry(hiPath, alternates));
+      urls.push(urlEntry(enPath, alternates, a.updatedAt));
+      urls.push(urlEntry(hiPath, alternates, a.updatedAt));
     });
   } catch (error) {
     console.error("Sitemap generation error, serving static routes only:", error);
