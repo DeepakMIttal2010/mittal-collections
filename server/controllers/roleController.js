@@ -94,6 +94,23 @@ export const updateRole = async (req, res) => {
       });
     }
 
+    // Mirrors staffUserController.js's "can't change your own access"
+    // guard, one level removed: a staff account restricted to only the
+    // "roles" permission could otherwise edit the very Role document
+    // it's currently assigned, granting itself every permission and
+    // write-access key — req.user.adminRole is the live, populated Role
+    // doc for the requester (null for a full/unrestricted admin, who is
+    // allowed to edit any role including their own if they have one).
+    if (
+      req.user.adminRole &&
+      req.params.id === req.user.adminRole._id.toString()
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "You can't change your own role's access here.",
+      });
+    }
+
     const { name, description, permissions, writeAccess } = req.body;
 
     if (name) role.name = name;
