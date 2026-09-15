@@ -50,6 +50,31 @@ const productUrl = (p) => {
   return slug ? `/product/${p._id}/${slug}` : `/product/${p._id}`;
 };
 
+// A plain `?limit=1000` call silently truncates past 1000 products —
+// getProducts only returns `hasMore`/pagination metadata once a `page`
+// param is sent (see productController.js's isPaginated branch), so
+// this walks pages until the catalog is exhausted instead of trusting
+// a single request to return everything.
+const PRODUCTS_PAGE_SIZE = 500;
+
+const fetchAllProducts = async () => {
+  const products = [];
+  let page = 1;
+  let hasMore = true;
+
+  while (hasMore) {
+    const data = await fetchJson(
+      `${API_BASE}/api/products?page=${page}&limit=${PRODUCTS_PAGE_SIZE}`,
+    );
+
+    products.push(...data.products);
+    hasMore = Boolean(data.hasMore);
+    page += 1;
+  }
+
+  return products;
+};
+
 // `alternates` (only ever used for articles with a Hindi version) tells
 // Google the English and Hindi URLs are translations of each other
 // rather than separate/duplicate pages — same purpose as the hreflang
@@ -71,11 +96,11 @@ export default async function handler(req, res) {
   const urls = [...STATIC_ROUTES.map((loc) => urlEntry(loc))];
 
   try {
-    const [categoriesRes, subcategoriesRes, productsRes, articlesRes, pagesRes] =
+    const [categoriesRes, subcategoriesRes, products, articlesRes, pagesRes] =
       await Promise.all([
         fetchJson(`${API_BASE}/api/categories`),
         fetchJson(`${API_BASE}/api/subcategories`),
-        fetchJson(`${API_BASE}/api/products?limit=1000`),
+        fetchAllProducts(),
         fetchJson(`${API_BASE}/api/articles`),
         fetchJson(`${API_BASE}/api/pages`),
       ]);
@@ -91,7 +116,7 @@ export default async function handler(req, res) {
     (subcategoriesRes.subcategories || []).forEach((s) => {
       if (s.category?.slug) urls.push(urlEntry(`/category/${s.category.slug}/${s.slug}`));
     });
-    productsRes.products.forEach((p) => urls.push(urlEntry(productUrl(p))));
+    products.forEach((p) => urls.push(urlEntry(productUrl(p))));
 
     // A Hindi version is only advertised (and only gets its own sitemap
     // entry) once titleHi is actually filled in — see Article.js and
