@@ -15,7 +15,7 @@ const generateSlug = (title) =>
 export const getArticles = async (req, res) => {
   try {
     const articles = await Article.find({ isActive: true })
-      .select("title slug excerpt titleHi excerptHi coverImage createdAt")
+      .select("title slug excerpt titleHi excerptHi coverImage createdAt updatedAt")
       .sort({ createdAt: -1 });
 
     res.status(200).json({
