@@ -168,7 +168,10 @@ export const addToGuestWishlist = async (req, res) => {
   try {
     const { visitorId, productId } = req.body;
 
-    if (!visitorId) {
+    // Must be a plain string, not just truthy — an object here (e.g.
+    // { "$gt": "" }) would otherwise be passed straight into the Mongo
+    // queries below as a query operator instead of a literal value.
+    if (!visitorId || typeof visitorId !== "string") {
       return res.status(400).json({
         success: false,
         message: "visitorId is required",
@@ -290,7 +293,9 @@ export const mergeGuestWishlist = async (req, res) => {
   try {
     const { visitorId } = req.body;
 
-    if (!visitorId) {
+    // Same guard as addToGuestWishlist — must be a plain string, not an
+    // object that could be interpreted as a Mongo query operator.
+    if (!visitorId || typeof visitorId !== "string") {
       return res.status(200).json({ success: true, merged: 0 });
     }
 
