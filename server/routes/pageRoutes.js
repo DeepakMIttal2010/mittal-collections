@@ -1,6 +1,7 @@
 import express from "express";
 
 import {
+  getActivePages,
   getPageBySlug,
   getAllPagesAdmin,
   createPage,
@@ -32,6 +33,7 @@ router.delete(
 );
 
 // Public
+router.get("/", getActivePages);
 router.get("/:slug", getPageBySlug);
 
 export default router;

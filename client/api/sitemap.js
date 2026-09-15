@@ -28,13 +28,6 @@ const STATIC_ROUTES = [
   "/articles",
   "/hi/articles",
   "/curtain-size-calculator",
-  // Hardcoded rather than fetched — there's no public "list pages" API
-  // endpoint (pageRoutes.js only exposes single-slug lookup and an
-  // admin-protected list), and these 4 policy pages rarely change.
-  "/policies/shipping-policy",
-  "/policies/returns",
-  "/policies/privacy-policy",
-  "/policies/terms-and-conditions",
 ];
 
 const fetchJson = async (url) => {
@@ -78,13 +71,16 @@ export default async function handler(req, res) {
   const urls = [...STATIC_ROUTES.map((loc) => urlEntry(loc))];
 
   try {
-    const [categoriesRes, subcategoriesRes, productsRes, articlesRes] =
+    const [categoriesRes, subcategoriesRes, productsRes, articlesRes, pagesRes] =
       await Promise.all([
         fetchJson(`${API_BASE}/api/categories`),
         fetchJson(`${API_BASE}/api/subcategories`),
         fetchJson(`${API_BASE}/api/products?limit=1000`),
         fetchJson(`${API_BASE}/api/articles`),
+        fetchJson(`${API_BASE}/api/pages`),
       ]);
+
+    (pagesRes.pages || []).forEach((p) => urls.push(urlEntry(`/policies/${p.slug}`)));
 
     // /price/:maxPrice filter pages are deliberately excluded — they're
     // near-duplicate faceted views of the same small catalog, not unique
