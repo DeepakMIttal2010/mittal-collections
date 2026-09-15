@@ -109,7 +109,7 @@ const STATIC_PAGES = {
   "/curtain-size-calculator": {
     title: "Curtain Size & Rod Length Calculator (in Inches) — Find Your Perfect Fit",
     description:
-      "Free curtain size calculator. Enter your window measurements in inches and instantly get the rod length, fabric width and curtain length to buy, plus a standard curtain size chart.",
+      "Free curtain size calculator — enter your window measurements and instantly get the rod length, fabric width and curtain length to buy, plus a size chart.",
     breadcrumb: "Curtain Size Calculator",
   },
   "/articles": {
@@ -210,7 +210,7 @@ const buildMeta = async (path) => {
     return {
       title: `Buy Bedsheets, Curtains & Towels Online — Pan-India Delivery | ${SITE_NAME}`,
       description:
-        "Shop premium cotton bedsheets, curtains, towels, cushions and doormats online with pan-India delivery — fast 24-hour delivery in Vasundhara, Indirapuram, Vaishali and nearby Ghaziabad. Genuine products, easy returns.",
+        "Shop premium cotton bedsheets, curtains, towels, cushions & doormats online with pan-India delivery — fast 24-hour delivery in Ghaziabad. Easy returns.",
       image: DEFAULT_IMAGE,
       url: `${SITE_URL}/`,
       ogType: "website",
@@ -340,7 +340,9 @@ const buildMeta = async (path) => {
       : `${category.name} | ${SITE_NAME}`;
     const description = subcategory
       ? `Buy ${subcategory.name} (${category.name}) online with pan-India delivery at ${SITE_NAME} - fast 24-hour delivery in Ghaziabad.`
-      : `Buy ${category.name} online with pan-India delivery at ${SITE_NAME} - fast 24-hour delivery in Ghaziabad. ${category.description || ""}`.trim();
+      : `Buy ${category.name} online with pan-India delivery at ${SITE_NAME} - fast 24-hour delivery in Ghaziabad. ${category.description || ""}`
+          .trim()
+          .slice(0, 160);
 
     return {
       title,
@@ -413,7 +415,7 @@ const buildMeta = async (path) => {
 
     return {
       title: `${article.title} | ${SITE_NAME}`,
-      description: article.excerpt || article.title,
+      description: (article.excerpt || article.title).slice(0, 160),
       image,
       url,
       ogType: "article",
@@ -475,7 +477,7 @@ const buildMeta = async (path) => {
 
     return {
       title: `${article.titleHi} | ${SITE_NAME}`,
-      description: article.excerptHi || article.excerpt || article.titleHi,
+      description: (article.excerptHi || article.excerpt || article.titleHi).slice(0, 160),
       image,
       url: hiUrl,
       ogType: "article",

@@ -166,7 +166,7 @@ function ArticleDetail() {
     <div className="max-w-3xl mx-auto px-4 py-12">
       <Seo
         title={displayTitle}
-        description={displayExcerpt || displayTitle}
+        description={(displayExcerpt || displayTitle).slice(0, 160)}
         image={article.coverImage ? imgUrl(article.coverImage) : undefined}
         url={url}
         lang={isHindi ? "hi" : "en"}
