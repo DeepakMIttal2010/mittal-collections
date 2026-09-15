@@ -121,7 +121,19 @@ const REVIEW_REQUEST_DELAY_DAYS = 8;
 // re-derived here.
 const verifyOrderItems = async (rawItems) => {
   const productIds = rawItems.map((item) => item.product);
-  const products = await Product.find({ _id: { $in: productIds } });
+  // Soft-deleted (isActive: false) and in-store-only (visibility:
+  // "offline") products were still fetchable here even though every
+  // *listing* endpoint already excludes them — a bookmarked/shared
+  // product-detail URL, or a crafted request straight to this API,
+  // could place a real order for a product the admin thought they'd
+  // pulled from sale. Excluding them here routes to the same "no
+  // longer available" response the code already gives for a genuinely
+  // missing product, below.
+  const products = await Product.find({
+    _id: { $in: productIds },
+    isActive: true,
+    visibility: { $ne: "offline" },
+  });
   const productById = new Map(products.map((p) => [p._id.toString(), p]));
 
   const verified = [];
