@@ -21,6 +21,23 @@ const API_BASE =
 const DEFAULT_IMAGE =
   "https://res.cloudinary.com/y2gghpvz/image/upload/w_1200,h_630,c_fill,g_auto,q_auto,f_auto/v1788778399/mittal-collections/b7qfxz8qsnqigmpttuyb.jpg";
 
+// Mirrors client/src/utils/deliveryAreas.js — duplicated rather than
+// imported since this file avoids pulling in anything from src/ (see
+// this file's other constants above, all duplicated the same way).
+// Keep both copies in sync.
+const DELIVERY_AREAS = [
+  "Vasundhara",
+  "Vaishali",
+  "Indirapuram",
+  "Kaushambi",
+  "Sahibabad",
+  "Mohan Nagar",
+  "Rajendra Nagar",
+  "Lajpat Nagar",
+  "Suryanagar",
+  "Brij Vihar",
+];
+
 const escapeHtml = (value) =>
   String(value ?? "")
     .replace(/&/g, "&amp;")
@@ -142,7 +159,26 @@ const buildMeta = async (path) => {
     );
     const settings = settingsData.settings || {};
 
-    const jsonLd = settings.address
+    // Unconditional, same reasoning as Home.jsx's organizationJsonLd —
+    // never depends on settings.address, so a bot never sees zero
+    // structured data on the homepage just because that admin field is
+    // unset.
+    const organizationJsonLd = {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "@id": `${SITE_URL}/#organization`,
+      name: SITE_NAME,
+      url: `${SITE_URL}/`,
+    };
+    const websiteJsonLd = {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "@id": `${SITE_URL}/#website`,
+      name: SITE_NAME,
+      url: `${SITE_URL}/`,
+    };
+
+    const localBusinessJsonLd = settings.address
       ? {
           "@context": "https://schema.org",
           "@type": "HomeGoodsStore",
@@ -159,9 +195,10 @@ const buildMeta = async (path) => {
             addressCountry: "IN",
           },
           areaServed: [
-            { "@type": "Place", name: "Vasundhara, Ghaziabad" },
-            { "@type": "Place", name: "Indirapuram, Ghaziabad" },
-            { "@type": "Place", name: "Vaishali, Ghaziabad" },
+            ...DELIVERY_AREAS.map((area) => ({
+              "@type": "Place",
+              name: `${area}, Ghaziabad`,
+            })),
             { "@type": "City", name: "Ghaziabad" },
           ],
           sameAs: [settings.facebook, settings.instagram, settings.twitter].filter(
@@ -177,7 +214,7 @@ const buildMeta = async (path) => {
       image: DEFAULT_IMAGE,
       url: `${SITE_URL}/`,
       ogType: "website",
-      jsonLd,
+      jsonLd: [organizationJsonLd, websiteJsonLd, localBusinessJsonLd].filter(Boolean),
     };
   }
 

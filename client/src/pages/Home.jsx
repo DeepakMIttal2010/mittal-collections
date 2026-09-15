@@ -17,6 +17,27 @@ import Newsletter from "../components/Newsletter/Newsletter";
 import CategoryNewArrivals from "../components/NewArrivals/CategoryNewArrivals";
 import Faq from "../components/Faq/Faq";
 import { getSiteSettings } from "../services/settingsService";
+import { DELIVERY_AREAS } from "../utils/deliveryAreas";
+
+// Unconditional — unlike the HomeGoodsStore/LocalBusiness block below
+// (which needs an admin-configured address to be meaningful), this is
+// always valid and should never depend on any async data being loaded,
+// so the homepage is never left with zero structured data at all.
+const organizationJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "@id": "https://www.mittalcollections.com/#organization",
+  name: "Mittal Collections",
+  url: "https://www.mittalcollections.com/",
+};
+
+const websiteJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "@id": "https://www.mittalcollections.com/#website",
+  name: "Mittal Collections",
+  url: "https://www.mittalcollections.com/",
+};
 
 function Home() {
   const [settings, setSettings] = useState({});
@@ -48,9 +69,10 @@ function Home() {
           addressCountry: "IN",
         },
         areaServed: [
-          { "@type": "Place", name: "Vasundhara, Ghaziabad" },
-          { "@type": "Place", name: "Indirapuram, Ghaziabad" },
-          { "@type": "Place", name: "Vaishali, Ghaziabad" },
+          ...DELIVERY_AREAS.map((area) => ({
+            "@type": "Place",
+            name: `${area}, Ghaziabad`,
+          })),
           { "@type": "City", name: "Ghaziabad" },
         ],
         sameAs: [
@@ -67,7 +89,7 @@ function Home() {
         title="Buy Bedsheets, Curtains & Towels Online — Pan-India Delivery"
         description="Shop premium cotton bedsheets, curtains, towels, cushions and doormats online with pan-India delivery — fast 24-hour delivery in Vasundhara, Indirapuram, Vaishali and nearby Ghaziabad. Genuine products, easy returns."
         url="https://www.mittalcollections.com/"
-        jsonLd={localBusinessJsonLd}
+        jsonLd={[organizationJsonLd, websiteJsonLd, localBusinessJsonLd]}
       />
       <Hero />
       <CategoryQuickLinks />
