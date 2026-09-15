@@ -572,6 +572,7 @@ function ProductDetails() {
         }
         image={imgUrl(product.image)}
         url={shareUrl}
+        ogType="product"
         jsonLd={[
           productJsonLd,
           buildBreadcrumbJsonLd(breadcrumbItemsForSeo),

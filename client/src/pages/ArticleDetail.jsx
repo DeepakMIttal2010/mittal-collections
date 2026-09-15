@@ -172,6 +172,7 @@ function ArticleDetail() {
         url={url}
         lang={isHindi ? "hi" : "en"}
         alternateLangs={alternateLangs}
+        ogType="article"
         jsonLd={[articleJsonLd, buildBreadcrumbJsonLd(breadcrumbItems)]}
       />
 

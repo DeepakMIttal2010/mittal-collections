@@ -24,6 +24,7 @@ function Seo({
   noindex = false,
   lang,
   alternateLangs,
+  ogType = "website",
 }) {
   const fullTitle = title ? `${title} | ${SITE_NAME}` : SITE_NAME;
 
@@ -34,7 +35,7 @@ function Seo({
       {description && <meta name="description" content={description} />}
       {noindex && <meta name="robots" content="noindex, nofollow" />}
 
-      <meta property="og:type" content="website" />
+      <meta property="og:type" content={ogType} />
       <meta property="og:site_name" content={SITE_NAME} />
       <meta property="og:title" content={fullTitle} />
       {description && <meta property="og:description" content={description} />}
