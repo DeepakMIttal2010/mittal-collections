@@ -21,6 +21,8 @@ const STATIC_ROUTES = [
   "/trending",
   "/clearance-sale",
   "/new-arrivals",
+  "/gifting",
+  "/rewards",
   "/about",
   "/contact",
   "/articles",
