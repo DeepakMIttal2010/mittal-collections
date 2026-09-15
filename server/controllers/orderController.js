@@ -911,30 +911,42 @@ export const updateOrderStatus = async (req, res) => {
       }
 
       // First delivered order for a referred customer pays out the
-      // referral bonus to both sides, once only.
-      const referredUser = await User.findById(order.user);
+      // referral bonus to both sides, once only. Used to be a plain
+      // read (referredUser?.referredBy && !referredUser.referralRewarded)
+      // followed much later by referredUser.referralRewarded = true —
+      // two orders for the same referred customer both marked
+      // Delivered close together (two tabs, a fast double-click) would
+      // both read referralRewarded: false and both pay out in full,
+      // doubling the payout. Same class of race reviewController.js's
+      // reviewPointsProcessed guard already closes for review bonuses;
+      // applied the identical pattern here — one atomic
+      // findOneAndUpdate claims referralRewarded before either bonus
+      // is paid, so a losing concurrent request gets null back and
+      // pays out nothing.
+      const claimedReferral = await User.findOneAndUpdate(
+        { _id: order.user, referredBy: { $ne: null }, referralRewarded: { $ne: true } },
+        { $set: { referralRewarded: true } },
+        { new: false },
+      );
 
-      if (referredUser?.referredBy && !referredUser.referralRewarded) {
+      if (claimedReferral) {
         const referralSettings = await getReferralSettings();
 
         await applyLoyaltyPointsChange({
-          userId: referredUser.referredBy,
+          userId: claimedReferral.referredBy,
           type: "referral_bonus",
           points: referralSettings.referrerPoints,
           order: order._id,
-          description: `Referral bonus for inviting ${referredUser.name}`,
+          description: `Referral bonus for inviting ${claimedReferral.name}`,
         });
 
         await applyLoyaltyPointsChange({
-          userId: referredUser._id,
+          userId: claimedReferral._id,
           type: "referral_bonus",
           points: referralSettings.referredPoints,
           order: order._id,
           description: "Referral signup bonus",
         });
-
-        referredUser.referralRewarded = true;
-        await referredUser.save();
       }
     }
 
