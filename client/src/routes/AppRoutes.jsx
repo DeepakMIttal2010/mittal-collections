@@ -155,6 +155,13 @@ function AppRoutes() {
       <Routes>
         <Route element={<MainLayout />}>
           <Route path="/" element={<Home />} />
+          {/* These 6 routes mirror vercel.json's top-level "redirects"
+              array exactly. In production/preview, Vercel's edge-level
+              301 always resolves the request before the SPA ever loads,
+              so these <Navigate> routes never actually fire there — they
+              only matter for `vite dev`/local testing, which has no
+              vercel.json redirect layer of its own. Keep both lists in
+              sync if a legacy URL is ever added, renamed, or removed. */}
           <Route
             path="/bedsheets"
             element={<Navigate to="/category/bedsheets" replace />}
