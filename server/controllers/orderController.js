@@ -326,6 +326,7 @@ export const createOrder = async (req, res) => {
 
     let discountAmount = 0;
     let appliedCouponCode = null;
+    let appliedFirstOrderCoupon = false;
 
     if (couponCode) {
       const coupon = await Coupon.findOne({
@@ -341,6 +342,7 @@ export const createOrder = async (req, res) => {
         if (eligible) {
           discountAmount = calculateDiscount(coupon, subtotal);
           appliedCouponCode = coupon.code;
+          appliedFirstOrderCoupon = coupon.firstOrderOnly;
         }
       }
     }
@@ -413,6 +415,49 @@ export const createOrder = async (req, res) => {
       throw orderError;
     }
 
+    // Tracks whether points were actually deducted below (not just
+    // requested) — cancelAndReject uses this to know whether a refund
+    // is owed, since it's also called from the points-race branch
+    // itself, where nothing was ever deducted in the first place.
+    let pointsActuallyDeducted = false;
+
+    // Shared by every "this order was already created with a discount
+    // baked into totalPrice, but the thing backing that discount lost
+    // an atomic race after the fact" case below — cancels the order
+    // through the same path a real cancellation uses: restoreStock,
+    // a points refund if points were actually taken, and releasing
+    // User.firstOrderCouponUsed if this order is the one that claimed
+    // it (order.firstOrderCouponApplied, set only once that claim
+    // itself succeeds below — never blindly, since resetting a flag
+    // this order never actually claimed could hand the coupon back to
+    // whichever other order legitimately holds it).
+    const cancelAndReject = async (message, statusCode = 400) => {
+      order.orderStatus = "Cancelled";
+      order.statusHistory.push({ status: "Cancelled", changedAt: new Date() });
+      await order.save();
+
+      await restoreStock(verifiedItems);
+
+      if (pointsActuallyDeducted) {
+        await applyLoyaltyPointsChange({
+          userId: req.user._id,
+          type: "refunded",
+          points: pointsRedeemed,
+          order: order._id,
+          description: `Refund for cancelled order ${order._id}`,
+        });
+      }
+
+      if (order.firstOrderCouponApplied) {
+        await User.updateOne(
+          { _id: req.user._id },
+          { $set: { firstOrderCouponUsed: false } },
+        );
+      }
+
+      return res.status(statusCode).json({ success: false, message });
+    };
+
     if (pointsRedeemed > 0) {
       const pointsResult = await applyLoyaltyPointsChange({
         userId: req.user._id,
@@ -424,24 +469,38 @@ export const createOrder = async (req, res) => {
 
       // null means the atomic balance-guard above lost the race (the
       // user's real balance no longer covers pointsRedeemed — e.g. two
-      // tabs/requests redeeming near-simultaneously). The order was
-      // already created with this discount baked into totalPrice, so
-      // it can't just be left as-is with points never actually taken —
-      // cancel it through the same restore path used elsewhere in this
-      // function and ask the customer to retry with a fresh balance.
+      // tabs/requests redeeming near-simultaneously).
       if (!pointsResult) {
-        order.orderStatus = "Cancelled";
-        order.statusHistory.push({ status: "Cancelled", changedAt: new Date() });
-        await order.save();
-
-        await restoreStock(verifiedItems);
-
-        return res.status(400).json({
-          success: false,
-          message:
-            "Your loyalty points balance changed — please review your order and try again.",
-        });
+        return cancelAndReject(
+          "Your loyalty points balance changed — please review your order and try again.",
+        );
       }
+
+      pointsActuallyDeducted = true;
+    }
+
+    // Same race, for a first-order-only coupon: the eligibility check
+    // above (isEligibleForFirstOrderCoupon) only reads how many prior
+    // orders exist, so two concurrent checkouts from the same
+    // brand-new user could both pass it and both get the discount.
+    // User.firstOrderCouponUsed is claimed atomically here — whichever
+    // request wins the race sets it from false to true; the other gets
+    // null back and must not keep a discount it was never actually
+    // the first to redeem.
+    if (appliedFirstOrderCoupon) {
+      const couponClaim = await User.findOneAndUpdate(
+        { _id: req.user._id, firstOrderCouponUsed: { $ne: true } },
+        { $set: { firstOrderCouponUsed: true } },
+      );
+
+      if (!couponClaim) {
+        return cancelAndReject(
+          "This coupon has already been used on another order — please review your order and try again.",
+        );
+      }
+
+      order.firstOrderCouponApplied = true;
+      await order.save();
     }
 
     await CartSnapshot.deleteOne({ user: req.user._id });
@@ -463,33 +522,17 @@ export const createOrder = async (req, res) => {
       } catch (razorpayError) {
         console.error("Razorpay Order Create Error:", razorpayError);
 
-        // Stock and any redeemed points were already committed above
-        // (reserveStock, applyLoyaltyPointsChange) before this Razorpay
-        // API call — a transient Razorpay failure here must not leave
-        // them stranded against an order that can never be paid.
-        // Cancel it through the exact same restore path
-        // updateOrderStatus uses for a real cancellation, rather than
-        // leaving a phantom "Pending" order with no razorpayOrderId.
-        order.orderStatus = "Cancelled";
-        order.statusHistory.push({ status: "Cancelled", changedAt: new Date() });
-        await order.save();
-
-        await restoreStock(verifiedItems);
-
-        if (pointsRedeemed > 0) {
-          await applyLoyaltyPointsChange({
-            userId: req.user._id,
-            type: "refunded",
-            points: pointsRedeemed,
-            order: order._id,
-            description: `Refund for failed Razorpay order ${order._id}`,
-          });
-        }
-
-        return res.status(500).json({
-          success: false,
-          message: "Unable to initiate payment. Please try again.",
-        });
+        // Stock, any redeemed points, and a claimed first-order coupon
+        // were all already committed above before this Razorpay API
+        // call — a transient Razorpay failure here must not leave them
+        // stranded against an order that can never be paid. Reuses the
+        // exact same rollback cancelAndReject already does for the
+        // points/coupon race cases, rather than leaving a phantom
+        // "Pending" order with no razorpayOrderId.
+        return cancelAndReject(
+          "Unable to initiate payment. Please try again.",
+          500,
+        );
       }
     }
 
@@ -843,6 +886,18 @@ export const updateOrderStatus = async (req, res) => {
           order: order._id,
           description: `Reversed earn from cancelled order ${order._id}`,
         });
+      }
+
+      // ...and give back their one-time first-order-coupon eligibility
+      // if this order is the one that claimed it (createOrder sets
+      // firstOrderCouponApplied only once that atomic claim itself
+      // succeeds) — an admin cancelling a customer's first order
+      // (defective item, etc.) shouldn't permanently burn it.
+      if (order.firstOrderCouponApplied) {
+        await User.updateOne(
+          { _id: order.user },
+          { $set: { firstOrderCouponUsed: false } },
+        );
       }
     } else if (status === "Delivered" && !wasAlreadyCredited) {
       if (order.pointsEarned > 0) {
@@ -1204,6 +1259,13 @@ export const cancelStaleRazorpayOrders = async (req, res) => {
           order: order._id,
           description: `Refund for abandoned Razorpay order ${order._id}`,
         });
+      }
+
+      if (order.firstOrderCouponApplied) {
+        await User.updateOne(
+          { _id: order.user },
+          { $set: { firstOrderCouponUsed: false } },
+        );
       }
 
       cancelled += 1;

@@ -77,6 +77,20 @@ const userSchema = new mongoose.Schema(
       default: 0,
     },
 
+    // Claimed atomically (findOneAndUpdate with a { $ne: true } guard —
+    // see orderController.js's createOrder) the moment a first-order-
+    // only coupon is actually applied to an order, not just when
+    // eligibility is checked. Two concurrent checkouts from the same
+    // brand-new user used to both pass the eligibility check (a
+    // Order.countDocuments read against orders neither request had
+    // created yet) and both get the discount — this flag closes that
+    // race the same way applyLoyaltyPointsChange's balance guard does
+    // for points redemption.
+    firstOrderCouponUsed: {
+      type: Boolean,
+      default: false,
+    },
+
     referralCode: {
       type: String,
       unique: true,

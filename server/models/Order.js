@@ -120,6 +120,17 @@ const orderSchema = new mongoose.Schema(
       default: 0,
     },
 
+    // Whether this order claimed the user's one-time
+    // User.firstOrderCouponUsed flag (see orderController.js's
+    // createOrder). Recorded on the order itself, not just re-derived
+    // by looking the coupon back up, so every cancellation path can
+    // release the flag reliably even if the Coupon doc is later
+    // edited or deleted.
+    firstOrderCouponApplied: {
+      type: Boolean,
+      default: false,
+    },
+
     pointsDiscount: {
       type: Number,
       default: 0,
