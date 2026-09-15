@@ -1113,7 +1113,7 @@ export const getProductById = async (req, res) => {
       .populate("category", "name nameHi slug image")
       .populate("subcategories", "name nameHi slug");
 
-    if (!product || product.visibility === "offline") {
+    if (!product || !product.isActive || product.visibility === "offline") {
       return res.status(404).json({
         success: false,
         message: "Product not found",
