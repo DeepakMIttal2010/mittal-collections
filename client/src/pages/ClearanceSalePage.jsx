@@ -49,7 +49,7 @@ function ClearanceSalePage() {
   return (
     <div className="max-w-7xl mx-auto px-4 py-12">
       <Seo
-        title="Clearance Sale"
+        title="Clearance Sale — Home Furnishing Deals"
         description="More than 35% off select home furnishing items at Mittal Collections — limited stock, won't be restocked at this price."
         url={`${SITE_URL}/clearance-sale`}
         jsonLd={buildBreadcrumbJsonLd(BREADCRUMB_ITEMS)}

@@ -48,7 +48,7 @@ function TrendingPage() {
   return (
     <div className="max-w-7xl mx-auto px-4 py-12">
       <Seo
-        title="Top Trending"
+        title="Top Trending Home Furnishing Products"
         description="Handpicked by our team - the home furnishing pieces everyone's loving right now at Mittal Collections, organised by category."
         url={`${SITE_URL}/trending`}
         jsonLd={buildBreadcrumbJsonLd(BREADCRUMB_ITEMS)}

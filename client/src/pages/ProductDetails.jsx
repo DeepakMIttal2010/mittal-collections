@@ -579,7 +579,7 @@ function ProductDetails() {
         description={
           product.description
             ? `Buy online, pan-India delivery (24hr in Ghaziabad) - ${product.description}`.slice(0, 160)
-            : `Buy ${product.name} online with pan-India delivery - fast 24-hour delivery in Ghaziabad`
+            : `Buy ${product.name} online with pan-India delivery - fast 24-hour delivery in Ghaziabad`.slice(0, 160)
         }
         image={imgUrl(product.image)}
         url={canonicalUrl}

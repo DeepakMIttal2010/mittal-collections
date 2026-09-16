@@ -58,7 +58,7 @@ function GiftingPage() {
   return (
     <div className="max-w-7xl mx-auto px-4 py-12">
       <Seo
-        title="Gifting"
+        title="Gifting — Home Furnishing Gift Ideas"
         description="Ready-to-gift home furnishing picks at Mittal Collections — housewarmings, weddings and festive occasions, no separate wrapping needed."
         url={`${SITE_URL}/gifting`}
         jsonLd={buildBreadcrumbJsonLd(BREADCRUMB_ITEMS)}
