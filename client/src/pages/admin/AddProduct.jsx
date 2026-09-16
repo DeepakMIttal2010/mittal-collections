@@ -77,6 +77,8 @@ function AddProduct() {
     visibility: "both",
     optimizeImages: true,
     fabric: "",
+    color: "",
+    pattern: "",
     size: "",
     gsm: "",
     washCare: "",
@@ -302,6 +304,8 @@ function AddProduct() {
     data.append("mainImageIndex", mainImageIndex);
     data.append("optimizeImages", formData.optimizeImages);
     data.append("fabric", formData.fabric);
+    data.append("color", formData.color);
+    data.append("pattern", formData.pattern);
     data.append("size", formData.size);
     data.append("gsm", formData.gsm);
     data.append("washCare", formData.washCare);
@@ -622,6 +626,32 @@ function AddProduct() {
               name="size"
               placeholder="e.g. 90 x 100 inches"
               value={formData.size}
+              onChange={handleChange}
+            />
+          </div>
+        </div>
+
+        <div className="form-row">
+          <div className="form-group">
+            <label>Colour (optional)</label>
+
+            <input
+              type="text"
+              name="color"
+              placeholder="e.g. Sage Green"
+              value={formData.color}
+              onChange={handleChange}
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Pattern (optional)</label>
+
+            <input
+              type="text"
+              name="pattern"
+              placeholder="e.g. Floral"
+              value={formData.pattern}
               onChange={handleChange}
             />
           </div>

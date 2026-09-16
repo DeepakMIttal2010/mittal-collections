@@ -585,6 +585,8 @@ export const duplicateProduct = async (req, res) => {
       variants: source.variants,
 
       fabric: source.fabric,
+      color: source.color,
+      pattern: source.pattern,
       size: source.size,
       gsm: source.gsm,
       washCare: source.washCare,
@@ -1157,6 +1159,8 @@ export const addProduct = async (req, res) => {
       willRestock,
       mainImageIndex,
       fabric,
+      color,
+      pattern,
       size,
       gsm,
       washCare,
@@ -1225,6 +1229,8 @@ export const addProduct = async (req, res) => {
         : "both",
 
       fabric: fabric || "",
+      color: color || "",
+      pattern: pattern || "",
       size: size || "",
       gsm: gsm || "",
       washCare: washCare || "",
@@ -1337,6 +1343,8 @@ export const updateProduct = async (req, res) => {
       : "both";
 
     product.fabric = req.body.fabric || "";
+    product.color = req.body.color || "";
+    product.pattern = req.body.pattern || "";
     product.size = req.body.size || "";
     product.gsm = req.body.gsm || "";
     product.washCare = req.body.washCare || "";

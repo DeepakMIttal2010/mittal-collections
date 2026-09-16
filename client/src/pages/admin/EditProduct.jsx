@@ -82,6 +82,8 @@ function EditProduct() {
     visibility: "both",
     optimizeImages: true,
     fabric: "",
+    color: "",
+    pattern: "",
     size: "",
     gsm: "",
     washCare: "",
@@ -159,6 +161,8 @@ function EditProduct() {
         visibility: product.visibility || "both",
         optimizeImages: true,
         fabric: product.fabric || "",
+        color: product.color || "",
+        pattern: product.pattern || "",
         size: product.size || "",
         gsm: product.gsm || "",
         washCare: product.washCare || "",
@@ -758,6 +762,32 @@ function EditProduct() {
               name="size"
               placeholder="e.g. 90 x 100 inches"
               value={formData.size}
+              onChange={handleChange}
+            />
+          </div>
+        </div>
+
+        <div className="form-row">
+          <div className="form-group">
+            <label>Colour (optional)</label>
+
+            <input
+              type="text"
+              name="color"
+              placeholder="e.g. Sage Green"
+              value={formData.color}
+              onChange={handleChange}
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Pattern (optional)</label>
+
+            <input
+              type="text"
+              name="pattern"
+              placeholder="e.g. Floral"
+              value={formData.pattern}
               onChange={handleChange}
             />
           </div>
