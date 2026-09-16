@@ -636,6 +636,7 @@ function ProductDetails() {
                     alt={t(product.name, product.nameHi)}
                     style={zoomStyle}
                     onLoad={() => setMainImageLoaded(true)}
+                    fetchPriority="high"
                     className={`w-full h-full object-cover transition-all duration-300 pointer-events-none ${
                       mainImageLoaded ? "opacity-100" : "opacity-0"
                     }`}
