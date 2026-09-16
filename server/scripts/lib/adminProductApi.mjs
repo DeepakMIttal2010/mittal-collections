@@ -148,6 +148,8 @@ export function buildProductUpdateFormData(product, overrides = {}) {
   fd.append("stock", get("stock", product.stock));
   fd.append("size", get("size", product.size || ""));
   fd.append("fabric", get("fabric", product.fabric || ""));
+  fd.append("color", get("color", product.color || ""));
+  fd.append("pattern", get("pattern", product.pattern || ""));
   fd.append("gsm", get("gsm", product.gsm || ""));
   fd.append("washCare", get("washCare", product.washCare || ""));
   fd.append("brand", get("brand", product.brand || ""));

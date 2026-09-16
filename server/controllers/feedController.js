@@ -61,7 +61,7 @@ export const getGoogleProductFeed = async (req, res) => {
       $or: [{ stock: { $gt: 0 } }, { willRestock: { $ne: false } }],
     })
       .select(
-        "name description price oldPrice image images stock variants slug brand category productNumber",
+        "name description price oldPrice image images stock variants slug brand category productNumber fabric color pattern",
       )
       .populate("category", "name nameHi");
 
@@ -86,6 +86,18 @@ export const getGoogleProductFeed = async (req, res) => {
           product.oldPrice > product.price ? product.oldPrice : product.price;
 
         const brand = escapeXml(product.brand || BRAND_NAME);
+        // Only emit these when actually filled in — an empty <g:color>
+        // tag is worse than no tag at all (Merchant Center flags it as
+        // an invalid/empty attribute value).
+        const colorTag = product.color
+          ? `      <g:color>${escapeXml(product.color)}</g:color>\n`
+          : "";
+        const materialTag = product.fabric
+          ? `      <g:material>${escapeXml(product.fabric)}</g:material>\n`
+          : "";
+        const patternTag = product.pattern
+          ? `      <g:pattern>${escapeXml(product.pattern)}</g:pattern>\n`
+          : "";
         const extraImages = (product.images || [])
           .filter((url) => url !== product.image)
           .slice(0, 10)
@@ -106,7 +118,7 @@ ${salePrice}      <g:condition>new</g:condition>
       <g:identifier_exists>no</g:identifier_exists>
       <g:product_type>${escapeXml(product.category?.name || "")}</g:product_type>
       <g:ships_from_country>IN</g:ships_from_country>
-    </item>`;
+${colorTag}${materialTag}${patternTag}    </item>`;
       })
       .join("\n");
 

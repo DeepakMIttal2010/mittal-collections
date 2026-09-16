@@ -130,7 +130,13 @@ const productSchema = new mongoose.Schema(
 
     // Optional specs — shown on the product page only when filled in,
     // never required so admins aren't blocked adding a product quickly.
+    // color/pattern also feed the Google Shopping/Meta Catalog feed's
+    // <g:color>/<g:pattern> tags (see feedController.js) — Google's
+    // Merchant Center diagnostics don't credit a color/pattern mentioned
+    // only in description prose, they want the dedicated structured field.
     fabric: { type: String, default: "", trim: true },
+    color: { type: String, default: "", trim: true },
+    pattern: { type: String, default: "", trim: true },
     size: { type: String, default: "", trim: true },
     gsm: { type: String, default: "", trim: true },
     washCare: { type: String, default: "", trim: true },
