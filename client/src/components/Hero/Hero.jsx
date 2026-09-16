@@ -317,7 +317,12 @@ function Hero() {
     <section className="hero">
       <div className="container hero-split">
         <div className="hero-split-media">
-          <img src={backgroundImage} alt={imageAlt} className="hero-split-image" />
+          <img
+            src={backgroundImage}
+            alt={imageAlt}
+            className="hero-split-image"
+            fetchPriority="high"
+          />
           {arrowsAndDots}
         </div>
 
