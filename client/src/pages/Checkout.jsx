@@ -18,6 +18,7 @@ import {
 import { getSiteSettings } from "../services/settingsService";
 import { getProfile } from "../services/authService";
 import { getPublicRewardsInfo } from "../services/rewardsService";
+import { checkPincodeDelivery } from "../services/deliveryService";
 import { calculateDeliveryFee } from "../utils/shipping";
 import Seo from "../components/Seo";
 
@@ -77,6 +78,7 @@ function Checkout() {
   });
   const [showDeliveryInfo, setShowDeliveryInfo] = useState(false);
   const [showBundleInfo, setShowBundleInfo] = useState(false);
+  const [localDeliveryBlocked, setLocalDeliveryBlocked] = useState(false);
 
   useEffect(() => {
     if (!isLoggedIn) {
@@ -154,6 +156,25 @@ function Checkout() {
   }, []);
 
   const selectedAddress = addresses.find((a) => a._id === selectedAddressId);
+  const hasLocalOnlyItems = cartItems.some((item) => item.localDeliveryOnly);
+
+  useEffect(() => {
+    if (!hasLocalOnlyItems || !selectedAddress?.pincode) {
+      setLocalDeliveryBlocked(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    checkPincodeDelivery(selectedAddress.pincode).then((response) => {
+      if (cancelled) return;
+      setLocalDeliveryBlocked(!(response.success && response.fastDelivery));
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [hasLocalOnlyItems, selectedAddress?.pincode]);
 
   const deliveryFee =
     totalPrice === 0 ? 0 : calculateDeliveryFee(totalPrice, shipping);
@@ -239,6 +260,16 @@ function Checkout() {
 
     if (!selectedAddress) {
       toast.error(t("Please add a delivery address", "कृपया एक डिलीवरी पता जोड़ें"));
+      return;
+    }
+
+    if (localDeliveryBlocked) {
+      toast.error(
+        t(
+          "Some items in your cart can't be delivered to this address",
+          "आपके कार्ट में कुछ आइटम इस पते पर डिलीवर नहीं हो सकते",
+        ),
+      );
       return;
     }
 
@@ -546,10 +577,19 @@ function Checkout() {
         {/* Right: order summary */}
         <div>
           <div className="border border-slate-200 rounded-xl p-5 bg-white sticky top-4">
+            {localDeliveryBlocked && (
+              <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2.5 mb-3">
+                {t(
+                  "Sorry, an item in your cart can't be delivered to this address. Remove it or choose a different address.",
+                  "क्षमा करें, आपके कार्ट का एक आइटम इस पते पर डिलीवर नहीं हो सकता। इसे हटाएं या कोई और पता चुनें।",
+                )}
+              </p>
+            )}
+
             <button
               type="button"
               onClick={handlePlaceOrder}
-              disabled={placing}
+              disabled={placing || localDeliveryBlocked}
               className="w-full bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-full py-3.5 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {placing ? t("Placing Order...", "ऑर्डर हो रहा है...") : t("Place Order", "ऑर्डर करें")}

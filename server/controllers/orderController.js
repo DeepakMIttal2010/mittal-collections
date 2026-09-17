@@ -9,6 +9,7 @@ import CartSnapshot from "../models/CartSnapshot.js";
 import ReturnRequest from "../models/ReturnRequest.js";
 import Ticket from "../models/Ticket.js";
 import { notifyStockAlertSubscribers } from "./productController.js";
+import { resolveFastDelivery } from "./deliveryController.js";
 import {
   calculateDiscount,
   isEligibleForFirstOrderCoupon,
@@ -202,6 +203,7 @@ const verifyOrderItems = async (rawItems) => {
       price,
       quantity,
       size: item.size || "",
+      localDeliveryOnly: product.localDeliveryOnly,
     });
   }
 
@@ -312,6 +314,23 @@ export const createOrder = async (req, res) => {
     // may carry a tampered price/quantity and must not be used for
     // anything that affects money or inventory.
     const verifiedItems = verifyResult.items;
+
+    // Bulky/oversized products (Product.localDeliveryOnly) can't ship
+    // outside the nearby fast-delivery zone — the product page warns
+    // about this, but that's a client-side hint only, so it's enforced
+    // here too rather than trusting a customer never bypasses it via a
+    // direct API call.
+    if (verifiedItems.some((item) => item.localDeliveryOnly)) {
+      const deliveryCheck = await resolveFastDelivery(shippingAddress?.pincode);
+
+      if (!deliveryCheck.fastDelivery) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "One or more items in your cart can't be delivered to this address. Please remove them or choose a different delivery address.",
+        });
+      }
+    }
 
     const subtotal = verifiedItems.reduce(
       (sum, item) => sum + item.price * item.quantity,
