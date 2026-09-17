@@ -81,8 +81,11 @@ const fetchAllProducts = async () => {
 // <link> tags render.js adds for a crawler that lands via prerender.
 // `lastmod` (an updatedAt ISO string, when the caller has one — static
 // routes don't) is trimmed to a plain date, the common sitemap
-// convention, rather than the full timestamp.
-const urlEntry = (loc, alternates, lastmod) => {
+// convention, rather than the full timestamp. `images` (product URLs
+// only) adds Google's sitemap Image extension — a second, dedicated
+// discovery path for Google Images alongside on-page <img> alt text,
+// entirely missing before this.
+const urlEntry = (loc, alternates, lastmod, images) => {
   const altLinks = alternates
     ? alternates
         .map(
@@ -92,8 +95,11 @@ const urlEntry = (loc, alternates, lastmod) => {
         .join("")
     : "";
   const lastmodTag = lastmod ? `<lastmod>${lastmod.slice(0, 10)}</lastmod>` : "";
+  const imageTags = images
+    ? images.map((url) => `<image:image><image:loc>${url}</image:loc></image:image>`).join("")
+    : "";
 
-  return `  <url><loc>${SITE_URL}${loc}</loc>${lastmodTag}${altLinks}</url>`;
+  return `  <url><loc>${SITE_URL}${loc}</loc>${lastmodTag}${altLinks}${imageTags}</url>`;
 };
 
 export default async function handler(req, res) {
@@ -139,7 +145,9 @@ export default async function handler(req, res) {
         );
       }
     });
-    products.forEach((p) => urls.push(urlEntry(productUrl(p), undefined, p.updatedAt)));
+    products.forEach((p) =>
+      urls.push(urlEntry(productUrl(p), undefined, p.updatedAt, p.images)),
+    );
 
     // A Hindi version is only advertised (and only gets its own sitemap
     // entry) once titleHi is actually filled in — see Article.js and
@@ -168,7 +176,7 @@ export default async function handler(req, res) {
   }
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
 ${urls.join("\n")}
 </urlset>
 `;
