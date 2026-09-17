@@ -12,6 +12,7 @@ import Breadcrumbs from "../components/Breadcrumbs";
 import { subscribeStockAlert } from "../services/productService";
 import { getProductQuestions } from "../services/questionService";
 import { getSiteSettings } from "../services/settingsService";
+import { calculateDeliveryFee } from "../utils/shipping";
 import { toWhatsAppNumber } from "../utils/whatsapp";
 import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
@@ -92,6 +93,7 @@ function ProductDetails() {
   const [faqItems, setFaqItems] = useState([]);
   const [whatsappPhone, setWhatsappPhone] = useState("");
   const [defaultReturnPeriodDays, setDefaultReturnPeriodDays] = useState(7);
+  const [shippingSettings, setShippingSettings] = useState(null);
 
   const relatedScrollRef = useRef(null);
   const bundleScrollRef = useRef(null);
@@ -132,6 +134,7 @@ function ProductDetails() {
       if (response.settings.defaultReturnPeriodDays) {
         setDefaultReturnPeriodDays(response.settings.defaultReturnPeriodDays);
       }
+      setShippingSettings(response.settings);
     });
   }, []);
 
@@ -469,6 +472,18 @@ function ProductDetails() {
         )
       : 0;
 
+  // Google's Rich Results Test flags both of these as "optional" but
+  // they're what unlocks the enhanced free-listing treatment in Google
+  // Shopping/Search (shipping cost + delivery time, return window,
+  // shown directly on the listing) — built from the same settings/
+  // return-policy data the checkout page and product page already use,
+  // not separately maintained numbers that could drift from reality.
+  const effectiveReturnDaysForSeo =
+    product.returnPeriodDays || defaultReturnPeriodDays;
+  const shippingFeeForSeo = shippingSettings
+    ? calculateDeliveryFee(product.price, shippingSettings)
+    : undefined;
+
   const productJsonLd = {
     "@context": "https://schema.org",
     "@type": "Product",
@@ -488,6 +503,54 @@ function ProductDetails() {
           ? "https://schema.org/InStock"
           : "https://schema.org/OutOfStock",
       url: shareUrl,
+      ...(shippingFeeForSeo !== undefined && {
+        shippingDetails: {
+          "@type": "OfferShippingDetails",
+          shippingRate: {
+            "@type": "MonetaryAmount",
+            value: shippingFeeForSeo,
+            currency: "INR",
+          },
+          shippingDestination: {
+            "@type": "DefinedRegion",
+            addressCountry: "IN",
+          },
+          // Matches the "Usually delivered in 3-7 business days" promise
+          // shown elsewhere on the site (Footer, delivery-info banners) —
+          // same-day Ghaziabad express delivery is handled separately as
+          // its own Google Merchant Center delivery policy, not here.
+          deliveryTime: {
+            "@type": "ShippingDeliveryTime",
+            handlingTime: {
+              "@type": "QuantitativeValue",
+              minValue: 0,
+              maxValue: 0,
+              unitCode: "DAY",
+            },
+            transitTime: {
+              "@type": "QuantitativeValue",
+              minValue: 3,
+              maxValue: 7,
+              unitCode: "DAY",
+            },
+          },
+        },
+      }),
+      hasMerchantReturnPolicy: product.isReturnable
+        ? {
+            "@type": "MerchantReturnPolicy",
+            applicableCountry: "IN",
+            returnPolicyCategory: "https://schema.org/MerchantReturnFiniteReturnWindow",
+            merchantReturnDays: effectiveReturnDaysForSeo,
+            // Confirmed against the live Returns policy page text
+            // ("Return pickup is completely free") rather than assumed.
+            returnFees: "https://schema.org/FreeReturn",
+          }
+        : {
+            "@type": "MerchantReturnPolicy",
+            applicableCountry: "IN",
+            returnPolicyCategory: "https://schema.org/MerchantReturnNotPermitted",
+          },
     },
     ...(reviewStats.totalReviews > 0 && {
       aggregateRating: {
