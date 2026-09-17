@@ -15,11 +15,17 @@ const PINCODE_API = "https://api.postalpincode.in/pincode";
 // .pincode is arbitrary client input with no such guarantee, and this is
 // the one place it flows into an outgoing fetch() URL.
 export const resolveFastDelivery = async (pincode) => {
-  if (!/^\d{6}$/.test(pincode || "")) {
+  // Matched (not just tested) so the fetch below uses this freshly
+  // derived, provably-6-digits value rather than the original
+  // parameter — some static analysis tools don't credit a bare
+  // `.test()` guard as breaking taint from the argument itself.
+  const safePincode = typeof pincode === "string" && pincode.match(/^\d{6}$/)?.[0];
+
+  if (!safePincode) {
     return { found: false };
   }
 
-  const response = await fetch(`${PINCODE_API}/${pincode}`, {
+  const response = await fetch(`${PINCODE_API}/${safePincode}`, {
     signal: AbortSignal.timeout(4000),
   });
   const data = await response.json();
