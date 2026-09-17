@@ -1,4 +1,4 @@
-import { imgUrl } from "../../services/api";
+import { imgUrl, imgSrcSet } from "../../services/api";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { FaChevronLeft, FaChevronRight, FaTag } from "react-icons/fa";
@@ -67,7 +67,9 @@ function ClearanceCategoryRow({ category, products, t, isFirst }) {
             >
               <div className="relative rounded-xl overflow-hidden shadow-md aspect-[4/5] bg-slate-100">
                 <img
-                  src={`${imgUrl(product.image)}`}
+                  src={`${imgUrl(product.image, "w_300,q_auto,f_auto")}`}
+                  srcSet={imgSrcSet(product.image, [200, 300, 450])}
+                  sizes="(min-width: 640px) 240px, 192px"
                   alt={t(product.name, product.nameHi)}
                   loading="lazy"
                   className="w-full h-full object-cover"
