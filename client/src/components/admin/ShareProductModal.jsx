@@ -742,6 +742,10 @@ function ShareProductModal({ product, onClose }) {
     setVideoUrl(null);
     setVideoBlob(null);
 
+    // Declared here (not inside the try block) so the finally block below
+    // can always remove it, on every exit path, not just the success one.
+    let handleVisibilityChange = null;
+
     try {
       const mimeType = pickVideoMimeType();
       if (!mimeType) {
@@ -845,6 +849,24 @@ function ShareProductModal({ product, onClose }) {
       const stopped = new Promise((resolve) => {
         recorder.onstop = resolve;
       });
+
+      // Canvas painting itself (not just requestAnimationFrame) silently
+      // stops updating the moment this tab is backgrounded, in at least
+      // some browsers — the interval below keeps firing (see its own
+      // comment) and the recorder keeps running for the full intended
+      // length regardless, so nothing here throws or looks wrong at the
+      // time. What actually comes out is a normal-length, normal-sized
+      // file that's frozen on whatever was on screen the instant the tab
+      // was hidden, for its entire remaining length — this is exactly
+      // what a backgrounded recording looked like when this was first
+      // debugged (a product video frozen on the opening hook text for
+      // all 11+ seconds). Failing loudly here, the moment it happens,
+      // beats silently handing back a file that looks fine until played.
+      let tabWentHidden = false;
+      handleVisibilityChange = () => {
+        if (document.hidden) tabWentHidden = true;
+      };
+      document.addEventListener("visibilitychange", handleVisibilityChange);
 
       recorder.start();
 
@@ -954,6 +976,12 @@ function ShareProductModal({ product, onClose }) {
       clearInterval(frameTimer);
       if (audioCtx) await audioCtx.close();
 
+      if (tabWentHidden) {
+        throw new Error(
+          "This tab was switched away from or minimised while recording — the video would only show a frozen frame. Please try again and keep this tab open and visible until it finishes.",
+        );
+      }
+
       const rawBlob = new Blob(chunks, { type: mimeType.split(";")[0] });
 
       // MediaRecorder-produced webm never writes a Duration into its
@@ -976,6 +1004,9 @@ function ShareProductModal({ product, onClose }) {
       console.error("Video generation error:", err);
       setVideoError(err.message || "Could not generate the video. Try again.");
     } finally {
+      if (handleVisibilityChange) {
+        document.removeEventListener("visibilitychange", handleVisibilityChange);
+      }
       setVideoRecording(false);
     }
   };
@@ -1091,7 +1122,7 @@ function ShareProductModal({ product, onClose }) {
                   <div className="absolute inset-0 flex items-center justify-center text-sm text-slate-400 text-center px-4">
                     Recording video...
                     <br />
-                    (takes a few seconds)
+                    (takes a few seconds — keep this tab open and visible)
                   </div>
                 )}
                 {!videoRecording && videoUrl && (
