@@ -13,7 +13,7 @@ function BottomNav({ onOpenCategories, categoriesOpen, onOpenAccount, accountOpe
 
   const tabClass = (active) =>
     `flex flex-col items-center justify-center gap-0.5 text-[11px] font-medium transition-colors ${
-      active ? "text-amber-600" : "text-slate-500"
+      active ? "text-amber-600" : "text-slate-600"
     }`;
 
   return (

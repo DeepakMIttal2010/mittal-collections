@@ -90,7 +90,7 @@ function SubcategoryRow({ category, groupLabel, items, activeSubcategory }) {
                   </p>
 
                   {sub.subtitle && (
-                    <p className="text-xs text-slate-400 mt-0.5">
+                    <p className="text-xs text-slate-600 mt-0.5">
                       {sub.subtitle}
                     </p>
                   )}
