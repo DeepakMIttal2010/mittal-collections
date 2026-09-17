@@ -41,8 +41,8 @@ function PincodeChecker({ localDeliveryOnly = false }) {
       {localDeliveryOnly && (
         <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-2">
           {t(
-            "📦 This item is not available for delivery in all pincodes — please check yours below.",
-            "📦 यह उत्पाद हर पिनकोड पर डिलीवर नहीं होता — कृपया नीचे अपना पिनकोड जांचें।",
+            "Delivery not available in all areas",
+            "डिलीवरी सभी क्षेत्रों में उपलब्ध नहीं है",
           )}
         </p>
       )}
@@ -83,8 +83,8 @@ function PincodeChecker({ localDeliveryOnly = false }) {
       {result?.type === "standard" && localDeliveryOnly && (
         <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mt-2">
           {t(
-            "❌ This item is not delivered to the pincode you entered.",
-            "❌ यह उत्पाद आपके द्वारा दर्ज पिनकोड पर डिलीवर नहीं होता।",
+            "Sorry, this item can't be delivered to your area",
+            "क्षमा करें, यह उत्पाद आपके क्षेत्र में डिलीवर नहीं हो सकता",
           )}
         </p>
       )}
