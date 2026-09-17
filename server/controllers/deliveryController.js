@@ -9,8 +9,16 @@ const PINCODE_API = "https://api.postalpincode.in/pincode";
 // Shared by the public checkPincode endpoint below AND orderController's
 // server-side localDeliveryOnly enforcement (createOrder must not trust
 // only the client-side pincode-checker UI, which a direct API call can
-// bypass entirely).
+// bypass entirely). Validates its own input rather than trusting every
+// caller to do it first — checkPincode's req.params.pincode was always
+// validated before this existed, but createOrder's req.body.shippingAddress
+// .pincode is arbitrary client input with no such guarantee, and this is
+// the one place it flows into an outgoing fetch() URL.
 export const resolveFastDelivery = async (pincode) => {
+  if (!/^\d{6}$/.test(pincode || "")) {
+    return { found: false };
+  }
+
   const response = await fetch(`${PINCODE_API}/${pincode}`, {
     signal: AbortSignal.timeout(4000),
   });
