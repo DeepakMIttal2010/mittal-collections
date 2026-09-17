@@ -52,7 +52,7 @@
      short by design, but this is the safety net against a future label
      stretching the pill into a banner instead of wrapping/truncating. */
   max-width: calc(100% - 30px);
-  background: #d97706;
+  background: #b45309;
   color: white;
   padding: 5px 11px;
   border-radius: 20px;
@@ -118,7 +118,7 @@
 }
 
 .category {
-  color: #777;
+  color: #666;
   font-size: 14px;
   margin-bottom: 8px;
 }
@@ -136,7 +136,7 @@
 }
 
 .size-line {
-  color: #777;
+  color: #666;
   font-size: 13px;
   margin-bottom: 6px;
   line-height: 1.4;

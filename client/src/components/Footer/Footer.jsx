@@ -179,7 +179,7 @@ function Footer() {
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-slate-500">
+                <p className="text-sm text-slate-400">
                   {t("Follow links coming soon.", "फॉलो लिंक जल्द आएंगे।")}
                 </p>
               )}
@@ -197,7 +197,7 @@ function Footer() {
                 <p className="text-sm text-slate-400 mb-1">
                   {t("🚚 FAST DELIVERY within 24 Hours*", "🚚 24 घंटे में तेज़ डिलीवरी*")}
                 </p>
-                <p className="text-xs text-slate-500 mb-4">
+                <p className="text-xs text-slate-400 mb-4">
                   {t(
                     "*Subject to order cutoff time, product availability and exact delivery address within these areas.",
                     "*ऑर्डर कटऑफ समय, प्रोडक्ट उपलब्धता और इन क्षेत्रों में सटीक डिलीवरी पते के अधीन।",
@@ -231,7 +231,7 @@ function Footer() {
 
           <hr className="border-slate-700 my-10" />
 
-          <p className="text-center text-sm text-slate-500">
+          <p className="text-center text-sm text-slate-400">
             {t(
               `© ${new Date().getFullYear()} Mittal Collections. All Rights Reserved.`,
               `© ${new Date().getFullYear()} मित्तल कलेक्शंस। सर्वाधिकार सुरक्षित।`,
