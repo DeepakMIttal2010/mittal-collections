@@ -1299,6 +1299,41 @@ export const cancelStaleRazorpayOrders = async (req, res) => {
         );
       }
 
+      // Every other order-status change notifies the customer (see
+      // updateOrderStatus below) — this cron-driven path was silently
+      // skipping that, so a customer whose checkout stalled had no way
+      // to know their order had been cancelled out from under them.
+      const cancelledMessage = ORDER_STATUS_MESSAGES.Cancelled;
+
+      notifyUser({
+        userId: order.user,
+        type: "order_status",
+        title: cancelledMessage.subject,
+        message: `Order ID: ${order._id}`,
+        link: `/my-orders/${order._id}`,
+      });
+
+      User.findById(order.user)
+        .select("name email")
+        .then((customer) => {
+          if (!customer?.email) return;
+
+          return sendEmail({
+            to: customer.email,
+            bcc: process.env.ADMIN_NOTIFICATION_EMAIL,
+            subject: cancelledMessage.subject,
+            html: `
+              <p>Hi ${customer.name || "there"},</p>
+              <p>${cancelledMessage.body}</p>
+              <p>Order ID: ${order._id}</p>
+              <p><a href="${process.env.CLIENT_URL}/my-orders/${order._id}">View your order</a></p>
+            `,
+          });
+        })
+        .catch((error) =>
+          console.error("Stale Razorpay Order Cancellation Email Error:", error),
+        );
+
       cancelled += 1;
     }
 
