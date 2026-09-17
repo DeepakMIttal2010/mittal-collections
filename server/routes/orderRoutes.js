@@ -18,6 +18,7 @@ import {
   permanentlyDeleteOrder,
   sendReviewRequestEmails,
   cancelStaleRazorpayOrders,
+  resendOrderStatusEmail,
 } from "../controllers/orderController.js";
 
 const router = express.Router();
@@ -51,6 +52,17 @@ router.get("/:id", authMiddleware, getOrderById);
 
 // Update Order Status — sirf Admin
 router.put("/:id/status", authMiddleware, adminMiddleware, perm, canModify, updateOrderStatus);
+
+// Resend Order Status Notification Email — sirf Admin (no data changes,
+// gated same as a status update since it does send a real customer email)
+router.post(
+  "/:id/resend-status-email",
+  authMiddleware,
+  adminMiddleware,
+  perm,
+  canModify,
+  resendOrderStatusEmail,
+);
 
 // Mark Order Seen — sirf Admin (a lightweight read-marker like the
 // notification bell, not gated by write access — see adminRoutes.js's
