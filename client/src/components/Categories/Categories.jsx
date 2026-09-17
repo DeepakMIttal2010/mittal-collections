@@ -1,4 +1,4 @@
-import { imgUrl } from "../../services/api";
+import { imgUrl, imgSrcSet } from "../../services/api";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { getCategories } from "../../services/categoryService";
@@ -62,7 +62,9 @@ function Categories() {
               >
                 <div className="relative h-72 overflow-hidden">
                   <img
-                    src={`${imgUrl(category.image)}`}
+                    src={`${imgUrl(category.image, "w_600,q_auto,f_auto")}`}
+                    srcSet={imgSrcSet(category.image, [400, 600, 850])}
+                    sizes="(min-width: 1024px) 405px, (min-width: 640px) 45vw, 90vw"
                     alt={t(category.name, category.nameHi)}
                     loading="lazy"
                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"

@@ -1,4 +1,4 @@
-import { imgUrl } from "../../services/api";
+import { imgUrl, imgSrcSet } from "../../services/api";
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
@@ -319,6 +319,8 @@ function Hero() {
         <div className="hero-split-media">
           <img
             src={backgroundImage}
+            srcSet={slide.image ? imgSrcSet(slide.image, [500, 800, 1200]) : undefined}
+            sizes="(max-width: 640px) 90vw, (max-width: 1200px) 45vw, 512px"
             alt={imageAlt}
             className="hero-split-image"
             fetchPriority="high"

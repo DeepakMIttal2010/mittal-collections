@@ -1,4 +1,4 @@
-import { imgUrl } from "../../services/api";
+import { imgUrl, imgSrcSet } from "../../services/api";
 import { useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
@@ -74,7 +74,9 @@ function SubcategoryRow({ category, groupLabel, items, activeSubcategory }) {
                 <div className="aspect-square">
                   {imageUrl && (
                     <img
-                      src={`${imgUrl(imageUrl)}`}
+                      src={`${imgUrl(imageUrl, "w_260,q_auto,f_auto")}`}
+                      srcSet={imgSrcSet(imageUrl, [200, 300, 450])}
+                      sizes="208px"
                       alt={t(sub.name, sub.nameHi)}
                       loading="lazy"
                       className="w-full h-full object-cover"

@@ -1,4 +1,4 @@
-import { imgUrl } from "../../services/api";
+import { imgUrl, imgSrcSet } from "../../services/api";
 import { useEffect, useState } from "react";
 import "./ProductCard.css";
 import { Link } from "react-router-dom";
@@ -44,6 +44,8 @@ function ProductCard({ product }) {
         <div className="product-image">
           <img
             src={`${imgUrl(product.image, "w_400,q_auto,f_auto")}`}
+            srcSet={imgSrcSet(product.image, [200, 400, 600])}
+            sizes="(min-width: 1024px) 270px, (min-width: 768px) 29vw, 45vw"
             alt={t(product.name, product.nameHi)}
             loading="lazy"
           />

@@ -16,6 +16,26 @@ export const imgUrl = (path, transform) => {
   return path;
 };
 
+// Builds a srcset string offering the same Cloudinary image at several
+// widths, so the browser picks whichever one actually matches how big
+// it's rendering (paired with a `sizes` attribute at the call site) —
+// instead of every viewport downloading one fixed size regardless of
+// its real display width, which is what PageSpeed Insights' "Improve
+// image delivery" audit flags (5+ MB of it on the homepage alone).
+// Only meaningful for Cloudinary-hosted images, same restriction imgUrl
+// itself applies — legacy /uploads/* images have no on-the-fly resizing,
+// so there's nothing to build a srcset out of for those.
+export const imgSrcSet = (path, widths, extraTransform = "q_auto,f_auto") => {
+  if (!path || !path.startsWith("http")) return undefined;
+  if (!path.includes("res.cloudinary.com/") || !path.includes("/upload/")) {
+    return undefined;
+  }
+
+  return widths
+    .map((w) => `${imgUrl(path, `w_${w},${extraTransform}`)} ${w}w`)
+    .join(", ");
+};
+
 const API_BASE_URL = `${SERVER_URL}/api`;
 
 export default API_BASE_URL;
