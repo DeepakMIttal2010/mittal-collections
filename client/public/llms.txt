@@ -1,0 +1,37 @@
+# Mittal Collections
+
+> Mittal Collections is an online home furnishing store based in Ghaziabad, India, selling bedsheets, curtains, cushions, towels, doormats and related products with pan-India delivery.
+
+Standard delivery across India takes 3-7 business days. Same-day (24-hour) express delivery is available in and around Ghaziabad (Vasundhara, Vaishali, Indirapuram and nearby areas). Cash on Delivery and online payment (Razorpay) are both supported. Products can be returned per the return policy linked below.
+
+## Categories
+
+- [Bedsheets](https://www.mittalcollections.com/category/bedsheets)
+- [Curtains](https://www.mittalcollections.com/category/curtains)
+- [Cushion Covers](https://www.mittalcollections.com/category/cushion-covers)
+- [Cushions](https://www.mittalcollections.com/category/cushions)
+- [Doormats](https://www.mittalcollections.com/category/doormats)
+- [Hotel Linen](https://www.mittalcollections.com/category/hotel-linen)
+- [Mattress Covers](https://www.mittalcollections.com/category/mattress-covers)
+- [Table Covers](https://www.mittalcollections.com/category/table-covers)
+- [Table Runners](https://www.mittalcollections.com/category/table-runners)
+- [Towels](https://www.mittalcollections.com/category/towels)
+- [Toys](https://www.mittalcollections.com/category/toys)
+
+## Company
+
+- [About Us](https://www.mittalcollections.com/about)
+- [Contact Us](https://www.mittalcollections.com/contact)
+- [Buying Guides & Articles](https://www.mittalcollections.com/articles): size guides, fabric guides and home-decor advice.
+
+## Policies
+
+- [Shipping Policy](https://www.mittalcollections.com/policies/shipping-policy)
+- [Returns & Refunds](https://www.mittalcollections.com/policies/returns)
+- [Privacy Policy](https://www.mittalcollections.com/policies/privacy-policy)
+- [Terms & Conditions](https://www.mittalcollections.com/policies/terms-and-conditions)
+
+## Optional
+
+- [Product Feed (XML)](https://mittal-collections-api.onrender.com/api/feed/google.xml): full product catalog with price, availability and images.
+- [Sitemap](https://www.mittalcollections.com/sitemap.xml)
