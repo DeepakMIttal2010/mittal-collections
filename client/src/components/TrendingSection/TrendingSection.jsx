@@ -136,7 +136,7 @@ function TrendingSection() {
             <h2 className="text-4xl md:text-5xl font-black text-slate-900">
               {t("Top Trending", "सबसे ज़्यादा ट्रेंडिंग")}
             </h2>
-            <p className="text-sm text-slate-500 mt-2 flex items-center gap-2">
+            <p className="text-sm text-slate-600 mt-2 flex items-center gap-2">
               {t("on Mittal Collections", "मित्तल कलेक्शंस पर")}
               {lastUpdated && (
                 <>
@@ -176,7 +176,7 @@ function TrendingSection() {
           ))
         )}
 
-        <p className="text-xs text-slate-400 mt-2 flex items-center gap-1.5">
+        <p className="text-xs text-slate-600 mt-2 flex items-center gap-1.5">
           <FaFire className="text-amber-500" />
           {t("Handpicked by our team", "हमारी टीम द्वारा चुने गए")}
         </p>

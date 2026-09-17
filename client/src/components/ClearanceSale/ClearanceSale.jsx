@@ -126,7 +126,7 @@ function ClearanceSale() {
             <h2 className="text-4xl md:text-5xl font-black text-slate-900">
               🔥 {t("Clearance Sale", "क्लीयरेंस सेल")}
             </h2>
-            <p className="text-sm text-slate-500 mt-2">
+            <p className="text-sm text-slate-600 mt-2">
               {t(
                 "More than 35% Off — limited stock, won't be restocked at this price.",
                 "35% से ज़्यादा की छूट — सीमित स्टॉक, इस कीमत पर दोबारा नहीं मिलेगा।",
@@ -163,7 +163,7 @@ function ClearanceSale() {
           ))
         )}
 
-        <p className="text-xs text-slate-400 mt-2 flex items-center gap-1.5">
+        <p className="text-xs text-slate-600 mt-2 flex items-center gap-1.5">
           <FaTag className="text-red-500" />
           {t(
             "Big discounts on select items — once sold, gone.",
