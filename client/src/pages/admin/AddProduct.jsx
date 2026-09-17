@@ -86,6 +86,7 @@ function AddProduct() {
     countryOfOrigin: "",
     whatsIncluded: "",
     colorVariesNote: "",
+    localDeliveryOnly: false,
     adminRemarks: "",
     isReturnable: true,
     returnPeriodDays: "",
@@ -313,6 +314,7 @@ function AddProduct() {
     data.append("countryOfOrigin", formData.countryOfOrigin);
     data.append("whatsIncluded", formData.whatsIncluded);
     data.append("colorVariesNote", formData.colorVariesNote);
+    data.append("localDeliveryOnly", formData.localDeliveryOnly);
     data.append("adminRemarks", formData.adminRemarks);
     data.append("isReturnable", formData.isReturnable);
     data.append("returnPeriodDays", formData.returnPeriodDays);
@@ -904,6 +906,16 @@ function AddProduct() {
               onChange={handleChange}
             />
             Custom Restock Alert
+          </label>
+
+          <label title="For bulky/oversized items where pan-India shipping is uneconomical — the product page warns customers outside the nearby fast-delivery zone that this item can't be shipped to them.">
+            <input
+              type="checkbox"
+              name="localDeliveryOnly"
+              checked={formData.localDeliveryOnly}
+              onChange={handleChange}
+            />
+            Local Delivery Only (bulky item)
           </label>
         </div>
 
