@@ -105,6 +105,43 @@ const ORDER_STATUS_MESSAGES = {
   },
 };
 
+// Shared by every path that needs to tell a customer their order's status
+// changed (or re-tell them, for the same status) — the in-app notification
+// bell plus an email, both keyed off ORDER_STATUS_MESSAGES. Fire-and-forget:
+// callers don't await this, matching the existing behavior at each call site.
+const sendOrderStatusNotification = (order, status) => {
+  const statusMessage = ORDER_STATUS_MESSAGES[status];
+
+  if (!statusMessage) return;
+
+  notifyUser({
+    userId: order.user,
+    type: "order_status",
+    title: statusMessage.subject,
+    message: `Order ID: ${order._id}`,
+    link: `/my-orders/${order._id}`,
+  });
+
+  User.findById(order.user)
+    .select("name email")
+    .then((customer) => {
+      if (!customer?.email) return;
+
+      return sendEmail({
+        to: customer.email,
+        bcc: process.env.ADMIN_NOTIFICATION_EMAIL,
+        subject: statusMessage.subject,
+        html: `
+          <p>Hi ${customer.name || "there"},</p>
+          <p>${statusMessage.body}</p>
+          <p>Order ID: ${order._id}</p>
+          <p><a href="${process.env.CLIENT_URL}/my-orders/${order._id}">View your order</a></p>
+        `,
+      });
+    })
+    .catch((error) => console.error("Order Status Email Error:", error));
+};
+
 // Matches (and slightly exceeds) SiteSettings.defaultReturnPeriodDays —
 // by this point the return window has closed, so an order that reaches
 // this point without a return means the customer kept the product and
@@ -969,38 +1006,7 @@ export const updateOrderStatus = async (req, res) => {
       }
     }
 
-    const statusMessage = ORDER_STATUS_MESSAGES[status];
-
-    if (statusMessage) {
-      notifyUser({
-        userId: order.user,
-        type: "order_status",
-        title: statusMessage.subject,
-        message: `Order ID: ${order._id}`,
-        link: `/my-orders/${order._id}`,
-      });
-
-      User.findById(order.user)
-        .select("name email")
-        .then((customer) => {
-          if (!customer?.email) return;
-
-          return sendEmail({
-            to: customer.email,
-            bcc: process.env.ADMIN_NOTIFICATION_EMAIL,
-            subject: statusMessage.subject,
-            html: `
-              <p>Hi ${customer.name || "there"},</p>
-              <p>${statusMessage.body}</p>
-              <p>Order ID: ${order._id}</p>
-              <p><a href="${process.env.CLIENT_URL}/my-orders/${order._id}">View your order</a></p>
-            `,
-          });
-        })
-        .catch((error) =>
-          console.error("Order Status Email Error:", error),
-        );
-    }
+    sendOrderStatusNotification(order, status);
 
     res.status(200).json({
       success: true,
@@ -1300,39 +1306,10 @@ export const cancelStaleRazorpayOrders = async (req, res) => {
       }
 
       // Every other order-status change notifies the customer (see
-      // updateOrderStatus below) — this cron-driven path was silently
+      // updateOrderStatus above) — this cron-driven path was silently
       // skipping that, so a customer whose checkout stalled had no way
       // to know their order had been cancelled out from under them.
-      const cancelledMessage = ORDER_STATUS_MESSAGES.Cancelled;
-
-      notifyUser({
-        userId: order.user,
-        type: "order_status",
-        title: cancelledMessage.subject,
-        message: `Order ID: ${order._id}`,
-        link: `/my-orders/${order._id}`,
-      });
-
-      User.findById(order.user)
-        .select("name email")
-        .then((customer) => {
-          if (!customer?.email) return;
-
-          return sendEmail({
-            to: customer.email,
-            bcc: process.env.ADMIN_NOTIFICATION_EMAIL,
-            subject: cancelledMessage.subject,
-            html: `
-              <p>Hi ${customer.name || "there"},</p>
-              <p>${cancelledMessage.body}</p>
-              <p>Order ID: ${order._id}</p>
-              <p><a href="${process.env.CLIENT_URL}/my-orders/${order._id}">View your order</a></p>
-            `,
-          });
-        })
-        .catch((error) =>
-          console.error("Stale Razorpay Order Cancellation Email Error:", error),
-        );
+      sendOrderStatusNotification(order, "Cancelled");
 
       cancelled += 1;
     }
@@ -1344,6 +1321,47 @@ export const cancelStaleRazorpayOrders = async (req, res) => {
     });
   } catch (error) {
     console.error("Cancel Stale Razorpay Orders Error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};
+
+// ============================
+// Resend Order Status Notification (Admin)
+// ============================
+// For cases where a customer says they never got the original status
+// email (spam filter, typo'd address, etc.) — re-sends the notification
+// for the order's current status without touching orderStatus,
+// statusHistory, stock, or loyalty points at all.
+export const resendOrderStatusEmail = async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    if (!ORDER_STATUS_MESSAGES[order.orderStatus]) {
+      return res.status(400).json({
+        success: false,
+        message: `No notification email exists for status "${order.orderStatus}".`,
+      });
+    }
+
+    sendOrderStatusNotification(order, order.orderStatus);
+
+    res.status(200).json({
+      success: true,
+      message: "Notification resent",
+    });
+  } catch (error) {
+    console.error("Resend Order Status Email Error:", error);
 
     res.status(500).json({
       success: false,
