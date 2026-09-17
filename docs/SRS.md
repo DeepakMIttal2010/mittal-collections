@@ -1,13 +1,15 @@
 # Software Requirements Specification (SRS)
 
 **Project:** Mittal Collections
-**Document version:** 1.4
-**Last updated:** 2026-09-01
+**Document version:** 1.5
+**Last updated:** 2026-09-17
 
 This document covers technical and non-functional requirements. For
 feature-level functional requirements, see `FRS.md`.
 
 ## 1. Technology Stack
+
+Full library-by-library breakdown with exact versions: `TECH_STACK.md`. The tables below are the summary-level view.
 
 ### 1.1 Frontend (`client/`)
 | Layer | Choice |
@@ -21,20 +23,25 @@ feature-level functional requirements, see `FRS.md`.
 | Notifications | react-toastify |
 | Icons | react-icons |
 | CSV parsing (admin bulk import) | papaparse |
-| Hosting | Vercel (SPA rewrite to `index.html`) |
+| Virtualized product grids | @tanstack/react-virtual |
+| QR codes (product-share cards, POS) | qrcode |
+| Error tracking | Sentry (`@sentry/react`) |
+| Hosting | Vercel (SPA rewrite to `index.html`; `middleware.js` also 301-redirects the auto-assigned `*.vercel.app` domain to the canonical host, added 2026-09-16) |
 
 ### 1.2 Backend (`server/`)
 | Layer | Choice |
 |---|---|
 | Runtime | Node.js, Express 5 |
 | Database | MongoDB (Mongoose 9 ODM), hosted on MongoDB Atlas |
-| Auth | JWT (`jsonwebtoken`), password hashing via `bcryptjs` |
+| Auth | JWT (`jsonwebtoken`), password hashing via `bcryptjs`, Google Sign-In via `google-auth-library` |
 | File uploads | Multer (memory storage) → Cloudinary (images/videos) |
 | Image processing | `sharp` (server-side optimization) |
 | Email | Brevo transactional HTTP API (**not** SMTP — see §4) |
-| Security | `helmet`, `express-rate-limit`, restricted `cors` |
+| Security | `helmet`, `express-rate-limit`, restricted `cors`, `sanitize-html` on user-submitted rich text |
 | Performance | `compression` (gzip), MongoDB compound indexes |
-| Geo lookup | `geoip-lite` (for analytics) |
+| Geo lookup | `geoip-lite` (bundled DB), falling back to `ip-api.com` when no match — used for analytics and the "Deliver to" header |
+| Delivery-area lookup | `api.postalpincode.in` (India Post, free/keyless) — powers the pincode delivery checker and `Product.localDeliveryOnly` checkout enforcement (added 2026-09-17) |
+| Error tracking | Sentry (`@sentry/node`) |
 | Hosting | Render (free tier) |
 
 ### 1.3 External Services
@@ -48,7 +55,10 @@ feature-level functional requirements, see `FRS.md`.
 | WhatsApp Cloud API (Meta) | Webhook only (`GET`/`POST /api/whatsapp/webhook`), added 2026-08-25: `GET` verifies the Callback URL for Meta's dashboard (echoes `hub.challenge` against `WHATSAPP_VERIFY_TOKEN`); `POST` receives message-status/incoming-message events and acknowledges immediately. Live and verified with Meta as a receiving webhook. **No outbound/business-initiated message-sending integration exists** — blocked on Meta Business Verification (pending a business-name-matching document; Udyam re-registration in progress). A manual per-order `wa.me` deep-link button in the admin panel and the pre-existing POS-receipt/product-share `wa.me` links are the interim stand-ins. Payload signature verification on the webhook is not yet implemented. |
 | Google Analytics 4 | Traffic analytics (client-side tag, deferred to load after `window.load`, excluded from `/admin/*` routes so admin usage doesn't pollute customer-traffic numbers), plus server-side reporting into Admin Reports via a read-only Google service account (see §4) |
 | Google Search Console | Search performance + indexing, plus server-side reporting into Admin Reports via the same service account |
-| Google Merchant Center / Meta Commerce Manager | Product catalog feed (`GET /api/feed/google.xml`, RSS 2.0 + Google Shopping namespace) of every active, online-visible product, added 2026-08-12 |
+| Google Merchant Center / Meta Commerce Manager | Product catalog feed (`GET /api/feed/google.xml`, RSS 2.0 + Google Shopping namespace) of every active, online-visible product, added 2026-08-12. Confirmed live in Google Merchant Center since ~19 Aug 2026 (130 products, all Approved); feed also emits `<g:color>`/`<g:material>`/`<g:pattern>` when those product fields are set (added 2026-09-16/17). A "Mittal Rewards" loyalty programme and a WELCOME10 first-order promotion are also configured directly in the Merchant Center dashboard (not code), both live as of 2026-09-17. |
+| Sentry | Error tracking, both `@sentry/node` (server) and `@sentry/react` (client); live in production |
+| UptimeRobot + a dedicated cron-job.org job | Two independent, redundant `/api/health` pings (~5 min and ~10 min respectively) — keeps the Render free-tier backend from cold-sleeping between real requests; UptimeRobot additionally sends downtime email alerts (SMS/push not yet configured) |
+| `llms.txt` | Static file at `client/public/llms.txt` (same mechanism as `robots.txt`) summarizing the site for LLM/AI-agent crawlers, per the emerging (non-standard) `llms.txt` convention. Added 2026-09-17. |
 
 ## 2. Non-Functional Requirements
 

@@ -28,11 +28,20 @@ or **Mark all as read** to clear the rest; the stock alert isn't a
 
 - **Add Product**: name, description, price/old price, category +
   subcategory, stock, up to several images (pick the main one) and up
-  to 2 videos, and optional specs — **Fabric, Size, GSM, Wash Care,
-  Brand, Country of Origin**. Leave any spec blank if it doesn't apply
-  or you don't have the info yet — the product page only shows the
-  specs you actually fill in, and none of them are mandatory to save
-  the product.
+  to 2 videos, and optional specs — **Fabric, Colour, Pattern, Size,
+  GSM, Wash Care, Brand, Country of Origin**. Leave any spec blank if
+  it doesn't apply or you don't have the info yet — the product page
+  only shows the specs you actually fill in, and none of them are
+  mandatory to save the product. Fabric/Colour/Pattern also feed the
+  Google Shopping feed's structured attributes (added 2026-09-16),
+  which Google credits more reliably than the same details only being
+  mentioned in the description text.
+- **Local Delivery Only** checkbox (added 2026-09-17): tick this for a
+  bulky/oversized item (large cushions, etc.) where pan-India shipping
+  cost doesn't make sense. The product page then warns customers
+  outside the nearby fast-delivery zone, and checkout blocks placing
+  the order entirely if the address falls outside it — enforced
+  server-side too, not just as a front-end warning.
 - Toggle **Featured**, **Active** (inactive = hidden from the
   storefront, not deleted), and **Show in Trending** (with a manual
   rank — lower shows first). Trending is a hand-picked list, separate

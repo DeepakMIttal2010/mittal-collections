@@ -1,8 +1,8 @@
 # System Architecture
 
 **Project:** Mittal Collections
-**Document version:** 1.3
-**Last updated:** 2026-09-01
+**Document version:** 1.4
+**Last updated:** 2026-09-17
 
 ## 1. High-Level Overview
 
