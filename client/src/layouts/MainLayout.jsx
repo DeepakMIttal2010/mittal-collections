@@ -40,7 +40,9 @@ function MainLayout() {
       </ErrorBoundary>
       <Navbar />
 
-      <Outlet />
+      <main>
+        <Outlet />
+      </main>
 
       <Footer />
 
