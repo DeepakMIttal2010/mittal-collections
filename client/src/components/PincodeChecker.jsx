@@ -4,7 +4,7 @@ import { FaTruck } from "react-icons/fa";
 import { checkPincodeDelivery } from "../services/deliveryService";
 import { useLanguage } from "../context/LanguageContext";
 
-function PincodeChecker() {
+function PincodeChecker({ localDeliveryOnly = false }) {
   const { t } = useLanguage();
   const [pincode, setPincode] = useState("");
   const [checking, setChecking] = useState(false);
@@ -37,6 +37,15 @@ function PincodeChecker() {
         <FaTruck className="text-slate-400" />
         {t("Check delivery at your pincode", "अपने पिनकोड पर डिलीवरी जांचें")}
       </div>
+
+      {localDeliveryOnly && (
+        <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-2">
+          {t(
+            "📦 Due to its size, this item is delivered only to nearby areas — not available pan-India.",
+            "📦 इसके आकार के कारण, यह उत्पाद केवल आस-पास के क्षेत्रों में ही डिलीवर किया जाता है — पूरे भारत में उपलब्ध नहीं है।",
+          )}
+        </p>
+      )}
 
       <div className="flex gap-2">
         <input
@@ -71,7 +80,16 @@ function PincodeChecker() {
         </p>
       )}
 
-      {result?.type === "standard" && (
+      {result?.type === "standard" && localDeliveryOnly && (
+        <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mt-2">
+          {t(
+            "❌ Sorry, this item can't be delivered to this pincode — it's only available in nearby areas due to its size.",
+            "❌ माफ़ करें, यह उत्पाद इस पिनकोड पर डिलीवर नहीं किया जा सकता — यह केवल आस-पास के क्षेत्रों में ही उपलब्ध है।",
+          )}
+        </p>
+      )}
+
+      {result?.type === "standard" && !localDeliveryOnly && (
         <p className="text-sm text-slate-600 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 mt-2">
           {t(
             "Standard delivery available (3-7 days)",

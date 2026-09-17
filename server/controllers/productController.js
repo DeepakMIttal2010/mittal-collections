@@ -594,6 +594,7 @@ export const duplicateProduct = async (req, res) => {
       countryOfOrigin: source.countryOfOrigin,
       whatsIncluded: source.whatsIncluded,
       colorVariesNote: source.colorVariesNote,
+      localDeliveryOnly: source.localDeliveryOnly,
 
       featured: false,
       isTrending: false,
@@ -1168,6 +1169,7 @@ export const addProduct = async (req, res) => {
       countryOfOrigin,
       whatsIncluded,
       colorVariesNote,
+      localDeliveryOnly,
       adminRemarks,
       isReturnable,
       returnPeriodDays,
@@ -1238,6 +1240,7 @@ export const addProduct = async (req, res) => {
       countryOfOrigin: countryOfOrigin || "",
       whatsIncluded: whatsIncluded || "",
       colorVariesNote: colorVariesNote || "",
+      localDeliveryOnly: localDeliveryOnly === "true",
       adminRemarks: adminRemarks || "",
       adminRemarksUpdatedAt: adminRemarks ? new Date() : null,
 
@@ -1352,6 +1355,7 @@ export const updateProduct = async (req, res) => {
     product.countryOfOrigin = req.body.countryOfOrigin || "";
     product.whatsIncluded = req.body.whatsIncluded || "";
     product.colorVariesNote = req.body.colorVariesNote || "";
+    product.localDeliveryOnly = req.body.localDeliveryOnly === "true";
 
     // Only bump the timestamp when the note itself actually changed —
     // otherwise re-saving the product for an unrelated edit (price,
