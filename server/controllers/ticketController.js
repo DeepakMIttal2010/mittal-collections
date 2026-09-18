@@ -287,13 +287,41 @@ export const updateTicketStatus = async (req, res) => {
       req.params.id,
       { status },
       { new: true },
-    );
+    ).populate("user", "name email");
 
     if (!ticket) {
       return res.status(404).json({
         success: false,
         message: "Ticket not found",
       });
+    }
+
+    // Mirrors addTicketMessage's admin-reply notification above — a
+    // status change with no accompanying reply (bulk-resolving, or
+    // closing after a call) previously left the customer with no way
+    // to know their ticket had moved at all.
+    const statusText = `Your support ticket status changed to "${status}"`;
+
+    notifyUser({
+      userId: ticket.user._id,
+      type: "ticket_reply",
+      title: statusText,
+      message: `Ticket: ${ticket.subject}`,
+      link: `/tickets/${ticket._id}`,
+    });
+
+    if (ticket.user.email) {
+      sendEmail({
+        to: ticket.user.email,
+        subject: statusText,
+        html: `
+          <p>Hi ${ticket.user.name || "there"},</p>
+          <p>${statusText} for "${ticket.subject}".</p>
+          <p><a href="${process.env.CLIENT_URL}/tickets/${ticket._id}">View your ticket</a></p>
+        `,
+      }).catch((error) =>
+        console.error("Update Ticket Status Email Error:", error),
+      );
     }
 
     res.status(200).json({
