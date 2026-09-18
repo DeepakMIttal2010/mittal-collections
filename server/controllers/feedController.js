@@ -64,9 +64,14 @@ const feedDescription = (description) => {
     ? raw.split(/<\/(?:p|li|div|h[1-6])>/gi)
     : raw.split(/\r?\n\r?\n/);
 
+  // Some products' final paragraph is labelled "Care instructions:",
+  // others just "Care:" — both conventions exist in the catalog (found
+  // while bulk-reformatting descriptions into rich text), so both must
+  // be recognized here or the shorter-labelled ones silently leak their
+  // care paragraph into the Shopping/Meta feed description.
   const withoutCareInstructions = blocks
     .map(stripTags)
-    .filter((block) => block && !/^care instructions:/i.test(block))
+    .filter((block) => block && !/^care(\s+instructions)?:/i.test(block))
     .join(" ");
 
   return withoutCareInstructions.replace(/\s+/g, " ").trim().slice(0, 5000);
