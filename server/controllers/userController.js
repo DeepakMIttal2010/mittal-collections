@@ -6,6 +6,7 @@ import CartSnapshot from "../models/CartSnapshot.js";
 import PageVisit from "../models/PageVisit.js";
 import { applyLoyaltyPointsChange } from "../utils/loyaltyPoints.js";
 import { notifyUser } from "../utils/notify.js";
+import { sendEmail } from "../config/mailer.js";
 
 // How many of a customer's most recent page visits to show on their admin
 // details page — enough to see a real browsing session, not their entire
@@ -220,6 +221,42 @@ export const toggleBlockCustomer = async (req, res) => {
     customer.isBlocked = !customer.isBlocked;
 
     await customer.save();
+
+    // A blocked customer can't log in at all (see authController.js's
+    // own isBlocked check on login) — email is the only channel that
+    // can actually reach them; the in-app notification only matters
+    // once they're unblocked again.
+    const statusMessage = customer.isBlocked
+      ? {
+          subject: "Your Mittal Collections account has been blocked",
+          body: "Your account has been blocked. If you believe this is a mistake, please contact support.",
+        }
+      : {
+          subject: "Your Mittal Collections account has been unblocked",
+          body: "Your account has been unblocked — you can log in again.",
+        };
+
+    try {
+      await sendEmail({
+        to: customer.email,
+        bcc: process.env.ADMIN_NOTIFICATION_EMAIL,
+        subject: statusMessage.subject,
+        html: `
+          <p>Hi ${customer.name || "there"},</p>
+          <p>${statusMessage.body}</p>
+        `,
+      });
+    } catch (error) {
+      console.error("Toggle Block Customer Email Error:", error);
+    }
+
+    notifyUser({
+      userId: customer._id,
+      type: "account_status",
+      title: statusMessage.subject,
+      message: statusMessage.body,
+      link: "/account",
+    });
 
     res.status(200).json({
       success: true,
