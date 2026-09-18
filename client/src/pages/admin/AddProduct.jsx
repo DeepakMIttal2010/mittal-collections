@@ -1,5 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import ReactQuill from "react-quill-new";
+import "react-quill-new/dist/quill.snow.css";
 
 import "./AddProduct.css";
 
@@ -7,6 +9,7 @@ import { getCategories } from "../../services/categoryService";
 import { getSubcategories } from "../../services/subcategoryService";
 import { addProduct } from "../../services/adminProductService";
 import { getSiteSettingsAdmin } from "../../services/adminSettingsService";
+import { stripHtml } from "../../utils/stripHtml";
 
 // Fallback when no admin-configured rule matches the selected
 // category/subcategory (see AdminSettings.jsx "Cost/Price Auto-Fill Rules").
@@ -162,6 +165,22 @@ function AddProduct() {
     return DEFAULT_PRICING_RULE;
   };
 
+  // Bold/italic/lists only — no image/header tools. Product photos are
+  // already handled by the dedicated image uploader below, and a
+  // "Care instructions:" paragraph is still expected as the LAST block
+  // (see feedController.js's feedDescription, which strips it out of
+  // the Shopping/Meta feed by looking at the last block's text).
+  const descriptionModules = useMemo(
+    () => ({
+      toolbar: [["bold", "italic"], [{ list: "ordered" }, { list: "bullet" }], ["clean"]],
+    }),
+    [],
+  );
+
+  const handleDescriptionChange = (field, value) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
   const handleChange = (e) => {
     const { name, value, checked, type } = e.target;
 
@@ -269,6 +288,11 @@ function AddProduct() {
       return;
     }
 
+    if (!stripHtml(formData.description).trim()) {
+      alert("Please add a product description");
+      return;
+    }
+
     const cleanVariants = hasVariants
       ? variants.filter((v) => v.size.trim() && v.price !== "")
       : [];
@@ -364,12 +388,12 @@ function AddProduct() {
         <div className="form-group">
           <label>Description</label>
 
-          <textarea
-            rows="5"
-            name="description"
+          <ReactQuill
+            theme="snow"
             value={formData.description}
-            onChange={handleChange}
-            required
+            onChange={(value) => handleDescriptionChange("description", value)}
+            modules={descriptionModules}
+            placeholder="Put &quot;Care instructions: ...&quot; as its own last paragraph — it's automatically left out of the Google/Meta Shopping feed."
           />
         </div>
 
@@ -388,12 +412,12 @@ function AddProduct() {
         <div className="form-group">
           <label>Description (Hindi, optional)</label>
 
-          <textarea
-            rows="5"
-            name="descriptionHi"
-            placeholder="हिंदी में विवरण"
+          <ReactQuill
+            theme="snow"
             value={formData.descriptionHi}
-            onChange={handleChange}
+            onChange={(value) => handleDescriptionChange("descriptionHi", value)}
+            modules={descriptionModules}
+            placeholder="हिंदी में विवरण"
           />
         </div>
 

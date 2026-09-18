@@ -28,14 +28,34 @@ const escapeXml = (value) =>
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&apos;");
 
-// Google Shopping / Meta Catalog only want a short, clean description —
-// strip the multi-paragraph SEO copy down to plain text without the
-// trailing "Care instructions:" paragraph, which reads oddly out of
-// context in an ad.
+const stripTags = (html) =>
+  String(html ?? "")
+    .replace(/<\/(p|li|div|h[1-6])>/gi, " ")
+    .replace(/<br\s*\/?>/gi, " ")
+    .replace(/<[^>]+>/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+// Google Shopping / Meta Catalog only want a short, plain-text
+// description — strip the multi-paragraph SEO copy down to plain text
+// without the trailing "Care instructions:" paragraph, which reads
+// oddly out of context in an ad. Descriptions are now authored as rich
+// text (see AddProduct.jsx's ReactQuill field), so blocks are HTML
+// (<p>/<li> elements) for anything edited since; older, never-touched
+// products still store plain text with blank-line-separated
+// paragraphs, so both shapes are split into "blocks" here before the
+// Care-instructions filter and the final tag-stripping pass.
 const feedDescription = (description) => {
-  const withoutCareInstructions = (description || "")
-    .split(/\r?\n\r?\n/)
-    .filter((para) => !/^care instructions:/i.test(para.trim()))
+  const raw = description || "";
+  const isHtml = /<[a-z][\s\S]*>/i.test(raw);
+
+  const blocks = isHtml
+    ? raw.split(/<\/(?:p|li|div|h[1-6])>/gi)
+    : raw.split(/\r?\n\r?\n/);
+
+  const withoutCareInstructions = blocks
+    .map(stripTags)
+    .filter((block) => block && !/^care instructions:/i.test(block))
     .join(" ");
 
   return withoutCareInstructions.replace(/\s+/g, " ").trim().slice(0, 5000);

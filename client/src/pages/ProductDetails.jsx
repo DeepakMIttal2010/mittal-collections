@@ -14,6 +14,7 @@ import { getProductQuestions } from "../services/questionService";
 import { getSiteSettings } from "../services/settingsService";
 import { calculateDeliveryFee } from "../utils/shipping";
 import { toWhatsAppNumber } from "../utils/whatsapp";
+import { stripHtml } from "../utils/stripHtml";
 import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import {
@@ -402,6 +403,7 @@ function ProductDetails() {
   const canonicalUrl = `${SITE_URL}${productUrl(product)}`;
   const shareText = product.name;
   const displayDescription = t(product.description, product.descriptionHi);
+  const displayDescriptionText = stripHtml(displayDescription);
 
   // Size variants (e.g. Curtains sold as 7x4/9x4) each carry their own
   // price/MRP/stock — once a size is selected these override the
@@ -488,7 +490,7 @@ function ProductDetails() {
     "@context": "https://schema.org",
     "@type": "Product",
     name: product.name,
-    description: product.description,
+    description: stripHtml(product.description),
     image: imgUrl(product.image),
     brand: {
       "@type": "Brand",
@@ -641,7 +643,7 @@ function ProductDetails() {
         title={seoTitle}
         description={
           product.description
-            ? `Buy online, pan-India delivery (24hr in Ghaziabad) - ${product.description}`.slice(0, 160)
+            ? `Buy online, pan-India delivery (24hr in Ghaziabad) - ${stripHtml(product.description)}`.slice(0, 160)
             : `Buy ${product.name} online with pan-India delivery - fast 24-hour delivery in Ghaziabad`.slice(0, 160)
         }
         image={imgUrl(product.image)}
@@ -917,17 +919,20 @@ function ProductDetails() {
             ))}
 
           <div className="mb-6">
-            <p
-              className={`text-slate-600 leading-relaxed whitespace-pre-line ${
-                descExpanded || displayDescription.length <= 280
+            <div
+              className={`text-slate-600 leading-relaxed whitespace-pre-line
+                [&_p]:mb-3 last:[&_p]:mb-0
+                [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:mb-3
+                [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:mb-3
+                [&_li]:mb-1 ${
+                descExpanded || displayDescriptionText.length <= 280
                   ? ""
                   : "line-clamp-4"
               }`}
-            >
-              {displayDescription}
-            </p>
+              dangerouslySetInnerHTML={{ __html: displayDescription }}
+            />
 
-            {displayDescription.length > 280 && (
+            {displayDescriptionText.length > 280 && (
               <button
                 type="button"
                 onClick={() => setDescExpanded((prev) => !prev)}
