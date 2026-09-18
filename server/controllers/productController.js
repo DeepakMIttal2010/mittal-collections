@@ -17,6 +17,7 @@ import {
   decodeProductNumber,
 } from "../utils/costCipher.js";
 import { deleteCloudinaryAssetsByUrl } from "../utils/cloudinaryCleanup.js";
+import { sanitizeProductDescription } from "../utils/sanitizeProductDescription.js";
 
 // Never sent by a public route — cost data is admin-only. The nested
 // variants.purchasePrice needs its own dotted exclusion; a bare
@@ -1202,9 +1203,9 @@ export const addProduct = async (req, res) => {
     const product = await Product.create({
       name,
       slug: generateSlug(name),
-      description,
+      description: sanitizeProductDescription(description),
       nameHi: nameHi || "",
-      descriptionHi: descriptionHi || "",
+      descriptionHi: sanitizeProductDescription(descriptionHi),
       // Once variants exist, the top-level price/oldPrice/stock are
       // derived from them (first variant's price, summed stock) rather
       // than trusting whatever was separately sent for those fields —
@@ -1306,9 +1307,9 @@ export const updateProduct = async (req, res) => {
 
     product.name = req.body.name;
     product.slug = generateSlug(req.body.name);
-    product.description = req.body.description;
+    product.description = sanitizeProductDescription(req.body.description);
     product.nameHi = req.body.nameHi || "";
-    product.descriptionHi = req.body.descriptionHi || "";
+    product.descriptionHi = sanitizeProductDescription(req.body.descriptionHi);
     const variants = parseVariants(req.body.variants);
     const hasVariants = variants.length > 0;
 
