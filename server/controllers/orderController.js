@@ -25,6 +25,7 @@ import { calculateDeliveryFee } from "../utils/shipping.js";
 import { calculateBundleDiscount } from "../utils/bundleDiscount.js";
 import { sendEmail } from "../config/mailer.js";
 import { notifyUser } from "../utils/notify.js";
+import { hasAdminPermission } from "../utils/adminAccess.js";
 import { REVIEW_BONUS_POINTS } from "./reviewController.js";
 
 // Lazily constructed so a missing/blank key in dev doesn't crash the
@@ -855,9 +856,14 @@ export const getOrderById = async (req, res) => {
       });
     }
 
-    // Security check: sirf order ka owner ya admin hi ise dekh sake
+    // Security check: sirf order ka owner ya "orders"-permitted admin hi
+    // ise dekh sake. req.user.role === "admin" alone isn't enough — a
+    // restricted staff account without the "orders" permission is
+    // already blocked from the order LIST (see orderRoutes.js's `perm`
+    // on GET "/"); checking only role here let that same account view
+    // any individual order just by guessing/enumerating its ID.
     const isOwner = order.user._id.toString() === req.user._id.toString();
-    const isAdmin = req.user.role === "admin";
+    const isAdmin = hasAdminPermission(req.user, "orders");
 
     if (!isOwner && !isAdmin) {
       return res.status(403).json({

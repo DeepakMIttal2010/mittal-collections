@@ -2,6 +2,7 @@ import Ticket from "../models/Ticket.js";
 import SiteSettings from "../models/SiteSettings.js";
 import { sendEmail } from "../config/mailer.js";
 import { notifyUser } from "../utils/notify.js";
+import { hasAdminPermission } from "../utils/adminAccess.js";
 
 const notifyAdmin = async (ticket, latestMessage) => {
   try {
@@ -151,8 +152,12 @@ export const getTicketById = async (req, res) => {
       });
     }
 
+    // See getOrderById in orderController.js for why role alone isn't
+    // enough here — a staff account without the "tickets" permission
+    // is already blocked from the ticket list and shouldn't be able to
+    // view/act on an individual ticket by guessing its ID either.
     const isOwner = ticket.user._id.toString() === req.user._id.toString();
-    const isAdmin = req.user.role === "admin";
+    const isAdmin = hasAdminPermission(req.user, "tickets");
 
     if (!isOwner && !isAdmin) {
       return res.status(403).json({
@@ -201,8 +206,12 @@ export const addTicketMessage = async (req, res) => {
       });
     }
 
+    // See getOrderById in orderController.js for why role alone isn't
+    // enough here — a staff account without the "tickets" permission
+    // is already blocked from the ticket list and shouldn't be able to
+    // view/act on an individual ticket by guessing its ID either.
     const isOwner = ticket.user._id.toString() === req.user._id.toString();
-    const isAdmin = req.user.role === "admin";
+    const isAdmin = hasAdminPermission(req.user, "tickets");
 
     if (!isOwner && !isAdmin) {
       return res.status(403).json({
