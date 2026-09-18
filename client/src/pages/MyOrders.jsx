@@ -1,7 +1,9 @@
 import { imgUrl } from "../services/api";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
 import { getMyOrders } from "../services/orderService";
+import { resumeOrderPayment } from "../utils/razorpay";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
@@ -60,7 +62,7 @@ function getStatusLabel(t, status) {
   }[status] || status;
 }
 
-function OrderCard({ order, onBuyAgain }) {
+function OrderCard({ order, onBuyAgain, onPayNow, payingId }) {
   const navigate = useNavigate();
   const { t } = useLanguage();
   const [returnModalItem, setReturnModalItem] = useState(null);
@@ -69,6 +71,10 @@ function OrderCard({ order, onBuyAgain }) {
   const statusInfo = statusText[order.orderStatus] || statusText.Pending;
   const isDelivered = order.orderStatus === "Delivered";
   const isCancelled = order.orderStatus === "Cancelled";
+  const needsPayment =
+    order.paymentMethod === "Razorpay" &&
+    !order.isPaid &&
+    order.orderStatus === "Pending";
   const deliveredDate = order.deliveredAt
     ? new Date(order.deliveredAt).toLocaleDateString("en-IN", {
         day: "numeric",
@@ -208,6 +214,19 @@ function OrderCard({ order, onBuyAgain }) {
 
         {/* Actions */}
         <div className="flex flex-col gap-2 w-full md:w-56 shrink-0">
+          {needsPayment && (
+            <button
+              type="button"
+              disabled={payingId === order._id}
+              onClick={() => onPayNow(order)}
+              className="bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white text-sm font-semibold rounded-full py-2.5 transition-colors"
+            >
+              {payingId === order._id
+                ? t("Processing...", "प्रोसेस हो रहा है...")
+                : t("Pay Now", "अभी भुगतान करें")}
+            </button>
+          )}
+
           {isDelivered && (
             <button
               type="button"
@@ -261,10 +280,21 @@ function MyOrders() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("orders");
+  const [payingId, setPayingId] = useState(null);
   const { addToCart } = useCart();
-  const { isLoggedIn } = useAuth();
+  const { isLoggedIn, user } = useAuth();
   const { t } = useLanguage();
   const navigate = useNavigate();
+
+  const loadOrders = async () => {
+    const response = await getMyOrders();
+
+    if (response?.success) {
+      setOrders(response.orders);
+    }
+
+    setLoading(false);
+  };
 
   useEffect(() => {
     if (!isLoggedIn) {
@@ -272,18 +302,31 @@ function MyOrders() {
       return;
     }
 
-    const loadOrders = async () => {
-      const response = await getMyOrders();
-
-      if (response?.success) {
-        setOrders(response.orders);
-      }
-
-      setLoading(false);
-    };
-
     loadOrders();
   }, [isLoggedIn, navigate]);
+
+  const handlePayNow = (order) => {
+    setPayingId(order._id);
+
+    resumeOrderPayment({
+      orderId: order._id,
+      user,
+      onSuccess: () => {
+        toast.success(
+          t("Payment successful — order placed 🎉", "पेमेंट सफल — ऑर्डर हो गया 🎉"),
+        );
+        setPayingId(null);
+        loadOrders();
+      },
+      onFailure: (message) => {
+        toast.error(message);
+        setPayingId(null);
+      },
+      onDismiss: () => {
+        setPayingId(null);
+      },
+    });
+  };
 
   const buyAgainItems = useMemo(() => {
     const seen = new Map();
@@ -358,6 +401,8 @@ function MyOrders() {
                     key={order._id}
                     order={order}
                     onBuyAgain={handleBuyAgain}
+                    onPayNow={handlePayNow}
+                    payingId={payingId}
                   />
                 ))}
               </div>

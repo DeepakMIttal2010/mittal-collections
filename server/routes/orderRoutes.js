@@ -19,6 +19,7 @@ import {
   sendReviewRequestEmails,
   cancelStaleRazorpayOrders,
   resendOrderStatusEmail,
+  resumeRazorpayPayment,
 } from "../controllers/orderController.js";
 
 const router = express.Router();
@@ -49,6 +50,11 @@ router.get("/cancel-stale-razorpay", cancelStaleRazorpayOrders);
 
 // Get Single Order — logged-in user (owner ya admin)
 router.get("/:id", authMiddleware, getOrderById);
+
+// Resume a stalled/failed Razorpay Payment — koi bhi logged-in user
+// (owner-checked inside the controller), re-opens the same Razorpay
+// order rather than creating a new one.
+router.post("/:id/resume-payment", authMiddleware, resumeRazorpayPayment);
 
 // Update Order Status — sirf Admin
 router.put("/:id/status", authMiddleware, adminMiddleware, perm, canModify, updateOrderStatus);

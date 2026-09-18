@@ -50,6 +50,27 @@ export const verifyRazorpayPayment = async (paymentData) => {
 };
 
 // =======================
+// Resume Razorpay Payment (retry after a stalled/failed attempt)
+// =======================
+
+export const resumeRazorpayPayment = async (id) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/orders/${id}/resume-payment`, {
+      method: "POST",
+
+      headers: {
+        Authorization: `Bearer ${getToken()}`,
+      },
+    });
+
+    return await response.json();
+  } catch (error) {
+    console.error(error);
+    return { success: false };
+  }
+};
+
+// =======================
 // Get My Orders
 // =======================
 
