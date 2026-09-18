@@ -15,6 +15,7 @@ import { getSiteSettings } from "../services/settingsService";
 import { calculateDeliveryFee } from "../utils/shipping";
 import { toWhatsAppNumber } from "../utils/whatsapp";
 import { stripHtml } from "../utils/stripHtml";
+import { sanitizeDescriptionHtml } from "../utils/sanitizeDescriptionHtml";
 import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import {
@@ -929,7 +930,9 @@ function ProductDetails() {
                   ? ""
                   : "line-clamp-4"
               }`}
-              dangerouslySetInnerHTML={{ __html: displayDescription }}
+              dangerouslySetInnerHTML={{
+                __html: sanitizeDescriptionHtml(displayDescription),
+              }}
             />
 
             {displayDescriptionText.length > 280 && (
