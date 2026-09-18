@@ -1,3 +1,4 @@
+import sanitizeHtml from "sanitize-html";
 import Product from "../models/Product.js";
 
 const SITE_URL = "https://www.mittalcollections.com";
@@ -28,14 +29,44 @@ const escapeXml = (value) =>
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&apos;");
 
-// Google Shopping / Meta Catalog only want a short, clean description —
-// strip the multi-paragraph SEO copy down to plain text without the
-// trailing "Care instructions:" paragraph, which reads oddly out of
-// context in an ad.
+// The actual tag removal goes through sanitize-html (a real HTML
+// parser), not a hand-rolled regex — a regex like /<[^>]+>/g only ever
+// does one pass, so an input crafted like "<scr<script>ipt>" strips
+// the inner tag and leaves the outer fragments to reform "<script>"
+// (CodeQL flags exactly this as "incomplete multi-character
+// sanitization"). The two regexes below only ever INSERT a space at a
+// block boundary before that real strip — they never remove anything
+// themselves, so they can't be tricked into leaving markup behind.
+const stripTags = (html) => {
+  const withSpacing = String(html ?? "")
+    .replace(/<\/(p|li|div|h[1-6])>/gi, "</$1> ")
+    .replace(/<br\s*\/?>/gi, " ");
+
+  return sanitizeHtml(withSpacing, { allowedTags: [], allowedAttributes: {} })
+    .replace(/\s+/g, " ")
+    .trim();
+};
+
+// Google Shopping / Meta Catalog only want a short, plain-text
+// description — strip the multi-paragraph SEO copy down to plain text
+// without the trailing "Care instructions:" paragraph, which reads
+// oddly out of context in an ad. Descriptions are now authored as rich
+// text (see AddProduct.jsx's ReactQuill field), so blocks are HTML
+// (<p>/<li> elements) for anything edited since; older, never-touched
+// products still store plain text with blank-line-separated
+// paragraphs, so both shapes are split into "blocks" here before the
+// Care-instructions filter and the final tag-stripping pass.
 const feedDescription = (description) => {
-  const withoutCareInstructions = (description || "")
-    .split(/\r?\n\r?\n/)
-    .filter((para) => !/^care instructions:/i.test(para.trim()))
+  const raw = description || "";
+  const isHtml = /<[a-z][\s\S]*>/i.test(raw);
+
+  const blocks = isHtml
+    ? raw.split(/<\/(?:p|li|div|h[1-6])>/gi)
+    : raw.split(/\r?\n\r?\n/);
+
+  const withoutCareInstructions = blocks
+    .map(stripTags)
+    .filter((block) => block && !/^care instructions:/i.test(block))
     .join(" ");
 
   return withoutCareInstructions.replace(/\s+/g, " ").trim().slice(0, 5000);

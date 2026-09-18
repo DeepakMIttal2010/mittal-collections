@@ -7,6 +7,7 @@ import { useLanguage } from "../context/LanguageContext";
 import { imgUrl } from "../services/api";
 import { productUrl } from "../utils/productUrl";
 import { getStockStatus } from "../utils/stock";
+import { stripHtml } from "../utils/stripHtml";
 import Seo from "../components/Seo";
 
 function getRows(t) {
@@ -33,7 +34,7 @@ function getRows(t) {
     {
       label: t("Description", "विवरण"),
       render: (p) => (
-        <span className="line-clamp-4 text-left">{p.description}</span>
+        <span className="line-clamp-4 text-left">{stripHtml(p.description)}</span>
       ),
     },
   ];

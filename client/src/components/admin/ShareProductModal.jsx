@@ -17,6 +17,7 @@ import {
 
 import { imgUrl } from "../../services/api";
 import { productUrl } from "../../utils/productUrl";
+import { stripHtml } from "../../utils/stripHtml";
 
 const CANVAS_W = 1080;
 const CANVAS_H = 1920;
@@ -87,7 +88,7 @@ const buildCaption = (product, productLink) => {
 
   const lines = [content.hook];
 
-  const firstSentence = (product.description || "").split(/(?<=[.!])\s/)[0]?.trim();
+  const firstSentence = stripHtml(product.description).split(/(?<=[.!])\s/)[0]?.trim();
   if (firstSentence) lines.push(firstSentence);
 
   if (product.whatsIncluded) lines.push(`📦 ${product.whatsIncluded}`);
