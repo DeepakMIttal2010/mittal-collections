@@ -1,3 +1,4 @@
+import sanitizeHtml from "sanitize-html";
 import Product from "../models/Product.js";
 
 const SITE_URL = "https://www.mittalcollections.com";
@@ -28,13 +29,23 @@ const escapeXml = (value) =>
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&apos;");
 
-const stripTags = (html) =>
-  String(html ?? "")
-    .replace(/<\/(p|li|div|h[1-6])>/gi, " ")
-    .replace(/<br\s*\/?>/gi, " ")
-    .replace(/<[^>]+>/g, "")
+// The actual tag removal goes through sanitize-html (a real HTML
+// parser), not a hand-rolled regex — a regex like /<[^>]+>/g only ever
+// does one pass, so an input crafted like "<scr<script>ipt>" strips
+// the inner tag and leaves the outer fragments to reform "<script>"
+// (CodeQL flags exactly this as "incomplete multi-character
+// sanitization"). The two regexes below only ever INSERT a space at a
+// block boundary before that real strip — they never remove anything
+// themselves, so they can't be tricked into leaving markup behind.
+const stripTags = (html) => {
+  const withSpacing = String(html ?? "")
+    .replace(/<\/(p|li|div|h[1-6])>/gi, "</$1> ")
+    .replace(/<br\s*\/?>/gi, " ");
+
+  return sanitizeHtml(withSpacing, { allowedTags: [], allowedAttributes: {} })
     .replace(/\s+/g, " ")
     .trim();
+};
 
 // Google Shopping / Meta Catalog only want a short, plain-text
 // description — strip the multi-paragraph SEO copy down to plain text
