@@ -133,6 +133,12 @@
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  /* Reserves 2 lines' worth of height even when a shorter product name
+     only wraps to 1 line — otherwise cards in the same row end up with
+     different heights depending on how long each product's name is,
+     staggering the row instead of keeping every card's price/button
+     aligned. */
+  min-height: calc(1.4em * 2);
 }
 
 .size-line {
@@ -145,6 +151,10 @@
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  /* Same reasoning as .product-info h3 above — a one-line size/spec
+     ("16 x 16 Inches (Set of 5 Cushion Covers)") shouldn't make this
+     card shorter than a neighbour whose size text wraps to 2 lines. */
+  min-height: calc(1.4em * 2);
 }
 
 .rating {
