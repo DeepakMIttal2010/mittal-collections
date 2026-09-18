@@ -20,26 +20,8 @@ import { getProfile } from "../services/authService";
 import { getPublicRewardsInfo } from "../services/rewardsService";
 import { checkPincodeDelivery } from "../services/deliveryService";
 import { calculateDeliveryFee } from "../utils/shipping";
+import { loadRazorpayScript } from "../utils/razorpay";
 import Seo from "../components/Seo";
-
-// Loaded on-demand at checkout rather than globally in index.html, so
-// pages that never reach payment don't pay for it.
-let razorpayScriptPromise = null;
-const loadRazorpayScript = () => {
-  if (window.Razorpay) return Promise.resolve(true);
-
-  if (!razorpayScriptPromise) {
-    razorpayScriptPromise = new Promise((resolve) => {
-      const script = document.createElement("script");
-      script.src = "https://checkout.razorpay.com/v1/checkout.js";
-      script.onload = () => resolve(true);
-      script.onerror = () => resolve(false);
-      document.body.appendChild(script);
-    });
-  }
-
-  return razorpayScriptPromise;
-};
 
 function Checkout() {
   const navigate = useNavigate();

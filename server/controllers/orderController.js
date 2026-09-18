@@ -646,6 +646,79 @@ export const createOrder = async (req, res) => {
 };
 
 // ============================
+// Resume Razorpay Payment
+// ============================
+// For an order whose payment stalled, failed, or was dismissed —
+// re-opens the SAME Razorpay order created at checkout time (never a
+// new one), so verifyRazorpayPayment's existing user+razorpayOrderId
+// lookup keeps working unchanged. Stops working once the stale-order
+// cron cancels the order (see cancelStaleRazorpayOrders).
+export const resumeRazorpayPayment = async (req, res) => {
+  try {
+    const order = await Order.findOne({
+      _id: req.params.id,
+      user: req.user._id,
+    });
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    if (order.paymentMethod !== "Razorpay" || !order.razorpayOrderId) {
+      return res.status(400).json({
+        success: false,
+        message: "This order isn't a Razorpay payment.",
+      });
+    }
+
+    if (order.isPaid || order.orderStatus === "Cancelled") {
+      return res.status(400).json({
+        success: false,
+        message: order.isPaid
+          ? "This order has already been paid."
+          : "This order has been cancelled — please place a new order.",
+      });
+    }
+
+    const razorpayOrder = await getRazorpay().orders.fetch(
+      order.razorpayOrderId,
+    );
+
+    // Payment actually succeeded on Razorpay's side but our own
+    // verification step never ran (e.g. the browser closed right after
+    // the bank redirect) — reopening the modal here would let the
+    // customer pay a second time for the same order.
+    if (razorpayOrder.status === "paid") {
+      return res.status(400).json({
+        success: false,
+        message:
+          "This order appears to already be paid. Please refresh in a moment, or contact support if this persists.",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      razorpayOrder: {
+        id: razorpayOrder.id,
+        amount: razorpayOrder.amount,
+        currency: razorpayOrder.currency,
+      },
+      razorpayKeyId: process.env.RAZORPAY_KEY_ID,
+    });
+  } catch (error) {
+    console.error("Resume Razorpay Payment Error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};
+
+// ============================
 // Verify Razorpay Payment
 // ============================
 export const verifyRazorpayPayment = async (req, res) => {

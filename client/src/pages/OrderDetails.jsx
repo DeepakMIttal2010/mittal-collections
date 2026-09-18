@@ -1,8 +1,10 @@
 import { imgUrl } from "../services/api";
 import { useEffect, useState } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
 
 import { getOrderById } from "../services/orderService";
+import { resumeOrderPayment } from "../utils/razorpay";
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
 import OrderStatusTimeline from "../components/OrderStatusTimeline";
@@ -28,11 +30,22 @@ function getStatusLabel(t, status) {
 function OrderDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { isLoggedIn } = useAuth();
+  const { isLoggedIn, user } = useAuth();
   const { t } = useLanguage();
 
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [paying, setPaying] = useState(false);
+
+  const load = async () => {
+    setLoading(true);
+
+    const response = await getOrderById(id);
+
+    if (response?.success) setOrder(response.order);
+
+    setLoading(false);
+  };
 
   useEffect(() => {
     if (!isLoggedIn) {
@@ -40,18 +53,32 @@ function OrderDetails() {
       return;
     }
 
-    const load = async () => {
-      setLoading(true);
-
-      const response = await getOrderById(id);
-
-      if (response?.success) setOrder(response.order);
-
-      setLoading(false);
-    };
-
     load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, isLoggedIn, navigate]);
+
+  const handlePayNow = () => {
+    setPaying(true);
+
+    resumeOrderPayment({
+      orderId: id,
+      user,
+      onSuccess: () => {
+        toast.success(
+          t("Payment successful — order placed 🎉", "पेमेंट सफल — ऑर्डर हो गया 🎉"),
+        );
+        setPaying(false);
+        load();
+      },
+      onFailure: (message) => {
+        toast.error(message);
+        setPaying(false);
+      },
+      onDismiss: () => {
+        setPaying(false);
+      },
+    });
+  };
 
   if (loading) {
     return (
@@ -254,6 +281,22 @@ function OrderDetails() {
             <div className="border-t border-slate-100 mt-4 pt-4 text-sm text-slate-600 space-y-1">
               <p>{t("Payment: ", "भुगतान: ")}{order.paymentMethod}</p>
               <p>{order.isPaid ? t("Paid", "भुगतान हो गया") : t("Not yet paid", "अभी भुगतान नहीं हुआ")}</p>
+
+              {order.paymentMethod === "Razorpay" &&
+                !order.isPaid &&
+                order.orderStatus === "Pending" && (
+                  <button
+                    type="button"
+                    disabled={paying}
+                    onClick={handlePayNow}
+                    className="w-full bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white text-sm font-semibold rounded-full py-2.5 mt-2 transition-colors"
+                  >
+                    {paying
+                      ? t("Processing...", "प्रोसेस हो रहा है...")
+                      : t("Pay Now", "अभी भुगतान करें")}
+                  </button>
+                )}
+
               {order.pointsEarned > 0 && (
                 <p className="text-amber-600">
                   {t(
