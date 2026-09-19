@@ -8,6 +8,7 @@ import {
 } from "../services/productService";
 import ProductGrid from "../components/ProductGrid/ProductGrid";
 import ProductGridSkeleton from "../components/ProductGrid/ProductGridSkeleton";
+import PriceRangeSlider from "../components/PriceRangeSlider/PriceRangeSlider";
 import Seo from "../components/Seo";
 import Breadcrumbs from "../components/Breadcrumbs";
 import { buildBreadcrumbJsonLd } from "../utils/breadcrumbJsonLd";
@@ -118,16 +119,6 @@ function pickPrimaryGroupLabel(groupLabels) {
   return groupLabels[0];
 }
 
-// min/max in rupees; max: null means "no upper bound" (the "1,500+" row).
-function getPriceRanges(t) {
-  return [
-    { id: "under-499", label: t("Under ₹499", "₹499 से कम"), min: 0, max: 499 },
-    { id: "500-999", label: "₹500 – ₹999", min: 500, max: 999 },
-    { id: "1000-1499", label: "₹1,000 – ₹1,499", min: 1000, max: 1499 },
-    { id: "1500-plus", label: t("₹1,500 and above", "₹1,500 और ऊपर"), min: 1500, max: null },
-  ];
-}
-
 function getSortOptions(t) {
   return [
     { value: "featured", label: t("Featured", "फ़ीचर्ड") },
@@ -188,16 +179,16 @@ function CategoryPage() {
   const [products, setProducts] = useState([]);
   const [sortBy, setSortBy] = useState("featured");
   const [bundlePartners, setBundlePartners] = useState([]);
-  // priceRangeId is the selected row's `id` (see getPriceRanges), or null
-  // for "no price filter applied". isFilterOpen controls the bottom-sheet
-  // panel visibility — separate from the selection itself so opening the
-  // panel doesn't immediately re-filter anything until Apply is pressed.
-  const [priceRangeId, setPriceRangeId] = useState(null);
+  // priceRange is [min, max] in rupees, or null for "no price filter
+  // applied". isFilterOpen controls the bottom-sheet panel visibility —
+  // separate from the selection itself so opening the panel doesn't
+  // immediately re-filter anything until Apply is pressed.
+  const [priceRange, setPriceRange] = useState(null);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  // A draft copy, only committed to priceRangeId on "Apply Filters" — so
+  // A draft copy, only committed to priceRange on "Apply Filters" — so
   // opening the panel, changing your mind, and tapping outside to close
   // it doesn't silently apply a filter you never confirmed.
-  const [draftPriceRangeId, setDraftPriceRangeId] = useState(null);
+  const [draftPriceRange, setDraftPriceRange] = useState(null);
   // Material/Size (and any other non-primary subcategory group) as
   // checkbox facets in the filter panel — a Set of subcategory _ids,
   // OR'd within a group ("Cotton" or "Microfiber"), AND'd across groups
@@ -303,8 +294,16 @@ function CategoryPage() {
     };
   }, [categorySlug, subcategorySlug]);
 
-  const priceRanges = useMemo(() => getPriceRanges(t), [t]);
-  const activePriceRange = priceRanges.find((r) => r.id === priceRangeId) || null;
+  // Slider/number-box bounds — rounded up to a clean ₹100 so the top
+  // handle doesn't sit at an odd number like ₹1,847.
+  const absoluteMaxPrice = useMemo(() => {
+    const highest = products.reduce((max, p) => Math.max(max, p.price), 0);
+    return Math.max(Math.ceil(highest / 100) * 100, 100);
+  }, [products]);
+
+  const [priceMin, priceMax] = priceRange || [0, absoluteMaxPrice];
+  const isPriceActive = priceRange !== null && (priceMin > 0 || priceMax < absoluteMaxPrice);
+  const [draftPriceMin, draftPriceMax] = draftPriceRange || [0, absoluteMaxPrice];
 
   // Grouped by groupLabel, in whatever order they first appear — which
   // group is "primary" (see pickPrimaryGroupLabel above) decides pill vs.
@@ -352,13 +351,8 @@ function CategoryPage() {
 
   const filteredProducts = useMemo(() => {
     return products.filter((p) => {
-      if (activePriceRange) {
-        if (
-          p.price < activePriceRange.min ||
-          (activePriceRange.max !== null && p.price > activePriceRange.max)
-        ) {
-          return false;
-        }
+      if (isPriceActive && (p.price < priceMin || p.price > priceMax)) {
+        return false;
       }
 
       if (minRating !== null && (p.rating || 0) < minRating) return false;
@@ -368,7 +362,7 @@ function CategoryPage() {
     // matchesFacets closes over facetGroups/selectedFacetIds, both listed
     // below, so it doesn't need to be a dependency itself.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [products, activePriceRange, minRating, selectedFacetIds, facetGroups]);
+  }, [products, isPriceActive, priceMin, priceMax, minRating, selectedFacetIds, facetGroups]);
 
   const sortedProducts = useMemo(
     () => sortProducts(filteredProducts, sortBy),
@@ -376,10 +370,10 @@ function CategoryPage() {
   );
 
   const activeFilterCount =
-    (activePriceRange ? 1 : 0) + (minRating !== null ? 1 : 0) + selectedFacetIds.size;
+    (isPriceActive ? 1 : 0) + (minRating !== null ? 1 : 0) + selectedFacetIds.size;
 
   const openFilterPanel = () => {
-    setDraftPriceRangeId(priceRangeId);
+    setDraftPriceRange(priceRange);
     setDraftFacetIds(new Set(selectedFacetIds));
     setDraftMinRating(minRating);
     setIsFilterOpen(true);
@@ -397,15 +391,15 @@ function CategoryPage() {
       return;
     }
 
-    setPriceRangeId(draftPriceRangeId);
+    setPriceRange(draftPriceRange);
     setSelectedFacetIds(new Set(draftFacetIds));
     setMinRating(draftMinRating);
     setIsFilterOpen(false);
   };
 
   const clearAllFilters = () => {
-    setDraftPriceRangeId(null);
-    setPriceRangeId(null);
+    setDraftPriceRange(null);
+    setPriceRange(null);
     setDraftFacetIds(new Set());
     setSelectedFacetIds(new Set());
     setDraftMinRating(null);
@@ -663,7 +657,7 @@ function CategoryPage() {
             instantly instead of the sheet's draft+Apply flow — see
             toggleSidebarFacet's comment for why that's the right call for
             an always-visible panel. Reuses every bit of existing filter
-            state/logic (priceRangeId, selectedFacetIds, minRating) — same
+            state/logic (priceRange, selectedFacetIds, minRating) — same
             source of truth as the mobile panel, so switching between
             screen widths never desyncs the two. */}
         <aside className="hidden lg:block w-64 shrink-0 sticky top-24 self-start">
@@ -695,29 +689,12 @@ function CategoryPage() {
                 {t("Price", "कीमत")}
               </h3>
 
-              <div className="space-y-2.5">
-                {priceRanges.map((range) => (
-                  <label
-                    key={range.id}
-                    className="flex items-center gap-3 cursor-pointer"
-                  >
-                    <input
-                      type="radio"
-                      name="sidebar-price-range"
-                      checked={priceRangeId === range.id}
-                      onChange={() =>
-                        setPriceRangeId((prev) =>
-                          prev === range.id ? null : range.id,
-                        )
-                      }
-                      className="w-4 h-4 accent-amber-600"
-                    />
-                    <span className="text-sm text-slate-700">
-                      {range.label}
-                    </span>
-                  </label>
-                ))}
-              </div>
+              <PriceRangeSlider
+                min={0}
+                max={absoluteMaxPrice}
+                value={[priceMin, priceMax]}
+                onChange={setPriceRange}
+              />
             </div>
 
             {facetGroups.map((group) => (
@@ -813,13 +790,13 @@ function CategoryPage() {
 
           {activeFilterCount > 0 && (
             <div className="flex flex-wrap gap-2 mb-6">
-              {activePriceRange && (
+              {isPriceActive && (
                 <button
                   type="button"
-                  onClick={() => setPriceRangeId(null)}
+                  onClick={() => setPriceRange(null)}
                   className="flex items-center gap-1.5 bg-amber-50 border border-amber-200 text-amber-800 text-xs font-medium rounded-full pl-3 pr-2 py-1.5"
                 >
-                  {activePriceRange.label}
+                  ₹{priceMin} – ₹{priceMax}
                   <FaTimes className="text-[10px]" />
                 </button>
               )}
@@ -885,25 +862,12 @@ function CategoryPage() {
                   {t("Price", "कीमत")}
                 </h3>
 
-                <div className="space-y-3">
-                  {priceRanges.map((range) => (
-                    <label
-                      key={range.id}
-                      className="flex items-center gap-3 cursor-pointer"
-                    >
-                      <input
-                        type="radio"
-                        name="price-range"
-                        checked={draftPriceRangeId === range.id}
-                        onChange={() => setDraftPriceRangeId(range.id)}
-                        className="w-4 h-4 accent-amber-600"
-                      />
-                      <span className="text-sm text-slate-700">
-                        {range.label}
-                      </span>
-                    </label>
-                  ))}
-                </div>
+                <PriceRangeSlider
+                  min={0}
+                  max={absoluteMaxPrice}
+                  value={[draftPriceMin, draftPriceMax]}
+                  onChange={setDraftPriceRange}
+                />
               </div>
 
               {/* Same Material/Size/Bed Size groups as the desktop pill
