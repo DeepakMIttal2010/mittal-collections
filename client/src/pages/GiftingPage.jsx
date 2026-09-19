@@ -2,15 +2,13 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { FaWhatsapp } from "react-icons/fa6";
 import { FaFilter, FaTimes } from "react-icons/fa";
-import Slider from "rc-slider";
-import "rc-slider/assets/index.css";
-import "./GiftingPage.css";
 
 import { getGiftingProductsByCategory } from "../services/productService";
 import { getSiteSettings } from "../services/settingsService";
 import { toWhatsAppNumber } from "../utils/whatsapp";
 import ProductGrid from "../components/ProductGrid/ProductGrid";
 import ProductGridSkeleton from "../components/ProductGrid/ProductGridSkeleton";
+import PriceRangeSlider from "../components/PriceRangeSlider/PriceRangeSlider";
 import Seo from "../components/Seo";
 import Breadcrumbs from "../components/Breadcrumbs";
 import { buildBreadcrumbJsonLd } from "../utils/breadcrumbJsonLd";
@@ -54,18 +52,10 @@ function GiftingPage() {
 
   const [selectedCategoryIds, setSelectedCategoryIds] = useState(new Set());
   const [selectedSubcategoryIds, setSelectedSubcategoryIds] = useState(new Set());
-  // null = no price filter applied (full range). Otherwise [min, max] in
-  // rupees, driven by either the slider or the manual number boxes —
-  // both write to the same state, so they always stay in sync. This is
-  // the COMMITTED value that actually drives filtering — kept separate
-  // from the slider's own drag position (sliderDraft below) so dragging
-  // doesn't re-filter (and reflow/resize) the whole product grid on
-  // every tick, which was visibly scrolling the page mid-drag.
+  // null = no price filter applied (full range). Otherwise the committed
+  // [min, max] in rupees that PriceRangeSlider drives — see that
+  // component for why dragging doesn't re-filter on every tick.
   const [priceRange, setPriceRange] = useState(null);
-  // Live handle position while actively dragging the desktop slider —
-  // null once released, at which point priceRange (committed above) is
-  // what's actually applied via the slider's onChangeComplete.
-  const [sliderDraft, setSliderDraft] = useState(null);
   const [sortBy, setSortBy] = useState("featured");
   const [visibleFlatCount, setVisibleFlatCount] = useState(PAGE_SIZE);
 
@@ -120,9 +110,7 @@ function GiftingPage() {
 
   const [priceMin, priceMax] = priceRange || [0, absoluteMaxPrice];
   const isPriceActive = priceRange !== null && (priceMin > 0 || priceMax < absoluteMaxPrice);
-  // What the slider/number boxes actually display — follows the live drag
-  // position when there is one, otherwise the committed value.
-  const [displayPriceMin, displayPriceMax] = sliderDraft || [priceMin, priceMax];
+  const [draftPriceMin, draftPriceMax] = draftPriceRange || [0, absoluteMaxPrice];
 
   const matchesCategory = (product) =>
     selectedCategoryIds.size === 0 || selectedCategoryIds.has(product._category._id);
@@ -229,28 +217,6 @@ function GiftingPage() {
     setIsFilterOpen(false);
   };
 
-  // Shared by both the slider and the manual number boxes (desktop
-  // instant-apply and the mobile draft) — clamps to [0, absoluteMaxPrice]
-  // and keeps min from ever crossing above the current max or vice versa.
-  const buildPriceUpdater = (setter, current) => ({
-    onSliderChange: (value) => setter(value),
-    onMinChange: (value) => {
-      const bounded = Math.max(0, Math.min(Number(value) || 0, current[1]));
-      setter([bounded, current[1]]);
-    },
-    onMaxChange: (value) => {
-      const bounded = Math.min(absoluteMaxPrice, Math.max(Number(value) || 0, current[0]));
-      setter([current[0], bounded]);
-    },
-  });
-
-  const priceUpdater = buildPriceUpdater(setPriceRange, [priceMin, priceMax]);
-  const [draftPriceMin, draftPriceMax] = draftPriceRange || [0, absoluteMaxPrice];
-  const draftPriceUpdater = buildPriceUpdater(setDraftPriceRange, [
-    draftPriceMin,
-    draftPriceMax,
-  ]);
-
   const removeCategory = (id) =>
     setSelectedCategoryIds((prev) => {
       const next = new Set(prev);
@@ -308,45 +274,12 @@ function GiftingPage() {
         <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
           {t("Price", "कीमत")}
         </h3>
-        <div className="px-1 gifting-price-slider">
-          <Slider
-            range
-            min={0}
-            max={absoluteMaxPrice}
-            value={[displayPriceMin, displayPriceMax]}
-            onChange={setSliderDraft}
-            onChangeComplete={(value) => {
-              setPriceRange(value);
-              setSliderDraft(null);
-            }}
-            allowCross={false}
-          />
-        </div>
-        <div className="flex items-center gap-2 mt-4">
-          <div className="flex items-center gap-1 border border-slate-300 rounded-lg px-2 py-1.5 flex-1 min-w-0">
-            <span className="text-slate-400 text-sm">₹</span>
-            <input
-              type="number"
-              min={0}
-              max={priceMax}
-              value={displayPriceMin}
-              onChange={(e) => priceUpdater.onMinChange(e.target.value)}
-              className="w-full text-sm text-slate-700 outline-none min-w-0"
-            />
-          </div>
-          <span className="text-slate-400 text-sm">–</span>
-          <div className="flex items-center gap-1 border border-slate-300 rounded-lg px-2 py-1.5 flex-1 min-w-0">
-            <span className="text-slate-400 text-sm">₹</span>
-            <input
-              type="number"
-              min={priceMin}
-              max={absoluteMaxPrice}
-              value={displayPriceMax}
-              onChange={(e) => priceUpdater.onMaxChange(e.target.value)}
-              className="w-full text-sm text-slate-700 outline-none min-w-0"
-            />
-          </div>
-        </div>
+        <PriceRangeSlider
+          min={0}
+          max={absoluteMaxPrice}
+          value={[priceMin, priceMax]}
+          onChange={setPriceRange}
+        />
       </div>
 
       {subcategoryOptions.length > 0 && (
@@ -401,41 +334,12 @@ function GiftingPage() {
         <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
           {t("Price", "कीमत")}
         </h3>
-        <div className="px-1 gifting-price-slider">
-          <Slider
-            range
-            min={0}
-            max={absoluteMaxPrice}
-            value={[draftPriceMin, draftPriceMax]}
-            onChange={draftPriceUpdater.onSliderChange}
-            allowCross={false}
-          />
-        </div>
-        <div className="flex items-center gap-2 mt-4">
-          <div className="flex items-center gap-1 border border-slate-300 rounded-lg px-2 py-1.5 flex-1 min-w-0">
-            <span className="text-slate-400 text-sm">₹</span>
-            <input
-              type="number"
-              min={0}
-              max={draftPriceMax}
-              value={draftPriceMin}
-              onChange={(e) => draftPriceUpdater.onMinChange(e.target.value)}
-              className="w-full text-sm text-slate-700 outline-none min-w-0"
-            />
-          </div>
-          <span className="text-slate-400 text-sm">–</span>
-          <div className="flex items-center gap-1 border border-slate-300 rounded-lg px-2 py-1.5 flex-1 min-w-0">
-            <span className="text-slate-400 text-sm">₹</span>
-            <input
-              type="number"
-              min={draftPriceMin}
-              max={absoluteMaxPrice}
-              value={draftPriceMax}
-              onChange={(e) => draftPriceUpdater.onMaxChange(e.target.value)}
-              className="w-full text-sm text-slate-700 outline-none min-w-0"
-            />
-          </div>
-        </div>
+        <PriceRangeSlider
+          min={0}
+          max={absoluteMaxPrice}
+          value={[draftPriceMin, draftPriceMax]}
+          onChange={setDraftPriceRange}
+        />
       </div>
 
       {subcategoryOptions.length > 0 && (
