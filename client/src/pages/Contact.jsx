@@ -180,9 +180,9 @@ function Contact() {
         <div className="space-y-8">
           {settings.address && (
             <div>
-              <h3 className="text-xs font-semibold tracking-wide text-slate-400 uppercase mb-2 flex items-center gap-2">
+              <h2 className="text-xs font-semibold tracking-wide text-slate-400 uppercase mb-2 flex items-center gap-2">
                 <FaMapMarkerAlt /> {t("Address", "पता")}
-              </h3>
+              </h2>
               <p className="text-slate-700 whitespace-pre-line">
                 {settings.address}
               </p>
@@ -191,9 +191,9 @@ function Contact() {
 
           {settings.email && (
             <div>
-              <h3 className="text-xs font-semibold tracking-wide text-slate-400 uppercase mb-2 flex items-center gap-2">
+              <h2 className="text-xs font-semibold tracking-wide text-slate-400 uppercase mb-2 flex items-center gap-2">
                 <FaEnvelope /> {t("Email", "ईमेल")}
-              </h3>
+              </h2>
               <a
                 href={`mailto:${settings.email}`}
                 className="text-blue-700 hover:underline"
@@ -205,9 +205,9 @@ function Contact() {
 
           {settings.phone && (
             <div>
-              <h3 className="text-xs font-semibold tracking-wide text-slate-400 uppercase mb-2 flex items-center gap-2">
+              <h2 className="text-xs font-semibold tracking-wide text-slate-400 uppercase mb-2 flex items-center gap-2">
                 <FaPhoneAlt /> {t("Phone", "फोन")}
-              </h3>
+              </h2>
               <a
                 href={`tel:${settings.phone}`}
                 className="text-blue-700 hover:underline block"
@@ -224,9 +224,9 @@ function Contact() {
 
           {activeSocialLinks.length > 0 && (
             <div>
-              <h3 className="text-xs font-semibold tracking-wide text-slate-400 uppercase mb-3">
+              <h2 className="text-xs font-semibold tracking-wide text-slate-400 uppercase mb-3">
                 {t("Follow Us", "हमें फॉलो करें")}
-              </h3>
+              </h2>
               <div className="flex gap-3">
                 {activeSocialLinks.map(({ key, icon: Icon, label }) => (
                   <a

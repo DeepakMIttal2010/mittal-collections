@@ -1,8 +1,8 @@
 # System Architecture
 
 **Project:** Mittal Collections
-**Document version:** 1.3
-**Last updated:** 2026-09-01
+**Document version:** 1.4
+**Last updated:** 2026-09-17
 
 ## 1. High-Level Overview
 
@@ -197,7 +197,9 @@ a secret-protected endpoint:
 | Abandoned cart reminders | `GET/POST /api/cart/send-abandoned-reminders?secret=...` | Hourly |
 | Loyalty points expiry | `GET/POST /api/rewards/expire-points?secret=...` | Daily |
 | Post-delivery review-request emails | `GET/POST /api/orders/send-review-requests?secret=...` | Daily |
-| Wishlist price-drop alerts | `GET/POST /api/wishlist/send-price-drop-alerts?secret=...` | Confirm cron-job.org scheduling status in `DEPLOYMENT.md` — added 2026-08-26, not verified as independently set up there yet |
+| Wishlist price-drop alerts | `GET/POST /api/wishlist/send-price-drop-alerts?secret=...` | Added 2026-08-26; confirmed live and set up in cron-job.org's dashboard 2026-09-16 |
+| Keep backend awake | `GET /api/health` (no secret — public endpoint) | ~10 min; a dedicated cron-job.org job separate from (and redundant with) UptimeRobot's own ~5 min health-check ping, see §6 |
+| Cancel stale Razorpay orders | `GET/POST /api/orders/cancel-stale-razorpay?secret=...` | ~15-20 min; cancels Razorpay orders left unpaid 45+ min and restores stock/points/coupon claims — endpoint existed for a while before the cron-job.org job itself was registered 2026-09-17 |
 
 The review-request job (added 2026-08-24) follows the exact same
 pattern as the two pre-existing jobs: it queries for `Delivered`
@@ -410,14 +412,22 @@ keep accurate by hand.
 
 | Component | Host | Notes |
 |---|---|---|
-| Frontend | Vercel | Static Vite build; SPA rewrite (`vercel.json`) routes all paths to `index.html` |
-| Backend API | Render (free tier) | Sleeps on inactivity, cold-starts on next request |
+| Frontend | Vercel | Static Vite build; SPA rewrite (`vercel.json`) routes all paths to `index.html`. Also gets a permanent `*.vercel.app` domain alongside the custom one — `middleware.js` 301-redirects any other host to the canonical `www.mittalcollections.com` (added 2026-09-16, after that domain was found broken — every API call CORS-rejected — via a live Sentry error). |
+| Backend API | Render (free tier) | Sleeps on inactivity; kept warm by two independent, redundant pings (see Uptime monitoring below), not by design margin on Render's own side |
 | Database | MongoDB Atlas | |
 | Media | Cloudinary | Images + product videos; weekly asset backup via GitHub Actions (added 2026-08-15) |
 | Email | Brevo | HTTP API, not SMTP (Render blocks outbound SMTP) |
-| Scheduler | cron-job.org | External, HTTP-triggered |
+| Scheduler | cron-job.org | External, HTTP-triggered; see §4.5 for the full job list |
 | Payments | Razorpay | Standard Checkout; **test mode** as of last verification, see §4.6 |
-| Messaging | WhatsApp Cloud API (Meta) | Webhook only (receive); sending blocked on Meta Business Verification, see §4.7 |
+| Messaging | WhatsApp Cloud API (Meta) | Webhook only (receive); sending blocked on Meta Business Verification, see §4.7. Separately, plain `wa.me` click-to-chat links (no API) are used across the storefront and in POS/admin as the actual customer-facing WhatsApp channel today. |
+| Auth | Google OAuth (`google-auth-library`) | "Sign in with Google", alongside the existing email/password flow |
+| Analytics & SEO reporting | Google Analytics 4 + Google Search Console | Read-only reporting API access, via a service account (`server/config/googleReporting.js`), surfaced in Admin Reports. Separately, the storefront also loads `gtag.js` directly for real-time GA4 tracking (skipped on `/admin/*` so admin usage doesn't pollute customer traffic numbers). |
+| Shopping feed | Google Merchant Center + Meta Catalog | Both consume the one shared XML feed at `GET /api/feed/google.xml` (`feedController.js`); live in Google Merchant Center since ~19 Aug 2026, 130 products approved. Feed emits `<g:color>`/`<g:material>`/`<g:pattern>` from `Product.color`/`fabric`/`pattern` when set (added 2026-09-16/17). |
+| Uptime monitoring | UptimeRobot + a dedicated cron-job.org job | Two independent, redundant `/api/health` pings (~5 min and ~10 min respectively) — this, not any Render-side setting, is what keeps the free-tier backend from cold-sleeping between real requests |
+| Error tracking | Sentry | `@sentry/node` (server) + `@sentry/react` (client), both live in production |
+| Location APIs | `api.postalpincode.in` (India Post), `ip-api.com` | Free, keyless; the former backs the pincode delivery-checker (§4.15) and `localDeliveryOnly` checkout enforcement, the latter is the IP-geolocation fallback when `geoip-lite`'s bundled database has no match |
+| CI/CD | GitHub Actions | `ci.yml` (tests), `codeql.yml` (security scanning), `lighthouse.yml` (performance/SEO), plus the weekly Cloudinary/MongoDB backup workflows above |
+| Agent-readable site summary | `client/public/llms.txt` | Not a hosted service — a static file (same mechanism as `robots.txt`) summarizing the site/categories/policies for LLM/AI-agent crawlers, per the emerging (non-standard) `llms.txt` convention. Added 2026-09-17. |
 
 See `DEPLOYMENT.md` for environment variables and the exact release
 process.

@@ -5,6 +5,7 @@ import { FaStar } from "react-icons/fa";
 import { getShowcaseReviews } from "../services/reviewService";
 import { productUrl } from "../utils/productUrl";
 import { useLanguage } from "../context/LanguageContext";
+import { imgUrl, imgSrcSet } from "../services/api";
 
 // Real customer photos are the whole point here — see the "real photos
 // over stock images" convention this project already follows for product
@@ -53,7 +54,9 @@ function CustomerGallery() {
               className="group relative block aspect-square rounded-xl overflow-hidden bg-slate-100"
             >
               <img
-                src={review.images[0]}
+                src={imgUrl(review.images[0], "w_300,q_auto,f_auto")}
+                srcSet={imgSrcSet(review.images[0], [200, 300, 450])}
+                sizes="(min-width: 768px) 22vw, (min-width: 640px) 30vw, 45vw"
                 alt={review.product?.name || t("Customer photo", "ग्राहक फ़ोटो")}
                 loading="lazy"
                 className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"

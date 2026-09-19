@@ -6,6 +6,7 @@ import { FaSortAmountDown, FaSortAmountUp, FaWhatsapp } from "react-icons/fa";
 import {
   getAllOrders,
   updateOrderStatus,
+  resendOrderStatusEmail,
   restoreOrder,
   deleteOrder,
   permanentlyDeleteOrder,
@@ -83,6 +84,7 @@ function AdminOrders() {
   const [statusFilter, setStatusFilter] = useState("All");
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState(null);
+  const [resendingId, setResendingId] = useState(null);
   const [expandedId, setExpandedId] = useState(highlightId);
   const [sortOrder, setSortOrder] = useState("desc");
 
@@ -156,6 +158,20 @@ function AdminOrders() {
     }
 
     setUpdatingId(null);
+  };
+
+  const handleResendEmail = async (id) => {
+    setResendingId(id);
+
+    const response = await resendOrderStatusEmail(id);
+
+    alert(
+      response.success
+        ? "Notification email resent to the customer."
+        : response.message || "Unable to resend notification",
+    );
+
+    setResendingId(null);
   };
 
   const toggleExpand = (id) => {
@@ -335,6 +351,21 @@ function AdminOrders() {
                     >
                       <FaWhatsapp className="text-sm" />
                     </a>
+                  )}
+
+                  {canModify && order.isActive && (
+                    <button
+                      type="button"
+                      disabled={resendingId === order._id}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleResendEmail(order._id);
+                      }}
+                      title="Resend the current status notification email to the customer"
+                      className="text-xs font-medium text-blue-600 hover:underline whitespace-nowrap disabled:opacity-60"
+                    >
+                      {resendingId === order._id ? "Sending..." : "Resend Email"}
+                    </button>
                   )}
                 </div>
 

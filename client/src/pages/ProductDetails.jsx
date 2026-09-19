@@ -12,7 +12,10 @@ import Breadcrumbs from "../components/Breadcrumbs";
 import { subscribeStockAlert } from "../services/productService";
 import { getProductQuestions } from "../services/questionService";
 import { getSiteSettings } from "../services/settingsService";
+import { calculateDeliveryFee } from "../utils/shipping";
 import { toWhatsAppNumber } from "../utils/whatsapp";
+import { stripHtml } from "../utils/stripHtml";
+import { sanitizeDescriptionHtml } from "../utils/sanitizeDescriptionHtml";
 import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import {
@@ -92,6 +95,7 @@ function ProductDetails() {
   const [faqItems, setFaqItems] = useState([]);
   const [whatsappPhone, setWhatsappPhone] = useState("");
   const [defaultReturnPeriodDays, setDefaultReturnPeriodDays] = useState(7);
+  const [shippingSettings, setShippingSettings] = useState(null);
 
   const relatedScrollRef = useRef(null);
   const bundleScrollRef = useRef(null);
@@ -132,6 +136,7 @@ function ProductDetails() {
       if (response.settings.defaultReturnPeriodDays) {
         setDefaultReturnPeriodDays(response.settings.defaultReturnPeriodDays);
       }
+      setShippingSettings(response.settings);
     });
   }, []);
 
@@ -399,6 +404,7 @@ function ProductDetails() {
   const canonicalUrl = `${SITE_URL}${productUrl(product)}`;
   const shareText = product.name;
   const displayDescription = t(product.description, product.descriptionHi);
+  const displayDescriptionText = stripHtml(displayDescription);
 
   // Size variants (e.g. Curtains sold as 7x4/9x4) each carry their own
   // price/MRP/stock — once a size is selected these override the
@@ -469,11 +475,23 @@ function ProductDetails() {
         )
       : 0;
 
+  // Google's Rich Results Test flags both of these as "optional" but
+  // they're what unlocks the enhanced free-listing treatment in Google
+  // Shopping/Search (shipping cost + delivery time, return window,
+  // shown directly on the listing) — built from the same settings/
+  // return-policy data the checkout page and product page already use,
+  // not separately maintained numbers that could drift from reality.
+  const effectiveReturnDaysForSeo =
+    product.returnPeriodDays || defaultReturnPeriodDays;
+  const shippingFeeForSeo = shippingSettings
+    ? calculateDeliveryFee(product.price, shippingSettings)
+    : undefined;
+
   const productJsonLd = {
     "@context": "https://schema.org",
     "@type": "Product",
     name: product.name,
-    description: product.description,
+    description: stripHtml(product.description),
     image: imgUrl(product.image),
     brand: {
       "@type": "Brand",
@@ -488,6 +506,54 @@ function ProductDetails() {
           ? "https://schema.org/InStock"
           : "https://schema.org/OutOfStock",
       url: shareUrl,
+      ...(shippingFeeForSeo !== undefined && {
+        shippingDetails: {
+          "@type": "OfferShippingDetails",
+          shippingRate: {
+            "@type": "MonetaryAmount",
+            value: shippingFeeForSeo,
+            currency: "INR",
+          },
+          shippingDestination: {
+            "@type": "DefinedRegion",
+            addressCountry: "IN",
+          },
+          // Matches the "Usually delivered in 3-7 business days" promise
+          // shown elsewhere on the site (Footer, delivery-info banners) —
+          // same-day Ghaziabad express delivery is handled separately as
+          // its own Google Merchant Center delivery policy, not here.
+          deliveryTime: {
+            "@type": "ShippingDeliveryTime",
+            handlingTime: {
+              "@type": "QuantitativeValue",
+              minValue: 0,
+              maxValue: 0,
+              unitCode: "DAY",
+            },
+            transitTime: {
+              "@type": "QuantitativeValue",
+              minValue: 3,
+              maxValue: 7,
+              unitCode: "DAY",
+            },
+          },
+        },
+      }),
+      hasMerchantReturnPolicy: product.isReturnable
+        ? {
+            "@type": "MerchantReturnPolicy",
+            applicableCountry: "IN",
+            returnPolicyCategory: "https://schema.org/MerchantReturnFiniteReturnWindow",
+            merchantReturnDays: effectiveReturnDaysForSeo,
+            // Confirmed against the live Returns policy page text
+            // ("Return pickup is completely free") rather than assumed.
+            returnFees: "https://schema.org/FreeReturn",
+          }
+        : {
+            "@type": "MerchantReturnPolicy",
+            applicableCountry: "IN",
+            returnPolicyCategory: "https://schema.org/MerchantReturnNotPermitted",
+          },
     },
     ...(reviewStats.totalReviews > 0 && {
       aggregateRating: {
@@ -578,8 +644,8 @@ function ProductDetails() {
         title={seoTitle}
         description={
           product.description
-            ? `Buy online, pan-India delivery (24hr in Ghaziabad) - ${product.description}`.slice(0, 160)
-            : `Buy ${product.name} online with pan-India delivery - fast 24-hour delivery in Ghaziabad`
+            ? `Buy online, pan-India delivery (24hr in Ghaziabad) - ${stripHtml(product.description)}`.slice(0, 160)
+            : `Buy ${product.name} online with pan-India delivery - fast 24-hour delivery in Ghaziabad`.slice(0, 160)
         }
         image={imgUrl(product.image)}
         url={canonicalUrl}
@@ -636,6 +702,7 @@ function ProductDetails() {
                     alt={t(product.name, product.nameHi)}
                     style={zoomStyle}
                     onLoad={() => setMainImageLoaded(true)}
+                    fetchPriority="high"
                     className={`w-full h-full object-cover transition-all duration-300 pointer-events-none ${
                       mainImageLoaded ? "opacity-100" : "opacity-0"
                     }`}
@@ -813,7 +880,7 @@ function ProductDetails() {
             </p>
           )}
 
-          <PincodeChecker />
+          <PincodeChecker localDeliveryOnly={product.localDeliveryOnly} />
 
           {product.colorVariesNote && (
             <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mb-4">
@@ -853,17 +920,22 @@ function ProductDetails() {
             ))}
 
           <div className="mb-6">
-            <p
-              className={`text-slate-600 leading-relaxed whitespace-pre-line ${
-                descExpanded || displayDescription.length <= 280
+            <div
+              className={`text-slate-600 leading-relaxed whitespace-pre-line
+                [&_p]:mb-3 last:[&_p]:mb-0
+                [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:mb-3
+                [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:mb-3
+                [&_li]:mb-1 ${
+                descExpanded || displayDescriptionText.length <= 280
                   ? ""
                   : "line-clamp-4"
               }`}
-            >
-              {displayDescription}
-            </p>
+              dangerouslySetInnerHTML={{
+                __html: sanitizeDescriptionHtml(displayDescription),
+              }}
+            />
 
-            {displayDescription.length > 280 && (
+            {displayDescriptionText.length > 280 && (
               <button
                 type="button"
                 onClick={() => setDescExpanded((prev) => !prev)}

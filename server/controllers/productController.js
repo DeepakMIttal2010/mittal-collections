@@ -17,6 +17,7 @@ import {
   decodeProductNumber,
 } from "../utils/costCipher.js";
 import { deleteCloudinaryAssetsByUrl } from "../utils/cloudinaryCleanup.js";
+import { sanitizeProductDescription } from "../utils/sanitizeProductDescription.js";
 
 // Never sent by a public route — cost data is admin-only. The nested
 // variants.purchasePrice needs its own dotted exclusion; a bare
@@ -585,6 +586,8 @@ export const duplicateProduct = async (req, res) => {
       variants: source.variants,
 
       fabric: source.fabric,
+      color: source.color,
+      pattern: source.pattern,
       size: source.size,
       gsm: source.gsm,
       washCare: source.washCare,
@@ -592,6 +595,7 @@ export const duplicateProduct = async (req, res) => {
       countryOfOrigin: source.countryOfOrigin,
       whatsIncluded: source.whatsIncluded,
       colorVariesNote: source.colorVariesNote,
+      localDeliveryOnly: source.localDeliveryOnly,
 
       featured: false,
       isTrending: false,
@@ -814,16 +818,20 @@ export const getNewArrivalProducts = async (req, res) => {
 };
 
 // ============================
-// GET GIFTING PRODUCTS (Public) — flat, site-wide list of products an
-// admin has opted in via isGiftingItem, newest first. Mirrors
-// getNewArrivalProducts's shape, but opt-in (isGiftingItem defaults
-// false) rather than opt-out, and deliberately flat/uncategorized —
-// gifting spans arbitrary categories, so there's no per-category
-// grouping the way New Arrivals/Trending have.
+// GET GIFTING PRODUCTS BY CATEGORY (Public) — products an admin has
+// opted in via isGiftingItem, grouped by whichever category each one
+// actually belongs to. Unlike getNewArrivalsByCategory, there's no
+// admin-curated NewArrivalsSection-style opt-in per category here —
+// gifting items are already an explicit opt-in on the product itself,
+// so a category's section simply exists whenever it has >=1 qualifying
+// gifting product, grouped dynamically rather than pre-configured.
 // ============================
-export const getGiftingProducts = async (req, res) => {
+export const getGiftingProductsByCategory = async (req, res) => {
   try {
-    const limit = Math.max(parseInt(req.query.limit, 10) || 40, 1);
+    const perCategoryLimit = Math.max(
+      parseInt(req.query.limit, 10) || 8,
+      1,
+    );
 
     const products = await Product.find({
       isActive: true,
@@ -832,14 +840,41 @@ export const getGiftingProducts = async (req, res) => {
       $or: [{ stock: { $gt: 0 } }, { willRestock: { $ne: false } }],
     })
       .select(COST_FIELDS)
-      .populate("category", "name nameHi slug image")
+      .populate("category", "name nameHi slug isActive")
       .populate("subcategories", "name nameHi slug")
-      .sort({ createdAt: -1 })
-      .limit(limit);
+      .sort({ createdAt: -1 });
+
+    const sectionsByCategory = new Map();
+
+    for (const product of products) {
+      // A product's category could have been deactivated without the
+      // reference being cleaned up — skip rather than show a section
+      // for a category that no longer resolves anywhere on the site.
+      if (!product.category?.isActive) continue;
+
+      const categoryId = product.category._id.toString();
+
+      if (!sectionsByCategory.has(categoryId)) {
+        sectionsByCategory.set(categoryId, {
+          category: {
+            _id: product.category._id,
+            name: product.category.name,
+            nameHi: product.category.nameHi,
+            slug: product.category.slug,
+          },
+          products: [],
+        });
+      }
+
+      const section = sectionsByCategory.get(categoryId);
+      if (section.products.length < perCategoryLimit) {
+        section.products.push(product);
+      }
+    }
 
     res.status(200).json({
       success: true,
-      products,
+      sections: Array.from(sectionsByCategory.values()),
     });
   } catch (error) {
     console.error(error);
@@ -1157,6 +1192,8 @@ export const addProduct = async (req, res) => {
       willRestock,
       mainImageIndex,
       fabric,
+      color,
+      pattern,
       size,
       gsm,
       washCare,
@@ -1164,6 +1201,7 @@ export const addProduct = async (req, res) => {
       countryOfOrigin,
       whatsIncluded,
       colorVariesNote,
+      localDeliveryOnly,
       adminRemarks,
       isReturnable,
       returnPeriodDays,
@@ -1196,9 +1234,9 @@ export const addProduct = async (req, res) => {
     const product = await Product.create({
       name,
       slug: generateSlug(name),
-      description,
+      description: sanitizeProductDescription(description),
       nameHi: nameHi || "",
-      descriptionHi: descriptionHi || "",
+      descriptionHi: sanitizeProductDescription(descriptionHi),
       // Once variants exist, the top-level price/oldPrice/stock are
       // derived from them (first variant's price, summed stock) rather
       // than trusting whatever was separately sent for those fields —
@@ -1225,6 +1263,8 @@ export const addProduct = async (req, res) => {
         : "both",
 
       fabric: fabric || "",
+      color: color || "",
+      pattern: pattern || "",
       size: size || "",
       gsm: gsm || "",
       washCare: washCare || "",
@@ -1232,6 +1272,7 @@ export const addProduct = async (req, res) => {
       countryOfOrigin: countryOfOrigin || "",
       whatsIncluded: whatsIncluded || "",
       colorVariesNote: colorVariesNote || "",
+      localDeliveryOnly: localDeliveryOnly === "true",
       adminRemarks: adminRemarks || "",
       adminRemarksUpdatedAt: adminRemarks ? new Date() : null,
 
@@ -1297,9 +1338,9 @@ export const updateProduct = async (req, res) => {
 
     product.name = req.body.name;
     product.slug = generateSlug(req.body.name);
-    product.description = req.body.description;
+    product.description = sanitizeProductDescription(req.body.description);
     product.nameHi = req.body.nameHi || "";
-    product.descriptionHi = req.body.descriptionHi || "";
+    product.descriptionHi = sanitizeProductDescription(req.body.descriptionHi);
     const variants = parseVariants(req.body.variants);
     const hasVariants = variants.length > 0;
 
@@ -1337,6 +1378,8 @@ export const updateProduct = async (req, res) => {
       : "both";
 
     product.fabric = req.body.fabric || "";
+    product.color = req.body.color || "";
+    product.pattern = req.body.pattern || "";
     product.size = req.body.size || "";
     product.gsm = req.body.gsm || "";
     product.washCare = req.body.washCare || "";
@@ -1344,6 +1387,7 @@ export const updateProduct = async (req, res) => {
     product.countryOfOrigin = req.body.countryOfOrigin || "";
     product.whatsIncluded = req.body.whatsIncluded || "";
     product.colorVariesNote = req.body.colorVariesNote || "";
+    product.localDeliveryOnly = req.body.localDeliveryOnly === "true";
 
     // Only bump the timestamp when the note itself actually changed —
     // otherwise re-saving the product for an unrelated edit (price,

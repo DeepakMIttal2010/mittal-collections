@@ -81,6 +81,32 @@ export const updateOrderStatus = async (id, status) => {
 };
 
 // ==============================
+// RESEND ORDER STATUS NOTIFICATION EMAIL
+// ==============================
+export const resendOrderStatusEmail = async (id) => {
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/orders/${id}/resend-status-email`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${getToken()}`,
+        },
+      },
+    );
+
+    return await response.json();
+  } catch (error) {
+    console.error("Resend Order Status Email Error:", error);
+
+    return {
+      success: false,
+      message: "Unable to resend notification",
+    };
+  }
+};
+
+// ==============================
 // RESTORE ORDER
 // ==============================
 export const restoreOrder = async (id) => {

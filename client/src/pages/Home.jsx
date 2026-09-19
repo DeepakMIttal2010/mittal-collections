@@ -4,6 +4,7 @@ import Seo from "../components/Seo";
 import Hero from "../components/Hero/Hero";
 import CategoryQuickLinks from "../components/CategoryQuickLinks/CategoryQuickLinks";
 import TrustBar from "../components/TrustBar/TrustBar";
+import RewardsStrip from "../components/RewardsStrip/RewardsStrip";
 import RecentlyViewed from "../components/RecentlyViewed/RecentlyViewed";
 import Categories from "../components/Categories/Categories";
 import TrendingSection from "../components/TrendingSection/TrendingSection";
@@ -87,7 +88,7 @@ function Home() {
   return (
     <>
       <Seo
-        title="Buy Bedsheets, Curtains & Towels Online — Pan-India Delivery"
+        title="Buy Bedsheets, Curtains & Towels — Pan-India Delivery"
         description="Shop premium cotton bedsheets, curtains, towels, cushions & doormats online with pan-India delivery — fast 24-hour delivery in Ghaziabad. Easy returns."
         url={`${SITE_URL}/`}
         jsonLd={[organizationJsonLd, websiteJsonLd, localBusinessJsonLd]}
@@ -95,6 +96,7 @@ function Home() {
       <Hero />
       <CategoryQuickLinks />
       <TrustBar />
+      <RewardsStrip />
       <RecentlyViewed />
       <Categories />
       <TrendingSection />

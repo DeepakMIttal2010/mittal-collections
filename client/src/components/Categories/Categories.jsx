@@ -1,4 +1,4 @@
-import { imgUrl } from "../../services/api";
+import { imgUrl, imgSrcSet } from "../../services/api";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { getCategories } from "../../services/categoryService";
@@ -34,16 +34,57 @@ function Categories() {
   return (
     <section className="py-20 bg-white" id="shop-categories">
       <div className="max-w-7xl mx-auto px-4">
-        <div className="text-center mb-12">
+        <div className="text-center mb-12 max-w-3xl mx-auto">
           <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-2">
-            {t("Shop by Category", "श्रेणी अनुसार खरीदें")}
+            {t("Shop Home Furnishing Online", "होम फर्निशिंग ऑनलाइन खरीदें")}
           </h2>
-          <p className="text-slate-500">
-            {t(
-              "Explore our curated collection for every corner of your home.",
-              "अपने घर के हर कोने के लिए हमारा चुना हुआ कलेक्शन देखें।",
-            )}
-          </p>
+
+          {/* Real, readable body copy naming the actual categories — not
+              just the visual cards below, which carry names/images but no
+              crawlable sentence tying them together. Google recommends
+              exactly this for ecommerce sites: on-page text + internal
+              links that make a site's category/topical structure explicit,
+              not just navigation. Built from the live category list, so it
+              can never drift out of sync with what's actually sold. */}
+          {loading ? (
+            // Reserves roughly the same height as the real copy below so
+            // this block doesn't pop in from zero height once the
+            // category fetch resolves — that jump was pushing the whole
+            // page down and showing up as a real Cumulative Layout Shift
+            // on mobile (slower network -> longer gap before the fetch
+            // completes -> the shift lands inside Lighthouse's CLS window).
+            <div className="max-w-xl mx-auto space-y-2">
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-5/6 mx-auto" />
+              <Skeleton className="h-4 w-1/2 mx-auto mt-3" />
+            </div>
+          ) : (
+            categories.length > 0 && (
+              <>
+                <p className="text-slate-600 leading-relaxed">
+                  {t(
+                    `Mittal Collections offers home furnishing products online, including ${categories.map((c) => c.name).join(", ")}, and other home decor essentials — with delivery across India and same-day express delivery in Ghaziabad.`,
+                    `मित्तल कलेक्शंस ऑनलाइन होम फर्निशिंग उत्पाद उपलब्ध कराता है, जिनमें ${categories.map((c) => t(c.name, c.nameHi)).join(", ")} और अन्य होम डेकोर सामान शामिल हैं — पूरे भारत में डिलीवरी के साथ, और गाज़ियाबाद में उसी दिन एक्सप्रेस डिलीवरी।`,
+                  )}
+                </p>
+
+                <p className="text-sm text-slate-600 mt-3 flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
+                  {categories.map((c, i) => (
+                    <span key={c._id} className="flex items-center gap-2">
+                      <Link to={`/category/${c.slug}`} className="hover:text-amber-600 underline underline-offset-2">
+                        {t(c.name, c.nameHi)}
+                      </Link>
+                      {i < categories.length - 1 && (
+                        <span className="text-slate-400" aria-hidden="true">
+                          |
+                        </span>
+                      )}
+                    </span>
+                  ))}
+                </p>
+              </>
+            )
+          )}
         </div>
 
         {loading ? (
@@ -62,7 +103,9 @@ function Categories() {
               >
                 <div className="relative h-72 overflow-hidden">
                   <img
-                    src={`${imgUrl(category.image)}`}
+                    src={`${imgUrl(category.image, "w_600,q_auto,f_auto")}`}
+                    srcSet={imgSrcSet(category.image, [400, 600, 850])}
+                    sizes="(min-width: 1024px) 405px, (min-width: 640px) 45vw, 90vw"
                     alt={t(category.name, category.nameHi)}
                     loading="lazy"
                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"

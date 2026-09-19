@@ -1,4 +1,4 @@
-import { imgUrl } from "../../services/api";
+import { imgUrl, imgSrcSet } from "../../services/api";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { FaChevronLeft, FaChevronRight, FaFire } from "react-icons/fa";
@@ -73,7 +73,9 @@ function TrendingCategoryRow({ category, products, t, isFirst }) {
           >
             <div className="relative rounded-xl overflow-hidden shadow-md aspect-[4/5] bg-slate-100">
               <img
-                src={`${imgUrl(product.image)}`}
+                src={`${imgUrl(product.image, "w_300,q_auto,f_auto")}`}
+                srcSet={imgSrcSet(product.image, [200, 300, 450])}
+                sizes="(min-width: 640px) 240px, 192px"
                 alt={t(product.name, product.nameHi)}
                 loading="lazy"
                 className="w-full h-full object-cover"
@@ -134,7 +136,7 @@ function TrendingSection() {
             <h2 className="text-4xl md:text-5xl font-black text-slate-900">
               {t("Top Trending", "सबसे ज़्यादा ट्रेंडिंग")}
             </h2>
-            <p className="text-sm text-slate-500 mt-2 flex items-center gap-2">
+            <p className="text-sm text-slate-600 mt-2 flex items-center gap-2">
               {t("on Mittal Collections", "मित्तल कलेक्शंस पर")}
               {lastUpdated && (
                 <>
@@ -174,7 +176,7 @@ function TrendingSection() {
           ))
         )}
 
-        <p className="text-xs text-slate-400 mt-2 flex items-center gap-1.5">
+        <p className="text-xs text-slate-600 mt-2 flex items-center gap-1.5">
           <FaFire className="text-amber-500" />
           {t("Handpicked by our team", "हमारी टीम द्वारा चुने गए")}
         </p>

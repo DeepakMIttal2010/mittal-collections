@@ -1,6 +1,8 @@
 import { imgUrl } from "../../services/api";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
+import ReactQuill from "react-quill-new";
+import "react-quill-new/dist/quill.snow.css";
 
 import {
   getProductByIdAdmin,
@@ -9,6 +11,7 @@ import {
 import { getCategories } from "../../services/categoryService";
 import { getSubcategories } from "../../services/subcategoryService";
 import { getSiteSettingsAdmin } from "../../services/adminSettingsService";
+import { stripHtml } from "../../utils/stripHtml";
 
 import "./EditProduct.css";
 
@@ -82,6 +85,8 @@ function EditProduct() {
     visibility: "both",
     optimizeImages: true,
     fabric: "",
+    color: "",
+    pattern: "",
     size: "",
     gsm: "",
     washCare: "",
@@ -89,6 +94,7 @@ function EditProduct() {
     countryOfOrigin: "",
     whatsIncluded: "",
     colorVariesNote: "",
+    localDeliveryOnly: false,
     adminRemarks: "",
     isReturnable: true,
     returnPeriodDays: "",
@@ -159,6 +165,8 @@ function EditProduct() {
         visibility: product.visibility || "both",
         optimizeImages: true,
         fabric: product.fabric || "",
+        color: product.color || "",
+        pattern: product.pattern || "",
         size: product.size || "",
         gsm: product.gsm || "",
         washCare: product.washCare || "",
@@ -166,6 +174,7 @@ function EditProduct() {
         countryOfOrigin: product.countryOfOrigin || "",
         whatsIncluded: product.whatsIncluded || "",
         colorVariesNote: product.colorVariesNote || "",
+        localDeliveryOnly: product.localDeliveryOnly || false,
         adminRemarks: product.adminRemarks || "",
         isReturnable:
           product.isReturnable === undefined ? true : product.isReturnable,
@@ -249,6 +258,22 @@ function EditProduct() {
     if (catMatch) return catMatch;
 
     return DEFAULT_PRICING_RULE;
+  };
+
+  // Bold/italic/lists only — no image/header tools. Product photos are
+  // already handled by the dedicated image uploader below, and a
+  // "Care instructions:" paragraph is still expected as the LAST block
+  // (see feedController.js's feedDescription, which strips it out of
+  // the Shopping/Meta feed by looking at the last block's text).
+  const descriptionModules = useMemo(
+    () => ({
+      toolbar: [["bold", "italic"], [{ list: "ordered" }, { list: "bullet" }], ["clean"]],
+    }),
+    [],
+  );
+
+  const handleDescriptionChange = (field, value) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleChange = (e) => {
@@ -413,6 +438,11 @@ function EditProduct() {
       return;
     }
 
+    if (!stripHtml(formData.description).trim()) {
+      alert("Please add a product description");
+      return;
+    }
+
     const cleanVariants = hasVariants
       ? variants.filter((v) => v.size.trim() && v.price !== "")
       : [];
@@ -498,12 +528,12 @@ function EditProduct() {
         <div className="form-group">
           <label>Description</label>
 
-          <textarea
-            rows="5"
-            name="description"
+          <ReactQuill
+            theme="snow"
             value={formData.description}
-            onChange={handleChange}
-            required
+            onChange={(value) => handleDescriptionChange("description", value)}
+            modules={descriptionModules}
+            placeholder="Put &quot;Care instructions: ...&quot; as its own last paragraph — it's automatically left out of the Google/Meta Shopping feed."
           />
         </div>
 
@@ -522,12 +552,12 @@ function EditProduct() {
         <div className="form-group">
           <label>Description (Hindi, optional)</label>
 
-          <textarea
-            rows="5"
-            name="descriptionHi"
-            placeholder="हिंदी में विवरण"
+          <ReactQuill
+            theme="snow"
             value={formData.descriptionHi}
-            onChange={handleChange}
+            onChange={(value) => handleDescriptionChange("descriptionHi", value)}
+            modules={descriptionModules}
+            placeholder="हिंदी में विवरण"
           />
         </div>
 
@@ -758,6 +788,32 @@ function EditProduct() {
               name="size"
               placeholder="e.g. 90 x 100 inches"
               value={formData.size}
+              onChange={handleChange}
+            />
+          </div>
+        </div>
+
+        <div className="form-row">
+          <div className="form-group">
+            <label>Colour (optional)</label>
+
+            <input
+              type="text"
+              name="color"
+              placeholder="e.g. Sage Green"
+              value={formData.color}
+              onChange={handleChange}
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Pattern (optional)</label>
+
+            <input
+              type="text"
+              name="pattern"
+              placeholder="e.g. Floral"
+              value={formData.pattern}
               onChange={handleChange}
             />
           </div>
@@ -1079,6 +1135,16 @@ function EditProduct() {
               onChange={handleChange}
             />
             Custom Restock Alert
+          </label>
+
+          <label title="For bulky/oversized items where pan-India shipping is uneconomical — the product page warns customers outside the nearby fast-delivery zone that this item can't be shipped to them.">
+            <input
+              type="checkbox"
+              name="localDeliveryOnly"
+              checked={formData.localDeliveryOnly}
+              onChange={handleChange}
+            />
+            Local Delivery Only (bulky item)
           </label>
         </div>
 
