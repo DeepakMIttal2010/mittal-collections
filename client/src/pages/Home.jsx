@@ -4,6 +4,7 @@ import Seo from "../components/Seo";
 import Hero from "../components/Hero/Hero";
 import CategoryQuickLinks from "../components/CategoryQuickLinks/CategoryQuickLinks";
 import TrustBar from "../components/TrustBar/TrustBar";
+import RewardsStrip from "../components/RewardsStrip/RewardsStrip";
 import RecentlyViewed from "../components/RecentlyViewed/RecentlyViewed";
 import Categories from "../components/Categories/Categories";
 import TrendingSection from "../components/TrendingSection/TrendingSection";
@@ -95,6 +96,7 @@ function Home() {
       <Hero />
       <CategoryQuickLinks />
       <TrustBar />
+      <RewardsStrip />
       <RecentlyViewed />
       <Categories />
       <TrendingSection />
