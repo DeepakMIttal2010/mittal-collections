@@ -133,6 +133,19 @@
   right: 24px;
 }
 
+/* .hero-arrow's top: 50% assumes a normal photo slide's moderate,
+   fairly consistent height — the rewards slide's 4 benefit cards
+   (stacked to 1 column on mobile, see .hero-rewards-cards below) make
+   that section 2-3x taller, so a vertically-centered arrow lands
+   somewhere in the middle of the card stack instead of anywhere near
+   an edge. Hiding it here rather than repositioning: .hero-dots
+   already sits at the section's bottom (near the CTA, a sensible
+   place for it on this slide) and gives full slide-jump navigation on
+   its own, so nothing is lost. */
+.hero-rewards-slide .hero-arrow {
+  display: none;
+}
+
 .hero-dots {
   position: absolute;
   bottom: 24px;
