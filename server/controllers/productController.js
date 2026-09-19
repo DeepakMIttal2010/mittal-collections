@@ -818,16 +818,20 @@ export const getNewArrivalProducts = async (req, res) => {
 };
 
 // ============================
-// GET GIFTING PRODUCTS (Public) — flat, site-wide list of products an
-// admin has opted in via isGiftingItem, newest first. Mirrors
-// getNewArrivalProducts's shape, but opt-in (isGiftingItem defaults
-// false) rather than opt-out, and deliberately flat/uncategorized —
-// gifting spans arbitrary categories, so there's no per-category
-// grouping the way New Arrivals/Trending have.
+// GET GIFTING PRODUCTS BY CATEGORY (Public) — products an admin has
+// opted in via isGiftingItem, grouped by whichever category each one
+// actually belongs to. Unlike getNewArrivalsByCategory, there's no
+// admin-curated NewArrivalsSection-style opt-in per category here —
+// gifting items are already an explicit opt-in on the product itself,
+// so a category's section simply exists whenever it has >=1 qualifying
+// gifting product, grouped dynamically rather than pre-configured.
 // ============================
-export const getGiftingProducts = async (req, res) => {
+export const getGiftingProductsByCategory = async (req, res) => {
   try {
-    const limit = Math.max(parseInt(req.query.limit, 10) || 40, 1);
+    const perCategoryLimit = Math.max(
+      parseInt(req.query.limit, 10) || 8,
+      1,
+    );
 
     const products = await Product.find({
       isActive: true,
@@ -836,14 +840,41 @@ export const getGiftingProducts = async (req, res) => {
       $or: [{ stock: { $gt: 0 } }, { willRestock: { $ne: false } }],
     })
       .select(COST_FIELDS)
-      .populate("category", "name nameHi slug image")
+      .populate("category", "name nameHi slug isActive")
       .populate("subcategories", "name nameHi slug")
-      .sort({ createdAt: -1 })
-      .limit(limit);
+      .sort({ createdAt: -1 });
+
+    const sectionsByCategory = new Map();
+
+    for (const product of products) {
+      // A product's category could have been deactivated without the
+      // reference being cleaned up — skip rather than show a section
+      // for a category that no longer resolves anywhere on the site.
+      if (!product.category?.isActive) continue;
+
+      const categoryId = product.category._id.toString();
+
+      if (!sectionsByCategory.has(categoryId)) {
+        sectionsByCategory.set(categoryId, {
+          category: {
+            _id: product.category._id,
+            name: product.category.name,
+            nameHi: product.category.nameHi,
+            slug: product.category.slug,
+          },
+          products: [],
+        });
+      }
+
+      const section = sectionsByCategory.get(categoryId);
+      if (section.products.length < perCategoryLimit) {
+        section.products.push(product);
+      }
+    }
 
     res.status(200).json({
       success: true,
-      products,
+      sections: Array.from(sectionsByCategory.values()),
     });
   } catch (error) {
     console.error(error);
