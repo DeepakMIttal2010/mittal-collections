@@ -45,21 +45,6 @@ const pageVisitSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
-
-    // TEMPORARY diagnostic fields (added 2026-09-19) — every visit today
-    // is showing blank country/region/city despite geoip-lite resolving
-    // real IPs correctly in isolation, which points to req.ip itself not
-    // being the real visitor IP in production. These capture the raw
-    // values so the actual bug can be confirmed from real traffic, then
-    // get removed once it's found.
-    debugIp: {
-      type: String,
-      default: "",
-    },
-    debugXff: {
-      type: String,
-      default: "",
-    },
   },
   {
     timestamps: { createdAt: true, updatedAt: false },

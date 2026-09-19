@@ -1741,15 +1741,6 @@ function AdminReports() {
                   <th className="text-right px-4 py-2.5 font-semibold">
                     Unique Visitors
                   </th>
-                  {/* TEMPORARY diagnostic columns — see PageVisit.js
-                      debugIp/debugXff. Remove once the blank-location
-                      bug is root-caused and fixed. */}
-                  <th className="text-left px-4 py-2.5 font-semibold text-amber-600">
-                    Sample IP (debug)
-                  </th>
-                  <th className="text-left px-4 py-2.5 font-semibold text-amber-600">
-                    X-Forwarded-For (debug)
-                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -1767,12 +1758,6 @@ function AdminReports() {
                     </td>
                     <td className="px-4 py-2.5 text-right text-slate-700">
                       {formatNumber(loc.uniqueVisitors)}
-                    </td>
-                    <td className="px-4 py-2.5 text-slate-500 font-mono text-xs">
-                      {loc.sampleIp || "—"}
-                    </td>
-                    <td className="px-4 py-2.5 text-slate-500 font-mono text-xs">
-                      {loc.sampleXff || "—"}
                     </td>
                   </tr>
                 ))}

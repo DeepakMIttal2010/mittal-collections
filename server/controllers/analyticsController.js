@@ -183,10 +183,6 @@ export const recordVisit = async (req, res) => {
       country,
       region,
       city,
-      // TEMPORARY (see PageVisit.js) — diagnosing why country/region/city
-      // are coming back blank for every visit in production.
-      debugIp: String(req.ip || ""),
-      debugXff: String(req.headers["x-forwarded-for"] || ""),
     });
 
     res.status(201).json({ success: true });
