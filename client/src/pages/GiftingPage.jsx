@@ -56,8 +56,16 @@ function GiftingPage() {
   const [selectedSubcategoryIds, setSelectedSubcategoryIds] = useState(new Set());
   // null = no price filter applied (full range). Otherwise [min, max] in
   // rupees, driven by either the slider or the manual number boxes —
-  // both write to the same state, so they always stay in sync.
+  // both write to the same state, so they always stay in sync. This is
+  // the COMMITTED value that actually drives filtering — kept separate
+  // from the slider's own drag position (sliderDraft below) so dragging
+  // doesn't re-filter (and reflow/resize) the whole product grid on
+  // every tick, which was visibly scrolling the page mid-drag.
   const [priceRange, setPriceRange] = useState(null);
+  // Live handle position while actively dragging the desktop slider —
+  // null once released, at which point priceRange (committed above) is
+  // what's actually applied via the slider's onChangeComplete.
+  const [sliderDraft, setSliderDraft] = useState(null);
   const [sortBy, setSortBy] = useState("featured");
   const [visibleFlatCount, setVisibleFlatCount] = useState(PAGE_SIZE);
 
@@ -112,6 +120,9 @@ function GiftingPage() {
 
   const [priceMin, priceMax] = priceRange || [0, absoluteMaxPrice];
   const isPriceActive = priceRange !== null && (priceMin > 0 || priceMax < absoluteMaxPrice);
+  // What the slider/number boxes actually display — follows the live drag
+  // position when there is one, otherwise the committed value.
+  const [displayPriceMin, displayPriceMax] = sliderDraft || [priceMin, priceMax];
 
   const matchesCategory = (product) =>
     selectedCategoryIds.size === 0 || selectedCategoryIds.has(product._category._id);
@@ -293,6 +304,51 @@ function GiftingPage() {
         </div>
       </div>
 
+      <div>
+        <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
+          {t("Price", "कीमत")}
+        </h3>
+        <div className="px-1 gifting-price-slider">
+          <Slider
+            range
+            min={0}
+            max={absoluteMaxPrice}
+            value={[displayPriceMin, displayPriceMax]}
+            onChange={setSliderDraft}
+            onChangeComplete={(value) => {
+              setPriceRange(value);
+              setSliderDraft(null);
+            }}
+            allowCross={false}
+          />
+        </div>
+        <div className="flex items-center gap-2 mt-4">
+          <div className="flex items-center gap-1 border border-slate-300 rounded-lg px-2 py-1.5 flex-1 min-w-0">
+            <span className="text-slate-400 text-sm">₹</span>
+            <input
+              type="number"
+              min={0}
+              max={priceMax}
+              value={displayPriceMin}
+              onChange={(e) => priceUpdater.onMinChange(e.target.value)}
+              className="w-full text-sm text-slate-700 outline-none min-w-0"
+            />
+          </div>
+          <span className="text-slate-400 text-sm">–</span>
+          <div className="flex items-center gap-1 border border-slate-300 rounded-lg px-2 py-1.5 flex-1 min-w-0">
+            <span className="text-slate-400 text-sm">₹</span>
+            <input
+              type="number"
+              min={priceMin}
+              max={absoluteMaxPrice}
+              value={displayPriceMax}
+              onChange={(e) => priceUpdater.onMaxChange(e.target.value)}
+              className="w-full text-sm text-slate-700 outline-none min-w-0"
+            />
+          </div>
+        </div>
+      </div>
+
       {subcategoryOptions.length > 0 && (
         <div>
           <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
@@ -315,47 +371,6 @@ function GiftingPage() {
           </div>
         </div>
       )}
-
-      <div>
-        <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
-          {t("Price", "कीमत")}
-        </h3>
-        <div className="px-1 gifting-price-slider">
-          <Slider
-            range
-            min={0}
-            max={absoluteMaxPrice}
-            value={[priceMin, priceMax]}
-            onChange={priceUpdater.onSliderChange}
-            allowCross={false}
-          />
-        </div>
-        <div className="flex items-center gap-2 mt-4">
-          <div className="flex items-center gap-1 border border-slate-300 rounded-lg px-2 py-1.5 flex-1 min-w-0">
-            <span className="text-slate-400 text-sm">₹</span>
-            <input
-              type="number"
-              min={0}
-              max={priceMax}
-              value={priceMin}
-              onChange={(e) => priceUpdater.onMinChange(e.target.value)}
-              className="w-full text-sm text-slate-700 outline-none min-w-0"
-            />
-          </div>
-          <span className="text-slate-400 text-sm">–</span>
-          <div className="flex items-center gap-1 border border-slate-300 rounded-lg px-2 py-1.5 flex-1 min-w-0">
-            <span className="text-slate-400 text-sm">₹</span>
-            <input
-              type="number"
-              min={priceMin}
-              max={absoluteMaxPrice}
-              value={priceMax}
-              onChange={(e) => priceUpdater.onMaxChange(e.target.value)}
-              className="w-full text-sm text-slate-700 outline-none min-w-0"
-            />
-          </div>
-        </div>
-      </div>
     </>
   );
 
@@ -381,29 +396,6 @@ function GiftingPage() {
           ))}
         </div>
       </div>
-
-      {subcategoryOptions.length > 0 && (
-        <div>
-          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
-            {t("Subcategory", "उप-श्रेणी")}
-          </h3>
-          <div className="space-y-3">
-            {subcategoryOptions.map((sc) => (
-              <label key={sc._id} className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={draftSubcategoryIds.has(sc._id)}
-                  onChange={() => toggleDraftSubcategory(sc._id)}
-                  className="w-4 h-4 accent-amber-600"
-                />
-                <span className="text-sm text-slate-700">
-                  {t(sc.name, sc.nameHi)} <span className="text-slate-400">({sc.count})</span>
-                </span>
-              </label>
-            ))}
-          </div>
-        </div>
-      )}
 
       <div>
         <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
@@ -445,6 +437,29 @@ function GiftingPage() {
           </div>
         </div>
       </div>
+
+      {subcategoryOptions.length > 0 && (
+        <div>
+          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
+            {t("Subcategory", "उप-श्रेणी")}
+          </h3>
+          <div className="space-y-3">
+            {subcategoryOptions.map((sc) => (
+              <label key={sc._id} className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={draftSubcategoryIds.has(sc._id)}
+                  onChange={() => toggleDraftSubcategory(sc._id)}
+                  className="w-4 h-4 accent-amber-600"
+                />
+                <span className="text-sm text-slate-700">
+                  {t(sc.name, sc.nameHi)} <span className="text-slate-400">({sc.count})</span>
+                </span>
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
     </>
   );
 
@@ -508,19 +523,7 @@ function GiftingPage() {
       ) : (
         <div className="lg:flex lg:gap-8 lg:items-start">
           <aside className="hidden lg:block w-64 shrink-0 sticky top-24 self-start">
-            {/* Extra left padding (pl-14, not the usual p-4 all round) —
-                the fixed WhatsAppButton sits bottom-left of the viewport
-                (~x:16-60px), and this panel is tall enough (Category +
-                Subcategory + a price slider with two number boxes) that
-                whichever row ends up at the bottom of the viewport can
-                land directly under it — confirmed: the price Min box was
-                genuinely hidden/unclickable behind the button at a
-                900px-tall viewport. Bottom padding alone doesn't fix this
-                (it only adds space after the last row, it doesn't move
-                that row) — indenting every row's content clear of the
-                button's column is what actually works, for whichever row
-                ends up at the bottom. */}
-            <div className="border border-slate-200 rounded-lg pt-4 pr-4 pb-4 pl-14 space-y-6">
+            <div className="border border-slate-200 rounded-lg p-4 space-y-6">
               <div className="flex items-center justify-between">
                 <h2 className="font-semibold text-slate-900">
                   {t("Filters", "फ़िल्टर")}
