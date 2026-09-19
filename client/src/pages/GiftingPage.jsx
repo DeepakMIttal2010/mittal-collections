@@ -2,6 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { FaWhatsapp } from "react-icons/fa6";
 import { FaFilter, FaTimes } from "react-icons/fa";
+import Slider from "rc-slider";
+import "rc-slider/assets/index.css";
+import "./GiftingPage.css";
 
 import { getGiftingProductsByCategory } from "../services/productService";
 import { getSiteSettings } from "../services/settingsService";
@@ -25,18 +28,6 @@ const BREADCRUMB_ITEMS = [{ name: "Home", path: "/" }, { name: "Gifting" }];
 // you start narrowing a listing down.
 const PAGE_SIZE = 8;
 const FETCH_LIMIT = 40;
-
-// min/max in rupees; max: null means "no upper bound" — same buckets as
-// CategoryPage's price filter, kept identical so a customer sees the same
-// price bands everywhere on the site.
-function getPriceRanges(t) {
-  return [
-    { id: "under-499", label: t("Under ₹499", "₹499 से कम"), min: 0, max: 499 },
-    { id: "500-999", label: "₹500 – ₹999", min: 500, max: 999 },
-    { id: "1000-1499", label: "₹1,000 – ₹1,499", min: 1000, max: 1499 },
-    { id: "1500-plus", label: t("₹1,500 and above", "₹1,500 और ऊपर"), min: 1500, max: null },
-  ];
-}
 
 function getSortOptions(t) {
   return [
@@ -63,7 +54,10 @@ function GiftingPage() {
 
   const [selectedCategoryIds, setSelectedCategoryIds] = useState(new Set());
   const [selectedSubcategoryIds, setSelectedSubcategoryIds] = useState(new Set());
-  const [priceRangeId, setPriceRangeId] = useState(null);
+  // null = no price filter applied (full range). Otherwise [min, max] in
+  // rupees, driven by either the slider or the manual number boxes —
+  // both write to the same state, so they always stay in sync.
+  const [priceRange, setPriceRange] = useState(null);
   const [sortBy, setSortBy] = useState("featured");
   const [visibleFlatCount, setVisibleFlatCount] = useState(PAGE_SIZE);
 
@@ -74,7 +68,7 @@ function GiftingPage() {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [draftCategoryIds, setDraftCategoryIds] = useState(new Set());
   const [draftSubcategoryIds, setDraftSubcategoryIds] = useState(new Set());
-  const [draftPriceRangeId, setDraftPriceRangeId] = useState(null);
+  const [draftPriceRange, setDraftPriceRange] = useState(null);
 
   useEffect(() => {
     getGiftingProductsByCategory(FETCH_LIMIT).then((response) => {
@@ -96,9 +90,7 @@ function GiftingPage() {
     });
   }, []);
 
-  const priceRanges = useMemo(() => getPriceRanges(t), [t]);
   const sortOptions = useMemo(() => getSortOptions(t), [t]);
-  const activePriceRange = priceRanges.find((r) => r.id === priceRangeId) || null;
 
   // One flat list of every gifting product across every section, each
   // carrying its own category — the filter/sort layer works off this,
@@ -111,15 +103,23 @@ function GiftingPage() {
     [sections],
   );
 
+  // The slider/number-box bounds — rounded up to a clean ₹100 so the top
+  // handle doesn't sit at an odd number like ₹1,847.
+  const absoluteMaxPrice = useMemo(() => {
+    const highest = allProducts.reduce((max, p) => Math.max(max, p.price), 0);
+    return Math.max(Math.ceil(highest / 100) * 100, 100);
+  }, [allProducts]);
+
+  const [priceMin, priceMax] = priceRange || [0, absoluteMaxPrice];
+  const isPriceActive = priceRange !== null && (priceMin > 0 || priceMax < absoluteMaxPrice);
+
   const matchesCategory = (product) =>
     selectedCategoryIds.size === 0 || selectedCategoryIds.has(product._category._id);
   const matchesSubcategory = (product) =>
     selectedSubcategoryIds.size === 0 ||
     (product.subcategories || []).some((sc) => selectedSubcategoryIds.has(sc._id));
   const matchesPrice = (product) =>
-    !activePriceRange ||
-    (product.price >= activePriceRange.min &&
-      (activePriceRange.max === null || product.price <= activePriceRange.max));
+    !isPriceActive || (product.price >= priceMin && product.price <= priceMax);
 
   // Facet option lists, each with a live count computed against every
   // OTHER active filter (not itself) — so picking a category narrows the
@@ -134,7 +134,7 @@ function GiftingPage() {
       byId.set(cat._id, { ...cat, count: (byId.get(cat._id)?.count || 0) + 1 });
     }
     return Array.from(byId.values()).sort((a, b) => a.name.localeCompare(b.name));
-  }, [allProducts, selectedSubcategoryIds, priceRangeId]);
+  }, [allProducts, selectedSubcategoryIds, priceRange]);
 
   const subcategoryOptions = useMemo(() => {
     const byId = new Map();
@@ -145,25 +145,10 @@ function GiftingPage() {
       }
     }
     return Array.from(byId.values()).sort((a, b) => a.name.localeCompare(b.name));
-  }, [allProducts, selectedCategoryIds, priceRangeId]);
-
-  const priceRangeOptions = useMemo(
-    () =>
-      priceRanges.map((range) => ({
-        ...range,
-        count: allProducts.filter(
-          (p) =>
-            matchesCategory(p) &&
-            matchesSubcategory(p) &&
-            p.price >= range.min &&
-            (range.max === null || p.price <= range.max),
-        ).length,
-      })),
-    [allProducts, selectedCategoryIds, selectedSubcategoryIds, priceRanges],
-  );
+  }, [allProducts, selectedCategoryIds, priceRange]);
 
   const activeFilterCount =
-    selectedCategoryIds.size + selectedSubcategoryIds.size + (priceRangeId ? 1 : 0);
+    selectedCategoryIds.size + selectedSubcategoryIds.size + (isPriceActive ? 1 : 0);
   const isFilteredView = activeFilterCount > 0 || sortBy !== "featured";
 
   const flatFilteredProducts = useMemo(() => {
@@ -171,11 +156,11 @@ function GiftingPage() {
       (p) => matchesCategory(p) && matchesSubcategory(p) && matchesPrice(p),
     );
     return sortFlatProducts(filtered, sortBy);
-  }, [allProducts, selectedCategoryIds, selectedSubcategoryIds, priceRangeId, sortBy]);
+  }, [allProducts, selectedCategoryIds, selectedSubcategoryIds, priceRange, sortBy]);
 
   useEffect(() => {
     setVisibleFlatCount(PAGE_SIZE);
-  }, [selectedCategoryIds, selectedSubcategoryIds, priceRangeId, sortBy]);
+  }, [selectedCategoryIds, selectedSubcategoryIds, priceRange, sortBy]);
 
   const toggleCategory = (id) => {
     setSelectedCategoryIds((prev) => {
@@ -212,26 +197,48 @@ function GiftingPage() {
   const openFilterPanel = () => {
     setDraftCategoryIds(new Set(selectedCategoryIds));
     setDraftSubcategoryIds(new Set(selectedSubcategoryIds));
-    setDraftPriceRangeId(priceRangeId);
+    setDraftPriceRange(priceRange);
     setIsFilterOpen(true);
   };
 
   const applyFilters = () => {
     setSelectedCategoryIds(draftCategoryIds);
     setSelectedSubcategoryIds(draftSubcategoryIds);
-    setPriceRangeId(draftPriceRangeId);
+    setPriceRange(draftPriceRange);
     setIsFilterOpen(false);
   };
 
   const clearAllFilters = () => {
     setSelectedCategoryIds(new Set());
     setSelectedSubcategoryIds(new Set());
-    setPriceRangeId(null);
+    setPriceRange(null);
     setDraftCategoryIds(new Set());
     setDraftSubcategoryIds(new Set());
-    setDraftPriceRangeId(null);
+    setDraftPriceRange(null);
     setIsFilterOpen(false);
   };
+
+  // Shared by both the slider and the manual number boxes (desktop
+  // instant-apply and the mobile draft) — clamps to [0, absoluteMaxPrice]
+  // and keeps min from ever crossing above the current max or vice versa.
+  const buildPriceUpdater = (setter, current) => ({
+    onSliderChange: (value) => setter(value),
+    onMinChange: (value) => {
+      const bounded = Math.max(0, Math.min(Number(value) || 0, current[1]));
+      setter([bounded, current[1]]);
+    },
+    onMaxChange: (value) => {
+      const bounded = Math.min(absoluteMaxPrice, Math.max(Number(value) || 0, current[0]));
+      setter([current[0], bounded]);
+    },
+  });
+
+  const priceUpdater = buildPriceUpdater(setPriceRange, [priceMin, priceMax]);
+  const [draftPriceMin, draftPriceMax] = draftPriceRange || [0, absoluteMaxPrice];
+  const draftPriceUpdater = buildPriceUpdater(setDraftPriceRange, [
+    draftPriceMin,
+    draftPriceMax,
+  ]);
 
   const removeCategory = (id) =>
     setSelectedCategoryIds((prev) => {
@@ -313,23 +320,40 @@ function GiftingPage() {
         <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
           {t("Price", "कीमत")}
         </h3>
-        <div className="space-y-2.5">
-          {priceRangeOptions.map((range) => (
-            <label key={range.id} className="flex items-center gap-3 cursor-pointer">
-              <input
-                type="radio"
-                name="gifting-price-range"
-                checked={priceRangeId === range.id}
-                onChange={() =>
-                  setPriceRangeId((prev) => (prev === range.id ? null : range.id))
-                }
-                className="w-4 h-4 accent-amber-600"
-              />
-              <span className="text-sm text-slate-700">
-                {range.label} <span className="text-slate-400">({range.count})</span>
-              </span>
-            </label>
-          ))}
+        <div className="px-1 gifting-price-slider">
+          <Slider
+            range
+            min={0}
+            max={absoluteMaxPrice}
+            value={[priceMin, priceMax]}
+            onChange={priceUpdater.onSliderChange}
+            allowCross={false}
+          />
+        </div>
+        <div className="flex items-center gap-2 mt-4">
+          <div className="flex items-center gap-1 border border-slate-300 rounded-lg px-2 py-1.5 flex-1 min-w-0">
+            <span className="text-slate-400 text-sm">₹</span>
+            <input
+              type="number"
+              min={0}
+              max={priceMax}
+              value={priceMin}
+              onChange={(e) => priceUpdater.onMinChange(e.target.value)}
+              className="w-full text-sm text-slate-700 outline-none min-w-0"
+            />
+          </div>
+          <span className="text-slate-400 text-sm">–</span>
+          <div className="flex items-center gap-1 border border-slate-300 rounded-lg px-2 py-1.5 flex-1 min-w-0">
+            <span className="text-slate-400 text-sm">₹</span>
+            <input
+              type="number"
+              min={priceMin}
+              max={absoluteMaxPrice}
+              value={priceMax}
+              onChange={(e) => priceUpdater.onMaxChange(e.target.value)}
+              className="w-full text-sm text-slate-700 outline-none min-w-0"
+            />
+          </div>
         </div>
       </div>
     </>
@@ -385,21 +409,40 @@ function GiftingPage() {
         <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
           {t("Price", "कीमत")}
         </h3>
-        <div className="space-y-3">
-          {priceRangeOptions.map((range) => (
-            <label key={range.id} className="flex items-center gap-3 cursor-pointer">
-              <input
-                type="radio"
-                name="gifting-price-range-mobile"
-                checked={draftPriceRangeId === range.id}
-                onChange={() => setDraftPriceRangeId(range.id)}
-                className="w-4 h-4 accent-amber-600"
-              />
-              <span className="text-sm text-slate-700">
-                {range.label} <span className="text-slate-400">({range.count})</span>
-              </span>
-            </label>
-          ))}
+        <div className="px-1 gifting-price-slider">
+          <Slider
+            range
+            min={0}
+            max={absoluteMaxPrice}
+            value={[draftPriceMin, draftPriceMax]}
+            onChange={draftPriceUpdater.onSliderChange}
+            allowCross={false}
+          />
+        </div>
+        <div className="flex items-center gap-2 mt-4">
+          <div className="flex items-center gap-1 border border-slate-300 rounded-lg px-2 py-1.5 flex-1 min-w-0">
+            <span className="text-slate-400 text-sm">₹</span>
+            <input
+              type="number"
+              min={0}
+              max={draftPriceMax}
+              value={draftPriceMin}
+              onChange={(e) => draftPriceUpdater.onMinChange(e.target.value)}
+              className="w-full text-sm text-slate-700 outline-none min-w-0"
+            />
+          </div>
+          <span className="text-slate-400 text-sm">–</span>
+          <div className="flex items-center gap-1 border border-slate-300 rounded-lg px-2 py-1.5 flex-1 min-w-0">
+            <span className="text-slate-400 text-sm">₹</span>
+            <input
+              type="number"
+              min={draftPriceMin}
+              max={absoluteMaxPrice}
+              value={draftPriceMax}
+              onChange={(e) => draftPriceUpdater.onMaxChange(e.target.value)}
+              className="w-full text-sm text-slate-700 outline-none min-w-0"
+            />
+          </div>
         </div>
       </div>
     </>
@@ -465,7 +508,19 @@ function GiftingPage() {
       ) : (
         <div className="lg:flex lg:gap-8 lg:items-start">
           <aside className="hidden lg:block w-64 shrink-0 sticky top-24 self-start">
-            <div className="border border-slate-200 rounded-lg p-4 pb-16 space-y-6">
+            {/* Extra left padding (pl-14, not the usual p-4 all round) —
+                the fixed WhatsAppButton sits bottom-left of the viewport
+                (~x:16-60px), and this panel is tall enough (Category +
+                Subcategory + a price slider with two number boxes) that
+                whichever row ends up at the bottom of the viewport can
+                land directly under it — confirmed: the price Min box was
+                genuinely hidden/unclickable behind the button at a
+                900px-tall viewport. Bottom padding alone doesn't fix this
+                (it only adds space after the last row, it doesn't move
+                that row) — indenting every row's content clear of the
+                button's column is what actually works, for whichever row
+                ends up at the bottom. */}
+            <div className="border border-slate-200 rounded-lg pt-4 pr-4 pb-4 pl-14 space-y-6">
               <div className="flex items-center justify-between">
                 <h2 className="font-semibold text-slate-900">
                   {t("Filters", "फ़िल्टर")}
@@ -562,13 +617,13 @@ function GiftingPage() {
                     </button>
                   ))}
 
-                {activePriceRange && (
+                {isPriceActive && (
                   <button
                     type="button"
-                    onClick={() => setPriceRangeId(null)}
+                    onClick={() => setPriceRange(null)}
                     className="flex items-center gap-1.5 bg-amber-50 border border-amber-200 text-amber-800 text-xs font-medium rounded-full pl-3 pr-2 py-1.5"
                   >
-                    {activePriceRange.label}
+                    ₹{priceMin} – ₹{priceMax}
                     <FaTimes className="text-[10px]" />
                   </button>
                 )}

@@ -1,0 +1,19 @@
+/* rc-slider ships blue by default — retint to the site's amber accent
+   (matches the accent-amber-600 checkboxes/radios elsewhere on this page)
+   instead of pulling in a second accent color just for the slider. */
+.gifting-price-slider .rc-slider-track {
+  background-color: #d97706;
+}
+
+.gifting-price-slider .rc-slider-handle {
+  border-color: #d97706;
+  background-color: #d97706;
+  opacity: 1;
+}
+
+.gifting-price-slider .rc-slider-handle:hover,
+.gifting-price-slider .rc-slider-handle:focus,
+.gifting-price-slider .rc-slider-handle-dragging.rc-slider-handle-dragging.rc-slider-handle-dragging {
+  border-color: #b45309;
+  box-shadow: 0 0 0 5px rgba(217, 119, 6, 0.2);
+}

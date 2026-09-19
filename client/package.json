@@ -18,6 +18,7 @@
     "fix-webm-duration": "^1.0.6",
     "papaparse": "^5.7.0",
     "qrcode": "^1.5.4",
+    "rc-slider": "^11.1.9",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-helmet-async": "^3.0.0",
