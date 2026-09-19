@@ -183,7 +183,9 @@
 }
 
 .old-price {
-  color: #999;
+  /* #999 on white was only 2.84:1 (needs 4.5:1) — flagged by Lighthouse's
+     color-contrast audit across every product card site-wide. */
+  color: #6b6b6b;
   text-decoration: line-through;
 }
 
