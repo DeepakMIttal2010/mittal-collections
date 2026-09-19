@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { FaWhatsapp } from "react-icons/fa6";
 
-import { getGiftingProducts } from "../services/productService";
+import { getGiftingProductsByCategory } from "../services/productService";
 import { getSiteSettings } from "../services/settingsService";
 import { toWhatsAppNumber } from "../utils/whatsapp";
 import ProductGrid from "../components/ProductGrid/ProductGrid";
@@ -14,23 +15,31 @@ import { SITE_URL } from "../utils/siteUrl";
 
 const BREADCRUMB_ITEMS = [{ name: "Home", path: "/" }, { name: "Gifting" }];
 
-// Deliberately flat, not grouped by category (unlike NewArrivalsPage/
-// ClearanceSalePage) — gifting spans arbitrary categories, so there's no
-// natural per-category section to group by here.
-const PAGE_SIZE = 12;
-const FETCH_LIMIT = 60;
+// Grouped by category, same shape as NewArrivalsPage — each category's
+// section shows PAGE_SIZE products by default; "Show More" reveals
+// another PAGE_SIZE at a time from what's already been fetched. Unlike
+// New Arrivals, a category's gifting section isn't separately
+// admin-curated — it exists automatically whenever that category has
+// >=1 product opted into gifting (see getGiftingProductsByCategory).
+const PAGE_SIZE = 8;
+const FETCH_LIMIT = 40;
 
 function GiftingPage() {
-  const [products, setProducts] = useState([]);
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const [sections, setSections] = useState([]);
+  const [visibleCounts, setVisibleCounts] = useState({});
   const [loading, setLoading] = useState(true);
   const [phone, setPhone] = useState("");
   const { t } = useLanguage();
 
   useEffect(() => {
-    getGiftingProducts(FETCH_LIMIT).then((response) => {
+    getGiftingProductsByCategory(FETCH_LIMIT).then((response) => {
       if (response.success) {
-        setProducts(response.products);
+        setSections(response.sections);
+        setVisibleCounts(
+          Object.fromEntries(
+            response.sections.map((s) => [s.category._id, PAGE_SIZE]),
+          ),
+        );
       }
       setLoading(false);
     });
@@ -42,6 +51,13 @@ function GiftingPage() {
     });
   }, []);
 
+  const showMore = (categoryId, total) => {
+    setVisibleCounts((prev) => ({
+      ...prev,
+      [categoryId]: Math.min((prev[categoryId] || PAGE_SIZE) + PAGE_SIZE, total),
+    }));
+  };
+
   // A separate, gifting-specific WhatsApp message (not the generic
   // floating WhatsAppButton every page already has) — bulk/corporate
   // gifting orders are exactly the kind of thing that needs a human
@@ -52,14 +68,11 @@ function GiftingPage() {
       )}`
     : null;
 
-  const visibleProducts = products.slice(0, visibleCount);
-  const hasMore = products.length > visibleCount;
-
   return (
     <div className="max-w-7xl mx-auto px-4 py-12">
       <Seo
         title="Gifting — Home Furnishing Gift Ideas"
-        description="Ready-to-gift home furnishing picks at Mittal Collections — housewarmings, weddings and festive occasions, no separate wrapping needed."
+        description="Ready-to-gift home furnishing picks at Mittal Collections, organised by category — housewarmings, weddings and festive occasions, no separate wrapping needed."
         url={`${SITE_URL}/gifting`}
         jsonLd={buildBreadcrumbJsonLd(BREADCRUMB_ITEMS)}
       />
@@ -76,8 +89,8 @@ function GiftingPage() {
       </h1>
       <p className="text-slate-500 mb-6">
         {t(
-          "Ready-to-gift picks for housewarmings, weddings and festive occasions.",
-          "हाउसवार्मिंग, शादी और त्योहारों के लिए तैयार गिफ्ट पसंद।",
+          "Ready-to-gift picks for housewarmings, weddings and festive occasions, organised by category.",
+          "हाउसवार्मिंग, शादी और त्योहारों के लिए तैयार गिफ्ट पसंद, कैटेगरी के अनुसार।",
         )}
       </p>
 
@@ -105,7 +118,7 @@ function GiftingPage() {
 
       {loading ? (
         <ProductGridSkeleton />
-      ) : products.length === 0 ? (
+      ) : sections.length === 0 ? (
         <p className="text-slate-500 text-center py-12">
           {t(
             "No gifting picks right now — check back soon!",
@@ -113,25 +126,44 @@ function GiftingPage() {
           )}
         </p>
       ) : (
-        <>
-          <ProductGrid products={visibleProducts} />
+        <div className="space-y-16">
+          {sections.map(({ category, products }) => {
+            const visibleCount = visibleCounts[category._id] || PAGE_SIZE;
+            const visibleProducts = products.slice(0, visibleCount);
+            const hasMore = products.length > visibleCount;
 
-          {hasMore && (
-            <div className="flex justify-center mt-8">
-              <button
-                type="button"
-                onClick={() =>
-                  setVisibleCount((prev) =>
-                    Math.min(prev + PAGE_SIZE, products.length),
-                  )
-                }
-                className="border-2 border-blue-700 text-blue-700 hover:bg-blue-50 font-semibold px-8 py-2.5 rounded-full transition-colors"
-              >
-                {t("Show More", "और दिखाएं")}
-              </button>
-            </div>
-          )}
-        </>
+            return (
+              <section key={category._id}>
+                <div className="flex items-end justify-between mb-6 gap-4">
+                  <h2 className="text-2xl font-bold text-slate-900">
+                    {t(category.name, category.nameHi)}
+                  </h2>
+
+                  <Link
+                    to={`/category/${category.slug}`}
+                    className="shrink-0 text-sm font-semibold text-blue-700 hover:text-blue-800 hover:underline whitespace-nowrap"
+                  >
+                    {t("View All", "सभी देखें")} →
+                  </Link>
+                </div>
+
+                <ProductGrid products={visibleProducts} />
+
+                {hasMore && (
+                  <div className="flex justify-center mt-8">
+                    <button
+                      type="button"
+                      onClick={() => showMore(category._id, products.length)}
+                      className="border-2 border-blue-700 text-blue-700 hover:bg-blue-50 font-semibold px-8 py-2.5 rounded-full transition-colors"
+                    >
+                      {t("Show More", "और दिखाएं")}
+                    </button>
+                  </div>
+                )}
+              </section>
+            );
+          })}
+        </div>
       )}
     </div>
   );
