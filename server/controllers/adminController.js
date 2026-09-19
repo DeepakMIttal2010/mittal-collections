@@ -555,6 +555,11 @@ export const getReportsData = async (req, res) => {
             _id: { country: "$country", region: "$region", city: "$city" },
             visits: { $sum: 1 },
             visitors: { $addToSet: "$visitorId" },
+            // TEMPORARY (see PageVisit.js debugIp/debugXff) — a couple of
+            // raw sample values per location group, to confirm why
+            // country/region/city are coming back blank.
+            sampleIp: { $first: "$debugIp" },
+            sampleXff: { $first: "$debugXff" },
           },
         },
         {
@@ -565,6 +570,8 @@ export const getReportsData = async (req, res) => {
             city: "$_id.city",
             visits: 1,
             uniqueVisitors: { $size: "$visitors" },
+            sampleIp: 1,
+            sampleXff: 1,
           },
         },
         { $sort: { visits: -1 } },
@@ -726,6 +733,9 @@ export const getReportsData = async (req, res) => {
       city: entry.city || "Unknown",
       visits: entry.visits,
       uniqueVisitors: entry.uniqueVisitors,
+      // TEMPORARY — see PageVisit.js debugIp/debugXff.
+      sampleIp: entry.sampleIp || "",
+      sampleXff: entry.sampleXff || "",
     }));
 
     const funnel = {
