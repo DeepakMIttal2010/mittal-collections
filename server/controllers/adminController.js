@@ -550,6 +550,10 @@ export const getReportsData = async (req, res) => {
 
       PageVisit.aggregate([
         { $match: { createdAt: dateRange } },
+        // Newest-first so $first below grabs the most recently captured
+        // debugIp/debugXff per group, not whatever old (pre-diagnostic,
+        // always-blank) document happens to sort first without this.
+        { $sort: { createdAt: -1 } },
         {
           $group: {
             _id: { country: "$country", region: "$region", city: "$city" },
