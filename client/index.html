@@ -49,9 +49,26 @@
          Skipped entirely on /admin/* — otherwise the site owner's own
          admin-panel usage (product edits, reports, etc.) gets counted
          as real customer sessions/pageviews in GA4, polluting the
-         traffic numbers this analytics is meant to measure. -->
+         traffic numbers this analytics is meant to measure.
+
+         Also skipped on localhost/127.0.0.1/local network IPs — this had
+         no such gate before, so every local `npm run dev` session (any
+         developer's, including every automated browser check run against
+         localhost while building/testing a feature) was firing real
+         pageviews into the SAME production GA4 property, indistinguishable
+         from genuine visitors. Confirmed live in the property: ~98% of a
+         month's "sessions" were Direct-channel with ~13% engagement and
+         session count ≈ user count (each "user" a single, non-returning
+         hit) — the signature of repeated automated/local hits, not real
+         traffic (2026-09-19). -->
     <script>
-      if (!location.pathname.startsWith("/admin")) {
+      var isLocalHost =
+        location.hostname === "localhost" ||
+        location.hostname === "127.0.0.1" ||
+        location.hostname.startsWith("192.168.") ||
+        location.hostname.endsWith(".local");
+
+      if (!isLocalHost && !location.pathname.startsWith("/admin")) {
         window.dataLayer = window.dataLayer || [];
         function gtag() {
           dataLayer.push(arguments);
