@@ -15,6 +15,17 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="Mittal Collections" />
 
+    <!-- Every page's first real content (hero image, category/product
+         data) comes from these two origins, but as a client-rendered SPA
+         nothing here is known until the JS bundle parses and fires its
+         first fetch — without this hint, DNS/TLS setup for them only
+         starts AFTER that, adding a full extra round-trip to the LCP
+         critical path (flagged as "LCP request discovery" / "Network
+         dependency tree" in PageSpeed Insights). Preconnecting lets the
+         browser do that handshake in parallel with the JS download. -->
+    <link rel="preconnect" href="https://mittal-collections-api.onrender.com" />
+    <link rel="preconnect" href="https://res.cloudinary.com" crossorigin />
+
     <!-- Playfair Display — hero heading only (see Hero.css .hero-split-title),
          not a site-wide typeface change. -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />

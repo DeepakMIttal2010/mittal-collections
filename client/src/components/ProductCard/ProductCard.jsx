@@ -1,5 +1,5 @@
-import { imgUrl } from "../../services/api";
-import { useEffect, useState } from "react";
+import { imgUrl, imgSrcSet } from "../../services/api";
+import { lazy, Suspense, useEffect, useState } from "react";
 import "./ProductCard.css";
 import { Link } from "react-router-dom";
 import {
@@ -13,11 +13,19 @@ import {
 import { useWishlist } from "../../context/WishlistContext";
 import { useCart } from "../../context/CartContext";
 import { useCompare } from "../../context/CompareContext";
-import QuickViewModal from "./QuickViewModal";
 import { LOW_STOCK_THRESHOLD, getStockStatus } from "../../utils/stock";
 import { productUrl } from "../../utils/productUrl";
 import { getEarnRate } from "../../services/rewardsService";
 import { useLanguage } from "../../context/LanguageContext";
+
+// Lazy-loaded, not a static import: QuickViewModal (and the DOMPurify it
+// pulls in via stripHtml.js) only ever renders after a click, but
+// ProductCard itself is on every homepage/listing page — a static import
+// here made Vite eagerly preload that whole chunk (DOMPurify included) on
+// pages that never open the modal, which is what caused the real
+// PageSpeed regression this was found from (homepage TBT jumped from
+// ~40ms to ~900ms).
+const QuickViewModal = lazy(() => import("./QuickViewModal"));
 
 function ProductCard({ product }) {
   const { addToCart } = useCart();
@@ -44,6 +52,8 @@ function ProductCard({ product }) {
         <div className="product-image">
           <img
             src={`${imgUrl(product.image, "w_400,q_auto,f_auto")}`}
+            srcSet={imgSrcSet(product.image, [200, 400, 600])}
+            sizes="(min-width: 1024px) 270px, (min-width: 768px) 29vw, 45vw"
             alt={t(product.name, product.nameHi)}
             loading="lazy"
           />
@@ -152,10 +162,12 @@ function ProductCard({ product }) {
       </div>
 
       {showQuickView && (
-        <QuickViewModal
-          product={product}
-          onClose={() => setShowQuickView(false)}
-        />
+        <Suspense fallback={null}>
+          <QuickViewModal
+            product={product}
+            onClose={() => setShowQuickView(false)}
+          />
+        </Suspense>
       )}
     </div>
   );

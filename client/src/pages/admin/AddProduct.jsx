@@ -1,5 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import ReactQuill from "react-quill-new";
+import "react-quill-new/dist/quill.snow.css";
 
 import "./AddProduct.css";
 
@@ -7,6 +9,7 @@ import { getCategories } from "../../services/categoryService";
 import { getSubcategories } from "../../services/subcategoryService";
 import { addProduct } from "../../services/adminProductService";
 import { getSiteSettingsAdmin } from "../../services/adminSettingsService";
+import { stripHtml } from "../../utils/stripHtml";
 
 // Fallback when no admin-configured rule matches the selected
 // category/subcategory (see AdminSettings.jsx "Cost/Price Auto-Fill Rules").
@@ -77,6 +80,8 @@ function AddProduct() {
     visibility: "both",
     optimizeImages: true,
     fabric: "",
+    color: "",
+    pattern: "",
     size: "",
     gsm: "",
     washCare: "",
@@ -84,6 +89,7 @@ function AddProduct() {
     countryOfOrigin: "",
     whatsIncluded: "",
     colorVariesNote: "",
+    localDeliveryOnly: false,
     adminRemarks: "",
     isReturnable: true,
     returnPeriodDays: "",
@@ -157,6 +163,22 @@ function AddProduct() {
     if (catMatch) return catMatch;
 
     return DEFAULT_PRICING_RULE;
+  };
+
+  // Bold/italic/lists only — no image/header tools. Product photos are
+  // already handled by the dedicated image uploader below, and a
+  // "Care instructions:" paragraph is still expected as the LAST block
+  // (see feedController.js's feedDescription, which strips it out of
+  // the Shopping/Meta feed by looking at the last block's text).
+  const descriptionModules = useMemo(
+    () => ({
+      toolbar: [["bold", "italic"], [{ list: "ordered" }, { list: "bullet" }], ["clean"]],
+    }),
+    [],
+  );
+
+  const handleDescriptionChange = (field, value) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleChange = (e) => {
@@ -266,6 +288,11 @@ function AddProduct() {
       return;
     }
 
+    if (!stripHtml(formData.description).trim()) {
+      alert("Please add a product description");
+      return;
+    }
+
     const cleanVariants = hasVariants
       ? variants.filter((v) => v.size.trim() && v.price !== "")
       : [];
@@ -302,6 +329,8 @@ function AddProduct() {
     data.append("mainImageIndex", mainImageIndex);
     data.append("optimizeImages", formData.optimizeImages);
     data.append("fabric", formData.fabric);
+    data.append("color", formData.color);
+    data.append("pattern", formData.pattern);
     data.append("size", formData.size);
     data.append("gsm", formData.gsm);
     data.append("washCare", formData.washCare);
@@ -309,6 +338,7 @@ function AddProduct() {
     data.append("countryOfOrigin", formData.countryOfOrigin);
     data.append("whatsIncluded", formData.whatsIncluded);
     data.append("colorVariesNote", formData.colorVariesNote);
+    data.append("localDeliveryOnly", formData.localDeliveryOnly);
     data.append("adminRemarks", formData.adminRemarks);
     data.append("isReturnable", formData.isReturnable);
     data.append("returnPeriodDays", formData.returnPeriodDays);
@@ -358,12 +388,12 @@ function AddProduct() {
         <div className="form-group">
           <label>Description</label>
 
-          <textarea
-            rows="5"
-            name="description"
+          <ReactQuill
+            theme="snow"
             value={formData.description}
-            onChange={handleChange}
-            required
+            onChange={(value) => handleDescriptionChange("description", value)}
+            modules={descriptionModules}
+            placeholder="Put &quot;Care instructions: ...&quot; as its own last paragraph — it's automatically left out of the Google/Meta Shopping feed."
           />
         </div>
 
@@ -382,12 +412,12 @@ function AddProduct() {
         <div className="form-group">
           <label>Description (Hindi, optional)</label>
 
-          <textarea
-            rows="5"
-            name="descriptionHi"
-            placeholder="हिंदी में विवरण"
+          <ReactQuill
+            theme="snow"
             value={formData.descriptionHi}
-            onChange={handleChange}
+            onChange={(value) => handleDescriptionChange("descriptionHi", value)}
+            modules={descriptionModules}
+            placeholder="हिंदी में विवरण"
           />
         </div>
 
@@ -622,6 +652,32 @@ function AddProduct() {
               name="size"
               placeholder="e.g. 90 x 100 inches"
               value={formData.size}
+              onChange={handleChange}
+            />
+          </div>
+        </div>
+
+        <div className="form-row">
+          <div className="form-group">
+            <label>Colour (optional)</label>
+
+            <input
+              type="text"
+              name="color"
+              placeholder="e.g. Sage Green"
+              value={formData.color}
+              onChange={handleChange}
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Pattern (optional)</label>
+
+            <input
+              type="text"
+              name="pattern"
+              placeholder="e.g. Floral"
+              value={formData.pattern}
               onChange={handleChange}
             />
           </div>
@@ -874,6 +930,16 @@ function AddProduct() {
               onChange={handleChange}
             />
             Custom Restock Alert
+          </label>
+
+          <label title="For bulky/oversized items where pan-India shipping is uneconomical — the product page warns customers outside the nearby fast-delivery zone that this item can't be shipped to them.">
+            <input
+              type="checkbox"
+              name="localDeliveryOnly"
+              checked={formData.localDeliveryOnly}
+              onChange={handleChange}
+            />
+            Local Delivery Only (bulky item)
           </label>
         </div>
 

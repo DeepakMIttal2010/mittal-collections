@@ -51,7 +51,7 @@ function NewArrivalsPage() {
   return (
     <div className="max-w-7xl mx-auto px-4 py-12">
       <Seo
-        title="New Arrivals"
+        title="New Arrivals — Home Furnishing"
         description="The newest home furnishing pieces at Mittal Collections, organised by category - bedsheets, cushion covers, doormats and more."
         url={`${SITE_URL}/new-arrivals`}
         jsonLd={buildBreadcrumbJsonLd(BREADCRUMB_ITEMS)}

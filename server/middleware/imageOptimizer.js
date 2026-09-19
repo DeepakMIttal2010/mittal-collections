@@ -7,6 +7,34 @@ const JPEG_QUALITY = 85;
 
 const isVideo = (mimetype) => mimetype.startsWith("video/");
 
+// Same slugify logic duplicated per-controller for name -> slug (see
+// productController.js etc.) — reimplemented here rather than imported,
+// since middleware shouldn't reach into a controller module.
+const slugify = (text) =>
+  text
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+
+// Cloudinary defaults to a random public_id ("p6mvck0p6ey8ynxv681b") —
+// fine for the asset itself, but that random string is also the
+// filename Google Images indexes the photo under, and a descriptive
+// filename ("pure-cotton-fitted-bedsheet-blue-1-...") is a real (if
+// minor) ranking signal there that a random one just throws away.
+// `index` (this file's position among the files in this request) keeps
+// multiple photos of the same product from colliding on the same slug;
+// the trailing random suffix guarantees uniqueness even across repeated
+// uploads for the same product, without relying on exactly how
+// Cloudinary's own unique_filename/overwrite defaults interact with an
+// explicitly-provided public_id.
+const buildDescriptivePublicId = (namePrefix, index) => {
+  if (!namePrefix) return undefined;
+
+  const suffix = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+  return `${namePrefix}-${index + 1}-${suffix}`;
+};
+
 const optimizeBuffer = async (file) => {
   const pipeline = sharp(file.buffer)
     .rotate()
@@ -28,12 +56,14 @@ const optimizeBuffer = async (file) => {
   return pipeline.jpeg({ quality: JPEG_QUALITY, mozjpeg: true }).toBuffer();
 };
 
-const uploadBufferToCloudinary = (buffer, resourceType) =>
+const uploadBufferToCloudinary = (buffer, resourceType, publicId) =>
   new Promise((resolve, reject) => {
     const options = {
       folder: "mittal-collections",
       resource_type: resourceType,
     };
+
+    if (publicId) options.public_id = publicId;
 
     if (resourceType === "image") {
       options.quality = "auto:good";
@@ -48,9 +78,9 @@ const uploadBufferToCloudinary = (buffer, resourceType) =>
     stream.end(buffer);
   });
 
-const processFile = async (file, shouldOptimize) => {
+const processFile = async (file, shouldOptimize, publicId) => {
   if (isVideo(file.mimetype)) {
-    const result = await uploadBufferToCloudinary(file.buffer, "video");
+    const result = await uploadBufferToCloudinary(file.buffer, "video", publicId);
     file.path = result.secure_url;
     // Exposed so callers can validate/act on Cloudinary-reported metadata
     // (e.g. review videos rejecting clips over the allowed duration) —
@@ -60,7 +90,7 @@ const processFile = async (file, shouldOptimize) => {
   }
 
   const buffer = shouldOptimize ? await optimizeBuffer(file) : file.buffer;
-  const result = await uploadBufferToCloudinary(buffer, "image");
+  const result = await uploadBufferToCloudinary(buffer, "image", publicId);
 
   file.path = result.secure_url;
   file.cloudinaryResult = result;
@@ -74,17 +104,49 @@ const processFile = async (file, shouldOptimize) => {
 const imageOptimizer = async (req, res, next) => {
   try {
     const shouldOptimize = req.body.optimizeImages !== "false";
+    // Products/categories/subcategories send "name"; articles send
+    // "title" — either way, a descriptive Cloudinary public_id instead
+    // of Cloudinary's random default (see buildDescriptivePublicId).
+    // Falls back to no override (Cloudinary's own random id) for any
+    // upload that doesn't carry one of these fields, e.g. reviews.
+    const namePrefix = (() => {
+      const raw = req.body.name || req.body.title;
+      return raw ? slugify(raw) : null;
+    })();
+    let fileIndex = 0;
     const tasks = [];
 
     if (req.file) {
-      tasks.push(processFile(req.file, shouldOptimize));
+      tasks.push(
+        processFile(
+          req.file,
+          shouldOptimize,
+          buildDescriptivePublicId(namePrefix, fileIndex++),
+        ),
+      );
     }
 
     if (Array.isArray(req.files)) {
-      tasks.push(...req.files.map((file) => processFile(file, shouldOptimize)));
+      tasks.push(
+        ...req.files.map((file) =>
+          processFile(
+            file,
+            shouldOptimize,
+            buildDescriptivePublicId(namePrefix, fileIndex++),
+          ),
+        ),
+      );
     } else if (req.files && typeof req.files === "object") {
       Object.values(req.files).forEach((fileArray) => {
-        tasks.push(...fileArray.map((file) => processFile(file, shouldOptimize)));
+        tasks.push(
+          ...fileArray.map((file) =>
+            processFile(
+              file,
+              shouldOptimize,
+              buildDescriptivePublicId(namePrefix, fileIndex++),
+            ),
+          ),
+        );
       });
     }
 

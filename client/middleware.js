@@ -22,14 +22,40 @@ import { rewrite, next } from "@vercel/edge";
 const BOT_USER_AGENT =
   /([bB]ot|facebookexternalhit|WhatsApp|Pinterest|embedly|Quora Link Preview|Slurp|ia_archiver|Discordbot|TelegramBot|redirectionio)/;
 
+// The two real frontend hosts — must stay in sync with server/app.js's
+// ALLOWED_ORIGINS, which is what actually enforces this for API calls.
+// Every Vercel project also gets a permanent *.vercel.app domain that
+// serves the exact same site alongside these, with no redirect of its
+// own — a visitor who lands there (an old shared link, a search engine
+// that indexed it, anyone typing it directly) gets a fully broken page:
+// every API fetch fails "Not allowed by CORS" since that domain was
+// never in the allowlist (confirmed live via a real Sentry production
+// error, 12 events over 12 days, 2026-09-16). Force any other host onto
+// the canonical one before that can happen, rather than trying to widen
+// the CORS allowlist to match every domain Vercel might ever hand out.
+const FRONTEND_HOSTS = ["www.mittalcollections.com", "mittalcollections.com"];
+const CANONICAL_HOST = "www.mittalcollections.com";
+
 export const config = {
-  matcher: "/",
+  matcher: "/:path*",
 };
 
 export default function middleware(request) {
+  const url = new URL(request.url);
+
+  if (
+    !FRONTEND_HOSTS.includes(url.hostname) &&
+    !url.hostname.startsWith("localhost")
+  ) {
+    url.hostname = CANONICAL_HOST;
+    url.protocol = "https:";
+    url.port = "";
+    return Response.redirect(url, 301);
+  }
+
   const userAgent = request.headers.get("user-agent") || "";
 
-  if (BOT_USER_AGENT.test(userAgent)) {
+  if (url.pathname === "/" && BOT_USER_AGENT.test(userAgent)) {
     return rewrite(new URL("/api/render?path=/", request.url));
   }
 

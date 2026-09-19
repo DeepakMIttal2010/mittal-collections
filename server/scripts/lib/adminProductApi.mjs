@@ -148,12 +148,15 @@ export function buildProductUpdateFormData(product, overrides = {}) {
   fd.append("stock", get("stock", product.stock));
   fd.append("size", get("size", product.size || ""));
   fd.append("fabric", get("fabric", product.fabric || ""));
+  fd.append("color", get("color", product.color || ""));
+  fd.append("pattern", get("pattern", product.pattern || ""));
   fd.append("gsm", get("gsm", product.gsm || ""));
   fd.append("washCare", get("washCare", product.washCare || ""));
   fd.append("brand", get("brand", product.brand || ""));
   fd.append("countryOfOrigin", get("countryOfOrigin", product.countryOfOrigin || ""));
   fd.append("whatsIncluded", get("whatsIncluded", product.whatsIncluded || ""));
   fd.append("colorVariesNote", get("colorVariesNote", product.colorVariesNote || ""));
+  fd.append("localDeliveryOnly", String(!!get("localDeliveryOnly", product.localDeliveryOnly)));
   // Preserving by default (not resetting to "") matters here specifically:
   // updateProduct only bumps adminRemarksUpdatedAt when this value actually
   // changes, so a script that didn't know about this field and blindly

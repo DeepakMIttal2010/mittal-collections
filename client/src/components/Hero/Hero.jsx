@@ -1,22 +1,11 @@
-import { imgUrl } from "../../services/api";
+import { imgUrl, imgSrcSet } from "../../services/api";
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import {
-  FaChevronLeft,
-  FaChevronRight,
-  FaGift,
-  FaCoins,
-  FaUserFriends,
-  FaPen,
-  FaArrowRight,
-} from "react-icons/fa";
+import { Link } from "react-router-dom";
+import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
 
 import "./Hero.css";
 import heroBanner from "../../assets/images/hero-banner.webp";
 import { getBanners } from "../../services/bannerService";
-import { getPublicRewardsInfo } from "../../services/rewardsService";
-import { getBannerCoupon } from "../../services/couponService";
-import { useAuth } from "../../context/AuthContext";
 import { useLanguage } from "../../context/LanguageContext";
 
 const AUTO_ROTATE_MS = 6000;
@@ -68,93 +57,10 @@ function HeroButton({ label, link, variant }) {
   );
 }
 
-// Always-present first slide (not admin-configured) summarising the
-// site's actual rewards program — built from the same public rewards +
-// banner-coupon APIs the rest of the app uses, so it can't drift out of
-// sync with what's really on offer. Rendered with its own icon-badge
-// layout (see hero-rewards-content below) rather than the standard
-// photo-slide template, and a plain gradient stands in for a photo.
-function useRewardsSlide(t, isLoggedIn) {
-  const [rewards, setRewards] = useState(null);
-  const [coupon, setCoupon] = useState(null);
-
-  useEffect(() => {
-    getPublicRewardsInfo().then((response) => {
-      if (response.success) setRewards(response);
-    });
-
-    getBannerCoupon().then((response) => {
-      if (response.success && response.coupon) setCoupon(response.coupon);
-    });
-  }, []);
-
-  if (!rewards) return null;
-
-  const couponLabel = coupon
-    ? coupon.discountType === "flat"
-      ? t(`₹${coupon.discountValue} OFF`, `₹${coupon.discountValue} की छूट`)
-      : t(`${coupon.discountValue}% OFF`, `${coupon.discountValue}% की छूट`)
-    : null;
-
-  const benefits = [
-    coupon && {
-      icon: <FaGift />,
-      theme: "rose",
-      title: t("Welcome Offer", "वेलकम ऑफर"),
-      text: t(
-        `${couponLabel} on your first order${coupon.maxDiscount ? ` — up to ₹${coupon.maxDiscount}` : ""}. Use code ${coupon.code}.`,
-        `आपके पहले ऑर्डर पर ${couponLabel}${coupon.maxDiscount ? ` — ₹${coupon.maxDiscount} तक` : ""}। कोड ${coupon.code} इस्तेमाल करें।`,
-      ),
-    },
-    {
-      icon: <FaCoins />,
-      theme: "amber",
-      title: t("Earn Loyalty Points", "लॉयल्टी पॉइंट्स कमाएं"),
-      text: t(
-        `Earn 1 point for every ₹${rewards.loyalty.earnRate} you spend, credited once your order is delivered.`,
-        `हर ₹${rewards.loyalty.earnRate} खर्च पर 1 पॉइंट कमाएं, जो ऑर्डर डिलीवर होने पर मिलता है।`,
-      ),
-    },
-    {
-      icon: <FaUserFriends />,
-      theme: "indigo",
-      title: t("Refer & Earn", "रेफर करें और कमाएं"),
-      text: t(
-        `Invite a friend — you get ${rewards.referral.referrerPoints} points, they get ${rewards.referral.referredPoints} on their first order.`,
-        `किसी दोस्त को बुलाएं — आपको ${rewards.referral.referrerPoints} पॉइंट्स मिलेंगे, उन्हें उनके पहले ऑर्डर पर ${rewards.referral.referredPoints} पॉइंट्स मिलेंगे।`,
-      ),
-    },
-    {
-      icon: <FaPen />,
-      theme: "teal",
-      title: t("Review & Earn", "रिव्यू करें और कमाएं"),
-      text: t(
-        `Bought something? Write a review and earn up to ${rewards.reviewBonusPoints} points on that order.`,
-        `कुछ खरीदा है? रिव्यू लिखें और उस ऑर्डर पर ${rewards.reviewBonusPoints} तक पॉइंट्स कमाएं।`,
-      ),
-    },
-  ].filter(Boolean);
-
-  return {
-    _id: "rewards",
-    isRewardsSlide: true,
-    subtitle: t("REWARDS PROGRAM", "रिवॉर्ड्स प्रोग्राम"),
-    title: t("Earn While You Shop", "खरीदारी करें और कमाएं"),
-    benefits,
-    button1Label: isLoggedIn
-      ? t("View My Rewards", "मेरे रिवॉर्ड देखें")
-      : t("Start Earning", "कमाना शुरू करें"),
-    button1Link: "/rewards",
-  };
-}
-
 function Hero() {
   const [slides, setSlides] = useState([FALLBACK_SLIDE]);
   const [activeIndex, setActiveIndex] = useState(0);
   const { t } = useLanguage();
-  const { isLoggedIn } = useAuth();
-  const navigate = useNavigate();
-  const rewardsSlide = useRewardsSlide(t, isLoggedIn);
 
   useEffect(() => {
     const loadBanners = async () => {
@@ -168,28 +74,17 @@ function Hero() {
     loadBanners();
   }, []);
 
-  // Appended, not prepended — rewardsSlide arrives from its own async
-  // fetch after the initial render, same as `slides` itself. Putting it
-  // first would swap out whatever's already showing (the fallback slide,
-  // or the real first banner once that's loaded) for a completely
-  // differently-laid-out slide the moment it arrives, mid-view — this
-  // was the single largest source of layout shift on the homepage
-  // (0.14 of ~0.18 total CLS, confirmed via a real PerformanceObserver
-  // trace against production). Appending still puts it in the rotation
-  // without disrupting whatever slide index 0 already settled on.
-  const allSlides = rewardsSlide ? [...slides, rewardsSlide] : slides;
-
   useEffect(() => {
-    if (allSlides.length <= 1) return;
+    if (slides.length <= 1) return;
 
     const interval = setInterval(() => {
-      setActiveIndex((prev) => (prev + 1) % allSlides.length);
+      setActiveIndex((prev) => (prev + 1) % slides.length);
     }, AUTO_ROTATE_MS);
 
     return () => clearInterval(interval);
-  }, [allSlides.length]);
+  }, [slides.length]);
 
-  const slide = allSlides[Math.min(activeIndex, allSlides.length - 1)];
+  const slide = slides[Math.min(activeIndex, slides.length - 1)];
   // LCP element, but bounded to the .hero-split-image column (roughly
   // half the .container width, well under 1000px on any real viewport)
   // rather than the old full-bleed treatment — w_1000 covers that at
@@ -207,21 +102,16 @@ function Hero() {
     : t("Mittal Collections home furnishing", "मित्तल कलेक्शंस होम फर्निशिंग");
 
   const goPrev = () =>
-    setActiveIndex((prev) => (prev - 1 + allSlides.length) % allSlides.length);
+    setActiveIndex((prev) => (prev - 1 + slides.length) % slides.length);
 
-  const goNext = () => setActiveIndex((prev) => (prev + 1) % allSlides.length);
+  const goNext = () => setActiveIndex((prev) => (prev + 1) % slides.length);
 
-  // Every slide has a light background now (the split photo-slide layout
-  // dropped the old full-bleed dark photo), so .hero-arrow/.hero-dots
-  // only ever need the one (dark-icon) styling that used to be the
-  // rewards-slide-only "-light" variant — folded into the base rules in
-  // Hero.css rather than kept as a modifier class nothing ever omits.
-  // Rendered inside .hero-split-media for photo slides (see below) so
-  // the arrows/dots anchor to the photo itself, not the whole section —
-  // the text column's height varies per slide and no longer matches the
+  // Rendered inside .hero-split-media (the photo column) so the
+  // arrows/dots anchor to the photo itself, not the whole section — the
+  // text column's height varies per slide and no longer matches the
   // photo's, so anchoring to the outer section used to drift the arrows
   // over the title/description on shorter-text slides.
-  const arrowsAndDots = allSlides.length > 1 && (
+  const arrowsAndDots = slides.length > 1 && (
     <>
       <button
         type="button"
@@ -242,7 +132,7 @@ function Hero() {
       </button>
 
       <div className="hero-dots hero-dots-light">
-        {allSlides.map((s, i) => (
+        {slides.map((s, i) => (
           <button
             key={s._id}
             type="button"
@@ -255,60 +145,8 @@ function Hero() {
     </>
   );
 
-  if (slide.isRewardsSlide) {
-    return (
-      <section className="hero hero-rewards-slide">
-        <div className="hero-bg-image hero-bg-rewards">
-          <span className="hero-bg-blob hero-bg-blob-1" />
-          <span className="hero-bg-blob hero-bg-blob-2" />
-          <span className="hero-bg-blob hero-bg-blob-3" />
-        </div>
-        <div className="hero-overlay hero-overlay-rewards">
-          <div className="container">
-            <div className="hero-rewards-content">
-              <div className="hero-rewards-heading">
-                <span className="hero-rewards-badge">
-                  <span className="hero-rewards-badge-icon">
-                    <FaGift />
-                  </span>
-                  {t(slide.subtitle, slide.subtitleHi)}
-                </span>
-                <h1>{slideTitle}</h1>
-                <span className="hero-rewards-title-accent" aria-hidden="true" />
-              </div>
-
-              <div className="hero-rewards-cards">
-                {slide.benefits.map((b) => (
-                  <div className="hero-rewards-card" key={b.title}>
-                    <span className={`hero-rewards-card-icon hero-rewards-icon-${b.theme}`}>
-                      {b.icon}
-                    </span>
-                    <h3>{b.title}</h3>
-                    <p>{b.text}</p>
-                  </div>
-                ))}
-              </div>
-
-              <div className="hero-rewards-cta-wrap">
-                <button
-                  type="button"
-                  onClick={() => navigate(slide.button1Link)}
-                  className="hero-rewards-cta"
-                >
-                  {t(slide.button1Label, slide.button1LabelHi)}
-                  <FaArrowRight className="text-xs" />
-                </button>
-              </div>
-            </div>
-          </div>
-          {arrowsAndDots}
-        </div>
-      </section>
-    );
-  }
-
-  // Photo slides: a bounded image column + a light content column, rather
-  // than a full-bleed photo with dark-overlaid text — see Hero.css's
+  // A bounded image column + a light content column, rather than a
+  // full-bleed photo with dark-overlaid text — see Hero.css's
   // .hero-split-* rules. Every admin-uploaded photo just does a normal
   // object-fit: cover inside its own fixed-ratio box here, so (unlike the
   // old full-bleed treatment) no blur-backdrop trick is needed for photos
@@ -317,7 +155,14 @@ function Hero() {
     <section className="hero">
       <div className="container hero-split">
         <div className="hero-split-media">
-          <img src={backgroundImage} alt={imageAlt} className="hero-split-image" />
+          <img
+            src={backgroundImage}
+            srcSet={slide.image ? imgSrcSet(slide.image, [500, 800, 1200]) : undefined}
+            sizes="(max-width: 640px) 90vw, (max-width: 1200px) 45vw, 512px"
+            alt={imageAlt}
+            className="hero-split-image"
+            fetchPriority="high"
+          />
           {arrowsAndDots}
         </div>
 

@@ -65,7 +65,7 @@ const imgUrl = (path) => {
 const STATIC_PAGES = {
   "/about": {
     title:
-      "About Mittal Collections — Home Furnishing Store, Pan-India Delivery",
+      "About Mittal Collections — Home Furnishing Store",
     description:
       "Mittal Collections is a home furnishing store offering premium bedsheets, towels, curtains, cushions and doormats with pan-India delivery — quality materials, fast 24-hour delivery in Ghaziabad, and easy returns.",
     breadcrumb: "About",
@@ -83,31 +83,31 @@ const STATIC_PAGES = {
     breadcrumb: "Rewards",
   },
   "/trending": {
-    title: "Top Trending",
+    title: "Top Trending Home Furnishing Products",
     description:
       "Handpicked by our team - the home furnishing pieces everyone's loving right now at Mittal Collections, organised by category.",
     breadcrumb: "Top Trending",
   },
   "/clearance-sale": {
-    title: "Clearance Sale",
+    title: "Clearance Sale — Home Furnishing Deals",
     description:
       "More than 35% off select home furnishing items at Mittal Collections — limited stock, won't be restocked at this price.",
     breadcrumb: "Clearance Sale",
   },
   "/new-arrivals": {
-    title: "New Arrivals",
+    title: "New Arrivals — Home Furnishing",
     description:
       "The newest home furnishing pieces at Mittal Collections, organised by category - bedsheets, cushion covers, doormats and more.",
     breadcrumb: "New Arrivals",
   },
   "/gifting": {
-    title: "Gifting",
+    title: "Gifting — Home Furnishing Gift Ideas",
     description:
       "Ready-to-gift home furnishing picks at Mittal Collections — housewarmings, weddings and festive occasions, no separate wrapping needed.",
     breadcrumb: "Gifting",
   },
   "/curtain-size-calculator": {
-    title: "Curtain Size & Rod Length Calculator (in Inches) — Find Your Perfect Fit",
+    title: "Curtain Size & Rod Length Calculator (in Inches)",
     description:
       "Free curtain size calculator — enter your window measurements and instantly get the rod length, fabric width and curtain length to buy, plus a size chart.",
     breadcrumb: "Curtain Size Calculator",
@@ -208,7 +208,7 @@ const buildMeta = async (path) => {
       : null;
 
     return {
-      title: `Buy Bedsheets, Curtains & Towels Online — Pan-India Delivery | ${SITE_NAME}`,
+      title: `Buy Bedsheets, Curtains & Towels — Pan-India Delivery | ${SITE_NAME}`,
       description:
         "Shop premium cotton bedsheets, curtains, towels, cushions & doormats online with pan-India delivery — fast 24-hour delivery in Ghaziabad. Easy returns.",
       image: DEFAULT_IMAGE,
@@ -230,7 +230,7 @@ const buildMeta = async (path) => {
     // this bot-facing copy had drifted from that client-side convention.
     const description = p.description
       ? `Buy online, pan-India delivery (24hr in Ghaziabad) - ${p.description}`.slice(0, 160)
-      : `Buy ${p.name} online with pan-India delivery - fast 24-hour delivery in Ghaziabad`;
+      : `Buy ${p.name} online with pan-India delivery - fast 24-hour delivery in Ghaziabad`.slice(0, 160);
     const image = imgUrl(p.image) || DEFAULT_IMAGE;
     // Self-heal to the product's *current* slug rather than echoing back
     // whatever slug the request happened to use — otherwise a renamed

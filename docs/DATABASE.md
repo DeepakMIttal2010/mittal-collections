@@ -25,6 +25,8 @@ required fields marked **(required)**.
 | videos | [String] | up to 2 |
 | stock | Number | |
 | fabric, size, gsm, washCare, brand, countryOfOrigin | String | optional specs; each defaults `""` and is only shown on the product page when non-empty |
+| color, pattern | String | optional (added 2026-09-16); `fabric` doubles as material. All three feed the Google Shopping feed's `<g:color>`/`<g:material>`/`<g:pattern>` tags when set — Merchant Center doesn't credit these attributes when they're only mentioned in description prose, it wants the dedicated structured field |
+| localDeliveryOnly | Boolean | optional, default `false` (added 2026-09-17) — for bulky/oversized items where pan-India shipping is uneconomical; the product page warns and checkout blocks (both client-side and server-side in `createOrder`) when the shipping address falls outside the nearby fast-delivery zone |
 | rating | Number | 0–5, default `5` — legacy field, no longer shown anywhere on the site (hidden 2026-09-01, it was a fake-looking static default unconnected to real reviews); the real customer rating comes from `Review` documents (average + count computed live), used in Product structured data when `totalReviews > 0` |
 | featured, isTrending, isActive | Boolean | |
 | trendingRank | Number | manual sort order within "Trending" |

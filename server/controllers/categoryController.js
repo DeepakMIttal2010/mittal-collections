@@ -48,9 +48,13 @@ export const getCategories = async (req, res) => {
     );
 
     // Pinned categories keep manual control (displayOrder, ascending) and
-    // sort ahead of every unpinned one; unpinned categories default to
-    // product count, richest first, so the nav reflects actual catalog
-    // depth instead of whatever order they happened to be created in.
+    // sort ahead of every unpinned one; unpinned categories sort
+    // alphabetically, so a newly-added category with very few products
+    // (e.g. a brand-new line like "Dohars") still lands where a customer
+    // would expect to find it by name, rather than sinking to the bottom
+    // of the nav until its catalog depth catches up (the previous
+    // product-count sort's actual effect, even though "richest first"
+    // was the original intent).
     const withCounts = categories.map((c) => ({
       ...c,
       // .lean() skips schema defaults, so a category saved before this
@@ -63,7 +67,7 @@ export const getCategories = async (req, res) => {
     withCounts.sort((a, b) => {
       if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
       if (a.isPinned) return a.displayOrder - b.displayOrder;
-      return b.productCount - a.productCount;
+      return a.name.localeCompare(b.name);
     });
 
     res.status(200).json({

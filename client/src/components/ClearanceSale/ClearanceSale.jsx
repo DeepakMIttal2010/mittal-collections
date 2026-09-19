@@ -1,4 +1,4 @@
-import { imgUrl } from "../../services/api";
+import { imgUrl, imgSrcSet } from "../../services/api";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { FaChevronLeft, FaChevronRight, FaTag } from "react-icons/fa";
@@ -67,7 +67,9 @@ function ClearanceCategoryRow({ category, products, t, isFirst }) {
             >
               <div className="relative rounded-xl overflow-hidden shadow-md aspect-[4/5] bg-slate-100">
                 <img
-                  src={`${imgUrl(product.image)}`}
+                  src={`${imgUrl(product.image, "w_300,q_auto,f_auto")}`}
+                  srcSet={imgSrcSet(product.image, [200, 300, 450])}
+                  sizes="(min-width: 640px) 240px, 192px"
                   alt={t(product.name, product.nameHi)}
                   loading="lazy"
                   className="w-full h-full object-cover"
@@ -124,7 +126,7 @@ function ClearanceSale() {
             <h2 className="text-4xl md:text-5xl font-black text-slate-900">
               🔥 {t("Clearance Sale", "क्लीयरेंस सेल")}
             </h2>
-            <p className="text-sm text-slate-500 mt-2">
+            <p className="text-sm text-slate-600 mt-2">
               {t(
                 "More than 35% Off — limited stock, won't be restocked at this price.",
                 "35% से ज़्यादा की छूट — सीमित स्टॉक, इस कीमत पर दोबारा नहीं मिलेगा।",
@@ -161,7 +163,7 @@ function ClearanceSale() {
           ))
         )}
 
-        <p className="text-xs text-slate-400 mt-2 flex items-center gap-1.5">
+        <p className="text-xs text-slate-600 mt-2 flex items-center gap-1.5">
           <FaTag className="text-red-500" />
           {t(
             "Big discounts on select items — once sold, gone.",

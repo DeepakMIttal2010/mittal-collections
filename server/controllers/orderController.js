@@ -9,6 +9,7 @@ import CartSnapshot from "../models/CartSnapshot.js";
 import ReturnRequest from "../models/ReturnRequest.js";
 import Ticket from "../models/Ticket.js";
 import { notifyStockAlertSubscribers } from "./productController.js";
+import { resolveFastDelivery } from "./deliveryController.js";
 import {
   calculateDiscount,
   isEligibleForFirstOrderCoupon,
@@ -24,6 +25,7 @@ import { calculateDeliveryFee } from "../utils/shipping.js";
 import { calculateBundleDiscount } from "../utils/bundleDiscount.js";
 import { sendEmail } from "../config/mailer.js";
 import { notifyUser } from "../utils/notify.js";
+import { hasAdminPermission } from "../utils/adminAccess.js";
 import { REVIEW_BONUS_POINTS } from "./reviewController.js";
 
 // Lazily constructed so a missing/blank key in dev doesn't crash the
@@ -102,6 +104,43 @@ const ORDER_STATUS_MESSAGES = {
     subject: "Your order has been cancelled",
     body: "Your order has been cancelled. If a coupon or loyalty points were used, they've been refunded to your account.",
   },
+};
+
+// Shared by every path that needs to tell a customer their order's status
+// changed (or re-tell them, for the same status) — the in-app notification
+// bell plus an email, both keyed off ORDER_STATUS_MESSAGES. Fire-and-forget:
+// callers don't await this, matching the existing behavior at each call site.
+const sendOrderStatusNotification = (order, status) => {
+  const statusMessage = ORDER_STATUS_MESSAGES[status];
+
+  if (!statusMessage) return;
+
+  notifyUser({
+    userId: order.user,
+    type: "order_status",
+    title: statusMessage.subject,
+    message: `Order ID: ${order._id}`,
+    link: `/my-orders/${order._id}`,
+  });
+
+  User.findById(order.user)
+    .select("name email")
+    .then((customer) => {
+      if (!customer?.email) return;
+
+      return sendEmail({
+        to: customer.email,
+        bcc: process.env.ADMIN_NOTIFICATION_EMAIL,
+        subject: statusMessage.subject,
+        html: `
+          <p>Hi ${customer.name || "there"},</p>
+          <p>${statusMessage.body}</p>
+          <p>Order ID: ${order._id}</p>
+          <p><a href="${process.env.CLIENT_URL}/my-orders/${order._id}">View your order</a></p>
+        `,
+      });
+    })
+    .catch((error) => console.error("Order Status Email Error:", error));
 };
 
 // Matches (and slightly exceeds) SiteSettings.defaultReturnPeriodDays —
@@ -202,6 +241,7 @@ const verifyOrderItems = async (rawItems) => {
       price,
       quantity,
       size: item.size || "",
+      localDeliveryOnly: product.localDeliveryOnly,
     });
   }
 
@@ -312,6 +352,23 @@ export const createOrder = async (req, res) => {
     // may carry a tampered price/quantity and must not be used for
     // anything that affects money or inventory.
     const verifiedItems = verifyResult.items;
+
+    // Bulky/oversized products (Product.localDeliveryOnly) can't ship
+    // outside the nearby fast-delivery zone — the product page warns
+    // about this, but that's a client-side hint only, so it's enforced
+    // here too rather than trusting a customer never bypasses it via a
+    // direct API call.
+    if (verifiedItems.some((item) => item.localDeliveryOnly)) {
+      const deliveryCheck = await resolveFastDelivery(shippingAddress?.pincode);
+
+      if (!deliveryCheck.fastDelivery) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "One or more items in your cart can't be delivered to this address. Please remove them or choose a different delivery address.",
+        });
+      }
+    }
 
     const subtotal = verifiedItems.reduce(
       (sum, item) => sum + item.price * item.quantity,
@@ -590,6 +647,79 @@ export const createOrder = async (req, res) => {
 };
 
 // ============================
+// Resume Razorpay Payment
+// ============================
+// For an order whose payment stalled, failed, or was dismissed —
+// re-opens the SAME Razorpay order created at checkout time (never a
+// new one), so verifyRazorpayPayment's existing user+razorpayOrderId
+// lookup keeps working unchanged. Stops working once the stale-order
+// cron cancels the order (see cancelStaleRazorpayOrders).
+export const resumeRazorpayPayment = async (req, res) => {
+  try {
+    const order = await Order.findOne({
+      _id: req.params.id,
+      user: req.user._id,
+    });
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    if (order.paymentMethod !== "Razorpay" || !order.razorpayOrderId) {
+      return res.status(400).json({
+        success: false,
+        message: "This order isn't a Razorpay payment.",
+      });
+    }
+
+    if (order.isPaid || order.orderStatus === "Cancelled") {
+      return res.status(400).json({
+        success: false,
+        message: order.isPaid
+          ? "This order has already been paid."
+          : "This order has been cancelled — please place a new order.",
+      });
+    }
+
+    const razorpayOrder = await getRazorpay().orders.fetch(
+      order.razorpayOrderId,
+    );
+
+    // Payment actually succeeded on Razorpay's side but our own
+    // verification step never ran (e.g. the browser closed right after
+    // the bank redirect) — reopening the modal here would let the
+    // customer pay a second time for the same order.
+    if (razorpayOrder.status === "paid") {
+      return res.status(400).json({
+        success: false,
+        message:
+          "This order appears to already be paid. Please refresh in a moment, or contact support if this persists.",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      razorpayOrder: {
+        id: razorpayOrder.id,
+        amount: razorpayOrder.amount,
+        currency: razorpayOrder.currency,
+      },
+      razorpayKeyId: process.env.RAZORPAY_KEY_ID,
+    });
+  } catch (error) {
+    console.error("Resume Razorpay Payment Error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};
+
+// ============================
 // Verify Razorpay Payment
 // ============================
 export const verifyRazorpayPayment = async (req, res) => {
@@ -726,9 +856,14 @@ export const getOrderById = async (req, res) => {
       });
     }
 
-    // Security check: sirf order ka owner ya admin hi ise dekh sake
+    // Security check: sirf order ka owner ya "orders"-permitted admin hi
+    // ise dekh sake. req.user.role === "admin" alone isn't enough — a
+    // restricted staff account without the "orders" permission is
+    // already blocked from the order LIST (see orderRoutes.js's `perm`
+    // on GET "/"); checking only role here let that same account view
+    // any individual order just by guessing/enumerating its ID.
     const isOwner = order.user._id.toString() === req.user._id.toString();
-    const isAdmin = req.user.role === "admin";
+    const isAdmin = hasAdminPermission(req.user, "orders");
 
     if (!isOwner && !isAdmin) {
       return res.status(403).json({
@@ -950,38 +1085,7 @@ export const updateOrderStatus = async (req, res) => {
       }
     }
 
-    const statusMessage = ORDER_STATUS_MESSAGES[status];
-
-    if (statusMessage) {
-      notifyUser({
-        userId: order.user,
-        type: "order_status",
-        title: statusMessage.subject,
-        message: `Order ID: ${order._id}`,
-        link: `/my-orders/${order._id}`,
-      });
-
-      User.findById(order.user)
-        .select("name email")
-        .then((customer) => {
-          if (!customer?.email) return;
-
-          return sendEmail({
-            to: customer.email,
-            bcc: process.env.ADMIN_NOTIFICATION_EMAIL,
-            subject: statusMessage.subject,
-            html: `
-              <p>Hi ${customer.name || "there"},</p>
-              <p>${statusMessage.body}</p>
-              <p>Order ID: ${order._id}</p>
-              <p><a href="${process.env.CLIENT_URL}/my-orders/${order._id}">View your order</a></p>
-            `,
-          });
-        })
-        .catch((error) =>
-          console.error("Order Status Email Error:", error),
-        );
-    }
+    sendOrderStatusNotification(order, status);
 
     res.status(200).json({
       success: true,
@@ -1280,6 +1384,12 @@ export const cancelStaleRazorpayOrders = async (req, res) => {
         );
       }
 
+      // Every other order-status change notifies the customer (see
+      // updateOrderStatus above) — this cron-driven path was silently
+      // skipping that, so a customer whose checkout stalled had no way
+      // to know their order had been cancelled out from under them.
+      sendOrderStatusNotification(order, "Cancelled");
+
       cancelled += 1;
     }
 
@@ -1290,6 +1400,47 @@ export const cancelStaleRazorpayOrders = async (req, res) => {
     });
   } catch (error) {
     console.error("Cancel Stale Razorpay Orders Error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};
+
+// ============================
+// Resend Order Status Notification (Admin)
+// ============================
+// For cases where a customer says they never got the original status
+// email (spam filter, typo'd address, etc.) — re-sends the notification
+// for the order's current status without touching orderStatus,
+// statusHistory, stock, or loyalty points at all.
+export const resendOrderStatusEmail = async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    if (!ORDER_STATUS_MESSAGES[order.orderStatus]) {
+      return res.status(400).json({
+        success: false,
+        message: `No notification email exists for status "${order.orderStatus}".`,
+      });
+    }
+
+    sendOrderStatusNotification(order, order.orderStatus);
+
+    res.status(200).json({
+      success: true,
+      message: "Notification resent",
+    });
+  } catch (error) {
+    console.error("Resend Order Status Email Error:", error);
 
     res.status(500).json({
       success: false,
