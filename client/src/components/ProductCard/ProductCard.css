@@ -48,16 +48,31 @@
   position: absolute;
   bottom: 15px;
   right: 15px;
-  background: #d97706;
+  /* Caps how wide any badge text can push this — "Exclusive Piece" is
+     short by design, but this is the safety net against a future label
+     stretching the pill into a banner instead of wrapping/truncating. */
+  max-width: calc(100% - 30px);
+  background: #b45309;
   color: white;
   padding: 5px 11px;
   border-radius: 20px;
   font-size: 12px;
   font-weight: bold;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .out-of-stock-badge {
   background: #dc2626;
+}
+
+/* A single available piece isn't "running low" the way 2-5 left is —
+   most are one-off curated finds that were never a bigger batch, so this
+   gets its own gold tone instead of the amber "hurry" color the numeric
+   badge above uses. */
+.exclusive-badge {
+  background: linear-gradient(135deg, #b8860b, #8a5f28);
 }
 
 .product-icons {
@@ -103,7 +118,7 @@
 }
 
 .category {
-  color: #777;
+  color: #666;
   font-size: 14px;
   margin-bottom: 8px;
 }
@@ -118,12 +133,28 @@
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  /* Reserves 2 lines' worth of height even when a shorter product name
+     only wraps to 1 line — otherwise cards in the same row end up with
+     different heights depending on how long each product's name is,
+     staggering the row instead of keeping every card's price/button
+     aligned. */
+  min-height: calc(1.4em * 2);
 }
 
 .size-line {
-  color: #777;
+  color: #666;
   font-size: 13px;
   margin-bottom: 6px;
+  line-height: 1.4;
+
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  /* Same reasoning as .product-info h3 above — a one-line size/spec
+     ("16 x 16 Inches (Set of 5 Cushion Covers)") shouldn't make this
+     card shorter than a neighbour whose size text wraps to 2 lines. */
+  min-height: calc(1.4em * 2);
 }
 
 .rating {

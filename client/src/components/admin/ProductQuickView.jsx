@@ -1,6 +1,7 @@
 import { imgUrl } from "../../services/api";
 import { Link } from "react-router-dom";
 import { FaTimes } from "react-icons/fa";
+import { stripHtml } from "../../utils/stripHtml";
 
 function ProductQuickView({ product, onClose }) {
   const images = product.images?.length ? product.images : [product.image];
@@ -98,7 +99,7 @@ function ProductQuickView({ product, onClose }) {
             </p>
 
             <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-line">
-              {product.description}
+              {stripHtml(product.description)}
             </p>
           </div>
 

@@ -8,6 +8,7 @@ import { useLanguage } from "../context/LanguageContext";
 import { getPublicRewardsInfo } from "../services/rewardsService";
 import { getSiteSettings } from "../services/settingsService";
 import { calculateDeliveryFee } from "../utils/shipping";
+import Seo from "../components/Seo";
 import "./Cart.css";
 
 function Cart() {
@@ -58,6 +59,11 @@ function Cart() {
   if (cartItems.length === 0) {
     return (
       <div className="empty-cart">
+        {/* noindex — cart contents are entirely per-visitor/localStorage,
+            so there's nothing unique here for a crawler to index, same
+            reasoning as Compare.jsx's noindex. */}
+        <Seo title="Your Cart" description="Review the items in your shopping cart at Mittal Collections." noindex />
+
         <h2>{t("Your Cart is Empty", "आपका कार्ट खाली है")}</h2>
 
         <p>
@@ -76,6 +82,8 @@ function Cart() {
 
   return (
     <section className="cart-page">
+      <Seo title="Your Cart" description="Review the items in your shopping cart at Mittal Collections." noindex />
+
       <div className="container">
         <h2 className="cart-title">{t("Shopping Cart", "शॉपिंग कार्ट")}</h2>
 

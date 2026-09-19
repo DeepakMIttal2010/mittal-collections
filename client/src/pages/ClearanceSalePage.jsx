@@ -4,7 +4,12 @@ import { getBigSavingsProducts } from "../services/productService";
 import ProductGrid from "../components/ProductGrid/ProductGrid";
 import ProductGridSkeleton from "../components/ProductGrid/ProductGridSkeleton";
 import Seo from "../components/Seo";
+import Breadcrumbs from "../components/Breadcrumbs";
+import { buildBreadcrumbJsonLd } from "../utils/breadcrumbJsonLd";
 import { useLanguage } from "../context/LanguageContext";
+import { SITE_URL } from "../utils/siteUrl";
+
+const BREADCRUMB_ITEMS = [{ name: "Home", path: "/" }, { name: "Clearance Sale" }];
 
 // Mirrors TrendingPage/NewArrivalsPage — each category's section shows
 // PAGE_SIZE products by default; "Show More" reveals another PAGE_SIZE at
@@ -44,9 +49,17 @@ function ClearanceSalePage() {
   return (
     <div className="max-w-7xl mx-auto px-4 py-12">
       <Seo
-        title="Clearance Sale"
+        title="Clearance Sale — Home Furnishing Deals"
         description="More than 35% off select home furnishing items at Mittal Collections — limited stock, won't be restocked at this price."
-        url="https://www.mittalcollections.com/clearance-sale"
+        url={`${SITE_URL}/clearance-sale`}
+        jsonLd={buildBreadcrumbJsonLd(BREADCRUMB_ITEMS)}
+      />
+
+      <Breadcrumbs
+        items={[
+          { name: t("Home", "होम"), path: "/" },
+          { name: t("Clearance Sale", "क्लीयरेंस सेल") },
+        ]}
       />
 
       <h1 className="text-3xl md:text-4xl font-bold text-slate-900 mb-2">

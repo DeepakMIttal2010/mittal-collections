@@ -1,5 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import ReactQuill from "react-quill-new";
+import "react-quill-new/dist/quill.snow.css";
 
 import "./AddProduct.css";
 
@@ -7,6 +9,7 @@ import { getCategories } from "../../services/categoryService";
 import { getSubcategories } from "../../services/subcategoryService";
 import { addProduct } from "../../services/adminProductService";
 import { getSiteSettingsAdmin } from "../../services/adminSettingsService";
+import { stripHtml } from "../../utils/stripHtml";
 
 // Fallback when no admin-configured rule matches the selected
 // category/subcategory (see AdminSettings.jsx "Cost/Price Auto-Fill Rules").
@@ -63,6 +66,7 @@ function AddProduct() {
     descriptionHi: "",
     category: "",
     subcategories: [],
+    additionalCategories: [],
     price: "",
     oldPrice: "",
     stock: "",
@@ -71,10 +75,13 @@ function AddProduct() {
     isTrending: false,
     trendingRank: 0,
     showInNewArrivals: true,
+    isGiftingItem: false,
     willRestock: true,
     visibility: "both",
     optimizeImages: true,
     fabric: "",
+    color: "",
+    pattern: "",
     size: "",
     gsm: "",
     washCare: "",
@@ -82,6 +89,7 @@ function AddProduct() {
     countryOfOrigin: "",
     whatsIncluded: "",
     colorVariesNote: "",
+    localDeliveryOnly: false,
     adminRemarks: "",
     isReturnable: true,
     returnPeriodDays: "",
@@ -126,6 +134,10 @@ function AddProduct() {
     (sub) => sub.category?._id === formData.category,
   );
 
+  const additionalCategoryOptions = categories.filter(
+    (category) => category._id !== formData.category,
+  );
+
   // A subcategory-specific rule wins over its category's rule; falls back
   // to a hardcoded default when nothing is configured (see
   // AdminSettings.jsx). A product can have several subcategories now —
@@ -151,6 +163,22 @@ function AddProduct() {
     if (catMatch) return catMatch;
 
     return DEFAULT_PRICING_RULE;
+  };
+
+  // Bold/italic/lists only — no image/header tools. Product photos are
+  // already handled by the dedicated image uploader below, and a
+  // "Care instructions:" paragraph is still expected as the LAST block
+  // (see feedController.js's feedDescription, which strips it out of
+  // the Shopping/Meta feed by looking at the last block's text).
+  const descriptionModules = useMemo(
+    () => ({
+      toolbar: [["bold", "italic"], [{ list: "ordered" }, { list: "bullet" }], ["clean"]],
+    }),
+    [],
+  );
+
+  const handleDescriptionChange = (field, value) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleChange = (e) => {
@@ -201,13 +229,40 @@ function AddProduct() {
     }));
   };
 
+  // Independent of the primary category pick (unlike subcategories, this
+  // does NOT reset when `category` changes) — a product's additional
+  // categories are deliberately about categories other than its primary
+  // one, e.g. a gifting-tagged bedsheet also listed under Bedsheets.
+  const handleAdditionalCategoryToggle = (categoryId) => {
+    setFormData((prev) => ({
+      ...prev,
+      additionalCategories: prev.additionalCategories.includes(categoryId)
+        ? prev.additionalCategories.filter((id) => id !== categoryId)
+        : [...prev.additionalCategories, categoryId],
+    }));
+  };
+
+  // Matches the server's multer field limits (uploadMiddleware.js /
+  // productMediaFields) — catching this here gives an immediate,
+  // specific message instead of a failed save after filling out the
+  // whole form (confirmed happening in production via Sentry: a
+  // MulterError "Unexpected field", which is multer's — confusing —
+  // wording for exceeding a field's maxCount).
+  const MAX_IMAGES = 6;
+  const MAX_VIDEOS = 2;
+
   const handleImages = (e) => {
     const files = Array.from(e.target.files);
 
     if (files.length === 0) return;
 
-    setImages(files);
-    setPreviews(files.map((file) => URL.createObjectURL(file)));
+    const accepted = files.slice(0, MAX_IMAGES);
+    if (files.length > accepted.length) {
+      alert(`Only the first ${MAX_IMAGES} images were kept — max ${MAX_IMAGES} per product.`);
+    }
+
+    setImages(accepted);
+    setPreviews(accepted.map((file) => URL.createObjectURL(file)));
     setMainImageIndex(0);
   };
 
@@ -216,8 +271,13 @@ function AddProduct() {
 
     if (files.length === 0) return;
 
-    setVideos(files);
-    setVideoPreviews(files.map((file) => URL.createObjectURL(file)));
+    const accepted = files.slice(0, MAX_VIDEOS);
+    if (files.length > accepted.length) {
+      alert(`Only the first ${MAX_VIDEOS} videos were kept — max ${MAX_VIDEOS} per product.`);
+    }
+
+    setVideos(accepted);
+    setVideoPreviews(accepted.map((file) => URL.createObjectURL(file)));
   };
 
   const handleSubmit = async (e) => {
@@ -225,6 +285,11 @@ function AddProduct() {
 
     if (images.length === 0) {
       alert("Please select at least one product image");
+      return;
+    }
+
+    if (!stripHtml(formData.description).trim()) {
+      alert("Please add a product description");
       return;
     }
 
@@ -245,6 +310,10 @@ function AddProduct() {
     data.append("descriptionHi", formData.descriptionHi);
     data.append("category", formData.category);
     data.append("subcategories", JSON.stringify(formData.subcategories));
+    data.append(
+      "additionalCategories",
+      JSON.stringify(formData.additionalCategories),
+    );
     data.append("price", formData.price);
     data.append("oldPrice", formData.oldPrice);
     data.append("stock", formData.stock);
@@ -254,11 +323,14 @@ function AddProduct() {
     data.append("isTrending", formData.isTrending);
     data.append("trendingRank", formData.trendingRank);
     data.append("showInNewArrivals", formData.showInNewArrivals);
+    data.append("isGiftingItem", formData.isGiftingItem);
     data.append("willRestock", formData.willRestock);
     data.append("visibility", formData.visibility);
     data.append("mainImageIndex", mainImageIndex);
     data.append("optimizeImages", formData.optimizeImages);
     data.append("fabric", formData.fabric);
+    data.append("color", formData.color);
+    data.append("pattern", formData.pattern);
     data.append("size", formData.size);
     data.append("gsm", formData.gsm);
     data.append("washCare", formData.washCare);
@@ -266,6 +338,7 @@ function AddProduct() {
     data.append("countryOfOrigin", formData.countryOfOrigin);
     data.append("whatsIncluded", formData.whatsIncluded);
     data.append("colorVariesNote", formData.colorVariesNote);
+    data.append("localDeliveryOnly", formData.localDeliveryOnly);
     data.append("adminRemarks", formData.adminRemarks);
     data.append("isReturnable", formData.isReturnable);
     data.append("returnPeriodDays", formData.returnPeriodDays);
@@ -315,12 +388,12 @@ function AddProduct() {
         <div className="form-group">
           <label>Description</label>
 
-          <textarea
-            rows="5"
-            name="description"
+          <ReactQuill
+            theme="snow"
             value={formData.description}
-            onChange={handleChange}
-            required
+            onChange={(value) => handleDescriptionChange("description", value)}
+            modules={descriptionModules}
+            placeholder="Put &quot;Care instructions: ...&quot; as its own last paragraph — it's automatically left out of the Google/Meta Shopping feed."
           />
         </div>
 
@@ -339,12 +412,12 @@ function AddProduct() {
         <div className="form-group">
           <label>Description (Hindi, optional)</label>
 
-          <textarea
-            rows="5"
-            name="descriptionHi"
-            placeholder="हिंदी में विवरण"
+          <ReactQuill
+            theme="snow"
             value={formData.descriptionHi}
-            onChange={handleChange}
+            onChange={(value) => handleDescriptionChange("descriptionHi", value)}
+            modules={descriptionModules}
+            placeholder="हिंदी में विवरण"
           />
         </div>
 
@@ -385,6 +458,33 @@ function AddProduct() {
                       onChange={() => handleSubcategoryToggle(sub._id)}
                     />
                     {sub.groupLabel}: {sub.name}
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="form-row">
+          <div className="form-group">
+            <label title="Also lists this product under these categories, in addition to its primary Category above — e.g. a Hotel-category product that should also show under Bedsheets.">
+              Additional Categories (optional)
+            </label>
+
+            {!formData.category ? (
+              <p className="subcategory-hint">Select a primary category first</p>
+            ) : additionalCategoryOptions.length === 0 ? (
+              <p className="subcategory-hint">No other categories</p>
+            ) : (
+              <div className="subcategory-checkbox-list">
+                {additionalCategoryOptions.map((category) => (
+                  <label key={category._id} className="subcategory-checkbox">
+                    <input
+                      type="checkbox"
+                      checked={formData.additionalCategories.includes(category._id)}
+                      onChange={() => handleAdditionalCategoryToggle(category._id)}
+                    />
+                    {category.name}
                   </label>
                 ))}
               </div>
@@ -552,6 +652,32 @@ function AddProduct() {
               name="size"
               placeholder="e.g. 90 x 100 inches"
               value={formData.size}
+              onChange={handleChange}
+            />
+          </div>
+        </div>
+
+        <div className="form-row">
+          <div className="form-group">
+            <label>Colour (optional)</label>
+
+            <input
+              type="text"
+              name="color"
+              placeholder="e.g. Sage Green"
+              value={formData.color}
+              onChange={handleChange}
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Pattern (optional)</label>
+
+            <input
+              type="text"
+              name="pattern"
+              placeholder="e.g. Floral"
+              value={formData.pattern}
               onChange={handleChange}
             />
           </div>
@@ -766,6 +892,16 @@ function AddProduct() {
             Show in New Arrivals
           </label>
 
+          <label title="Also lists this product on the /gifting page, in addition to its normal category — doesn't move it out of that category.">
+            <input
+              type="checkbox"
+              name="isGiftingItem"
+              checked={formData.isGiftingItem}
+              onChange={handleChange}
+            />
+            Show in Gifting
+          </label>
+
           <label title="Uncheck for a one-off/discontinued item — it disappears from the site once it sells out, instead of staying listed with a 'Notify Me' option.">
             <input
               type="checkbox"
@@ -794,6 +930,16 @@ function AddProduct() {
               onChange={handleChange}
             />
             Custom Restock Alert
+          </label>
+
+          <label title="For bulky/oversized items where pan-India shipping is uneconomical — the product page warns customers outside the nearby fast-delivery zone that this item can't be shipped to them.">
+            <input
+              type="checkbox"
+              name="localDeliveryOnly"
+              checked={formData.localDeliveryOnly}
+              onChange={handleChange}
+            />
+            Local Delivery Only (bulky item)
           </label>
         </div>
 

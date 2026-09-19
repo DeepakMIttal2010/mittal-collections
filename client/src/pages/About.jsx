@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import Seo from "../components/Seo";
 import { getCategories } from "../services/categoryService";
 import { useLanguage } from "../context/LanguageContext";
+import { SITE_URL } from "../utils/siteUrl";
 
 function About() {
   const [categories, setCategories] = useState([]);
@@ -22,9 +23,9 @@ function About() {
   return (
     <div className="max-w-4xl mx-auto px-4 pt-16 pb-20">
       <Seo
-        title="About Mittal Collections — Home Furnishing Store, Pan-India Delivery"
+        title="About Mittal Collections — Home Furnishing Store"
         description="Mittal Collections is a home furnishing store offering premium bedsheets, towels, curtains, cushions and doormats with pan-India delivery — quality materials, fast 24-hour delivery in Ghaziabad, and easy returns."
-        url="https://www.mittalcollections.com/about"
+        url={`${SITE_URL}/about`}
       />
 
       <h1 className="text-4xl md:text-5xl font-bold text-slate-900 mb-4">

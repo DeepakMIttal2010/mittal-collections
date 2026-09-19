@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { getProfile, updateProfile } from "../../services/adminProfileService";
+import { readJsonFromStorage } from "../../utils/safeLocalStorage";
 
 const MOBILE_REGEX = /^[6-9]\d{9}$/;
 
@@ -80,11 +81,9 @@ function AdminProfile() {
     if (response.success) {
       alert("Profile updated successfully");
 
-      const storedUser = localStorage.getItem("adminUser");
+      const parsedUser = readJsonFromStorage("adminUser", null);
 
-      if (storedUser) {
-        const parsedUser = JSON.parse(storedUser);
-
+      if (parsedUser) {
         localStorage.setItem(
           "adminUser",
           JSON.stringify({ ...parsedUser, ...response.user }),

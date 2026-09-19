@@ -4,6 +4,7 @@ import { FaRulerCombined, FaShoppingBag } from "react-icons/fa";
 
 import Seo from "../components/Seo";
 import { useLanguage } from "../context/LanguageContext";
+import { SITE_URL } from "../utils/siteUrl";
 
 // English-only — feeds the FAQPage JSON-LD structured data, which should
 // stay in the page's declared (English) language regardless of the UI
@@ -189,7 +190,7 @@ function CurtainSizeCalculator() {
       applicationCategory: "UtilitiesApplication",
       description:
         "Free tool to calculate the curtain size, rod length and fabric width you need based on your window measurements.",
-      url: "https://www.mittalcollections.com/curtain-size-calculator",
+      url: `${SITE_URL}/curtain-size-calculator`,
     },
     {
       "@context": "https://schema.org",
@@ -212,9 +213,9 @@ function CurtainSizeCalculator() {
   return (
     <div className="max-w-5xl mx-auto px-4 py-12">
       <Seo
-        title="Curtain Size & Rod Length Calculator (in Inches) — Find Your Perfect Fit"
-        description="Free curtain size calculator. Enter your window measurements in inches and instantly get the rod length, fabric width and curtain length to buy, plus a standard curtain size chart."
-        url="https://www.mittalcollections.com/curtain-size-calculator"
+        title="Curtain Size & Rod Length Calculator (in Inches)"
+        description="Free curtain size calculator — enter your window measurements and instantly get the rod length, fabric width and curtain length to buy, plus a size chart."
+        url={`${SITE_URL}/curtain-size-calculator`}
         jsonLd={jsonLd}
       />
 

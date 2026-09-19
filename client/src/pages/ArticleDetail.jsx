@@ -7,8 +7,7 @@ import Seo from "../components/Seo";
 import Breadcrumbs from "../components/Breadcrumbs";
 import { buildBreadcrumbJsonLd } from "../utils/breadcrumbJsonLd";
 import { useLanguage } from "../context/LanguageContext";
-
-const SITE_URL = "https://www.mittalcollections.com";
+import { SITE_URL } from "../utils/siteUrl";
 
 function ArticleDetail() {
   const { slug } = useParams();
@@ -167,11 +166,12 @@ function ArticleDetail() {
     <div className="max-w-3xl mx-auto px-4 py-12">
       <Seo
         title={displayTitle}
-        description={displayExcerpt || displayTitle}
+        description={(displayExcerpt || displayTitle).slice(0, 160)}
         image={article.coverImage ? imgUrl(article.coverImage) : undefined}
         url={url}
         lang={isHindi ? "hi" : "en"}
         alternateLangs={alternateLangs}
+        ogType="article"
         jsonLd={[articleJsonLd, buildBreadcrumbJsonLd(breadcrumbItems)]}
       />
 

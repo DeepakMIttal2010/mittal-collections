@@ -17,6 +17,7 @@ import {
   decodeProductNumber,
 } from "../utils/costCipher.js";
 import { deleteCloudinaryAssetsByUrl } from "../utils/cloudinaryCleanup.js";
+import { sanitizeProductDescription } from "../utils/sanitizeProductDescription.js";
 
 // Never sent by a public route — cost data is admin-only. The nested
 // variants.purchasePrice needs its own dotted exclusion; a bare
@@ -212,7 +213,14 @@ export const getProducts = async (req, res) => {
       req.query;
 
     if (category && category.trim()) {
-      filter.category = category.trim();
+      const categoryId = category.trim();
+      // filter.$or is already taken by the stock/willRestock condition
+      // above — can't reuse the key here, that would silently replace it
+      // instead of adding a second condition. $and keeps both.
+      filter.$and = [
+        ...(filter.$and || []),
+        { $or: [{ category: categoryId }, { additionalCategories: categoryId }] },
+      ];
     }
     if (subcategory && subcategory.trim()) {
       filter.subcategories = subcategory.trim();
@@ -355,7 +363,11 @@ export const getSearchSuggestions = async (req, res) => {
     };
 
     if (category && category.trim()) {
-      filter.category = category.trim();
+      const categoryId = category.trim();
+      filter.$and = [
+        ...(filter.$and || []),
+        { $or: [{ category: categoryId }, { additionalCategories: categoryId }] },
+      ];
     }
 
     const products = await Product.find(filter).select(
@@ -394,7 +406,13 @@ export const getAllProductsAdmin = async (req, res) => {
     }
 
     if (category && category.trim()) {
-      filter.category = category.trim();
+      const categoryId = category.trim();
+      // filter.$or may already be taken by the search condition above —
+      // $and keeps both instead of one silently replacing the other.
+      filter.$and = [
+        ...(filter.$and || []),
+        { $or: [{ category: categoryId }, { additionalCategories: categoryId }] },
+      ];
     }
     if (subcategory && subcategory.trim()) {
       filter.subcategories = subcategory.trim();
@@ -563,10 +581,13 @@ export const duplicateProduct = async (req, res) => {
       oldPrice: source.oldPrice,
       category: source.category,
       subcategories: [...source.subcategories],
+      additionalCategories: [...(source.additionalCategories || [])],
       stock: source.stock,
       variants: source.variants,
 
       fabric: source.fabric,
+      color: source.color,
+      pattern: source.pattern,
       size: source.size,
       gsm: source.gsm,
       washCare: source.washCare,
@@ -574,11 +595,13 @@ export const duplicateProduct = async (req, res) => {
       countryOfOrigin: source.countryOfOrigin,
       whatsIncluded: source.whatsIncluded,
       colorVariesNote: source.colorVariesNote,
+      localDeliveryOnly: source.localDeliveryOnly,
 
       featured: false,
       isTrending: false,
       trendingRank: 0,
       showInNewArrivals: source.showInNewArrivals,
+      isGiftingItem: source.isGiftingItem,
       willRestock: source.willRestock,
       isActive: false,
 
@@ -701,7 +724,14 @@ export const getTrendingProductsByCategory = async (req, res) => {
         .map(async (section) => {
           const products = await Product.find({
             isActive: true,
-            category: section.category._id,
+            $and: [
+              {
+                $or: [
+                  { category: section.category._id },
+                  { additionalCategories: section.category._id },
+                ],
+              },
+            ],
             isTrending: true,
             visibility: { $ne: "offline" },
             $or: [{ stock: { $gt: 0 } }, { willRestock: { $ne: false } }],
@@ -788,6 +818,75 @@ export const getNewArrivalProducts = async (req, res) => {
 };
 
 // ============================
+// GET GIFTING PRODUCTS BY CATEGORY (Public) — products an admin has
+// opted in via isGiftingItem, grouped by whichever category each one
+// actually belongs to. Unlike getNewArrivalsByCategory, there's no
+// admin-curated NewArrivalsSection-style opt-in per category here —
+// gifting items are already an explicit opt-in on the product itself,
+// so a category's section simply exists whenever it has >=1 qualifying
+// gifting product, grouped dynamically rather than pre-configured.
+// ============================
+export const getGiftingProductsByCategory = async (req, res) => {
+  try {
+    const perCategoryLimit = Math.max(
+      parseInt(req.query.limit, 10) || 8,
+      1,
+    );
+
+    const products = await Product.find({
+      isActive: true,
+      isGiftingItem: true,
+      visibility: { $ne: "offline" },
+      $or: [{ stock: { $gt: 0 } }, { willRestock: { $ne: false } }],
+    })
+      .select(COST_FIELDS)
+      .populate("category", "name nameHi slug isActive")
+      .populate("subcategories", "name nameHi slug")
+      .sort({ createdAt: -1 });
+
+    const sectionsByCategory = new Map();
+
+    for (const product of products) {
+      // A product's category could have been deactivated without the
+      // reference being cleaned up — skip rather than show a section
+      // for a category that no longer resolves anywhere on the site.
+      if (!product.category?.isActive) continue;
+
+      const categoryId = product.category._id.toString();
+
+      if (!sectionsByCategory.has(categoryId)) {
+        sectionsByCategory.set(categoryId, {
+          category: {
+            _id: product.category._id,
+            name: product.category.name,
+            nameHi: product.category.nameHi,
+            slug: product.category.slug,
+          },
+          products: [],
+        });
+      }
+
+      const section = sectionsByCategory.get(categoryId);
+      if (section.products.length < perCategoryLimit) {
+        section.products.push(product);
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      sections: Array.from(sectionsByCategory.values()),
+    });
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};
+
+// ============================
 // GET NEW ARRIVALS BY CATEGORY (Public) — one "New Arrivals" section per
 // admin-opted-in category, each showing only that category's newest
 // products. Powers the homepage's category-wise New Arrivals sections
@@ -815,7 +914,14 @@ export const getNewArrivalsByCategory = async (req, res) => {
         .map(async (section) => {
           const products = await Product.find({
             isActive: true,
-            category: section.category._id,
+            $and: [
+              {
+                $or: [
+                  { category: section.category._id },
+                  { additionalCategories: section.category._id },
+                ],
+              },
+            ],
             showInNewArrivals: { $ne: false },
             visibility: { $ne: "offline" },
             $or: [{ stock: { $gt: 0 } }, { willRestock: { $ne: false } }],
@@ -964,6 +1070,7 @@ export const getBigSavingsProducts = async (req, res) => {
     })
       .select(COST_FIELDS)
       .populate("category", "name nameHi slug image isActive")
+      .populate("additionalCategories", "name nameHi slug image isActive")
       .populate("subcategories", "name nameHi slug");
 
     const discountById = new Map(
@@ -973,19 +1080,24 @@ export const getBigSavingsProducts = async (req, res) => {
     const byCategory = new Map();
 
     for (const product of products) {
-      // A category could have been deliberately deactivated (e.g. taken
-      // off the site temporarily) without deactivating its products —
-      // skip it here the same way getNewArrivalsByCategory does, so a
-      // hidden category doesn't resurface via this section.
-      if (!product.category || !product.category.isActive) continue;
+      // A gifting-tagged (or otherwise multi-category) product's discount
+      // should surface under every active category it belongs to, not just
+      // its primary one — mirrors getNewArrivalsByCategory's isActive skip
+      // for each candidate category.
+      const candidateCategories = [
+        product.category,
+        ...(product.additionalCategories || []),
+      ].filter((c) => c && c.isActive);
 
-      const key = product.category._id.toString();
+      for (const category of candidateCategories) {
+        const key = category._id.toString();
 
-      if (!byCategory.has(key)) {
-        byCategory.set(key, { category: product.category, products: [] });
+        if (!byCategory.has(key)) {
+          byCategory.set(key, { category, products: [] });
+        }
+
+        byCategory.get(key).products.push(product);
       }
-
-      byCategory.get(key).products.push(product);
     }
 
     const sections = [...byCategory.values()]
@@ -1036,7 +1148,7 @@ export const getProductById = async (req, res) => {
       .populate("category", "name nameHi slug image")
       .populate("subcategories", "name nameHi slug");
 
-    if (!product || product.visibility === "offline") {
+    if (!product || !product.isActive || product.visibility === "offline") {
       return res.status(404).json({
         success: false,
         message: "Product not found",
@@ -1076,9 +1188,12 @@ export const addProduct = async (req, res) => {
       isTrending,
       trendingRank,
       showInNewArrivals,
+      isGiftingItem,
       willRestock,
       mainImageIndex,
       fabric,
+      color,
+      pattern,
       size,
       gsm,
       washCare,
@@ -1086,6 +1201,7 @@ export const addProduct = async (req, res) => {
       countryOfOrigin,
       whatsIncluded,
       colorVariesNote,
+      localDeliveryOnly,
       adminRemarks,
       isReturnable,
       returnPeriodDays,
@@ -1118,9 +1234,9 @@ export const addProduct = async (req, res) => {
     const product = await Product.create({
       name,
       slug: generateSlug(name),
-      description,
+      description: sanitizeProductDescription(description),
       nameHi: nameHi || "",
-      descriptionHi: descriptionHi || "",
+      descriptionHi: sanitizeProductDescription(descriptionHi),
       // Once variants exist, the top-level price/oldPrice/stock are
       // derived from them (first variant's price, summed stock) rather
       // than trusting whatever was separately sent for those fields —
@@ -1129,6 +1245,7 @@ export const addProduct = async (req, res) => {
       oldPrice: hasVariants ? variants[0].oldPrice : oldPrice,
       category,
       subcategories: parseSubcategories(req.body.subcategories),
+      additionalCategories: parseSubcategories(req.body.additionalCategories),
       stock: hasVariants
         ? variants.reduce((sum, v) => sum + v.stock, 0)
         : stock,
@@ -1139,12 +1256,15 @@ export const addProduct = async (req, res) => {
       trendingRank: trendingRank || 0,
       showInNewArrivals:
         showInNewArrivals === undefined ? true : showInNewArrivals === "true",
+      isGiftingItem: isGiftingItem === "true",
       willRestock: willRestock === undefined ? true : willRestock === "true",
       visibility: ["both", "online", "offline"].includes(visibility)
         ? visibility
         : "both",
 
       fabric: fabric || "",
+      color: color || "",
+      pattern: pattern || "",
       size: size || "",
       gsm: gsm || "",
       washCare: washCare || "",
@@ -1152,6 +1272,7 @@ export const addProduct = async (req, res) => {
       countryOfOrigin: countryOfOrigin || "",
       whatsIncluded: whatsIncluded || "",
       colorVariesNote: colorVariesNote || "",
+      localDeliveryOnly: localDeliveryOnly === "true",
       adminRemarks: adminRemarks || "",
       adminRemarksUpdatedAt: adminRemarks ? new Date() : null,
 
@@ -1217,9 +1338,9 @@ export const updateProduct = async (req, res) => {
 
     product.name = req.body.name;
     product.slug = generateSlug(req.body.name);
-    product.description = req.body.description;
+    product.description = sanitizeProductDescription(req.body.description);
     product.nameHi = req.body.nameHi || "";
-    product.descriptionHi = req.body.descriptionHi || "";
+    product.descriptionHi = sanitizeProductDescription(req.body.descriptionHi);
     const variants = parseVariants(req.body.variants);
     const hasVariants = variants.length > 0;
 
@@ -1229,6 +1350,9 @@ export const updateProduct = async (req, res) => {
     product.oldPrice = hasVariants ? variants[0].oldPrice : req.body.oldPrice;
     product.category = req.body.category;
     product.subcategories = parseSubcategories(req.body.subcategories);
+    product.additionalCategories = parseSubcategories(
+      req.body.additionalCategories,
+    );
     product.stock = hasVariants
       ? variants.reduce((sum, v) => sum + v.stock, 0)
       : req.body.stock;
@@ -1242,6 +1366,7 @@ export const updateProduct = async (req, res) => {
       req.body.showInNewArrivals === undefined
         ? true
         : req.body.showInNewArrivals === "true";
+    product.isGiftingItem = req.body.isGiftingItem === "true";
     product.willRestock =
       req.body.willRestock === undefined
         ? true
@@ -1253,6 +1378,8 @@ export const updateProduct = async (req, res) => {
       : "both";
 
     product.fabric = req.body.fabric || "";
+    product.color = req.body.color || "";
+    product.pattern = req.body.pattern || "";
     product.size = req.body.size || "";
     product.gsm = req.body.gsm || "";
     product.washCare = req.body.washCare || "";
@@ -1260,6 +1387,7 @@ export const updateProduct = async (req, res) => {
     product.countryOfOrigin = req.body.countryOfOrigin || "";
     product.whatsIncluded = req.body.whatsIncluded || "";
     product.colorVariesNote = req.body.colorVariesNote || "";
+    product.localDeliveryOnly = req.body.localDeliveryOnly === "true";
 
     // Only bump the timestamp when the note itself actually changed —
     // otherwise re-saving the product for an unrelated edit (price,

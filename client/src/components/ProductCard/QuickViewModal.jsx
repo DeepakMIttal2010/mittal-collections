@@ -17,6 +17,7 @@ import { getStockStatus } from "../../utils/stock";
 import { productUrl } from "../../utils/productUrl";
 import { getEarnRate } from "../../services/rewardsService";
 import { useLanguage } from "../../context/LanguageContext";
+import { stripHtml } from "../../utils/stripHtml";
 
 function QuickViewModal({ product, onClose }) {
   const { addToCart } = useCart();
@@ -122,7 +123,7 @@ function QuickViewModal({ product, onClose }) {
           </p>
 
           <p className="text-sm text-slate-600 leading-relaxed mb-6 line-clamp-4">
-            {t(product.description, product.descriptionHi)}
+            {stripHtml(t(product.description, product.descriptionHi))}
           </p>
 
           <div className="mt-auto flex gap-2">

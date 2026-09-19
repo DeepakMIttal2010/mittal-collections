@@ -4,6 +4,7 @@ import Seo from "../components/Seo";
 import Hero from "../components/Hero/Hero";
 import CategoryQuickLinks from "../components/CategoryQuickLinks/CategoryQuickLinks";
 import TrustBar from "../components/TrustBar/TrustBar";
+import RewardsStrip from "../components/RewardsStrip/RewardsStrip";
 import RecentlyViewed from "../components/RecentlyViewed/RecentlyViewed";
 import Categories from "../components/Categories/Categories";
 import TrendingSection from "../components/TrendingSection/TrendingSection";
@@ -17,6 +18,28 @@ import Newsletter from "../components/Newsletter/Newsletter";
 import CategoryNewArrivals from "../components/NewArrivals/CategoryNewArrivals";
 import Faq from "../components/Faq/Faq";
 import { getSiteSettings } from "../services/settingsService";
+import { DELIVERY_AREAS } from "../utils/deliveryAreas";
+import { SITE_URL } from "../utils/siteUrl";
+
+// Unconditional — unlike the HomeGoodsStore/LocalBusiness block below
+// (which needs an admin-configured address to be meaningful), this is
+// always valid and should never depend on any async data being loaded,
+// so the homepage is never left with zero structured data at all.
+const organizationJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "@id": `${SITE_URL}/#organization`,
+  name: "Mittal Collections",
+  url: `${SITE_URL}/`,
+};
+
+const websiteJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "@id": `${SITE_URL}/#website`,
+  name: "Mittal Collections",
+  url: `${SITE_URL}/`,
+};
 
 function Home() {
   const [settings, setSettings] = useState({});
@@ -35,9 +58,9 @@ function Home() {
     ? {
         "@context": "https://schema.org",
         "@type": "HomeGoodsStore",
-        "@id": "https://www.mittalcollections.com/#business",
+        "@id": `${SITE_URL}/#business`,
         name: "Mittal Collections",
-        url: "https://www.mittalcollections.com/",
+        url: `${SITE_URL}/`,
         telephone: settings.phone || undefined,
         priceRange: "₹₹",
         address: {
@@ -48,9 +71,10 @@ function Home() {
           addressCountry: "IN",
         },
         areaServed: [
-          { "@type": "Place", name: "Vasundhara, Ghaziabad" },
-          { "@type": "Place", name: "Indirapuram, Ghaziabad" },
-          { "@type": "Place", name: "Vaishali, Ghaziabad" },
+          ...DELIVERY_AREAS.map((area) => ({
+            "@type": "Place",
+            name: `${area}, Ghaziabad`,
+          })),
           { "@type": "City", name: "Ghaziabad" },
         ],
         sameAs: [
@@ -64,14 +88,15 @@ function Home() {
   return (
     <>
       <Seo
-        title="Buy Bedsheets, Curtains & Towels Online — Pan-India Delivery"
-        description="Shop premium cotton bedsheets, curtains, towels, cushions and doormats online with pan-India delivery — fast 24-hour delivery in Vasundhara, Indirapuram, Vaishali and nearby Ghaziabad. Genuine products, easy returns."
-        url="https://www.mittalcollections.com/"
-        jsonLd={localBusinessJsonLd}
+        title="Buy Bedsheets, Curtains & Towels — Pan-India Delivery"
+        description="Shop premium cotton bedsheets, curtains, towels, cushions & doormats online with pan-India delivery — fast 24-hour delivery in Ghaziabad. Easy returns."
+        url={`${SITE_URL}/`}
+        jsonLd={[organizationJsonLd, websiteJsonLd, localBusinessJsonLd]}
       />
       <Hero />
       <CategoryQuickLinks />
       <TrustBar />
+      <RewardsStrip />
       <RecentlyViewed />
       <Categories />
       <TrendingSection />

@@ -1,132 +1,38 @@
-.hero-value-strip {
-  background: #1e293b;
-  color: #fff;
-  text-align: center;
-  font-size: 0.9rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  padding: 0.6rem 1rem;
-}
-
 .hero {
   position: relative;
-  height: 85vh;
   overflow: hidden;
+  background: #faf7f2;
 }
 
-/* Sized to its own content instead of the photo slides' fixed 85vh —
-   that height, combined with vertically-centering a taller content
-   block (icon-badge benefit row needs more room than one description
-   line), was pushing the button down into the page's fixed WhatsApp
-   button on shorter viewports.
-
-   Compound selector (.hero.hero-rewards-slide, not just
-   .hero-rewards-slide) deliberately outranks the plain .hero rule
-   inside the @media (max-width: 640px) block further down — same
-   specificity as this used to have meant cascade ORDER decided the
-   winner, and the mobile media query rule comes later in the file, so
-   it was silently reinstating a fixed 70vh (with .hero's own
-   overflow: hidden) on phones and clipping the bottom cards + CTA
-   right off. The extra specificity here wins regardless of where
-   either rule sits in the file. */
-.hero.hero-rewards-slide {
-  height: auto;
-  min-height: 0;
-}
-
-.hero-bg-image {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  z-index: 0;
-}
-
-.hero-overlay {
-  position: relative;
-  z-index: 1;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.45);
-
-  display: flex;
-  align-items: center;
-}
-
-/* The rewards slide has no photo behind it — a light blue gradient
-   instead, matching the site's own light-card design language rather
-   than the dark photo-overlay treatment the other slides need for
-   white text to stay legible. */
-.hero-bg-rewards {
-  background: linear-gradient(180deg, #fff1f2 0%, #ffffff 100%);
-  overflow: hidden;
-}
-
-/* Soft, blurred color blobs for visual depth — kept purely decorative
-   (aria-hidden via being empty spans, no content) and behind everything
-   else via z-index/stacking order in the DOM. */
-.hero-bg-blob {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(60px);
-  opacity: 0.5;
-  pointer-events: none;
-}
-
-.hero-bg-blob-1 {
-  width: 420px;
-  height: 420px;
-  top: -160px;
-  right: -100px;
-  background: radial-gradient(circle, #fecdd3 0%, transparent 70%);
-}
-
-.hero-bg-blob-2 {
-  width: 380px;
-  height: 380px;
-  bottom: -180px;
-  left: -80px;
-  background: radial-gradient(circle, #fbcfe8 0%, transparent 70%);
-}
-
-.hero-overlay-rewards {
-  background: none;
-  height: auto;
-  padding: 48px 0;
-}
-
+/* Sits on top of the photo now (rendered inside .hero-split-media), so
+   a near-transparent dark tint — fine on the old flat cream section
+   background — nearly disappeared against a photo of similar tone (a
+   pale/cream product shot made the arrow almost invisible). A solid
+   white disc with its own shadow reads as a clickable control against
+   any photo, light or dark. */
 .hero-arrow {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   border: none;
-  background: rgba(255, 255, 255, 0.2);
-  color: #fff;
-  font-size: 16px;
+  background: #fff;
+  color: #292018;
+  font-size: 15px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.3s;
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.25);
+  transition: background 0.2s, color 0.2s, transform 0.2s;
 }
 
 .hero-arrow:hover {
-  background: rgba(255, 255, 255, 0.35);
-}
-
-/* The rewards slide's light background needs dark arrows/dots instead
-   of the white-on-photo styling the other slides use for contrast. */
-.hero-arrow-light {
-  background: rgba(15, 23, 42, 0.06);
-  color: #be123c;
-}
-
-.hero-arrow-light:hover {
-  background: rgba(15, 23, 42, 0.12);
+  background: #be123c;
+  color: #fff;
+  transform: translateY(-50%) scale(1.08);
 }
 
 .hero-arrow-left {
@@ -174,113 +80,102 @@
   background: #be123c;
 }
 
-.hero-content {
-  max-width: 650px;
-  color: white;
+/* Bounded image column + light content column — see the comment in
+   Hero.jsx for why this replaced the old full-bleed-photo layout. */
+.hero-split {
+  display: flex;
+  align-items: center;
+  gap: 56px;
+  padding: 56px 0;
 }
 
-.hero-subtitle {
-  color: #d4af37;
+/* position: relative anchors the prev/next arrows and dots (rendered
+   inside this div in Hero.jsx) to the photo itself — they used to be
+   absolutely positioned against the whole (auto-height) .hero section,
+   which vertically centered them against the image+content row's
+   combined height rather than the image, landing on top of the title/
+   description/buttons on slides where the text column is shorter than
+   the photo (the common case, since .hero-split-image is a fixed 4:5
+   box while text length varies per slide). */
+.hero-split-media {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.hero-split-image {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  object-fit: cover;
+  /* Slight left bias, not dead-center — this admin's product photos
+     often carry a text badge/label near the top-left corner (leftover
+     from listing photos), and a 4:5 box cropping a wider source photo
+     otherwise centers the crop and clips that corner first. */
+  object-position: 35% center;
+  border-radius: 20px;
+  box-shadow: 0 24px 48px -24px rgba(15, 23, 42, 0.25);
+}
+
+.hero-split-content {
+  flex: 1 1 0;
+  min-width: 0;
+  text-align: center;
+  color: #292018;
+}
+
+.hero-split-eyebrow-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.hero-split-divider {
+  width: 40px;
+  height: 1px;
+  background: #c99a4b;
+}
+
+.hero-split-eyebrow {
+  /* #a8763a measured ~3.7:1 on this section's #faf7f2 background — below
+     the 4.5:1 AA floor for 13px text. This shade clears ~5.2:1. */
+  color: #8a5f28;
   letter-spacing: 3px;
   font-weight: 600;
-}
-
-.hero-content h1 {
-  font-size: 60px;
-  margin: 20px 0;
-  line-height: 1.2;
-  font-weight: 700;
-}
-
-.hero-content p {
-  font-size: 20px;
-  line-height: 1.8;
-  margin-bottom: 35px;
-}
-
-/* Rewards slide: light background, one card per benefit — matches the
-   site's own light-card design language (see e.g. Account.jsx's
-   dashboard cards) instead of the dark-photo-overlay treatment the
-   other slides need. */
-.hero-rewards-content {
-  width: 100%;
-  color: #0f172a;
-}
-
-.hero-rewards-heading {
-  text-align: center;
-  margin-bottom: 28px;
-}
-
-.hero-rewards-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  background: white;
-  color: #be123c;
-  padding: 7px 18px 7px 7px;
-  border-radius: 100px;
-  letter-spacing: 0.5px;
-  font-weight: 700;
   font-size: 13px;
-  box-shadow: 0 4px 14px -6px rgba(190, 18, 60, 0.3);
 }
 
-.hero-rewards-badge-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #fb7185, #be123c);
-  color: white;
-  font-size: 12px;
-}
-
-.hero-rewards-content h2 {
-  font-size: 34px;
-  margin: 14px 0 0;
-  line-height: 1.2;
+.hero-split-title {
+  font-family: "Playfair Display", Georgia, "Times New Roman", serif;
+  font-size: 48px;
   font-weight: 700;
-  color: #0f172a;
+  line-height: 1.2;
+  margin: 0 0 18px;
+  color: #4a2f1c;
 }
 
-.hero-rewards-cards {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 18px;
-  margin-bottom: 28px;
+.hero-split-desc {
+  font-size: 17px;
+  line-height: 1.7;
+  color: #6b5c4d;
+  max-width: 440px;
+  margin: 0 auto 32px;
 }
 
-.hero-rewards-card {
-  background: white;
-  border: 1px solid #fecdd3;
-  border-radius: 16px;
-  padding: 22px 20px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
-  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
-}
-
-.hero-rewards-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 16px 28px -12px rgba(190, 18, 60, 0.22);
-  border-color: #fda4af;
-}
-
-.hero-rewards-card-icon {
+.hero-split-buttons {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  font-size: 18px;
-  margin-bottom: 14px;
+  gap: 24px;
 }
 
 /* Each benefit gets its own accent — makes the four cards read as
-   distinct things at a glance instead of four identical icons. */
+   distinct things at a glance instead of four identical icons. Used by
+   the standalone /rewards page (see Rewards.jsx) — the hero slide that
+   originally used these too was moved out into its own homepage
+   section (RewardsStrip), but these color classes are still live. */
 .hero-rewards-icon-rose {
   background: linear-gradient(135deg, #fecdd3, #fda4af);
   color: #9f1239;
@@ -328,44 +223,6 @@
   border-color: #99f6e4;
 }
 
-.hero-rewards-card h3 {
-  font-size: 16px;
-  font-weight: 700;
-  color: #0f172a;
-  margin: 0 0 6px;
-}
-
-.hero-rewards-card p {
-  font-size: 13.5px;
-  line-height: 1.55;
-  color: #64748b;
-  margin: 0;
-}
-
-.hero-rewards-content .hero-rewards-cta-wrap {
-  text-align: center;
-}
-
-.hero-rewards-cta {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  background: linear-gradient(135deg, #f43f5e, #be123c);
-  color: white;
-  font-weight: 600;
-  font-size: 16px;
-  border: none;
-  border-radius: 35px;
-  padding: 14px 34px;
-  cursor: pointer;
-  box-shadow: 0 8px 20px -8px rgba(190, 18, 60, 0.5);
-  transition: transform 0.25s ease, box-shadow 0.25s ease;
-}
-
-.hero-rewards-cta:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 12px 26px -8px rgba(190, 18, 60, 0.6);
-}
 
 .hero-buttons {
   display: flex;
@@ -385,7 +242,7 @@
 }
 
 .shop-btn {
-  background: #d4af37;
+  background: #c99a4b;
   border: none;
   /* Dark text, not white — white-on-gold was 2.1:1 (needs 4.5:1) per a
      Lighthouse accessibility audit; dark text on this same gold clears
@@ -397,80 +254,46 @@
   background: #b8860b;
 }
 
+/* Was a white border/text meant to sit on a dark photo backdrop — the
+   split layout's content column has a light background now, so this is
+   a dark outline instead (matching the heading color, not white-on-white). */
 .explore-btn {
   background: transparent;
-  border: 2px solid white;
-  color: white;
+  border: 2px solid #4a2f1c;
+  color: #4a2f1c;
 }
 
 .explore-btn:hover {
-  background: white;
-  color: #222;
+  background: #4a2f1c;
+  color: #faf7f2;
 }
 
 @media (max-width: 640px) {
-  .hero {
-    height: 70vh;
+  /* Image first, text below — same order the old full-bleed photo slide
+     already read as on mobile (photo grabs attention first). */
+  .hero-split {
+    flex-direction: column;
+    gap: 28px;
+    padding: 32px 0 40px;
   }
 
-  .hero-content h1 {
-    font-size: 34px;
-    margin: 14px 0;
+  .hero-split-image {
+    aspect-ratio: 4 / 3;
+    border-radius: 14px;
   }
 
-  .hero-content p {
-    font-size: 16px;
-    margin-bottom: 24px;
+  .hero-split-title {
+    font-size: 30px;
+    margin-bottom: 12px;
   }
 
-  .hero-overlay-rewards {
-    padding: 32px 0;
-  }
-
-  .hero-rewards-heading {
-    margin-bottom: 20px;
-  }
-
-  .hero-rewards-content h2 {
-    font-size: 24px;
-  }
-
-  .hero-rewards-cards {
-    grid-template-columns: 1fr;
-    gap: 12px;
-    margin-bottom: 20px;
-  }
-
-  /* Matches MainLayout.jsx's own h-20 (80px) spacer for the same fixed
-     BottomNav bar — without this the CTA button ends up sitting right
-     where that bar covers it while scrolling to the end of the tall,
-     single-column card stack. */
-  .hero-rewards-cta-wrap {
-    padding-bottom: 80px;
-  }
-
-  .hero-rewards-card {
-    padding: 16px 18px;
-  }
-
-  .hero-rewards-card-icon {
-    width: 36px;
-    height: 36px;
+  .hero-split-desc {
     font-size: 15px;
-    margin-bottom: 10px;
+    margin-bottom: 22px;
   }
 
-  .hero-rewards-card h3 {
-    font-size: 15px;
-  }
-
-  .hero-rewards-card p {
-    font-size: 13px;
-  }
-
-  .hero-rewards-cta {
-    padding: 12px 24px;
-    font-size: 14px;
+  .hero-split-buttons {
+    gap: 14px;
   }
 
   .shop-btn,

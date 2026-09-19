@@ -6,8 +6,7 @@ import { getArticles } from "../services/articleService";
 import { imgUrl } from "../services/api";
 import Seo from "../components/Seo";
 import { useLanguage } from "../context/LanguageContext";
-
-const SITE_URL = "https://www.mittalcollections.com";
+import { SITE_URL } from "../utils/siteUrl";
 
 function Articles() {
   const { language } = useLanguage();

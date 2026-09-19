@@ -14,6 +14,26 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="Mittal Collections" />
+
+    <!-- Every page's first real content (hero image, category/product
+         data) comes from these two origins, but as a client-rendered SPA
+         nothing here is known until the JS bundle parses and fires its
+         first fetch — without this hint, DNS/TLS setup for them only
+         starts AFTER that, adding a full extra round-trip to the LCP
+         critical path (flagged as "LCP request discovery" / "Network
+         dependency tree" in PageSpeed Insights). Preconnecting lets the
+         browser do that handshake in parallel with the JS download. -->
+    <link rel="preconnect" href="https://mittal-collections-api.onrender.com" />
+    <link rel="preconnect" href="https://res.cloudinary.com" crossorigin />
+
+    <!-- Playfair Display — hero heading only (see Hero.css .hero-split-title),
+         not a site-wide typeface change. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&display=swap"
+      rel="stylesheet"
+    />
     <!-- No static <meta name="description"> here on purpose — every
          route sets its own via the shared <Seo> component
          (react-helmet-async). A static one here would never get

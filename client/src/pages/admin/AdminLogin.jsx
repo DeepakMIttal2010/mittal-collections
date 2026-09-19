@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { loginUser, saveAdminLogin } from "../../services/authService";
+import { PERMISSION_GROUPS, permissionForPath } from "../../config/adminPermissions";
 import "./AdminLogin.css";
 
 function AdminLogin() {
@@ -46,7 +47,22 @@ function AdminLogin() {
 
     saveAdminLogin(response);
 
-    navigate(redirectTo);
+    // A restricted staff account whose role doesn't include the default
+    // landing section (the dashboard, or wherever a redirect param sent
+    // them) would hit RequirePermission's access-restricted page the
+    // instant they log in — send them to the first section their role
+    // actually grants instead.
+    const permissions = response.user.adminRole?.permissions;
+    const requiredKey = permissions ? permissionForPath(redirectTo) : null;
+
+    if (permissions && !permissions.includes(requiredKey)) {
+      const firstAllowed = PERMISSION_GROUPS.flatMap((g) => g.items).find(
+        (item) => permissions.includes(item.key),
+      );
+      navigate(firstAllowed?.to || redirectTo);
+    } else {
+      navigate(redirectTo);
+    }
 
     setLoading(false);
   };

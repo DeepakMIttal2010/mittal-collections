@@ -21,7 +21,12 @@ function ForgotPassword() {
 
     if (data.success) {
       setSent(true);
-      toast.success(t("Reset link sent to your email", "रीसेट लिंक आपके ईमेल पर भेज दिया गया है"));
+      toast.success(
+        t(
+          "If an account exists for this email, a reset link has been sent",
+          "अगर इस ईमेल से कोई खाता मौजूद है, तो रीसेट लिंक भेज दिया गया है",
+        ),
+      );
     } else {
       toast.error(data.message || t("Unable to send reset link", "रीसेट लिंक नहीं भेजा जा सका"));
     }
@@ -65,8 +70,8 @@ function ForgotPassword() {
         {sent && (
           <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-lg text-sm text-slate-700">
             {t(
-              "Check your inbox — we've emailed you a link to reset your password. It expires in 30 minutes.",
-              "अपना इनबॉक्स देखें — हमने आपके पासवर्ड को रीसेट करने के लिए एक लिंक ईमेल किया है। यह 30 मिनट में समाप्त हो जाएगा।",
+              "If an account exists for this email, we've sent a link to reset your password. It expires in 30 minutes.",
+              "अगर इस ईमेल से कोई खाता मौजूद है, तो हमने आपके पासवर्ड को रीसेट करने के लिए एक लिंक भेज दिया है। यह 30 मिनट में समाप्त हो जाएगा।",
             )}
           </div>
         )}

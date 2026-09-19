@@ -1,5 +1,6 @@
 import Article from "../models/Article.js";
 import { deleteCloudinaryAssetsByUrl } from "../utils/cloudinaryCleanup.js";
+import { sanitizeArticleContent } from "../utils/sanitizeArticleContent.js";
 
 const generateSlug = (title) =>
   title
@@ -14,7 +15,7 @@ const generateSlug = (title) =>
 export const getArticles = async (req, res) => {
   try {
     const articles = await Article.find({ isActive: true })
-      .select("title slug excerpt titleHi excerptHi coverImage createdAt")
+      .select("title slug excerpt titleHi excerptHi coverImage createdAt updatedAt")
       .sort({ createdAt: -1 });
 
     res.status(200).json({
@@ -195,10 +196,10 @@ export const addArticle = async (req, res) => {
       title,
       slug,
       excerpt: excerpt || "",
-      content,
+      content: sanitizeArticleContent(content),
       titleHi: titleHi || "",
       excerptHi: excerptHi || "",
-      contentHi: contentHi || "",
+      contentHi: sanitizeArticleContent(contentHi),
       coverImage: coverImage || "",
       isActive: isActive === undefined ? true : isActive === true || isActive === "true",
     });
@@ -241,10 +242,11 @@ export const updateArticle = async (req, res) => {
     }
 
     if (excerpt !== undefined) article.excerpt = excerpt;
-    if (content !== undefined) article.content = content;
+    if (content !== undefined) article.content = sanitizeArticleContent(content);
     if (titleHi !== undefined) article.titleHi = titleHi;
     if (excerptHi !== undefined) article.excerptHi = excerptHi;
-    if (contentHi !== undefined) article.contentHi = contentHi;
+    if (contentHi !== undefined)
+      article.contentHi = sanitizeArticleContent(contentHi);
 
     let oldCoverImage = null;
     if (coverImage !== undefined && coverImage !== article.coverImage) {

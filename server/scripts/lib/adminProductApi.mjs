@@ -34,6 +34,7 @@
 //   const fd = buildProductUpdateFormData(product, {
 //     colorVariesNote: "...",
 //     addSubcategories: [someSubcategoryId], // merges, doesn't replace
+//     addAdditionalCategories: [someCategoryId], // merges, doesn't replace
 //   });
 //   const { status, data } = await updateProduct(BASE, id, fd, token);
 
@@ -104,6 +105,18 @@ export function buildProductUpdateFormData(product, overrides = {}) {
       ? [...new Set([...existingSubcategoryIds, ...overrides.addSubcategories])]
       : existingSubcategoryIds;
 
+  const existingAdditionalCategoryIds = (product.additionalCategories || []).map(
+    (c) => c._id || c,
+  );
+  const additionalCategories = Object.prototype.hasOwnProperty.call(
+    overrides,
+    "additionalCategories",
+  )
+    ? overrides.additionalCategories
+    : Object.prototype.hasOwnProperty.call(overrides, "addAdditionalCategories")
+      ? [...new Set([...existingAdditionalCategoryIds, ...overrides.addAdditionalCategories])]
+      : existingAdditionalCategoryIds;
+
   const images = get("existingImages", product.images || []);
   const videos = get("existingVideos", product.videos || []);
 
@@ -127,6 +140,7 @@ export function buildProductUpdateFormData(product, overrides = {}) {
   fd.append("descriptionHi", get("descriptionHi", product.descriptionHi || ""));
   fd.append("category", get("category", product.category?._id || product.category));
   fd.append("subcategories", JSON.stringify(subcategories));
+  fd.append("additionalCategories", JSON.stringify(additionalCategories));
   fd.append("price", get("price", product.price));
   fd.append("oldPrice", get("oldPrice", product.oldPrice));
   fd.append("purchasePrice", get("purchasePrice", product.purchasePrice || 0));
@@ -134,12 +148,15 @@ export function buildProductUpdateFormData(product, overrides = {}) {
   fd.append("stock", get("stock", product.stock));
   fd.append("size", get("size", product.size || ""));
   fd.append("fabric", get("fabric", product.fabric || ""));
+  fd.append("color", get("color", product.color || ""));
+  fd.append("pattern", get("pattern", product.pattern || ""));
   fd.append("gsm", get("gsm", product.gsm || ""));
   fd.append("washCare", get("washCare", product.washCare || ""));
   fd.append("brand", get("brand", product.brand || ""));
   fd.append("countryOfOrigin", get("countryOfOrigin", product.countryOfOrigin || ""));
   fd.append("whatsIncluded", get("whatsIncluded", product.whatsIncluded || ""));
   fd.append("colorVariesNote", get("colorVariesNote", product.colorVariesNote || ""));
+  fd.append("localDeliveryOnly", String(!!get("localDeliveryOnly", product.localDeliveryOnly)));
   // Preserving by default (not resetting to "") matters here specifically:
   // updateProduct only bumps adminRemarksUpdatedAt when this value actually
   // changes, so a script that didn't know about this field and blindly
@@ -150,6 +167,10 @@ export function buildProductUpdateFormData(product, overrides = {}) {
   fd.append("isActive", String(!!get("isActive", product.isActive)));
   fd.append("isTrending", String(!!get("isTrending", product.isTrending)));
   fd.append("trendingRank", get("trendingRank", product.trendingRank || 0));
+  fd.append(
+    "isGiftingItem",
+    String(!!get("isGiftingItem", product.isGiftingItem)),
+  );
   fd.append(
     "showInNewArrivals",
     String(get("showInNewArrivals", product.showInNewArrivals !== false)),

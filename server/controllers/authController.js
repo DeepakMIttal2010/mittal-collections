@@ -26,6 +26,27 @@ export const register = async (req, res) => {
       });
     }
 
+    // A JSON body can carry an object where a string is expected (e.g.
+    // {"email": {"$ne": null}}) — passed straight into a Mongoose query
+    // filter unchecked, that's a NoSQL operator-injection vector rather
+    // than a genuine "no such user" lookup.
+    if (typeof email !== "string") {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid email",
+      });
+    }
+
+    // Same minimum resetPassword/changePassword already enforce —
+    // registration was the one place a password of any length/strength
+    // went straight through.
+    if (password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: "Password must be at least 6 characters",
+      });
+    }
+
     const existingUser = await User.findOne({ email });
 
     if (existingUser) {
@@ -193,7 +214,16 @@ export const login = async (req, res) => {
       });
     }
 
-    const user = await User.findOne({ email });
+    // See the same check in register() — a non-string email (e.g. a
+    // NoSQL operator object) must never reach the query filter below.
+    if (typeof email !== "string") {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid email or password",
+      });
+    }
+
+    const user = await User.findOne({ email }).populate("adminRole");
 
     if (!user) {
       return res.status(401).json({
@@ -241,6 +271,17 @@ export const login = async (req, res) => {
         role: user.role,
         loyaltyPoints: user.loyaltyPoints,
         referralCode: user.referralCode,
+        // null for customers and full/unrestricted admins — only a
+        // staff account with a restricted Role assigned gets this,
+        // which the client uses to filter the sidebar and gate routes.
+        adminRole: user.adminRole
+          ? {
+              id: user.adminRole._id,
+              name: user.adminRole.name,
+              permissions: user.adminRole.permissions,
+              writeAccess: user.adminRole.writeAccess,
+            }
+          : null,
       },
     });
   } catch (error) {
@@ -480,40 +521,38 @@ export const forgotPassword = async (req, res) => {
 
     const user = await User.findOne({ email: email.toLowerCase().trim() });
 
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "No account found with this email",
+    // Always respond the same way whether or not the account exists —
+    // a distinct "no account found" response lets an attacker enumerate
+    // registered emails. Only an existing user actually gets a token/email.
+    if (user) {
+      const rawToken = crypto.randomBytes(32).toString("hex");
+      const hashedToken = crypto
+        .createHash("sha256")
+        .update(rawToken)
+        .digest("hex");
+
+      user.resetPasswordToken = hashedToken;
+      user.resetPasswordExpire = Date.now() + 30 * 60 * 1000; // 30 minutes
+
+      await user.save();
+
+      const resetUrl = `${process.env.CLIENT_URL}/reset-password/${rawToken}`;
+
+      await sendEmail({
+        to: user.email,
+        subject: "Reset your Mittal Collections password",
+        html: `
+          <p>Hi ${user.name || "there"},</p>
+          <p>We received a request to reset your password. This link expires in 30 minutes.</p>
+          <p><a href="${resetUrl}">Reset your password</a></p>
+          <p>If you didn't request this, you can safely ignore this email.</p>
+        `,
       });
     }
 
-    const rawToken = crypto.randomBytes(32).toString("hex");
-    const hashedToken = crypto
-      .createHash("sha256")
-      .update(rawToken)
-      .digest("hex");
-
-    user.resetPasswordToken = hashedToken;
-    user.resetPasswordExpire = Date.now() + 30 * 60 * 1000; // 30 minutes
-
-    await user.save();
-
-    const resetUrl = `${process.env.CLIENT_URL}/reset-password/${rawToken}`;
-
-    await sendEmail({
-      to: user.email,
-      subject: "Reset your Mittal Collections password",
-      html: `
-        <p>Hi ${user.name || "there"},</p>
-        <p>We received a request to reset your password. This link expires in 30 minutes.</p>
-        <p><a href="${resetUrl}">Reset your password</a></p>
-        <p>If you didn't request this, you can safely ignore this email.</p>
-      `,
-    });
-
     res.status(200).json({
       success: true,
-      message: "Reset link sent to your email",
+      message: "If an account exists for this email, a reset link has been sent",
     });
   } catch (error) {
     console.error("Forgot Password Error:", error);

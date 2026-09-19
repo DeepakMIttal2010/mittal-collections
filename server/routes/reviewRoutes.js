@@ -13,8 +13,10 @@ import authMiddleware from "../middleware/authMiddleware.js";
 import adminMiddleware from "../middleware/adminMiddleware.js";
 import { uploadReviewMedia } from "../middleware/uploadMiddleware.js";
 import imageOptimizer from "../middleware/imageOptimizer.js";
+import requirePermission from "../middleware/requirePermission.js";
 
 const router = express.Router();
+const perm = requirePermission("reviews");
 
 router.get("/showcase", getShowcaseReviews);
 router.get("/product/:productId", getProductReviews);
@@ -29,14 +31,15 @@ router.post(
   submitReview,
 );
 
-router.get("/admin", authMiddleware, adminMiddleware, getAllReviewsAdmin);
+router.get("/admin", authMiddleware, adminMiddleware, perm, getAllReviewsAdmin);
 router.put(
   "/:id/approve",
   authMiddleware,
   adminMiddleware,
+  perm,
   approveReview,
 );
-router.put("/:id/seen", authMiddleware, adminMiddleware, markReviewSeen);
-router.delete("/:id", authMiddleware, adminMiddleware, deleteReview);
+router.put("/:id/seen", authMiddleware, adminMiddleware, perm, markReviewSeen);
+router.delete("/:id", authMiddleware, adminMiddleware, perm, deleteReview);
 
 export default router;

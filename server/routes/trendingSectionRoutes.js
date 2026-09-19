@@ -11,8 +11,10 @@ import {
 
 import authMiddleware from "../middleware/authMiddleware.js";
 import adminMiddleware from "../middleware/adminMiddleware.js";
+import requirePermission from "../middleware/requirePermission.js";
 
 const router = express.Router();
+const perm = requirePermission("trending");
 
 // Admin-only — the public homepage/page reads sections through
 // productController's getTrendingProductsByCategory, not this router.
@@ -20,21 +22,24 @@ router.get(
   "/admin",
   authMiddleware,
   adminMiddleware,
+  perm,
   getAllTrendingSectionsAdmin,
 );
-router.post("/", authMiddleware, adminMiddleware, addTrendingSection);
-router.put("/:id", authMiddleware, adminMiddleware, updateTrendingSection);
+router.post("/", authMiddleware, adminMiddleware, perm, addTrendingSection);
+router.put("/:id", authMiddleware, adminMiddleware, perm, updateTrendingSection);
 router.put(
   "/:id/restore",
   authMiddleware,
   adminMiddleware,
+  perm,
   restoreTrendingSection,
 );
-router.delete("/:id", authMiddleware, adminMiddleware, deleteTrendingSection);
+router.delete("/:id", authMiddleware, adminMiddleware, perm, deleteTrendingSection);
 router.delete(
   "/:id/permanent",
   authMiddleware,
   adminMiddleware,
+  perm,
   permanentlyDeleteTrendingSection,
 );
 

@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 
 import { toast } from "react-toastify";
 
@@ -6,14 +6,14 @@ import { syncCart, syncGuestCart, mergeGuestCart } from "../services/cartService
 import { getSiteSettings } from "../services/settingsService";
 import { useAuth } from "./AuthContext";
 import { getVisitorId } from "../utils/visitorId";
+import { readJsonFromStorage } from "../utils/safeLocalStorage";
 
 const CartContext = createContext();
 
 export function CartProvider({ children }) {
-  const [cartItems, setCartItems] = useState(() => {
-    const savedCart = localStorage.getItem("cartItems");
-    return savedCart ? JSON.parse(savedCart) : [];
-  });
+  const [cartItems, setCartItems] = useState(() =>
+    readJsonFromStorage("cartItems", []),
+  );
 
   const [isCartOpen, setIsCartOpen] = useState(false);
   const { isLoggedIn } = useAuth();
@@ -51,6 +51,23 @@ export function CartProvider({ children }) {
     if (isLoggedIn) {
       mergeGuestCart(getVisitorId());
     }
+  }, [isLoggedIn]);
+
+  // Clears the cart on an actual logout (isLoggedIn true -> false) — a
+  // shared/kiosk device would otherwise keep whoever-logged-out's cart
+  // sitting in localStorage for the next person to log in and
+  // checkout with. wasLoggedIn starts at the same value as isLoggedIn
+  // so a guest's own cart survives the very first render (there's no
+  // "logout" transition to react to yet). Login is deliberately left
+  // alone — a guest cart carrying over once they log in is the
+  // expected "add to cart, then sign in to check out" flow, not a leak.
+  const wasLoggedIn = useRef(isLoggedIn);
+
+  useEffect(() => {
+    if (wasLoggedIn.current && !isLoggedIn) {
+      setCartItems([]);
+    }
+    wasLoggedIn.current = isLoggedIn;
   }, [isLoggedIn]);
 
   // Mirror the cart to the backend (debounced) — logged-in customers sync

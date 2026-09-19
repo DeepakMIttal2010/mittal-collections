@@ -21,6 +21,23 @@ const API_BASE =
 const DEFAULT_IMAGE =
   "https://res.cloudinary.com/y2gghpvz/image/upload/w_1200,h_630,c_fill,g_auto,q_auto,f_auto/v1788778399/mittal-collections/b7qfxz8qsnqigmpttuyb.jpg";
 
+// Mirrors client/src/utils/deliveryAreas.js — duplicated rather than
+// imported since this file avoids pulling in anything from src/ (see
+// this file's other constants above, all duplicated the same way).
+// Keep both copies in sync.
+const DELIVERY_AREAS = [
+  "Vasundhara",
+  "Vaishali",
+  "Indirapuram",
+  "Kaushambi",
+  "Sahibabad",
+  "Mohan Nagar",
+  "Rajendra Nagar",
+  "Lajpat Nagar",
+  "Suryanagar",
+  "Brij Vihar",
+];
+
 const escapeHtml = (value) =>
   String(value ?? "")
     .replace(/&/g, "&amp;")
@@ -32,6 +49,83 @@ const escapeHtml = (value) =>
 const imgUrl = (path) => {
   if (!path) return path;
   return path.startsWith("http") ? path : `${API_BASE}${path}`;
+};
+
+// Static pages whose title/description never depend on data — a plain
+// copy of each page's own <Seo title=... description=... /> call (see
+// About.jsx, Contact.jsx, Rewards.jsx, etc.), kept in sync by hand since
+// this serverless function doesn't share a bundle with client/src. None
+// of these were reachable through vercel.json's bot `has` rewrites before
+// (only /product, /category and /articles were), so a crawler hitting
+// any of them got the plain SPA shell — which, worse, carries the
+// homepage's own static title/description baked into index.html, so
+// Search Console and WhatsApp/Facebook previews showed the HOMEPAGE's
+// title for e.g. a shared /gifting or /rewards link instead of the
+// page's own.
+const STATIC_PAGES = {
+  "/about": {
+    title:
+      "About Mittal Collections — Home Furnishing Store",
+    description:
+      "Mittal Collections is a home furnishing store offering premium bedsheets, towels, curtains, cushions and doormats with pan-India delivery — quality materials, fast 24-hour delivery in Ghaziabad, and easy returns.",
+    breadcrumb: "About",
+  },
+  "/contact": {
+    title: "Contact Us",
+    description:
+      "Get in touch with Mittal Collections for order support, returns, bulk orders or general questions about our home furnishing products.",
+    breadcrumb: "Contact Us",
+  },
+  "/rewards": {
+    title: "Rewards Program — Earn While You Shop",
+    description:
+      "How Mittal Collections' rewards program works: welcome offer, loyalty points, referrals and review bonuses.",
+    breadcrumb: "Rewards",
+  },
+  "/trending": {
+    title: "Top Trending Home Furnishing Products",
+    description:
+      "Handpicked by our team - the home furnishing pieces everyone's loving right now at Mittal Collections, organised by category.",
+    breadcrumb: "Top Trending",
+  },
+  "/clearance-sale": {
+    title: "Clearance Sale — Home Furnishing Deals",
+    description:
+      "More than 35% off select home furnishing items at Mittal Collections — limited stock, won't be restocked at this price.",
+    breadcrumb: "Clearance Sale",
+  },
+  "/new-arrivals": {
+    title: "New Arrivals — Home Furnishing",
+    description:
+      "The newest home furnishing pieces at Mittal Collections, organised by category - bedsheets, cushion covers, doormats and more.",
+    breadcrumb: "New Arrivals",
+  },
+  "/gifting": {
+    title: "Gifting — Home Furnishing Gift Ideas",
+    description:
+      "Ready-to-gift home furnishing picks at Mittal Collections — housewarmings, weddings and festive occasions, no separate wrapping needed.",
+    breadcrumb: "Gifting",
+  },
+  "/curtain-size-calculator": {
+    title: "Curtain Size & Rod Length Calculator (in Inches)",
+    description:
+      "Free curtain size calculator — enter your window measurements and instantly get the rod length, fabric width and curtain length to buy, plus a size chart.",
+    breadcrumb: "Curtain Size Calculator",
+  },
+  "/articles": {
+    title: "Guides & Ideas",
+    description:
+      "Home furnishing guides, buying tips and styling ideas from Mittal Collections — bedsheets, curtains, towels and more.",
+    breadcrumb: "Guides & Ideas",
+    lang: "en",
+  },
+  "/hi/articles": {
+    title: "गाइड और आइडिया",
+    description:
+      "मित्तल कलेक्शंस से घर की साज-सज्जा की गाइड, खरीदारी के सुझाव और सजावट के आइडिया — चादर, पर्दे, तौलिए और भी बहुत कुछ।",
+    breadcrumb: "गाइड और आइडिया",
+    lang: "hi",
+  },
 };
 
 // Mirrors client/src/utils/breadcrumbJsonLd.js — kept as its own plain copy
@@ -65,7 +159,26 @@ const buildMeta = async (path) => {
     );
     const settings = settingsData.settings || {};
 
-    const jsonLd = settings.address
+    // Unconditional, same reasoning as Home.jsx's organizationJsonLd —
+    // never depends on settings.address, so a bot never sees zero
+    // structured data on the homepage just because that admin field is
+    // unset.
+    const organizationJsonLd = {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "@id": `${SITE_URL}/#organization`,
+      name: SITE_NAME,
+      url: `${SITE_URL}/`,
+    };
+    const websiteJsonLd = {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "@id": `${SITE_URL}/#website`,
+      name: SITE_NAME,
+      url: `${SITE_URL}/`,
+    };
+
+    const localBusinessJsonLd = settings.address
       ? {
           "@context": "https://schema.org",
           "@type": "HomeGoodsStore",
@@ -82,9 +195,10 @@ const buildMeta = async (path) => {
             addressCountry: "IN",
           },
           areaServed: [
-            { "@type": "Place", name: "Vasundhara, Ghaziabad" },
-            { "@type": "Place", name: "Indirapuram, Ghaziabad" },
-            { "@type": "Place", name: "Vaishali, Ghaziabad" },
+            ...DELIVERY_AREAS.map((area) => ({
+              "@type": "Place",
+              name: `${area}, Ghaziabad`,
+            })),
             { "@type": "City", name: "Ghaziabad" },
           ],
           sameAs: [settings.facebook, settings.instagram, settings.twitter].filter(
@@ -94,13 +208,13 @@ const buildMeta = async (path) => {
       : null;
 
     return {
-      title: `Buy Bedsheets, Curtains & Towels Online — Pan-India Delivery | ${SITE_NAME}`,
+      title: `Buy Bedsheets, Curtains & Towels — Pan-India Delivery | ${SITE_NAME}`,
       description:
-        "Shop premium cotton bedsheets, curtains, towels, cushions and doormats online with pan-India delivery — fast 24-hour delivery in Vasundhara, Indirapuram, Vaishali and nearby Ghaziabad. Genuine products, easy returns.",
+        "Shop premium cotton bedsheets, curtains, towels, cushions & doormats online with pan-India delivery — fast 24-hour delivery in Ghaziabad. Easy returns.",
       image: DEFAULT_IMAGE,
       url: `${SITE_URL}/`,
       ogType: "website",
-      jsonLd,
+      jsonLd: [organizationJsonLd, websiteJsonLd, localBusinessJsonLd].filter(Boolean),
     };
   }
 
@@ -116,7 +230,7 @@ const buildMeta = async (path) => {
     // this bot-facing copy had drifted from that client-side convention.
     const description = p.description
       ? `Buy online, pan-India delivery (24hr in Ghaziabad) - ${p.description}`.slice(0, 160)
-      : `Buy ${p.name} online with pan-India delivery - fast 24-hour delivery in Ghaziabad`;
+      : `Buy ${p.name} online with pan-India delivery - fast 24-hour delivery in Ghaziabad`.slice(0, 160);
     const image = imgUrl(p.image) || DEFAULT_IMAGE;
     // Self-heal to the product's *current* slug rather than echoing back
     // whatever slug the request happened to use — otherwise a renamed
@@ -139,8 +253,12 @@ const buildMeta = async (path) => {
       { name: p.name },
     ];
 
+    // Mirrors ProductDetails.jsx's seoTitle — search queries for this
+    // category routinely include the exact dimension.
+    const seoTitle = p.size ? `${p.name} — ${p.size}` : p.name;
+
     return {
-      title: `${p.name} | ${SITE_NAME}`,
+      title: `${seoTitle} | ${SITE_NAME}`,
       description,
       image,
       url,
@@ -185,20 +303,94 @@ const buildMeta = async (path) => {
     // there's no subcategory segment.
     const url = `${SITE_URL}${path}`;
 
+    // A subcategory segment (e.g. /category/bedsheets/fitted-bedsheet)
+    // used to be silently dropped here — every subcategory page under a
+    // given category rendered the exact same title/description as the
+    // parent category page itself, which is a textbook duplicate-content
+    // signal to Google (confirmed via a live fetch: /category/bedsheets
+    // and /category/bedsheets/fitted-bedsheet returned byte-identical
+    // title and description). Look the subcategory up the same way
+    // CategoryPage.jsx does client-side and fold its name into both.
+    let subcategory = null;
+    if (parts[2]) {
+      const subRes = await fetch(`${API_BASE}/api/subcategories`).then((r) =>
+        r.json(),
+      );
+      subcategory = subRes.subcategories?.find(
+        (s) => s.category?._id === category._id && s.slug === parts[2],
+      );
+      // A subcategory slug that doesn't resolve is the same "genuinely
+      // doesn't exist" case product/article already 404 on below.
+      if (!subcategory) return null;
+    }
+
     const breadcrumbItems = [
       { name: "Home", path: "/" },
-      { name: category.name },
+      ...(subcategory
+        ? [{ name: category.name, path: `/category/${category.slug}` }]
+        : []),
+      { name: subcategory ? subcategory.name : category.name },
     ];
 
+    // Same "pan-India delivery" lead-in CategoryPage.jsx's <Seo> uses,
+    // extended with the subcategory's own name so it isn't just the
+    // parent category's copy repeated verbatim.
+    const title = subcategory
+      ? `${subcategory.name} | ${category.name} | ${SITE_NAME}`
+      : `${category.name} | ${SITE_NAME}`;
+    const description = subcategory
+      ? `Buy ${subcategory.name} (${category.name}) online with pan-India delivery at ${SITE_NAME} - fast 24-hour delivery in Ghaziabad.`
+      : `Buy ${category.name} online with pan-India delivery at ${SITE_NAME} - fast 24-hour delivery in Ghaziabad. ${category.description || ""}`
+          .trim()
+          .slice(0, 160);
+
     return {
-      title: `${category.name} | ${SITE_NAME}`,
-      // Same "pan-India delivery" lead-in CategoryPage.jsx's <Seo> uses.
-      description:
-        `Buy ${category.name} online with pan-India delivery at ${SITE_NAME} - fast 24-hour delivery in Ghaziabad. ${category.description || ""}`.trim(),
+      title,
+      description,
       image: imgUrl(category.image) || DEFAULT_IMAGE,
       url,
       ogType: "website",
       jsonLd: buildBreadcrumbJsonLd(breadcrumbItems),
+    };
+  }
+
+  if (parts[0] === "policies" && parts[1]) {
+    const data = await fetch(`${API_BASE}/api/pages/${parts[1]}`).then((r) =>
+      r.json(),
+    );
+
+    if (!data.success || !data.page) return null;
+
+    const page = data.page;
+    const url = `${SITE_URL}/policies/${parts[1]}`;
+
+    return {
+      title: page.title,
+      description: (page.content || page.title).slice(0, 160),
+      image: DEFAULT_IMAGE,
+      url,
+      ogType: "website",
+      jsonLd: buildBreadcrumbJsonLd([
+        { name: "Home", path: "/" },
+        { name: page.title },
+      ]),
+    };
+  }
+
+  if (STATIC_PAGES[path]) {
+    const staticPage = STATIC_PAGES[path];
+
+    return {
+      title: staticPage.title,
+      description: staticPage.description,
+      image: DEFAULT_IMAGE,
+      url: `${SITE_URL}${path}`,
+      ogType: "website",
+      lang: staticPage.lang,
+      jsonLd: buildBreadcrumbJsonLd([
+        { name: "Home", path: "/" },
+        { name: staticPage.breadcrumb },
+      ]),
     };
   }
 
@@ -223,7 +415,7 @@ const buildMeta = async (path) => {
 
     return {
       title: `${article.title} | ${SITE_NAME}`,
-      description: article.excerpt || article.title,
+      description: (article.excerpt || article.title).slice(0, 160),
       image,
       url,
       ogType: "article",
@@ -285,7 +477,7 @@ const buildMeta = async (path) => {
 
     return {
       title: `${article.titleHi} | ${SITE_NAME}`,
-      description: article.excerptHi || article.excerpt || article.titleHi,
+      description: (article.excerptHi || article.excerpt || article.titleHi).slice(0, 160),
       image,
       url: hiUrl,
       ogType: "article",

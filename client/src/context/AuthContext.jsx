@@ -1,13 +1,12 @@
 import { createContext, useContext, useState } from "react";
 
+import { readJsonFromStorage } from "../utils/safeLocalStorage";
+
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
   // Restore user immediately on first render
-  const [user, setUser] = useState(() => {
-    const storedUser = localStorage.getItem("user");
-    return storedUser ? JSON.parse(storedUser) : null;
-  });
+  const [user, setUser] = useState(() => readJsonFromStorage("user", null));
 
   // Flips true for one render right after a successful login, so
   // components (like the welcome popup) can react to "just logged in"

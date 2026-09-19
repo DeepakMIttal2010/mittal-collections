@@ -1,7 +1,14 @@
 # Mittal Collections — Documentation
 
 Full documentation set for the Mittal Collections e-commerce platform,
-generated 2026-08-07, last refreshed 2026-09-01 to cover: product
+generated 2026-08-07, last refreshed 2026-09-17 to additionally cover:
+a per-product `localDeliveryOnly` flag (enforced both at checkout and
+server-side order creation) for bulky items that can't ship pan-India,
+structured `<g:color>`/`<g:material>`/`<g:pattern>` fields on the
+Google Shopping feed, a fix for the `*.vercel.app` domain breaking
+every API call via CORS, Sentry error tracking, redundant
+UptimeRobot + cron-job.org keep-alive pinging, `llms.txt`, and a new
+dedicated `TECH_STACK.md`. Earlier refresh (2026-09-01) covered: product
 returnability & trust badges, manual + auto Compare, WhatsApp/COD
 badges, the Customer Support ticket system, the Return Request system
 (including automated stock restore + loyalty clawback on approved
@@ -29,7 +36,8 @@ clean ESLint baseline, and a Cloudinary v1→v2 migration plan.
 | [ADMIN_MANUAL.md](./ADMIN_MANUAL.md) | How to run the store from the admin panel |
 | [TEST_PLAN.md](./TEST_PLAN.md) | Automated test suite + manual regression checklist |
 | [DEPLOYMENT.md](./DEPLOYMENT.md) | Hosting, env vars, release process, local setup |
-| [CLOUDINARY_MIGRATION_PLAN.md](./CLOUDINARY_MIGRATION_PLAN.md) | Planned (not yet executed) v1→v2 SDK upgrade to fix a known vulnerability |
+| [TECH_STACK.md](./TECH_STACK.md) | Every language, framework and library in use, with versions — read this first for "what's this built with" |
+| [CLOUDINARY_MIGRATION_PLAN.md](./CLOUDINARY_MIGRATION_PLAN.md) | v1→v2 SDK upgrade to fix a known vulnerability — executed and deployed 2026-08-08 |
 | [BACKUP_RECOVERY.md](./BACKUP_RECOVERY.md) | Backup status per data store — flags a likely real gap on the production database |
 
 These docs describe the system as of the date above. The codebase is

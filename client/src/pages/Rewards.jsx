@@ -13,6 +13,7 @@ import {
 import Seo from "../components/Seo";
 import "../components/Hero/Hero.css";
 import { getPublicRewardsInfo } from "../services/rewardsService";
+import { SITE_URL } from "../utils/siteUrl";
 import { getBannerCoupon } from "../services/couponService";
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
@@ -143,7 +144,7 @@ function Rewards() {
       <Seo
         title="Rewards Program — Earn While You Shop"
         description="How Mittal Collections' rewards program works: welcome offer, loyalty points, referrals and review bonuses."
-        url="https://www.mittalcollections.com/rewards"
+        url={`${SITE_URL}/rewards`}
       />
 
       <div className="text-center mb-12">

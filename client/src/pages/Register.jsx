@@ -249,9 +249,10 @@ function Register() {
               <input
                 type="password"
                 name="password"
-                placeholder={t("Password", "पासवर्ड")}
+                placeholder={t("Password (min. 6 characters)", "पासवर्ड (कम से कम 6 अक्षर)")}
                 value={formData.password}
                 onChange={handleChange}
+                minLength={6}
                 required
                 className={inputClass}
               />

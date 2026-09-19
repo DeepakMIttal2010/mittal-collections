@@ -61,6 +61,20 @@ const productSchema = new mongoose.Schema(
       default: [],
     },
 
+    // Secondary categories this product should ALSO be listed/discoverable
+    // under, in addition to its primary `category` (which stays the single
+    // canonical value for breadcrumbs, the Google feed, revenue reporting,
+    // and bundle-discount matching — see productController.js/
+    // bundleDiscount.js/feedController.js/adminController.js, all
+    // deliberately left keyed off primary category only). Mirrors
+    // `subcategories` above: same shape, same merge-not-replace bulk-script
+    // helper. Added for cross-cutting listings like "Gifting".
+    additionalCategories: {
+      type: [mongoose.Schema.Types.ObjectId],
+      ref: "Category",
+      default: [],
+    },
+
     // Required for a normal add/edit (enforced in the controller, since
     // multipart form validation doesn't belong in the schema) — but left
     // optional here so a duplicated product (see duplicateProduct) can
@@ -116,7 +130,13 @@ const productSchema = new mongoose.Schema(
 
     // Optional specs — shown on the product page only when filled in,
     // never required so admins aren't blocked adding a product quickly.
+    // color/pattern also feed the Google Shopping/Meta Catalog feed's
+    // <g:color>/<g:pattern> tags (see feedController.js) — Google's
+    // Merchant Center diagnostics don't credit a color/pattern mentioned
+    // only in description prose, they want the dedicated structured field.
     fabric: { type: String, default: "", trim: true },
+    color: { type: String, default: "", trim: true },
+    pattern: { type: String, default: "", trim: true },
     size: { type: String, default: "", trim: true },
     gsm: { type: String, default: "", trim: true },
     washCare: { type: String, default: "", trim: true },
@@ -134,6 +154,13 @@ const productSchema = new mongoose.Schema(
     // on the product page so a customer wanting one specific colour knows
     // to confirm via Contact Us before ordering, instead of assuming.
     colorVariesNote: { type: String, default: "", trim: true },
+
+    // Set for bulky/oversized items (large cushions, mattress covers,
+    // etc.) where standard pan-India shipping cost is uneconomical —
+    // the product page warns customers outside the nearby fast-delivery
+    // zone (see client/src/utils/deliveryAreas.js) that this item can't
+    // be shipped to them, instead of silently letting them order it.
+    localDeliveryOnly: { type: Boolean, default: false },
 
     // Admin-only note, never shown to customers — a place to write "this
     // listing is verified/OK from my side" or similar review comments.
@@ -174,6 +201,18 @@ const productSchema = new mongoose.Schema(
     showInNewArrivals: {
       type: Boolean,
       default: true,
+    },
+
+    // Opposite default from showInNewArrivals — opt-IN, not opt-out.
+    // Mirrors isTrending's shape (a flat boolean, no per-category
+    // curation): a product keeps its normal `category` and also shows on
+    // the site-wide /gifting listing (getGiftingProducts) when this is
+    // true. Deliberately NOT a real Category — gifting spans arbitrary
+    // categories, so moving a product out of its real category to tag it
+    // as a gift would hide it from shoppers browsing normally.
+    isGiftingItem: {
+      type: Boolean,
+      default: false,
     },
 
     // Defaults true — most products get restocked, so once stock hits 0
@@ -273,6 +312,7 @@ const productSchema = new mongoose.Schema(
 // always scoped to isActive) and the default newest-first sort.
 productSchema.index({ isActive: 1, category: 1 });
 productSchema.index({ isActive: 1, subcategories: 1 });
+productSchema.index({ isActive: 1, additionalCategories: 1 });
 productSchema.index({ isActive: 1, createdAt: -1 });
 
 const Product = mongoose.model("Product", productSchema);

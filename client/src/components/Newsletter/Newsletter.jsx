@@ -58,7 +58,7 @@ function Newsletter() {
         <button
           type="submit"
           disabled={loading}
-          className="px-8 py-3.5 rounded-full bg-amber-500 hover:bg-amber-600 text-white font-semibold text-sm transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+          className="px-8 py-3.5 rounded-full bg-amber-700 hover:bg-amber-800 text-white font-semibold text-sm transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
         >
           {loading ? t("Subscribing...", "सब्सक्राइब हो रहा है...") : t("Subscribe", "सब्सक्राइब करें")}
         </button>

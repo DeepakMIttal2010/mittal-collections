@@ -1,5 +1,5 @@
 import { NavLink } from "react-router-dom";
-import { FaBell, FaFire, FaTag } from "react-icons/fa";
+import { FaBell, FaFire, FaGift, FaTag } from "react-icons/fa";
 import MegaMenu from "../MegaMenu";
 import { useLanguage } from "../../context/LanguageContext";
 
@@ -41,16 +41,8 @@ function Navbar() {
           {/* Dynamic categories + subcategories mega menu */}
           <MegaMenu linkClassName={linkClass} />
 
-          <NavLink
-            to="/trending"
-            className={({ isActive }) =>
-              `flex items-center gap-1.5 ${linkClass({ isActive })}`
-            }
-          >
-            <FaFire className="text-xs text-amber-500" />
-            {t("Top Trending", "टॉप ट्रेंडिंग")}
-          </NavLink>
-
+          {/* Deal-driven items lead (highest conversion urgency), informational
+              content (Guides) trails — standard e-commerce nav ordering. */}
           <NavLink
             to="/clearance-sale"
             className={({ isActive }) =>
@@ -62,6 +54,16 @@ function Navbar() {
           </NavLink>
 
           <NavLink
+            to="/trending"
+            className={({ isActive }) =>
+              `flex items-center gap-1.5 ${linkClass({ isActive })}`
+            }
+          >
+            <FaFire className="text-xs text-amber-500" />
+            {t("Top Trending", "टॉप ट्रेंडिंग")}
+          </NavLink>
+
+          <NavLink
             to="/new-arrivals"
             className={({ isActive }) =>
               `flex items-center gap-1.5 ${linkClass({ isActive })}`
@@ -69,6 +71,16 @@ function Navbar() {
           >
             <FaBell className="text-xs text-amber-500" />
             {t("New Arrivals", "नई आवक")}
+          </NavLink>
+
+          <NavLink
+            to="/gifting"
+            className={({ isActive }) =>
+              `flex items-center gap-1.5 ${linkClass({ isActive })}`
+            }
+          >
+            <FaGift className="text-xs text-rose-500" />
+            {t("Gifting", "गिफ्टिंग")}
           </NavLink>
 
           <NavLink to={guidesPath} className={linkClass}>

@@ -21,18 +21,13 @@ const STATIC_ROUTES = [
   "/trending",
   "/clearance-sale",
   "/new-arrivals",
+  "/gifting",
+  "/rewards",
   "/about",
   "/contact",
   "/articles",
   "/hi/articles",
   "/curtain-size-calculator",
-  // Hardcoded rather than fetched — there's no public "list pages" API
-  // endpoint (pageRoutes.js only exposes single-slug lookup and an
-  // admin-protected list), and these 4 policy pages rarely change.
-  "/policies/shipping-policy",
-  "/policies/returns",
-  "/policies/privacy-policy",
-  "/policies/terms-and-conditions",
 ];
 
 const fetchJson = async (url) => {
@@ -55,11 +50,42 @@ const productUrl = (p) => {
   return slug ? `/product/${p._id}/${slug}` : `/product/${p._id}`;
 };
 
+// A plain `?limit=1000` call silently truncates past 1000 products —
+// getProducts only returns `hasMore`/pagination metadata once a `page`
+// param is sent (see productController.js's isPaginated branch), so
+// this walks pages until the catalog is exhausted instead of trusting
+// a single request to return everything.
+const PRODUCTS_PAGE_SIZE = 500;
+
+const fetchAllProducts = async () => {
+  const products = [];
+  let page = 1;
+  let hasMore = true;
+
+  while (hasMore) {
+    const data = await fetchJson(
+      `${API_BASE}/api/products?page=${page}&limit=${PRODUCTS_PAGE_SIZE}`,
+    );
+
+    products.push(...data.products);
+    hasMore = Boolean(data.hasMore);
+    page += 1;
+  }
+
+  return products;
+};
+
 // `alternates` (only ever used for articles with a Hindi version) tells
 // Google the English and Hindi URLs are translations of each other
 // rather than separate/duplicate pages — same purpose as the hreflang
 // <link> tags render.js adds for a crawler that lands via prerender.
-const urlEntry = (loc, alternates) => {
+// `lastmod` (an updatedAt ISO string, when the caller has one — static
+// routes don't) is trimmed to a plain date, the common sitemap
+// convention, rather than the full timestamp. `images` (product URLs
+// only) adds Google's sitemap Image extension — a second, dedicated
+// discovery path for Google Images alongside on-page <img> alt text,
+// entirely missing before this.
+const urlEntry = (loc, alternates, lastmod, images) => {
   const altLinks = alternates
     ? alternates
         .map(
@@ -68,32 +94,60 @@ const urlEntry = (loc, alternates) => {
         )
         .join("")
     : "";
+  const lastmodTag = lastmod ? `<lastmod>${lastmod.slice(0, 10)}</lastmod>` : "";
+  const imageTags = images
+    ? images.map((url) => `<image:image><image:loc>${url}</image:loc></image:image>`).join("")
+    : "";
 
-  return `  <url><loc>${SITE_URL}${loc}</loc>${altLinks}</url>`;
+  return `  <url><loc>${SITE_URL}${loc}</loc>${lastmodTag}${altLinks}${imageTags}</url>`;
 };
 
 export default async function handler(req, res) {
   const urls = [...STATIC_ROUTES.map((loc) => urlEntry(loc))];
 
   try {
-    const [categoriesRes, subcategoriesRes, productsRes, articlesRes] =
+    const [categoriesRes, subcategoriesRes, products, articlesRes, pagesRes] =
       await Promise.all([
         fetchJson(`${API_BASE}/api/categories`),
         fetchJson(`${API_BASE}/api/subcategories`),
-        fetchJson(`${API_BASE}/api/products?limit=1000`),
+        fetchAllProducts(),
         fetchJson(`${API_BASE}/api/articles`),
+        fetchJson(`${API_BASE}/api/pages`),
       ]);
+
+    (pagesRes.pages || []).forEach((p) =>
+      urls.push(urlEntry(`/policies/${p.slug}`, undefined, p.updatedAt)),
+    );
 
     // /price/:maxPrice filter pages are deliberately excluded — they're
     // near-duplicate faceted views of the same small catalog, not unique
     // content worth Google's crawl budget (found while auditing GSC's
     // "Discovered – currently not indexed" report, 2026-08-10). The pages
     // themselves still work; they're just not advertised in the sitemap.
-    categoriesRes.categories.forEach((c) => urls.push(urlEntry(`/category/${c.slug}`)));
+    categoriesRes.categories.forEach((c) =>
+      urls.push(urlEntry(`/category/${c.slug}`, undefined, c.updatedAt)),
+    );
+
+    // GET /api/subcategories only filters on the subcategory's own
+    // isActive, not its parent category's — a deactivated category with
+    // still-active subcategories would otherwise list
+    // /category/{inactive-slug}/{subslug} here, a URL that 404s (see
+    // render.js's category branch, which looks the category up in this
+    // same already-filtered, active-only categories list and returns
+    // null — a real 404 — when it's not found). Cross-check against the
+    // active category slugs already fetched above instead of trusting
+    // the subcategory endpoint's own category field.
+    const activeCategorySlugs = new Set(categoriesRes.categories.map((c) => c.slug));
     (subcategoriesRes.subcategories || []).forEach((s) => {
-      if (s.category?.slug) urls.push(urlEntry(`/category/${s.category.slug}/${s.slug}`));
+      if (s.category?.slug && activeCategorySlugs.has(s.category.slug)) {
+        urls.push(
+          urlEntry(`/category/${s.category.slug}/${s.slug}`, undefined, s.updatedAt),
+        );
+      }
     });
-    productsRes.products.forEach((p) => urls.push(urlEntry(productUrl(p))));
+    products.forEach((p) =>
+      urls.push(urlEntry(productUrl(p), undefined, p.updatedAt, p.images)),
+    );
 
     // A Hindi version is only advertised (and only gets its own sitemap
     // entry) once titleHi is actually filled in — see Article.js and
@@ -103,7 +157,7 @@ export default async function handler(req, res) {
       const enPath = `/articles/${a.slug}`;
 
       if (!a.titleHi) {
-        urls.push(urlEntry(enPath));
+        urls.push(urlEntry(enPath, undefined, a.updatedAt));
         return;
       }
 
@@ -114,15 +168,15 @@ export default async function handler(req, res) {
         { lang: "x-default", href: enPath },
       ];
 
-      urls.push(urlEntry(enPath, alternates));
-      urls.push(urlEntry(hiPath, alternates));
+      urls.push(urlEntry(enPath, alternates, a.updatedAt));
+      urls.push(urlEntry(hiPath, alternates, a.updatedAt));
     });
   } catch (error) {
     console.error("Sitemap generation error, serving static routes only:", error);
   }
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
 ${urls.join("\n")}
 </urlset>
 `;

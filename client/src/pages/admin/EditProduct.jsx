@@ -1,6 +1,8 @@
 import { imgUrl } from "../../services/api";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
+import ReactQuill from "react-quill-new";
+import "react-quill-new/dist/quill.snow.css";
 
 import {
   getProductByIdAdmin,
@@ -9,6 +11,7 @@ import {
 import { getCategories } from "../../services/categoryService";
 import { getSubcategories } from "../../services/subcategoryService";
 import { getSiteSettingsAdmin } from "../../services/adminSettingsService";
+import { stripHtml } from "../../utils/stripHtml";
 
 import "./EditProduct.css";
 
@@ -71,15 +74,19 @@ function EditProduct() {
     stock: "",
     category: "",
     subcategories: [],
+    additionalCategories: [],
     featured: false,
     isActive: true,
     isTrending: false,
     trendingRank: 0,
     showInNewArrivals: true,
+    isGiftingItem: false,
     willRestock: true,
     visibility: "both",
     optimizeImages: true,
     fabric: "",
+    color: "",
+    pattern: "",
     size: "",
     gsm: "",
     washCare: "",
@@ -87,6 +94,7 @@ function EditProduct() {
     countryOfOrigin: "",
     whatsIncluded: "",
     colorVariesNote: "",
+    localDeliveryOnly: false,
     adminRemarks: "",
     isReturnable: true,
     returnPeriodDays: "",
@@ -140,6 +148,9 @@ function EditProduct() {
         stock: product.stock ?? "",
         category: product.category?._id || "",
         subcategories: (product.subcategories || []).map((sub) => sub._id),
+        additionalCategories: (product.additionalCategories || []).map(
+          (c) => c._id || c,
+        ),
         featured: product.featured,
         isActive: product.isActive,
         isTrending: product.isTrending || false,
@@ -148,11 +159,14 @@ function EditProduct() {
           product.showInNewArrivals === undefined
             ? true
             : product.showInNewArrivals,
+        isGiftingItem: product.isGiftingItem || false,
         willRestock:
           product.willRestock === undefined ? true : product.willRestock,
         visibility: product.visibility || "both",
         optimizeImages: true,
         fabric: product.fabric || "",
+        color: product.color || "",
+        pattern: product.pattern || "",
         size: product.size || "",
         gsm: product.gsm || "",
         washCare: product.washCare || "",
@@ -160,6 +174,7 @@ function EditProduct() {
         countryOfOrigin: product.countryOfOrigin || "",
         whatsIncluded: product.whatsIncluded || "",
         colorVariesNote: product.colorVariesNote || "",
+        localDeliveryOnly: product.localDeliveryOnly || false,
         adminRemarks: product.adminRemarks || "",
         isReturnable:
           product.isReturnable === undefined ? true : product.isReturnable,
@@ -214,6 +229,10 @@ function EditProduct() {
     (sub) => sub.category?._id === formData.category,
   );
 
+  const additionalCategoryOptions = categories.filter(
+    (category) => category._id !== formData.category,
+  );
+
   // A subcategory-specific rule wins over its category's rule; falls back
   // to a hardcoded default when nothing is configured (see
   // AdminSettings.jsx). A product can have several subcategories now —
@@ -239,6 +258,22 @@ function EditProduct() {
     if (catMatch) return catMatch;
 
     return DEFAULT_PRICING_RULE;
+  };
+
+  // Bold/italic/lists only — no image/header tools. Product photos are
+  // already handled by the dedicated image uploader below, and a
+  // "Care instructions:" paragraph is still expected as the LAST block
+  // (see feedController.js's feedDescription, which strips it out of
+  // the Shopping/Meta feed by looking at the last block's text).
+  const descriptionModules = useMemo(
+    () => ({
+      toolbar: [["bold", "italic"], [{ list: "ordered" }, { list: "bullet" }], ["clean"]],
+    }),
+    [],
+  );
+
+  const handleDescriptionChange = (field, value) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleChange = (e) => {
@@ -289,16 +324,51 @@ function EditProduct() {
     }));
   };
 
+  // Independent of the primary category pick (unlike subcategories, this
+  // does NOT reset when `category` changes) — see AddProduct.jsx.
+  const handleAdditionalCategoryToggle = (categoryId) => {
+    setFormData((prev) => ({
+      ...prev,
+      additionalCategories: prev.additionalCategories.includes(categoryId)
+        ? prev.additionalCategories.filter((id) => id !== categoryId)
+        : [...prev.additionalCategories, categoryId],
+    }));
+  };
+
+  // Matches the server's multer field limits (uploadMiddleware.js /
+  // productMediaFields) — catching this here gives an immediate,
+  // specific message instead of a failed save after filling out the
+  // whole form (confirmed happening in production via Sentry: a
+  // MulterError "Unexpected field", which is multer's — confusing —
+  // wording for exceeding a field's maxCount).
+  const MAX_NEW_IMAGES = 6;
+  const MAX_NEW_VIDEOS = 2;
+
   const handleAddImages = (e) => {
     const files = Array.from(e.target.files);
 
     if (files.length === 0) return;
 
-    setNewImages((prev) => [...prev, ...files]);
+    const room = MAX_NEW_IMAGES - newImages.length;
+    if (room <= 0) {
+      alert(`You can add at most ${MAX_NEW_IMAGES} new images per save.`);
+      e.target.value = "";
+      return;
+    }
+
+    const accepted = files.slice(0, room);
+    if (files.length > accepted.length) {
+      alert(
+        `Only ${room} more image${room === 1 ? "" : "s"} can be added (max ${MAX_NEW_IMAGES} new images per save) — the rest were skipped.`,
+      );
+    }
+
+    setNewImages((prev) => [...prev, ...accepted]);
     setNewPreviews((prev) => [
       ...prev,
-      ...files.map((file) => URL.createObjectURL(file)),
+      ...accepted.map((file) => URL.createObjectURL(file)),
     ]);
+    e.target.value = "";
   };
 
   const handleRemoveExisting = (index) => {
@@ -329,11 +399,26 @@ function EditProduct() {
 
     if (files.length === 0) return;
 
-    setNewVideos((prev) => [...prev, ...files]);
+    const room = MAX_NEW_VIDEOS - newVideos.length;
+    if (room <= 0) {
+      alert(`You can add at most ${MAX_NEW_VIDEOS} new videos per save.`);
+      e.target.value = "";
+      return;
+    }
+
+    const accepted = files.slice(0, room);
+    if (files.length > accepted.length) {
+      alert(
+        `Only ${room} more video${room === 1 ? "" : "s"} can be added (max ${MAX_NEW_VIDEOS} new videos per save) — the rest were skipped.`,
+      );
+    }
+
+    setNewVideos((prev) => [...prev, ...accepted]);
     setNewVideoPreviews((prev) => [
       ...prev,
-      ...files.map((file) => URL.createObjectURL(file)),
+      ...accepted.map((file) => URL.createObjectURL(file)),
     ]);
+    e.target.value = "";
   };
 
   const handleRemoveExistingVideo = (index) => {
@@ -350,6 +435,11 @@ function EditProduct() {
 
     if (existingImages.length + newImages.length === 0) {
       alert("Please keep or add at least one product image");
+      return;
+    }
+
+    if (!stripHtml(formData.description).trim()) {
+      alert("Please add a product description");
       return;
     }
 
@@ -370,7 +460,7 @@ function EditProduct() {
       // Arrays need JSON.stringify, not FormData's default (which just
       // calls .toString() on the array — a comma-joined string, not
       // JSON the server can parse) — handled explicitly below instead.
-      if (key === "subcategories") return;
+      if (key === "subcategories" || key === "additionalCategories") return;
 
       if (formData[key] !== null) {
         data.append(key, formData[key]);
@@ -378,6 +468,10 @@ function EditProduct() {
     });
 
     data.append("subcategories", JSON.stringify(formData.subcategories));
+    data.append(
+      "additionalCategories",
+      JSON.stringify(formData.additionalCategories),
+    );
     data.append("variants", JSON.stringify(cleanVariants));
     if (productVersionRef.current !== null) {
       data.append("version", productVersionRef.current);
@@ -434,12 +528,12 @@ function EditProduct() {
         <div className="form-group">
           <label>Description</label>
 
-          <textarea
-            rows="5"
-            name="description"
+          <ReactQuill
+            theme="snow"
             value={formData.description}
-            onChange={handleChange}
-            required
+            onChange={(value) => handleDescriptionChange("description", value)}
+            modules={descriptionModules}
+            placeholder="Put &quot;Care instructions: ...&quot; as its own last paragraph — it's automatically left out of the Google/Meta Shopping feed."
           />
         </div>
 
@@ -458,12 +552,12 @@ function EditProduct() {
         <div className="form-group">
           <label>Description (Hindi, optional)</label>
 
-          <textarea
-            rows="5"
-            name="descriptionHi"
-            placeholder="हिंदी में विवरण"
+          <ReactQuill
+            theme="snow"
             value={formData.descriptionHi}
-            onChange={handleChange}
+            onChange={(value) => handleDescriptionChange("descriptionHi", value)}
+            modules={descriptionModules}
+            placeholder="हिंदी में विवरण"
           />
         </div>
 
@@ -546,6 +640,33 @@ function EditProduct() {
                       onChange={() => handleSubcategoryToggle(sub._id)}
                     />
                     {sub.groupLabel}: {sub.name}
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="form-row">
+          <div className="form-group">
+            <label title="Also lists this product under these categories, in addition to its primary Category above — e.g. a Hotel-category product that should also show under Bedsheets.">
+              Additional Categories (optional)
+            </label>
+
+            {!formData.category ? (
+              <p className="subcategory-hint">Select a primary category first</p>
+            ) : additionalCategoryOptions.length === 0 ? (
+              <p className="subcategory-hint">No other categories</p>
+            ) : (
+              <div className="subcategory-checkbox-list">
+                {additionalCategoryOptions.map((category) => (
+                  <label key={category._id} className="subcategory-checkbox">
+                    <input
+                      type="checkbox"
+                      checked={formData.additionalCategories.includes(category._id)}
+                      onChange={() => handleAdditionalCategoryToggle(category._id)}
+                    />
+                    {category.name}
                   </label>
                 ))}
               </div>
@@ -667,6 +788,32 @@ function EditProduct() {
               name="size"
               placeholder="e.g. 90 x 100 inches"
               value={formData.size}
+              onChange={handleChange}
+            />
+          </div>
+        </div>
+
+        <div className="form-row">
+          <div className="form-group">
+            <label>Colour (optional)</label>
+
+            <input
+              type="text"
+              name="color"
+              placeholder="e.g. Sage Green"
+              value={formData.color}
+              onChange={handleChange}
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Pattern (optional)</label>
+
+            <input
+              type="text"
+              name="pattern"
+              placeholder="e.g. Floral"
+              value={formData.pattern}
               onChange={handleChange}
             />
           </div>
@@ -950,6 +1097,16 @@ function EditProduct() {
             Show in New Arrivals
           </label>
 
+          <label title="Also lists this product on the /gifting page, in addition to its normal category — doesn't move it out of that category.">
+            <input
+              type="checkbox"
+              name="isGiftingItem"
+              checked={formData.isGiftingItem}
+              onChange={handleChange}
+            />
+            Show in Gifting
+          </label>
+
           <label title="Uncheck for a one-off/discontinued item — it disappears from the site once it sells out, instead of staying listed with a 'Notify Me' option.">
             <input
               type="checkbox"
@@ -978,6 +1135,16 @@ function EditProduct() {
               onChange={handleChange}
             />
             Custom Restock Alert
+          </label>
+
+          <label title="For bulky/oversized items where pan-India shipping is uneconomical — the product page warns customers outside the nearby fast-delivery zone that this item can't be shipped to them.">
+            <input
+              type="checkbox"
+              name="localDeliveryOnly"
+              checked={formData.localDeliveryOnly}
+              onChange={handleChange}
+            />
+            Local Delivery Only (bulky item)
           </label>
         </div>
 

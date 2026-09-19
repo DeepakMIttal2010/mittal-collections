@@ -7,7 +7,6 @@ import {
   FaSort,
   FaSortUp,
   FaSortDown,
-  FaFileExcel,
   FaWarehouse,
   FaWhatsapp,
 } from "react-icons/fa";
@@ -21,13 +20,10 @@ import {
 } from "../../services/adminProductService";
 import { getCategories } from "../../services/categoryService";
 import { getSubcategories } from "../../services/subcategoryService";
-import { getSiteSettingsAdmin } from "../../services/adminSettingsService";
 import ProductQuickView from "../../components/admin/ProductQuickView";
 import ShareProductModal from "../../components/admin/ShareProductModal";
-
-// Fallback when no admin-configured rule matches a product's
-// category/subcategory (see AdminSettings.jsx "Cost/Price Auto-Fill Rules").
-const DEFAULT_PRICING_RULE = { miscExpensesPercent: 10 };
+import { getCurrentAdminUser } from "../../services/authService";
+import { hasWriteAccess } from "../../config/adminPermissions";
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
@@ -48,6 +44,13 @@ const VISIBILITY_LABELS = {
 
 function AdminProducts() {
   const navigate = useNavigate();
+
+  // Full/unrestricted admins (no adminRole) get true from
+  // hasWriteAccess() unconditionally — this component's own behavior
+  // is unchanged for every account that existed before this feature.
+  const currentUser = getCurrentAdminUser();
+  const canCreate = hasWriteAccess(currentUser, "products", "new");
+  const canModify = hasWriteAccess(currentUser, "products", "modified");
 
   const [products, setProducts] = useState([]);
   const [search, setSearch] = useState("");
@@ -183,200 +186,18 @@ function AdminProducts() {
       : s;
   };
 
-  const handleExportExcel = async () => {
-    setExporting(true);
-
-    const [response, settingsRes] = await Promise.all([
-      getAllProducts({
-        page: 1,
-        limit: 5000,
-        search,
-        sortBy,
-        sortOrder,
-        category: categoryFilter,
-        subcategory: subcategoryFilter,
-      }),
-      getSiteSettingsAdmin(),
-    ]);
-
-    setExporting(false);
-
-    if (!response.success || response.products.length === 0) {
-      alert("No products to export for the current filters");
-      return;
-    }
-
-    const pricingRules = (settingsRes.settings?.pricingRules || []).filter(
-      (r) => r.isActive !== false,
-    );
-
-    // Matches AddProduct.jsx/EditProduct.jsx's resolvePricingRule — first
-    // subcategory (in array order) with its own configured rule wins.
-    const resolveRule = (categoryId, subcategoryIds = []) => {
-      for (const subcategoryId of subcategoryIds) {
-        const subMatch = pricingRules.find(
-          (r) =>
-            (r.category?._id || r.category) === categoryId &&
-            (r.subcategory?._id || r.subcategory) === subcategoryId,
-        );
-        if (subMatch) return subMatch;
-      }
-
-      const catMatch = pricingRules.find(
-        (r) => (r.category?._id || r.category) === categoryId && !r.subcategory,
-      );
-      if (catMatch) return catMatch;
-
-      return DEFAULT_PRICING_RULE;
-    };
-
-    const columns = [
-      "Name",
-      "Category",
-      "Subcategory",
-      "Price",
-      "MRP",
-      "Discount % of MRP",
-      "All Sizes (Price/MRP)",
-      "Stock (size-wise)",
-      "Purchase Price",
-      "Misc Exps",
-      "Total Cost",
-      "Fabric",
-      "Size",
-      "GSM",
-      "Brand",
-      "Country of Origin",
-      "Featured",
-      "Returnable",
-      "Trending",
-      "Restock Alert",
-      "Will Restock",
-      "Show Product",
-      "Status",
-      "Purchase Date",
-      "Product ID",
-      "Product Number",
-      "Created Date",
-    ];
-
-    const rows = response.products.map((p) => {
-      const hasVariants = p.variants?.length > 0;
-      const rule = resolveRule(
-        p.category?._id,
-        (p.subcategories || []).map((s) => s._id),
-      );
-
-      const allSizes = hasVariants
-        ? p.variants
-            .map(
-              (v) =>
-                `${v.size}: ₹${v.price}${v.oldPrice ? ` (MRP ₹${v.oldPrice})` : ""}`,
-            )
-            .join(" | ")
-        : "";
-
-      // Per-variant misc expenses/total cost — each size can have its own
-      // purchase price (e.g. Curtains 7x4 vs 9x4), so a single top-level
-      // number would be misleading for variant products.
-      const purchasePriceDisplay = hasVariants
-        ? p.variants.map((v) => `${v.size}: ₹${Math.round(Number(v.purchasePrice) || 0)}`).join(" | ")
-        : Math.round(Number(p.purchasePrice) || 0);
-
-      const miscExpensesDisplay = hasVariants
-        ? p.variants
-            .map((v) => {
-              const pp = Math.round(Number(v.purchasePrice) || 0);
-              const misc = Math.round((pp * rule.miscExpensesPercent) / 100);
-              return `${v.size}: ₹${misc}`;
-            })
-            .join(" | ")
-        : Math.round(Number(p.miscExpenses) || 0);
-
-      const totalCostDisplay = hasVariants
-        ? p.variants
-            .map((v) => {
-              const pp = Math.round(Number(v.purchasePrice) || 0);
-              const misc = Math.round((pp * rule.miscExpensesPercent) / 100);
-              return `${v.size}: ₹${pp + misc}`;
-            })
-            .join(" | ")
-        : Math.round(Number(p.purchasePrice) || 0) + Math.round(Number(p.miscExpenses) || 0);
-
-      const stockDisplay = hasVariants
-        ? p.variants.map((v) => `${v.size}: ${v.stock}`).join(" | ")
-        : p.stock;
-
-      const discountPercent = (price, mrp) =>
-        mrp > 0 ? Math.round(((mrp - price) / mrp) * 100) : 0;
-
-      const discountDisplay = hasVariants
-        ? p.variants
-            .map((v) => `${v.size}: ${discountPercent(v.price, v.oldPrice)}%`)
-            .join(" | ")
-        : `${discountPercent(p.price, p.oldPrice)}%`;
-
-      return [
-        p.name,
-        p.category?.name || "",
-        (p.subcategories || []).map((s) => s.name).join("; "),
-        p.price,
-        p.oldPrice || "",
-        discountDisplay,
-        allSizes,
-        stockDisplay,
-        purchasePriceDisplay,
-        miscExpensesDisplay,
-        totalCostDisplay,
-        p.fabric || "",
-        p.size || "",
-        p.gsm || "",
-        p.brand || "",
-        p.countryOfOrigin || "",
-        p.featured ? "Yes" : "No",
-        p.isReturnable ? "Yes" : "No",
-        p.isTrending ? "Yes" : "No",
-        p.restockAlertEnabled ? "Yes" : "No",
-        p.willRestock === false ? "No" : "Yes",
-        VISIBILITY_LABELS[p.visibility || "both"],
-        p.isActive ? "Active" : "Inactive",
-        p.purchaseDate
-          ? new Date(p.purchaseDate).toLocaleDateString("en-IN", {
-              day: "2-digit",
-              month: "short",
-              year: "numeric",
-            })
-          : "",
-        p._id,
-        p.productNumber || "",
-        new Date(p.createdAt).toLocaleDateString("en-IN", {
-          day: "2-digit",
-          month: "short",
-          year: "numeric",
-        }),
-      ];
-    });
-
-    const csv =
-      "﻿" +
-      [columns, ...rows].map((row) => row.map(escapeCsv).join(",")).join("\r\n");
-
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    const filterLabel = [
-      categories.find((c) => c._id === categoryFilter)?.name,
-      subcategories.find((s) => s._id === subcategoryFilter)?.name,
-    ]
-      .filter(Boolean)
-      .join("-");
-
-    link.href = url;
-    link.download = `Mittal_Collections_Products${filterLabel ? `-${filterLabel}` : ""}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
-  };
-
+  // Single comprehensive export — used to be two separate buttons/reports
+  // (a general "Export to Excel" product-detail dump, and a stock/margin-
+  // focused "Stock Report"). Merged into one: the Stock Report's per-
+  // variant-row + TOTAL-row structure (a size like Curtains 7x4 needs its
+  // own stock/value line, not folded into a single "|"-joined cell) stays
+  // as the base, with the descriptive fields the old Export to Excel had
+  // and this didn't (GSM, Country of Origin, Featured/Returnable/
+  // Trending, Discount %, Purchase Date, Product Number, Created Date)
+  // added in. Deliberately doesn't bring over that old export's
+  // pricingRules-based *projected* misc-expenses calculation — this report
+  // is about each product's actual stored purchasePrice/miscExpenses, not
+  // what a configured rule would currently suggest for a new one.
   const handleExportStockReport = async () => {
     setExporting(true);
 
@@ -402,13 +223,21 @@ function AdminProducts() {
       "Category",
       "Subcategory",
       "Fabric",
+      "GSM",
       "Brand",
+      "Country of Origin",
       "Size / Variant",
       "Stock",
+      "Discount %",
       "Restock Alert Threshold",
       "Will Restock",
       "Status",
       "Show Product",
+      "Featured",
+      "Returnable",
+      "Trending",
+      "Admin Remarks",
+      "Remarks Updated",
       "Purchase Price",
       "Misc Expenses",
       "Total Cost", // = Purchase Price + Misc Expenses
@@ -418,26 +247,43 @@ function AdminProducts() {
       "Potential Sale Value", // = Selling Price x Stock
       "Potential Profit", // = (Selling Price - Total Cost) x Stock
       "Margin %", // = (Selling Price - Total Cost) / Selling Price x 100
+      "Purchase Date",
       "Product ID",
+      "Product Number",
+      "Created Date",
     ];
+
+    const formatDate = (value) =>
+      value
+        ? new Date(value).toLocaleDateString("en-IN", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+          })
+        : "";
 
     // Every per-unit cost/price figure below is rounded before use so the
     // calculated columns (Total Cost, Stock Value, Potential Sale Value,
     // Potential Profit) always foot exactly against the whole-rupee inputs
     // a reader can see elsewhere in the row — no silent fractional drift.
-    const buildRow = (common, sizeLabel, stock, purchasePrice, miscExpenses, price, oldPrice, tail, id) => {
+    const buildRow = (common, sizeLabel, stock, purchasePrice, miscExpenses, price, oldPrice, tail) => {
       const totalCost = purchasePrice + miscExpenses;
       const stockValue = totalCost * stock;
       const saleValue = price * stock;
       const profit = (price - totalCost) * stock;
       const marginPercent = price > 0 ? Math.round(((price - totalCost) / price) * 1000) / 10 : 0;
+      const discountPercent = oldPrice > 0 ? Math.round(((oldPrice - price) / oldPrice) * 100) : 0;
 
       return [
         ...common,
         sizeLabel,
         stock,
+        `${discountPercent}%`,
         ...tail.threshold,
         ...tail.status,
+        ...tail.flags,
+        tail.adminRemarks,
+        tail.remarksUpdated,
         purchasePrice,
         miscExpenses,
         totalCost,
@@ -447,7 +293,10 @@ function AdminProducts() {
         saleValue,
         profit,
         marginPercent,
-        id,
+        tail.purchaseDate,
+        tail.id,
+        tail.productNumber,
+        tail.createdDate,
       ];
     };
 
@@ -465,7 +314,9 @@ function AdminProducts() {
         p.category?.name || "",
         (p.subcategories || []).map((s) => s.name).join("; "),
         p.fabric || "",
+        p.gsm || "",
         p.brand || "",
+        p.countryOfOrigin || "",
       ];
 
       const tail = {
@@ -475,6 +326,17 @@ function AdminProducts() {
           p.isActive ? "Active" : "Inactive",
           VISIBILITY_LABELS[p.visibility || "both"],
         ],
+        flags: [
+          p.featured ? "Yes" : "No",
+          p.isReturnable ? "Yes" : "No",
+          p.isTrending ? "Yes" : "No",
+        ],
+        adminRemarks: p.adminRemarks || "",
+        remarksUpdated: formatDate(p.adminRemarksUpdatedAt),
+        purchaseDate: formatDate(p.purchaseDate),
+        id: p._id,
+        productNumber: p.productNumber || "",
+        createdDate: formatDate(p.createdAt),
       };
 
       if (hasVariants) {
@@ -488,7 +350,6 @@ function AdminProducts() {
             Math.round(Number(v.price) || 0),
             Math.round(Number(v.oldPrice) || 0),
             tail,
-            p._id,
           ),
         );
       }
@@ -503,23 +364,20 @@ function AdminProducts() {
           Math.round(Number(p.price) || 0),
           Math.round(Number(p.oldPrice) || 0),
           tail,
-          p._id,
         ),
       ];
     });
 
-    // Column indices per the `columns` array above: Stock=6, Stock
-    // Value=14, Potential Sale Value=17, Potential Profit=18.
+    // Column indices per the `columns` array above: Stock=8, Stock Value
+    // (At Cost)=22, Potential Sale Value=25, Potential Profit=26.
     const sumColumn = (index) =>
       rows.reduce((sum, row) => sum + (Number(row[index]) || 0), 0);
-    const totalStock = sumColumn(6);
-    const totalStockValue = sumColumn(14);
-    const totalSaleValue = sumColumn(17);
-    const totalProfit = sumColumn(18);
-    const totalRow = [
-      "TOTAL", "", "", "", "", "", totalStock, "", "", "", "", "", "", "",
-      totalStockValue, "", "", totalSaleValue, totalProfit, "", "",
-    ];
+    const totalRow = columns.map(() => "");
+    totalRow[0] = "TOTAL";
+    totalRow[8] = sumColumn(8);
+    totalRow[22] = sumColumn(22);
+    totalRow[25] = sumColumn(25);
+    totalRow[26] = sumColumn(26);
 
     const csv =
       "﻿" +
@@ -633,12 +491,14 @@ function AdminProducts() {
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-bold text-slate-800">Manage Products</h2>
 
-        <Link
-          to="/admin/products/add"
-          className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg transition-colors"
-        >
-          + Add Product
-        </Link>
+        {canCreate && (
+          <Link
+            to="/admin/products/add"
+            className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg transition-colors"
+          >
+            + Add Product
+          </Link>
+        )}
       </div>
 
       {/* Search + View Toggle */}
@@ -734,16 +594,6 @@ function AdminProducts() {
         >
           <FaWarehouse />
           {exporting ? "Generating..." : "Stock Report"}
-        </button>
-
-        <button
-          type="button"
-          onClick={handleExportExcel}
-          disabled={exporting}
-          className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors disabled:opacity-60"
-        >
-          <FaFileExcel />
-          {exporting ? "Generating..." : "Export to Excel"}
         </button>
       </div>
 
@@ -975,12 +825,14 @@ function AdminProducts() {
                     <div className="flex items-center justify-center gap-2">
                       {product.isActive ? (
                         <>
-                          <Link
-                            to={`/admin/products/edit/${product._id}`}
-                            className="text-xs font-medium px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white"
-                          >
-                            Edit
-                          </Link>
+                          {canModify && (
+                            <Link
+                              to={`/admin/products/edit/${product._id}`}
+                              className="text-xs font-medium px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white"
+                            >
+                              Edit
+                            </Link>
+                          )}
                           <Link
                             to={`/admin/products/${product._id}/qr`}
                             className="text-xs font-medium px-3 py-1.5 rounded-lg bg-slate-600 hover:bg-slate-700 text-white"
@@ -993,20 +845,24 @@ function AdminProducts() {
                           >
                             Share
                           </button>
-                          <button
-                            onClick={() => handleDuplicate(product._id)}
-                            className="text-xs font-medium px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white"
-                          >
-                            Duplicate
-                          </button>
-                          <button
-                            onClick={() => handleDelete(product._id)}
-                            className="text-xs font-medium px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white"
-                          >
-                            Delete
-                          </button>
+                          {canCreate && (
+                            <button
+                              onClick={() => handleDuplicate(product._id)}
+                              className="text-xs font-medium px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white"
+                            >
+                              Duplicate
+                            </button>
+                          )}
+                          {canModify && (
+                            <button
+                              onClick={() => handleDelete(product._id)}
+                              className="text-xs font-medium px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white"
+                            >
+                              Delete
+                            </button>
+                          )}
                         </>
-                      ) : (
+                      ) : canModify ? (
                         <>
                           <button
                             onClick={() => handleRestore(product._id)}
@@ -1021,7 +877,7 @@ function AdminProducts() {
                             Delete Permanently
                           </button>
                         </>
-                      )}
+                      ) : null}
                     </div>
                   </td>
                 </tr>
@@ -1105,12 +961,14 @@ function AdminProducts() {
                 <div className="mt-auto grid grid-cols-2 gap-2">
                   {product.isActive ? (
                     <>
-                      <Link
-                        to={`/admin/products/edit/${product._id}`}
-                        className="text-center bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium py-2 rounded-lg transition-colors"
-                      >
-                        Edit
-                      </Link>
+                      {canModify && (
+                        <Link
+                          to={`/admin/products/edit/${product._id}`}
+                          className="text-center bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium py-2 rounded-lg transition-colors"
+                        >
+                          Edit
+                        </Link>
+                      )}
 
                       <Link
                         to={`/admin/products/${product._id}/qr`}
@@ -1127,21 +985,25 @@ function AdminProducts() {
                         Share
                       </button>
 
-                      <button
-                        onClick={() => handleDuplicate(product._id)}
-                        className="text-center bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium py-2 rounded-lg transition-colors"
-                      >
-                        Duplicate
-                      </button>
+                      {canCreate && (
+                        <button
+                          onClick={() => handleDuplicate(product._id)}
+                          className="text-center bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium py-2 rounded-lg transition-colors"
+                        >
+                          Duplicate
+                        </button>
+                      )}
 
-                      <button
-                        onClick={() => handleDelete(product._id)}
-                        className="text-center bg-red-600 hover:bg-red-700 text-white text-sm font-medium py-2 rounded-lg transition-colors"
-                      >
-                        Delete
-                      </button>
+                      {canModify && (
+                        <button
+                          onClick={() => handleDelete(product._id)}
+                          className="text-center bg-red-600 hover:bg-red-700 text-white text-sm font-medium py-2 rounded-lg transition-colors"
+                        >
+                          Delete
+                        </button>
+                      )}
                     </>
-                  ) : (
+                  ) : canModify ? (
                     <>
                       <button
                         onClick={() => handleRestore(product._id)}
@@ -1156,7 +1018,7 @@ function AdminProducts() {
                         Delete Permanently
                       </button>
                     </>
-                  )}
+                  ) : null}
                 </div>
               </div>
             </div>

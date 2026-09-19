@@ -9,6 +9,7 @@ import CartSnapshot from "../models/CartSnapshot.js";
 import ReturnRequest from "../models/ReturnRequest.js";
 import Ticket from "../models/Ticket.js";
 import { notifyStockAlertSubscribers } from "./productController.js";
+import { resolveFastDelivery } from "./deliveryController.js";
 import {
   calculateDiscount,
   isEligibleForFirstOrderCoupon,
@@ -24,6 +25,7 @@ import { calculateDeliveryFee } from "../utils/shipping.js";
 import { calculateBundleDiscount } from "../utils/bundleDiscount.js";
 import { sendEmail } from "../config/mailer.js";
 import { notifyUser } from "../utils/notify.js";
+import { hasAdminPermission } from "../utils/adminAccess.js";
 import { REVIEW_BONUS_POINTS } from "./reviewController.js";
 
 // Lazily constructed so a missing/blank key in dev doesn't crash the
@@ -104,11 +106,59 @@ const ORDER_STATUS_MESSAGES = {
   },
 };
 
+// Shared by every path that needs to tell a customer their order's status
+// changed (or re-tell them, for the same status) — the in-app notification
+// bell plus an email, both keyed off ORDER_STATUS_MESSAGES. Fire-and-forget:
+// callers don't await this, matching the existing behavior at each call site.
+const sendOrderStatusNotification = (order, status) => {
+  const statusMessage = ORDER_STATUS_MESSAGES[status];
+
+  if (!statusMessage) return;
+
+  notifyUser({
+    userId: order.user,
+    type: "order_status",
+    title: statusMessage.subject,
+    message: `Order ID: ${order._id}`,
+    link: `/my-orders/${order._id}`,
+  });
+
+  User.findById(order.user)
+    .select("name email")
+    .then((customer) => {
+      if (!customer?.email) return;
+
+      return sendEmail({
+        to: customer.email,
+        bcc: process.env.ADMIN_NOTIFICATION_EMAIL,
+        subject: statusMessage.subject,
+        html: `
+          <p>Hi ${customer.name || "there"},</p>
+          <p>${statusMessage.body}</p>
+          <p>Order ID: ${order._id}</p>
+          <p><a href="${process.env.CLIENT_URL}/my-orders/${order._id}">View your order</a></p>
+        `,
+      });
+    })
+    .catch((error) => console.error("Order Status Email Error:", error));
+};
+
 // Matches (and slightly exceeds) SiteSettings.defaultReturnPeriodDays —
 // by this point the return window has closed, so an order that reaches
 // this point without a return means the customer kept the product and
 // is a genuine "they liked it" signal, not just a guess at 4 days.
 const REVIEW_REQUEST_DELAY_DAYS = 8;
+
+// A Razorpay order reserves stock and (if redeemed) loyalty points the
+// instant it's created — well before payment actually succeeds (see
+// createOrder below) — but nothing ever released them if the customer
+// simply never paid (closed the tab, payment failed, deliberately
+// abandoned it). 45 minutes gives a slow/retrying customer real room
+// (Razorpay's own checkout, UPI app switches, bank redirects) while
+// still freeing a stock=1 item within the hour instead of it being
+// silently locked away from real buyers indefinitely with no recovery
+// path short of an admin noticing and cancelling it by hand.
+const STALE_RAZORPAY_ORDER_MINUTES = 45;
 
 // Re-derives price/name/image from the database and validates quantity —
 // req.body.orderItems is never trusted for anything that affects money or
@@ -121,7 +171,19 @@ const REVIEW_REQUEST_DELAY_DAYS = 8;
 // re-derived here.
 const verifyOrderItems = async (rawItems) => {
   const productIds = rawItems.map((item) => item.product);
-  const products = await Product.find({ _id: { $in: productIds } });
+  // Soft-deleted (isActive: false) and in-store-only (visibility:
+  // "offline") products were still fetchable here even though every
+  // *listing* endpoint already excludes them — a bookmarked/shared
+  // product-detail URL, or a crafted request straight to this API,
+  // could place a real order for a product the admin thought they'd
+  // pulled from sale. Excluding them here routes to the same "no
+  // longer available" response the code already gives for a genuinely
+  // missing product, below.
+  const products = await Product.find({
+    _id: { $in: productIds },
+    isActive: true,
+    visibility: { $ne: "offline" },
+  });
   const productById = new Map(products.map((p) => [p._id.toString(), p]));
 
   const verified = [];
@@ -179,6 +241,7 @@ const verifyOrderItems = async (rawItems) => {
       price,
       quantity,
       size: item.size || "",
+      localDeliveryOnly: product.localDeliveryOnly,
     });
   }
 
@@ -290,6 +353,23 @@ export const createOrder = async (req, res) => {
     // anything that affects money or inventory.
     const verifiedItems = verifyResult.items;
 
+    // Bulky/oversized products (Product.localDeliveryOnly) can't ship
+    // outside the nearby fast-delivery zone — the product page warns
+    // about this, but that's a client-side hint only, so it's enforced
+    // here too rather than trusting a customer never bypasses it via a
+    // direct API call.
+    if (verifiedItems.some((item) => item.localDeliveryOnly)) {
+      const deliveryCheck = await resolveFastDelivery(shippingAddress?.pincode);
+
+      if (!deliveryCheck.fastDelivery) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "One or more items in your cart can't be delivered to this address. Please remove them or choose a different delivery address.",
+        });
+      }
+    }
+
     const subtotal = verifiedItems.reduce(
       (sum, item) => sum + item.price * item.quantity,
       0,
@@ -303,6 +383,7 @@ export const createOrder = async (req, res) => {
 
     let discountAmount = 0;
     let appliedCouponCode = null;
+    let appliedFirstOrderCoupon = false;
 
     if (couponCode) {
       const coupon = await Coupon.findOne({
@@ -318,6 +399,7 @@ export const createOrder = async (req, res) => {
         if (eligible) {
           discountAmount = calculateDiscount(coupon, subtotal);
           appliedCouponCode = coupon.code;
+          appliedFirstOrderCoupon = coupon.firstOrderOnly;
         }
       }
     }
@@ -390,14 +472,92 @@ export const createOrder = async (req, res) => {
       throw orderError;
     }
 
+    // Tracks whether points were actually deducted below (not just
+    // requested) — cancelAndReject uses this to know whether a refund
+    // is owed, since it's also called from the points-race branch
+    // itself, where nothing was ever deducted in the first place.
+    let pointsActuallyDeducted = false;
+
+    // Shared by every "this order was already created with a discount
+    // baked into totalPrice, but the thing backing that discount lost
+    // an atomic race after the fact" case below — cancels the order
+    // through the same path a real cancellation uses: restoreStock,
+    // a points refund if points were actually taken, and releasing
+    // User.firstOrderCouponUsed if this order is the one that claimed
+    // it (order.firstOrderCouponApplied, set only once that claim
+    // itself succeeds below — never blindly, since resetting a flag
+    // this order never actually claimed could hand the coupon back to
+    // whichever other order legitimately holds it).
+    const cancelAndReject = async (message, statusCode = 400) => {
+      order.orderStatus = "Cancelled";
+      order.statusHistory.push({ status: "Cancelled", changedAt: new Date() });
+      await order.save();
+
+      await restoreStock(verifiedItems);
+
+      if (pointsActuallyDeducted) {
+        await applyLoyaltyPointsChange({
+          userId: req.user._id,
+          type: "refunded",
+          points: pointsRedeemed,
+          order: order._id,
+          description: `Refund for cancelled order ${order._id}`,
+        });
+      }
+
+      if (order.firstOrderCouponApplied) {
+        await User.updateOne(
+          { _id: req.user._id },
+          { $set: { firstOrderCouponUsed: false } },
+        );
+      }
+
+      return res.status(statusCode).json({ success: false, message });
+    };
+
     if (pointsRedeemed > 0) {
-      await applyLoyaltyPointsChange({
+      const pointsResult = await applyLoyaltyPointsChange({
         userId: req.user._id,
         type: "redeemed",
         points: -pointsRedeemed,
         order: order._id,
         description: `Redeemed on order ${order._id}`,
       });
+
+      // null means the atomic balance-guard above lost the race (the
+      // user's real balance no longer covers pointsRedeemed — e.g. two
+      // tabs/requests redeeming near-simultaneously).
+      if (!pointsResult) {
+        return cancelAndReject(
+          "Your loyalty points balance changed — please review your order and try again.",
+        );
+      }
+
+      pointsActuallyDeducted = true;
+    }
+
+    // Same race, for a first-order-only coupon: the eligibility check
+    // above (isEligibleForFirstOrderCoupon) only reads how many prior
+    // orders exist, so two concurrent checkouts from the same
+    // brand-new user could both pass it and both get the discount.
+    // User.firstOrderCouponUsed is claimed atomically here — whichever
+    // request wins the race sets it from false to true; the other gets
+    // null back and must not keep a discount it was never actually
+    // the first to redeem.
+    if (appliedFirstOrderCoupon) {
+      const couponClaim = await User.findOneAndUpdate(
+        { _id: req.user._id, firstOrderCouponUsed: { $ne: true } },
+        { $set: { firstOrderCouponUsed: true } },
+      );
+
+      if (!couponClaim) {
+        return cancelAndReject(
+          "This coupon has already been used on another order — please review your order and try again.",
+        );
+      }
+
+      order.firstOrderCouponApplied = true;
+      await order.save();
     }
 
     await CartSnapshot.deleteOne({ user: req.user._id });
@@ -419,10 +579,17 @@ export const createOrder = async (req, res) => {
       } catch (razorpayError) {
         console.error("Razorpay Order Create Error:", razorpayError);
 
-        return res.status(500).json({
-          success: false,
-          message: "Unable to initiate payment. Please try again.",
-        });
+        // Stock, any redeemed points, and a claimed first-order coupon
+        // were all already committed above before this Razorpay API
+        // call — a transient Razorpay failure here must not leave them
+        // stranded against an order that can never be paid. Reuses the
+        // exact same rollback cancelAndReject already does for the
+        // points/coupon race cases, rather than leaving a phantom
+        // "Pending" order with no razorpayOrderId.
+        return cancelAndReject(
+          "Unable to initiate payment. Please try again.",
+          500,
+        );
       }
     }
 
@@ -471,6 +638,79 @@ export const createOrder = async (req, res) => {
     });
   } catch (error) {
     console.error("Create Order Error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};
+
+// ============================
+// Resume Razorpay Payment
+// ============================
+// For an order whose payment stalled, failed, or was dismissed —
+// re-opens the SAME Razorpay order created at checkout time (never a
+// new one), so verifyRazorpayPayment's existing user+razorpayOrderId
+// lookup keeps working unchanged. Stops working once the stale-order
+// cron cancels the order (see cancelStaleRazorpayOrders).
+export const resumeRazorpayPayment = async (req, res) => {
+  try {
+    const order = await Order.findOne({
+      _id: req.params.id,
+      user: req.user._id,
+    });
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    if (order.paymentMethod !== "Razorpay" || !order.razorpayOrderId) {
+      return res.status(400).json({
+        success: false,
+        message: "This order isn't a Razorpay payment.",
+      });
+    }
+
+    if (order.isPaid || order.orderStatus === "Cancelled") {
+      return res.status(400).json({
+        success: false,
+        message: order.isPaid
+          ? "This order has already been paid."
+          : "This order has been cancelled — please place a new order.",
+      });
+    }
+
+    const razorpayOrder = await getRazorpay().orders.fetch(
+      order.razorpayOrderId,
+    );
+
+    // Payment actually succeeded on Razorpay's side but our own
+    // verification step never ran (e.g. the browser closed right after
+    // the bank redirect) — reopening the modal here would let the
+    // customer pay a second time for the same order.
+    if (razorpayOrder.status === "paid") {
+      return res.status(400).json({
+        success: false,
+        message:
+          "This order appears to already be paid. Please refresh in a moment, or contact support if this persists.",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      razorpayOrder: {
+        id: razorpayOrder.id,
+        amount: razorpayOrder.amount,
+        currency: razorpayOrder.currency,
+      },
+      razorpayKeyId: process.env.RAZORPAY_KEY_ID,
+    });
+  } catch (error) {
+    console.error("Resume Razorpay Payment Error:", error);
 
     res.status(500).json({
       success: false,
@@ -616,9 +856,14 @@ export const getOrderById = async (req, res) => {
       });
     }
 
-    // Security check: sirf order ka owner ya admin hi ise dekh sake
+    // Security check: sirf order ka owner ya "orders"-permitted admin hi
+    // ise dekh sake. req.user.role === "admin" alone isn't enough — a
+    // restricted staff account without the "orders" permission is
+    // already blocked from the order LIST (see orderRoutes.js's `perm`
+    // on GET "/"); checking only role here let that same account view
+    // any individual order just by guessing/enumerating its ID.
     const isOwner = order.user._id.toString() === req.user._id.toString();
-    const isAdmin = req.user.role === "admin";
+    const isAdmin = hasAdminPermission(req.user, "orders");
 
     if (!isOwner && !isAdmin) {
       return res.status(403).json({
@@ -777,6 +1022,18 @@ export const updateOrderStatus = async (req, res) => {
           description: `Reversed earn from cancelled order ${order._id}`,
         });
       }
+
+      // ...and give back their one-time first-order-coupon eligibility
+      // if this order is the one that claimed it (createOrder sets
+      // firstOrderCouponApplied only once that atomic claim itself
+      // succeeds) — an admin cancelling a customer's first order
+      // (defective item, etc.) shouldn't permanently burn it.
+      if (order.firstOrderCouponApplied) {
+        await User.updateOne(
+          { _id: order.user },
+          { $set: { firstOrderCouponUsed: false } },
+        );
+      }
     } else if (status === "Delivered" && !wasAlreadyCredited) {
       if (order.pointsEarned > 0) {
         await applyLoyaltyPointsChange({
@@ -789,65 +1046,46 @@ export const updateOrderStatus = async (req, res) => {
       }
 
       // First delivered order for a referred customer pays out the
-      // referral bonus to both sides, once only.
-      const referredUser = await User.findById(order.user);
+      // referral bonus to both sides, once only. Used to be a plain
+      // read (referredUser?.referredBy && !referredUser.referralRewarded)
+      // followed much later by referredUser.referralRewarded = true —
+      // two orders for the same referred customer both marked
+      // Delivered close together (two tabs, a fast double-click) would
+      // both read referralRewarded: false and both pay out in full,
+      // doubling the payout. Same class of race reviewController.js's
+      // reviewPointsProcessed guard already closes for review bonuses;
+      // applied the identical pattern here — one atomic
+      // findOneAndUpdate claims referralRewarded before either bonus
+      // is paid, so a losing concurrent request gets null back and
+      // pays out nothing.
+      const claimedReferral = await User.findOneAndUpdate(
+        { _id: order.user, referredBy: { $ne: null }, referralRewarded: { $ne: true } },
+        { $set: { referralRewarded: true } },
+        { new: false },
+      );
 
-      if (referredUser?.referredBy && !referredUser.referralRewarded) {
+      if (claimedReferral) {
         const referralSettings = await getReferralSettings();
 
         await applyLoyaltyPointsChange({
-          userId: referredUser.referredBy,
+          userId: claimedReferral.referredBy,
           type: "referral_bonus",
           points: referralSettings.referrerPoints,
           order: order._id,
-          description: `Referral bonus for inviting ${referredUser.name}`,
+          description: `Referral bonus for inviting ${claimedReferral.name}`,
         });
 
         await applyLoyaltyPointsChange({
-          userId: referredUser._id,
+          userId: claimedReferral._id,
           type: "referral_bonus",
           points: referralSettings.referredPoints,
           order: order._id,
           description: "Referral signup bonus",
         });
-
-        referredUser.referralRewarded = true;
-        await referredUser.save();
       }
     }
 
-    const statusMessage = ORDER_STATUS_MESSAGES[status];
-
-    if (statusMessage) {
-      notifyUser({
-        userId: order.user,
-        type: "order_status",
-        title: statusMessage.subject,
-        message: `Order ID: ${order._id}`,
-        link: `/my-orders/${order._id}`,
-      });
-
-      User.findById(order.user)
-        .select("name email")
-        .then((customer) => {
-          if (!customer?.email) return;
-
-          return sendEmail({
-            to: customer.email,
-            bcc: process.env.ADMIN_NOTIFICATION_EMAIL,
-            subject: statusMessage.subject,
-            html: `
-              <p>Hi ${customer.name || "there"},</p>
-              <p>${statusMessage.body}</p>
-              <p>Order ID: ${order._id}</p>
-              <p><a href="${process.env.CLIENT_URL}/my-orders/${order._id}">View your order</a></p>
-            `,
-          });
-        })
-        .catch((error) =>
-          console.error("Order Status Email Error:", error),
-        );
-    }
+    sendOrderStatusNotification(order, status);
 
     res.status(200).json({
       success: true,
@@ -1083,6 +1321,126 @@ export const sendReviewRequestEmails = async (req, res) => {
     });
   } catch (error) {
     console.error("Send Review Request Emails Error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};
+
+// ============================
+// Cancel Stale Unpaid Razorpay Orders
+// Called by an external scheduler, protected by a shared secret rather
+// than JWT auth — same pattern as sendReviewRequestEmails above. A
+// Razorpay order reserves stock (and any redeemed points) the moment
+// it's created in createOrder, before payment actually succeeds; if the
+// customer never completes payment there was previously no path back —
+// this releases that reservation the same way a real cancellation does
+// (restoreStock + points refund), once the order has clearly been
+// abandoned rather than just slow.
+// ============================
+
+export const cancelStaleRazorpayOrders = async (req, res) => {
+  try {
+    if (req.query.secret !== process.env.CRON_SECRET) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
+    const cutoff = new Date(
+      Date.now() - STALE_RAZORPAY_ORDER_MINUTES * 60 * 1000,
+    );
+
+    const staleOrders = await Order.find({
+      paymentMethod: "Razorpay",
+      orderStatus: "Pending",
+      isPaid: { $ne: true },
+      createdAt: { $lte: cutoff },
+    });
+
+    let cancelled = 0;
+
+    for (const order of staleOrders) {
+      order.orderStatus = "Cancelled";
+      order.statusHistory.push({ status: "Cancelled", changedAt: new Date() });
+      await order.save();
+
+      await restoreStock(order.orderItems);
+
+      if (order.pointsRedeemed > 0) {
+        await applyLoyaltyPointsChange({
+          userId: order.user,
+          type: "refunded",
+          points: order.pointsRedeemed,
+          order: order._id,
+          description: `Refund for abandoned Razorpay order ${order._id}`,
+        });
+      }
+
+      if (order.firstOrderCouponApplied) {
+        await User.updateOne(
+          { _id: order.user },
+          { $set: { firstOrderCouponUsed: false } },
+        );
+      }
+
+      // Every other order-status change notifies the customer (see
+      // updateOrderStatus above) — this cron-driven path was silently
+      // skipping that, so a customer whose checkout stalled had no way
+      // to know their order had been cancelled out from under them.
+      sendOrderStatusNotification(order, "Cancelled");
+
+      cancelled += 1;
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Cancelled ${cancelled} stale Razorpay order${cancelled === 1 ? "" : "s"}`,
+      cancelled,
+    });
+  } catch (error) {
+    console.error("Cancel Stale Razorpay Orders Error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};
+
+// ============================
+// Resend Order Status Notification (Admin)
+// ============================
+// For cases where a customer says they never got the original status
+// email (spam filter, typo'd address, etc.) — re-sends the notification
+// for the order's current status without touching orderStatus,
+// statusHistory, stock, or loyalty points at all.
+export const resendOrderStatusEmail = async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    if (!ORDER_STATUS_MESSAGES[order.orderStatus]) {
+      return res.status(400).json({
+        success: false,
+        message: `No notification email exists for status "${order.orderStatus}".`,
+      });
+    }
+
+    sendOrderStatusNotification(order, order.orderStatus);
+
+    res.status(200).json({
+      success: true,
+      message: "Notification resent",
+    });
+  } catch (error) {
+    console.error("Resend Order Status Email Error:", error);
 
     res.status(500).json({
       success: false,

@@ -41,6 +41,9 @@ import notificationRoutes from "./routes/notificationRoutes.js";
 import feedRoutes from "./routes/feedRoutes.js";
 import whatsappRoutes from "./routes/whatsappRoutes.js";
 import deliveryRoutes from "./routes/deliveryRoutes.js";
+import roleRoutes from "./routes/roleRoutes.js";
+import staffUserRoutes from "./routes/staffUserRoutes.js";
+import { classifyKnownErrors, jsonErrorHandler } from "./middleware/errorHandler.js";
 
 const app = express();
 
@@ -126,6 +129,26 @@ const categoryReadLimiter = rateLimit({
 });
 app.use("/api/categories", categoryReadLimiter);
 
+// General catch-all for every other route — CodeQL flags any handler
+// that performs auth/a DB query with no rate limiter at all on its
+// path, and most of this app's ~150 routes had never had one (the two
+// limiters above were added only when a specific route got flagged).
+// Adding the admin RBAC feature touched so many route files in one PR
+// that CodeQL's alert-fingerprinting re-surfaced this as ~200 "new"
+// findings across files this PR didn't even touch — the actual gap was
+// already app-wide. A single generous, generic limiter here closes all
+// of them at once instead of hand-adding a bespoke one per route file;
+// the two specific limiters above still take precedence for their own
+// paths since Express runs whichever middleware matches first and
+// rate-limit counters are independent per instance regardless.
+const generalApiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: process.env.DISABLE_AUTH_RATE_LIMIT === "true" ? 10000 : 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use("/api", generalApiLimiter);
+
 // Static Upload Folder — these are legacy uploads only, never overwritten
 // in place (new uploads go to Cloudinary), so a long cache is safe.
 app.use(
@@ -171,11 +194,24 @@ app.use("/api/notifications", notificationRoutes);
 app.use("/api/feed", feedRoutes);
 app.use("/api/whatsapp", whatsappRoutes);
 app.use("/api/delivery", deliveryRoutes);
+app.use("/api/roles", roleRoutes);
+app.use("/api/admin/staff", staffUserRoutes);
 
-// Must come after all routes (so it sees their errors) and before any
-// other error-handling middleware — a no-op if SENTRY_DSN isn't set
-// (see instrument.js), same as the rest of the Sentry setup.
+// Error handling — must come after all routes (so it sees their
+// errors). classifyKnownErrors runs first so Sentry's own
+// status->=500 filtering already skips known-benign cases (a client
+// hitting the upload file-count limit, or disconnecting mid-upload);
+// jsonErrorHandler runs last so every error, however it started,
+// still reaches the client as the `{success, message}` JSON shape the
+// frontend's service functions expect instead of Express's default
+// HTML error page.
+app.use(classifyKnownErrors);
+
+// A no-op if SENTRY_DSN isn't set (see instrument.js), same as the
+// rest of the Sentry setup.
 Sentry.setupExpressErrorHandler(app);
+
+app.use(jsonErrorHandler);
 
 // Health Check
 app.get("/api/health", (req, res) => {

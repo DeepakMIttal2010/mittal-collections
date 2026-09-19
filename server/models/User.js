@@ -56,6 +56,17 @@ const userSchema = new mongoose.Schema(
       default: "user",
     },
 
+    // Only meaningful when role === "admin". Absent/null = a full,
+    // unrestricted admin (every account that existed before this field
+    // was added, including the owner's own) — restriction is opt-in,
+    // applied only to staff accounts created via the admin "Staff Users"
+    // page. See middleware/requirePermission.js.
+    adminRole: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Role",
+      default: null,
+    },
+
     isBlocked: {
       type: Boolean,
       default: false,
@@ -64,6 +75,20 @@ const userSchema = new mongoose.Schema(
     loyaltyPoints: {
       type: Number,
       default: 0,
+    },
+
+    // Claimed atomically (findOneAndUpdate with a { $ne: true } guard —
+    // see orderController.js's createOrder) the moment a first-order-
+    // only coupon is actually applied to an order, not just when
+    // eligibility is checked. Two concurrent checkouts from the same
+    // brand-new user used to both pass the eligibility check (a
+    // Order.countDocuments read against orders neither request had
+    // created yet) and both get the discount — this flag closes that
+    // race the same way applyLoyaltyPointsChange's balance guard does
+    // for points redemption.
+    firstOrderCouponUsed: {
+      type: Boolean,
+      default: false,
     },
 
     referralCode: {

@@ -8,6 +8,8 @@ import {
   restoreCoupon,
   deleteCoupon,
 } from "../../services/adminCouponService";
+import { getCurrentAdminUser } from "../../services/authService";
+import { hasWriteAccess } from "../../config/adminPermissions";
 
 const DEFAULT_FORM = {
   code: "",
@@ -21,6 +23,10 @@ const DEFAULT_FORM = {
 };
 
 function AdminCoupons() {
+  const currentUser = getCurrentAdminUser();
+  const canCreate = hasWriteAccess(currentUser, "coupons", "new");
+  const canModify = hasWriteAccess(currentUser, "coupons", "modified");
+
   const [coupons, setCoupons] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -151,7 +157,10 @@ function AdminCoupons() {
         applied by a customer who has never placed an order before.
       </p>
 
-      {/* Add / Edit Form */}
+      {/* Add / Edit Form — shared between create and edit, shown when
+          either right is granted; submit is disabled for whichever
+          specific action the current mode needs and the role lacks. */}
+      {(canCreate || canModify) && (
       <form
         onSubmit={handleSubmit}
         className="bg-white border border-slate-200 rounded-xl p-6 mb-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end"
@@ -273,7 +282,7 @@ function AdminCoupons() {
         <div className="flex gap-2">
           <button
             type="submit"
-            disabled={saving}
+            disabled={saving || (editingId ? !canModify : !canCreate)}
             className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg transition-colors disabled:opacity-60"
           >
             {saving ? "Saving..." : editingId ? "Update" : "+ Add"}
@@ -290,6 +299,7 @@ function AdminCoupons() {
           )}
         </div>
       </form>
+      )}
 
       {/* Table */}
       {coupons.length === 0 ? (
@@ -367,26 +377,32 @@ function AdminCoupons() {
                     <div className="flex items-center justify-center gap-2">
                       {item.isActive ? (
                         <>
-                          <button
-                            onClick={() => handleEdit(item)}
-                            className="text-xs font-medium px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => handleDelete(item._id)}
-                            className="text-xs font-medium px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white"
-                          >
-                            Delete
-                          </button>
+                          {canModify && (
+                            <button
+                              onClick={() => handleEdit(item)}
+                              className="text-xs font-medium px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white"
+                            >
+                              Edit
+                            </button>
+                          )}
+                          {canModify && (
+                            <button
+                              onClick={() => handleDelete(item._id)}
+                              className="text-xs font-medium px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white"
+                            >
+                              Delete
+                            </button>
+                          )}
                         </>
                       ) : (
-                        <button
-                          onClick={() => handleRestore(item._id)}
-                          className="text-xs font-medium px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white"
-                        >
-                          Restore
-                        </button>
+                        canModify && (
+                          <button
+                            onClick={() => handleRestore(item._id)}
+                            className="text-xs font-medium px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white"
+                          >
+                            Restore
+                          </button>
+                        )
                       )}
                     </div>
                   </td>
