@@ -31,6 +31,18 @@ const authMiddleware = async (req, res, next) => {
       });
     }
 
+    // login() already rejects a blocked account, but that only stops
+    // future logins — without this, an already-issued token (valid for
+    // up to 7 days) keeps working normally after the block, since this
+    // is the only place every authenticated request actually re-checks
+    // the user's current state.
+    if (user.isBlocked) {
+      return res.status(403).json({
+        success: false,
+        message: "Your account has been blocked. Please contact support.",
+      });
+    }
+
     req.user = user;
 
     next();
