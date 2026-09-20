@@ -564,6 +564,19 @@ function CategoryPage() {
           : ""}
       </h1>
 
+      {/* Already written (used in the <meta description> above) but was
+          never actually shown to a visitor or a crawler — the page had no
+          unique body text of its own, just breadcrumbs + pills + a
+          product grid, which reads as thin/near-duplicate content across
+          every category and subcategory URL. No Hindi field exists on
+          Category yet (unlike name/nameHi), so this stays English-only
+          for now, same as the structured data. */}
+      {category.description && (
+        <p className="text-sm text-slate-600 mb-4 max-w-3xl">
+          {category.description}
+        </p>
+      )}
+
       {/* Was one full-width card per bundle partner and per guide link —
           on a category with 2 of each (e.g. Doormats: Bedsheets + Cushion
           Covers bundles, Size + Buying guides) that pushed the product
@@ -609,25 +622,26 @@ function CategoryPage() {
           shown as their own labelled row on desktop where there's room. */}
       {primaryGroup && (
         <div className="flex flex-wrap gap-3 mb-4">
-          <button
-            type="button"
+          {/* Real <Link>s, not onClick={navigate} buttons — this pill row
+              is the main path from a category page to its subcategory
+              pages, and a button with no href is invisible to a crawler
+              (ProductCard already gets this right for category->product
+              links; this was the one navigation surface that didn't). */}
+          <Link
+            to={`/category/${categorySlug}`}
             className={pillClass(!activeSubcategory)}
-            onClick={() => navigate(`/category/${categorySlug}`)}
           >
             {t("All", "सभी")}
-          </button>
+          </Link>
 
           {primaryGroup.items.map((sub) => (
-            <button
+            <Link
               key={sub._id}
-              type="button"
+              to={`/category/${categorySlug}/${sub.slug}`}
               className={pillClass(activeSubcategory?._id === sub._id)}
-              onClick={() =>
-                navigate(`/category/${categorySlug}/${sub.slug}`)
-              }
             >
               {t(sub.name, sub.nameHi)}
-            </button>
+            </Link>
           ))}
         </div>
       )}
@@ -639,16 +653,13 @@ function CategoryPage() {
           </p>
           <div className="flex flex-wrap gap-3">
             {group.items.map((sub) => (
-              <button
+              <Link
                 key={sub._id}
-                type="button"
+                to={`/category/${categorySlug}/${sub.slug}`}
                 className={pillClass(activeSubcategory?._id === sub._id)}
-                onClick={() =>
-                  navigate(`/category/${categorySlug}/${sub.slug}`)
-                }
               >
                 {t(sub.name, sub.nameHi)}
-              </button>
+              </Link>
             ))}
           </div>
         </div>
