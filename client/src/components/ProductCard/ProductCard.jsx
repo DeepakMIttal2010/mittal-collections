@@ -35,9 +35,14 @@ function ProductCard({ product }) {
   const [showQuickView, setShowQuickView] = useState(false);
   const inCompare = isInCompare(product._id);
   const [earnRate, setEarnRate] = useState(null);
-  const discount = Math.round(
-    ((product.oldPrice - product.price) / product.oldPrice) * 100,
-  );
+  // oldPrice defaults to 0 for a product an admin never set one for —
+  // unguarded, (0-price)/0*100 renders as a literal "-Infinity% OFF"
+  // badge. Only a real, positive discount counts (matches QuickViewModal
+  // and AdminProducts' own guard for the same calculation).
+  const hasDiscount = product.oldPrice > product.price;
+  const discount = hasDiscount
+    ? Math.round(((product.oldPrice - product.price) / product.oldPrice) * 100)
+    : 0;
   const isLowStock = product.stock > 0 && product.stock <= LOW_STOCK_THRESHOLD;
   const isOutOfStock = product.stock <= 0;
   const pointsPreview = earnRate ? Math.floor(product.price / earnRate) : 0;
@@ -58,7 +63,9 @@ function ProductCard({ product }) {
             loading="lazy"
           />
 
-          <span className="discount-badge">{t(`${discount}% OFF`, `${discount}% छूट`)}</span>
+          {hasDiscount && (
+            <span className="discount-badge">{t(`${discount}% OFF`, `${discount}% छूट`)}</span>
+          )}
 
           {isOutOfStock ? (
             <span className="stock-badge out-of-stock-badge">

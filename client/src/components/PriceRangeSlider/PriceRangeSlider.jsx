@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Slider from "rc-slider";
 import "rc-slider/assets/index.css";
 import "./PriceRangeSlider.css";
@@ -15,13 +15,31 @@ function PriceRangeSlider({ min, max, value, onChange }) {
   const [draft, setDraft] = useState(null);
   const [displayMin, displayMax] = draft || [min0, min1];
 
-  const handleMinInput = (raw) => {
-    const bounded = Math.max(min, Math.min(Number(raw) || min, min1));
+  // The number boxes keep their own free-typed text, only parsed/clamped
+  // and pushed to the parent on blur — typing directly into `value` (via
+  // `Number(raw) || min`) snapped an emptied box straight back to the
+  // full min/max on the very first keystroke (`Number("") || max` is
+  // `max`, since 0 is falsy), so clearing "2500" to type "50" produced
+  // "250050" instead. Deferring to blur also means typing doesn't
+  // re-filter the product grid per keystroke, same reasoning as the
+  // slider's drag-vs-release split above.
+  const [minText, setMinText] = useState(String(displayMin));
+  const [maxText, setMaxText] = useState(String(displayMax));
+
+  useEffect(() => setMinText(String(displayMin)), [displayMin]);
+  useEffect(() => setMaxText(String(displayMax)), [displayMax]);
+
+  const commitMin = (raw) => {
+    const parsed = Number(raw);
+    const numeric = raw.trim() === "" || Number.isNaN(parsed) ? min0 : parsed;
+    const bounded = Math.max(min, Math.min(numeric, min1));
     onChange([bounded, min1]);
   };
 
-  const handleMaxInput = (raw) => {
-    const bounded = Math.min(max, Math.max(Number(raw) || max, min0));
+  const commitMax = (raw) => {
+    const parsed = Number(raw);
+    const numeric = raw.trim() === "" || Number.isNaN(parsed) ? min1 : parsed;
+    const bounded = Math.min(max, Math.max(numeric, min0));
     onChange([min0, bounded]);
   };
 
@@ -48,8 +66,9 @@ function PriceRangeSlider({ min, max, value, onChange }) {
             type="number"
             min={min}
             max={min1}
-            value={displayMin}
-            onChange={(e) => handleMinInput(e.target.value)}
+            value={minText}
+            onChange={(e) => setMinText(e.target.value)}
+            onBlur={(e) => commitMin(e.target.value)}
             className="w-full text-sm text-slate-700 outline-none min-w-0"
           />
         </div>
@@ -60,8 +79,9 @@ function PriceRangeSlider({ min, max, value, onChange }) {
             type="number"
             min={min0}
             max={max}
-            value={displayMax}
-            onChange={(e) => handleMaxInput(e.target.value)}
+            value={maxText}
+            onChange={(e) => setMaxText(e.target.value)}
+            onBlur={(e) => commitMax(e.target.value)}
             className="w-full text-sm text-slate-700 outline-none min-w-0"
           />
         </div>

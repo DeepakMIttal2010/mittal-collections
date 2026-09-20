@@ -21,6 +21,7 @@ const notificationSchema = new mongoose.Schema(
         "loyalty_points",
         "price_drop",
         "account_status",
+        "question_answered",
       ],
       required: true,
     },
