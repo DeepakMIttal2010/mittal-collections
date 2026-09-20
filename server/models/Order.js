@@ -155,6 +155,22 @@ const orderSchema = new mongoose.Schema(
       default: false,
     },
 
+    // Recorded only on the specific order whose Delivered transition
+    // actually triggered the one-time referral payout (User.referralRewarded
+    // is a per-user flag, not per-order) — exactly the amounts paid to
+    // each side at that moment, not re-derived from current
+    // ReferralSettings later (those can change), so a later clawback (this
+    // same order getting cancelled/returned) reverses precisely what was
+    // given, no more and no less.
+    referralBonusPaid: {
+      type: Boolean,
+      default: false,
+    },
+    referralBonusPoints: {
+      referrer: { type: Number, default: 0 },
+      referred: { type: Number, default: 0 },
+    },
+
     orderStatus: {
       type: String,
       enum: ["Pending", "Processing", "Shipped", "Delivered", "Cancelled"],

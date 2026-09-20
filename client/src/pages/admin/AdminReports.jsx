@@ -824,49 +824,71 @@ function AdminReports() {
   const [usersModal, setUsersModal] = useState(null); // { productId, productName, type } | null
   const [showAbandonedCarts, setShowAbandonedCarts] = useState(false);
 
-  const loadReport = async () => {
-    setLoading(true);
-
-    const response = await getReportsData(
-      customRange ? customRange : { days },
-    );
-
-    if (response.success) {
-      setReport(response);
-    }
-
-    setLoading(false);
-  };
-
-  const loadGoogleReport = async () => {
-    setGoogleLoading(true);
-
-    const response = await getGoogleReportsData(days);
-
-    if (response.success) {
-      setGoogleReport(response);
-      setGoogleReportUnavailable(false);
-    } else {
-      setGoogleReportUnavailable(true);
-    }
-
-    setGoogleLoading(false);
-  };
-
+  // Clicking "7 days" then immediately "90 days" fires two overlapping
+  // requests — without a stale-response guard, whichever happens to
+  // resolve LAST wins, regardless of which one the UI still shows as
+  // selected. On a page whose whole purpose is trusting the numbers on
+  // screen, that's a real risk, not just a cosmetic flicker.
   useEffect(() => {
+    let cancelled = false;
+
+    const loadReport = async () => {
+      setLoading(true);
+
+      const response = await getReportsData(
+        customRange ? customRange : { days },
+      );
+
+      if (cancelled) return;
+
+      if (response.success) {
+        setReport(response);
+      }
+
+      setLoading(false);
+    };
+
     loadReport();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
+    return () => {
+      cancelled = true;
+    };
   }, [days, customRange]);
 
   useEffect(() => {
     // Google Analytics / Search Console only support the preset day
     // ranges here, not the arbitrary custom date picker below.
     if (customRange) return;
+
+    let cancelled = false;
+
+    const loadGoogleReport = async () => {
+      setGoogleLoading(true);
+
+      const response = await getGoogleReportsData(days);
+
+      if (cancelled) return;
+
+      if (response.success) {
+        setGoogleReport(response);
+        setGoogleReportUnavailable(false);
+      } else {
+        setGoogleReportUnavailable(true);
+      }
+
+      setGoogleLoading(false);
+    };
+
     loadGoogleReport();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
+    return () => {
+      cancelled = true;
+    };
   }, [days, customRange]);
 
   useEffect(() => {
+    let cancelled = false;
+
     const loadEngagement = async () => {
       setEngagementLoading(true);
 
@@ -875,12 +897,18 @@ function AdminReports() {
         engagementRange?.endDate,
       );
 
+      if (cancelled) return;
+
       if (response.success) setEngagement(response.engagement);
 
       setEngagementLoading(false);
     };
 
     loadEngagement();
+
+    return () => {
+      cancelled = true;
+    };
   }, [engagementRange]);
 
   const engagementRangeLabel = engagementRange

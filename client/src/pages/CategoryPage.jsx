@@ -131,8 +131,12 @@ function getSortOptions(t) {
   ];
 }
 
-function sortProducts(products, sortBy) {
+function sortProducts(products, sortBy, language) {
   const sorted = [...products];
+  // Falls back to the English name for any product missing a Hindi one
+  // rather than sorting it as an empty string (which would otherwise
+  // sink every untranslated product to one end of the list).
+  const displayName = (p) => (language === "hi" && p.nameHi ? p.nameHi : p.name);
 
   switch (sortBy) {
     case "price-asc":
@@ -142,10 +146,10 @@ function sortProducts(products, sortBy) {
       sorted.sort((a, b) => b.price - a.price);
       break;
     case "name-asc":
-      sorted.sort((a, b) => a.name.localeCompare(b.name));
+      sorted.sort((a, b) => displayName(a).localeCompare(displayName(b), language));
       break;
     case "name-desc":
-      sorted.sort((a, b) => b.name.localeCompare(a.name));
+      sorted.sort((a, b) => displayName(b).localeCompare(displayName(a), language));
       break;
     case "date-asc":
       sorted.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
@@ -170,7 +174,7 @@ function sortProducts(products, sortBy) {
 function CategoryPage() {
   const { categorySlug, subcategorySlug } = useParams();
   const navigate = useNavigate();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   const [status, setStatus] = useState("loading");
   const [category, setCategory] = useState(null);
@@ -365,8 +369,8 @@ function CategoryPage() {
   }, [products, isPriceActive, priceMin, priceMax, minRating, selectedFacetIds, facetGroups]);
 
   const sortedProducts = useMemo(
-    () => sortProducts(filteredProducts, sortBy),
-    [filteredProducts, sortBy],
+    () => sortProducts(filteredProducts, sortBy, language),
+    [filteredProducts, sortBy, language],
   );
 
   const activeFilterCount =
