@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState } from "react";
 import { toast } from "react-toastify";
 
 import { readJsonFromStorage } from "../utils/safeLocalStorage";
+import { useLanguage } from "./LanguageContext";
 
 const CompareContext = createContext();
 
@@ -11,6 +12,7 @@ export function CompareProvider({ children }) {
   const [compareItems, setCompareItems] = useState(() =>
     readJsonFromStorage("compareItems", []),
   );
+  const { t } = useLanguage();
 
   useEffect(() => {
     localStorage.setItem("compareItems", JSON.stringify(compareItems));
@@ -23,12 +25,17 @@ export function CompareProvider({ children }) {
     if (isInCompare(product._id)) return;
 
     if (compareItems.length >= MAX_COMPARE_ITEMS) {
-      toast.error(`You can compare up to ${MAX_COMPARE_ITEMS} products`);
+      toast.error(
+        t(
+          `You can compare up to ${MAX_COMPARE_ITEMS} products`,
+          `आप अधिकतम ${MAX_COMPARE_ITEMS} प्रोडक्ट कंपेयर कर सकते हैं`,
+        ),
+      );
       return;
     }
 
     setCompareItems([...compareItems, product]);
-    toast.success("Added to compare");
+    toast.success(t("Added to compare", "कंपेयर में जोड़ा गया"));
   };
 
   const removeFromCompare = (productId) => {

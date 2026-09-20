@@ -225,12 +225,22 @@ function Header() {
       return;
     }
 
+    // clearTimeout only stops a timer that hasn't fired yet — once the
+    // debounce elapses and the request is in flight, a later keystroke's
+    // cleanup can't cancel it. A slower response for an earlier query can
+    // then resolve after a faster one for the current query and overwrite
+    // it with stale suggestions. `cancelled` guards that window too.
+    let cancelled = false;
+
     const timeout = setTimeout(async () => {
       const response = await getSearchSuggestions(trimmed, searchCategory);
-      if (response.success) setSuggestions(response.products);
+      if (!cancelled && response.success) setSuggestions(response.products);
     }, 250);
 
-    return () => clearTimeout(timeout);
+    return () => {
+      cancelled = true;
+      clearTimeout(timeout);
+    };
   }, [query, searchCategory]);
 
   const handleSuggestionClick = (product) => {
