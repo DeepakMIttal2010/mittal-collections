@@ -36,6 +36,16 @@ const returnRequestSchema = new mongoose.Schema(
       min: 1,
     },
 
+    // Which variant (size) this was, for a sized product — empty for a
+    // non-variant product. Needed so restoreStock puts stock back on
+    // the SAME variant it was taken from, not just the top-level
+    // aggregate (see Product.js: top-level stock is always meant to
+    // equal the sum of variants[].stock).
+    size: {
+      type: String,
+      default: "",
+    },
+
     reason: {
       type: String,
       required: [true, "Reason is required"],
@@ -77,8 +87,16 @@ const returnRequestSchema = new mongoose.Schema(
 
 returnRequestSchema.index({ user: 1, createdAt: -1 });
 returnRequestSchema.index({ status: 1, createdAt: -1 });
-// One active return request per product-in-order at a time.
-returnRequestSchema.index({ order: 1, product: 1 });
+// One active return request per product+size-in-order at a time —
+// enforced at the DB level (partial: excludes Rejected, so a genuine
+// re-request after rejection is still allowed) rather than only via the
+// application-level findOne-then-create check in createReturnRequest,
+// which two concurrent submissions (double-click, two tabs) could both
+// pass before either write lands.
+returnRequestSchema.index(
+  { order: 1, product: 1, size: 1 },
+  { unique: true, partialFilterExpression: { status: { $ne: "Rejected" } } },
+);
 // Admin notification poll's unseen-returns query.
 returnRequestSchema.index({ isSeenByAdmin: 1, createdAt: -1 });
 

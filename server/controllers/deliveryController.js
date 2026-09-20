@@ -52,7 +52,17 @@ export const resolveFastDelivery = async (pincode) => {
 
   return {
     found: true,
-    fastDelivery: Boolean(matchedArea) || district === "Ghaziabad",
+    // `|| district === "Ghaziabad"` used to also count as fast delivery
+    // — but DELIVERY_AREAS is a deliberately small, curated list of
+    // localities actually near the shop (what the banner itself
+    // advertises: "Vasundhara, Vaishali, Indirapuram & आसपास", not "all
+    // of Ghaziabad"). The whole district includes far-flung towns
+    // (Modinagar, Loni, Muradnagar, Dasna, ...) this business can't
+    // actually reach in 24 hours. This flows straight into createOrder's
+    // localDeliveryOnly gate too, so the fallback wasn't just an
+    // over-generous banner message — it let a bulky/oversized product
+    // get accepted for an address outside the real serviceable zone.
+    fastDelivery: Boolean(matchedArea),
     areaName: matchedArea?.Name || result.PostOffice[0].Name,
     district,
   };

@@ -55,6 +55,48 @@ export const updateSiteSettings = async (req, res) => {
       pricingRules,
     } = req.body;
 
+    // bundleRules/pricingRules feed straight into real pricing logic
+    // (bundleDiscount.js, and the Cost/Price Auto-Fill suggestion
+    // AddProduct/EditProduct use to fill purchasePrice -> price) with no
+    // validation before this point — a self-referential bundle rule
+    // (categoryA === categoryB) grants its discount to a single-category
+    // cart with no actual second item, and a priceDiscountPercent >= 100
+    // or a non-positive mrpMultiplier auto-fills a free or negative
+    // product price that an admin can save without noticing.
+    if (Array.isArray(bundleRules)) {
+      const hasSelfReference = bundleRules.some(
+        (rule) =>
+          rule.categoryA &&
+          rule.categoryB &&
+          String(rule.categoryA) === String(rule.categoryB),
+      );
+
+      if (hasSelfReference) {
+        return res.status(400).json({
+          success: false,
+          message: "A bundle rule's two categories must be different.",
+        });
+      }
+    }
+
+    if (Array.isArray(pricingRules)) {
+      const hasInvalidRule = pricingRules.some(
+        (rule) =>
+          !(Number(rule.miscExpensesPercent) >= 0) ||
+          !(Number(rule.mrpMultiplier) > 0) ||
+          !(Number(rule.priceDiscountPercent) >= 0) ||
+          Number(rule.priceDiscountPercent) >= 100,
+      );
+
+      if (hasInvalidRule) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Pricing rule values must be positive, with a discount percent under 100.",
+        });
+      }
+    }
+
     let settings = await SiteSettings.findOne();
 
     if (!settings) {

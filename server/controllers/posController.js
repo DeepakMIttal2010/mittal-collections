@@ -11,10 +11,15 @@ import {
 export const getProductForPOS = async (req, res) => {
   try {
     const product = await Product.findById(req.params.id).select(
-      "name image price stock variants",
+      "name image price stock variants isActive",
     );
 
-    if (!product) {
+    // A soft-deleted/discontinued product (deleteProduct only ever sets
+    // isActive: false, stock is untouched) can still have its printed
+    // shelf QR label around — that label permanently encodes this
+    // product's id (ProductQRLabel.jsx), so without this check a scan
+    // completes a sale for something the admin already pulled from sale.
+    if (!product || !product.isActive) {
       return res.status(404).json({
         success: false,
         message: "Product not found",
@@ -68,10 +73,14 @@ const reserveStockForItems = async (items) => {
   const reserved = [];
 
   for (const item of items) {
+    // isActive: true here (not just at the lookup step above) means a
+    // sale can't complete for a since-deactivated product even if that
+    // lookup was bypassed and a stale/known product id posted directly.
     const updated = item.size
       ? await Product.findOneAndUpdate(
           {
             _id: item.productId,
+            isActive: true,
             stock: { $gte: item.quantity },
             variants: {
               $elemMatch: { size: item.size, stock: { $gte: item.quantity } },
@@ -81,7 +90,7 @@ const reserveStockForItems = async (items) => {
           { new: true, arrayFilters: [{ "v.size": item.size }] },
         )
       : await Product.findOneAndUpdate(
-          { _id: item.productId, stock: { $gte: item.quantity } },
+          { _id: item.productId, isActive: true, stock: { $gte: item.quantity } },
           { $inc: { stock: -item.quantity } },
           { new: true },
         );
@@ -157,13 +166,18 @@ export const recordOfflineSale = async (req, res) => {
     if (!stockResult.success) {
       const failedProduct = await Product.findById(
         stockResult.failedProductId,
-      ).select("name stock");
+      ).select("name stock isActive");
+
+      let message = "One of the items is out of stock";
+      if (failedProduct && !failedProduct.isActive) {
+        message = `"${failedProduct.name}" is no longer available for sale`;
+      } else if (failedProduct) {
+        message = `Only ${failedProduct.stock} of "${failedProduct.name}" in stock`;
+      }
 
       return res.status(400).json({
         success: false,
-        message: failedProduct
-          ? `Only ${failedProduct.stock} of "${failedProduct.name}" in stock`
-          : "One of the items is out of stock",
+        message,
       });
     }
 

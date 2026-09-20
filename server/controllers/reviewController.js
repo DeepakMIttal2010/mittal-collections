@@ -100,7 +100,10 @@ export const submitReview = async (req, res) => {
 
     // Only reviews tied to a Delivered order count toward the per-order
     // bonus cap — a review with no matching order just gets the flat
-    // amount uncapped (e.g. seeded/legacy data).
+    // amount uncapped (e.g. seeded/legacy data). Deliberately NOT a
+    // gate on submission itself — any logged-in customer can review a
+    // product they haven't bought (no "Verified Purchase" requirement),
+    // confirmed intentional by this file's own test coverage.
     const order = await Order.findOne({
       user: req.user._id,
       orderStatus: "Delivered",
@@ -124,6 +127,18 @@ export const submitReview = async (req, res) => {
       review,
     });
   } catch (error) {
+    // The unique {product, user} index (see Review.js) is what actually
+    // stops two concurrent submissions from both creating a review — the
+    // findOne check above can't fully close that race. Surface the
+    // loser's duplicate-key error as the same message the check above
+    // gives, not a generic 500.
+    if (error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: "You have already reviewed this product",
+      });
+    }
+
     console.error("Submit Review Error:", error);
 
     res.status(500).json({
