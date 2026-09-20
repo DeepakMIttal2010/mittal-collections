@@ -329,6 +329,15 @@ function AdminOrders() {
                     {order.orderStatus}
                   </span>
 
+                  {order.paidAfterCancellation && (
+                    <span
+                      className="text-xs font-semibold px-3 py-1 rounded-full w-fit bg-red-600 text-white"
+                      title="Payment was verified after this order was already cancelled — the customer was charged but stock was already released. Confirm fulfillment or refund manually."
+                    >
+                      ⚠ Paid after cancel — needs refund/review
+                    </span>
+                  )}
+
                   <button
                     type="button"
                     onClick={(e) => {

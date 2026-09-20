@@ -1,4 +1,5 @@
 import Question from "../models/Question.js";
+import { notifyUser } from "../utils/notify.js";
 
 // ============================
 // GET PUBLISHED Q&A FOR A PRODUCT (Public)
@@ -94,7 +95,10 @@ export const answerQuestion = async (req, res) => {
   try {
     const { answer, isPublished } = req.body;
 
-    const question = await Question.findById(req.params.id);
+    const question = await Question.findById(req.params.id).populate(
+      "product",
+      "name nameHi",
+    );
 
     if (!question) {
       return res.status(404).json({
@@ -103,11 +107,27 @@ export const answerQuestion = async (req, res) => {
       });
     }
 
+    // submitQuestion's own response tells the customer "we'll answer your
+    // question soon" — this is the one moment that promise is actually
+    // kept, so it's the moment to tell them, not every save (e.g. an
+    // admin later just toggling isPublished shouldn't re-notify).
+    const isNewAnswer = answer !== undefined && answer.trim() !== "" && !question.answer;
+
     if (answer !== undefined) question.answer = answer;
     question.isPublished =
       isPublished === undefined ? Boolean(answer) : isPublished;
 
     await question.save();
+
+    if (isNewAnswer) {
+      notifyUser({
+        userId: question.user,
+        type: "question_answered",
+        title: "Your question was answered",
+        message: `We answered your question about ${question.product?.name || "a product"}.`,
+        link: `/product/${question.product?._id || ""}`,
+      });
+    }
 
     res.status(200).json({
       success: true,

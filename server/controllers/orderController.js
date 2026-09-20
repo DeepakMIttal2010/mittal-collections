@@ -768,14 +768,42 @@ export const verifyRazorpayPayment = async (req, res) => {
       });
     }
 
+    // A valid signature means Razorpay genuinely took the money,
+    // regardless of what state our own order is in — but if the
+    // stale-order cron already cancelled this order (and restored its
+    // stock, possibly to another customer) before this verify call
+    // arrived, blindly setting isPaid=true would leave a paid order
+    // silently stuck as "Cancelled" with no signal to anyone. Record the
+    // real payment fact, but don't auto-revive the order — stock may no
+    // longer be available — and flag it for a human to resolve.
+    const wasCancelled = order.orderStatus === "Cancelled";
+
     order.isPaid = true;
     order.paidAt = new Date();
     order.razorpayPaymentId = razorpay_payment_id;
+    if (wasCancelled) order.paidAfterCancellation = true;
     await order.save();
+
+    if (wasCancelled) {
+      try {
+        await sendEmail({
+          to: process.env.ADMIN_NOTIFICATION_EMAIL,
+          subject: `Action needed: payment received on cancelled order ${order._id}`,
+          html: `
+            <p>Order ${order._id} was already cancelled (stock restored) when a valid Razorpay payment (${razorpay_payment_id}) was verified for it.</p>
+            <p>The customer was genuinely charged. Please manually confirm whether stock can still be fulfilled, or issue a refund via the Razorpay dashboard.</p>
+          `,
+        });
+      } catch (emailError) {
+        console.error("Paid-After-Cancellation Admin Alert Error:", emailError);
+      }
+    }
 
     res.status(200).json({
       success: true,
-      message: "Payment verified successfully",
+      message: wasCancelled
+        ? "Payment received. This order was already cancelled — our team will confirm with you shortly."
+        : "Payment verified successfully",
     });
   } catch (error) {
     console.error("Verify Razorpay Payment Error:", error);
@@ -1359,8 +1387,59 @@ export const cancelStaleRazorpayOrders = async (req, res) => {
     });
 
     let cancelled = 0;
+    let recovered = 0;
 
     for (const order of staleOrders) {
+      // Our own isPaid flag only ever gets set by verifyRazorpayPayment,
+      // a client-driven call — there's no webhook, so a payment that
+      // genuinely succeeded on Razorpay's side (e.g. the browser closed
+      // right after the bank redirect, before that call fired) would
+      // otherwise look identical to a real abandoned checkout here, and
+      // get cancelled + have its stock restored despite the customer
+      // having actually been charged. Check with Razorpay directly
+      // before trusting "still unpaid after 45 minutes" at face value.
+      try {
+        const razorpayOrder = await getRazorpay().orders.fetch(
+          order.razorpayOrderId,
+        );
+
+        if (razorpayOrder.status === "paid") {
+          const { items: payments } = await getRazorpay().orders.fetchPayments(
+            order.razorpayOrderId,
+          );
+          const captured = payments.find((p) => p.status === "captured");
+
+          order.isPaid = true;
+          order.paidAt = new Date();
+          order.razorpayPaymentId = captured?.id || "";
+          await order.save();
+
+          // Nothing else in this flow tells the customer their payment
+          // actually went through — verifyRazorpayPayment (the normal
+          // path) relies on the checkout page itself showing success,
+          // which never happened here since that call never fired.
+          notifyUser({
+            userId: order.user,
+            type: "order_status",
+            title: "Payment confirmed",
+            message: `We've confirmed your payment for order ${order._id} — it's now being processed.`,
+            link: `/my-orders/${order._id}`,
+          });
+
+          recovered += 1;
+          continue;
+        }
+      } catch (razorpayError) {
+        // Can't confirm either way (Razorpay API hiccup) — leave this
+        // order alone for now rather than risk wrongly cancelling a
+        // possibly-paid order; the next run will re-check it.
+        console.error(
+          `Stale Order Razorpay Check Error (order ${order._id}):`,
+          razorpayError,
+        );
+        continue;
+      }
+
       order.orderStatus = "Cancelled";
       order.statusHistory.push({ status: "Cancelled", changedAt: new Date() });
       await order.save();
@@ -1395,8 +1474,9 @@ export const cancelStaleRazorpayOrders = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: `Cancelled ${cancelled} stale Razorpay order${cancelled === 1 ? "" : "s"}`,
+      message: `Cancelled ${cancelled} stale Razorpay order${cancelled === 1 ? "" : "s"}, recovered ${recovered} that had actually been paid`,
       cancelled,
+      recovered,
     });
   } catch (error) {
     console.error("Cancel Stale Razorpay Orders Error:", error);

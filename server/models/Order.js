@@ -197,6 +197,17 @@ const orderSchema = new mongoose.Schema(
       default: "",
     },
 
+    // Set only in the narrow race where a Razorpay payment is verified
+    // (valid signature — money genuinely taken) AFTER the stale-order
+    // cron already cancelled this same order and restored its stock.
+    // The order is left Cancelled rather than silently auto-revived
+    // (stock may already be sold to someone else) — this flags it for
+    // an admin to manually refund or manually re-fulfill.
+    paidAfterCancellation: {
+      type: Boolean,
+      default: false,
+    },
+
     isSeenByAdmin: {
       type: Boolean,
       default: false,
