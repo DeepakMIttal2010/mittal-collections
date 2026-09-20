@@ -29,11 +29,12 @@ export const register = async (req, res) => {
     // A JSON body can carry an object where a string is expected (e.g.
     // {"email": {"$ne": null}}) — passed straight into a Mongoose query
     // filter unchecked, that's a NoSQL operator-injection vector rather
-    // than a genuine "no such user" lookup.
-    if (typeof email !== "string") {
+    // than a genuine "no such user" lookup. mobile hits the same kind of
+    // filter below (existingMobile), so it needs the same guard.
+    if (typeof email !== "string" || typeof mobile !== "string") {
       return res.status(400).json({
         success: false,
-        message: "Invalid email",
+        message: "Invalid email or mobile number",
       });
     }
 

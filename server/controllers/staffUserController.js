@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 
 import User from "../models/User.js";
 import Role from "../models/Role.js";
+import { hasAdminPermission } from "../utils/adminAccess.js";
 
 // This file manages admin-panel login accounts (role: "admin") —
 // deliberately separate from userController.js, which manages customer
@@ -93,6 +94,17 @@ export const addStaffUser = async (req, res) => {
         });
       }
       roleId = role._id;
+    } else if (!hasAdminPermission(req.user, "roles")) {
+      // Granting "Full Admin" (no role = unrestricted access, see
+      // requirePermission.js) is equivalent to granting every permission
+      // there is, including ones this caller doesn't hold themselves —
+      // require the same "roles" permission Roles & Permissions itself
+      // is gated behind, so "staff-users" alone can't mint a backdoor
+      // full-admin account.
+      return res.status(403).json({
+        success: false,
+        message: "You don't have permission to create a Full Admin account.",
+      });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -173,6 +185,14 @@ export const updateStaffUser = async (req, res) => {
           });
         }
         staffUser.adminRole = role._id;
+      } else if (!hasAdminPermission(req.user, "roles")) {
+        // Same gate as addStaffUser — removing another staff account's
+        // role restriction makes it a full/unrestricted admin, which
+        // "staff-users" permission alone shouldn't be able to grant.
+        return res.status(403).json({
+          success: false,
+          message: "You don't have permission to grant Full Admin access.",
+        });
       } else {
         staffUser.adminRole = null;
       }
