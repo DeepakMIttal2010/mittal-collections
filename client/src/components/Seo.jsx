@@ -2,6 +2,21 @@ import { Helmet } from "react-helmet-async";
 
 import { useLanguage } from "../context/LanguageContext";
 
+// react-helmet-async inserts a <script> tag's JSX children as the tag's
+// raw innerHTML (script content can't be text-escaped the normal React
+// way) — so JSON.stringify(block) alone is NOT safe here whenever a
+// jsonLd block embeds customer-supplied text (e.g. a product review's
+// content, via ProductDetails.jsx's Review structured data). The HTML
+// parser looks for a literal "</script>" byte sequence to end the tag
+// regardless of JSON quoting — a review containing
+// "</script><script>...", left unescaped, closes this JSON-LD script
+// early and opens a real, executable one: stored XSS. Escaping "<" to
+// its unicode form makes that sequence impossible to reconstruct
+// literally, without changing what the embedded JSON actually decodes
+// to (browsers/crawlers un-escape < when parsing the JSON).
+const safeJsonLdStringify = (block) =>
+  JSON.stringify(block).replace(/</g, "\\u003c");
+
 const SITE_NAME = "Mittal Collections";
 // The homepage hero banner (styled bedroom scene) — same asset Hero.jsx
 // already shows, just cropped to the 1200x630 (1.91:1) size social
@@ -67,7 +82,7 @@ function Seo({
           .filter(Boolean)
           .map((block, i) => (
             <script key={i} type="application/ld+json">
-              {JSON.stringify(block)}
+              {safeJsonLdStringify(block)}
             </script>
           ))}
     </Helmet>
