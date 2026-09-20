@@ -5,6 +5,7 @@ import { toast } from "react-toastify";
 import { syncCart, syncGuestCart, mergeGuestCart } from "../services/cartService";
 import { getSiteSettings } from "../services/settingsService";
 import { useAuth } from "./AuthContext";
+import { useLanguage } from "./LanguageContext";
 import { getVisitorId } from "../utils/visitorId";
 import { readJsonFromStorage } from "../utils/safeLocalStorage";
 
@@ -17,6 +18,7 @@ export function CartProvider({ children }) {
 
   const [isCartOpen, setIsCartOpen] = useState(false);
   const { isLoggedIn } = useAuth();
+  const { t } = useLanguage();
 
   // "Complete the Look" bundle rules — admin-managed. Buying from both
   // categories in an active rule unlocks that rule's discount automatically
@@ -107,7 +109,7 @@ export function CartProvider({ children }) {
       const newQuantity = Math.min(existingItem.quantity + qty, stock);
 
       if (newQuantity <= existingItem.quantity) {
-        toast.error(`Only ${stock} in stock`);
+        toast.error(t(`Only ${stock} in stock`, `केवल ${stock} स्टॉक में`));
         openCart();
         return;
       }
@@ -123,10 +125,10 @@ export function CartProvider({ children }) {
         ),
       );
 
-      toast.info("Product quantity updated");
+      toast.info(t("Product quantity updated", "प्रोडक्ट मात्रा अपडेट हुई"));
     } else {
       if (stock <= 0) {
-        toast.error("Out of stock");
+        toast.error(t("Out of stock", "स्टॉक में नहीं है"));
         return;
       }
 
@@ -144,7 +146,7 @@ export function CartProvider({ children }) {
         },
       ]);
 
-      toast.success("Product added to cart 🛒");
+      toast.success(t("Product added to cart 🛒", "प्रोडक्ट कार्ट में जोड़ा गया 🛒"));
     }
 
     openCart();
@@ -153,14 +155,14 @@ export function CartProvider({ children }) {
   const removeFromCart = (id) => {
     setCartItems(cartItems.filter((item) => item._id !== id));
 
-    toast.error("Product removed from cart");
+    toast.error(t("Product removed from cart", "प्रोडक्ट कार्ट से हटाया गया"));
   };
 
   const increaseQty = (id) => {
     const item = cartItems.find((cartItem) => cartItem._id === id);
 
     if (item && item.quantity >= item.stock) {
-      toast.error(`Only ${item.stock} in stock`);
+      toast.error(t(`Only ${item.stock} in stock`, `केवल ${item.stock} स्टॉक में`));
       return;
     }
 
@@ -191,7 +193,7 @@ export function CartProvider({ children }) {
 
   const clearCart = () => {
     setCartItems([]);
-    toast.warning("Cart cleared");
+    toast.warning(t("Cart cleared", "कार्ट खाली किया गया"));
   };
 
   const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);

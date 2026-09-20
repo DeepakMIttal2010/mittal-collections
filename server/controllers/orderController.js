@@ -1062,6 +1062,47 @@ export const updateOrderStatus = async (req, res) => {
           { $set: { firstOrderCouponUsed: false } },
         );
       }
+
+      // ...and claw back the referral bonus if THIS order is the one
+      // that triggered it (order.referralBonusPaid, set only once that
+      // payout itself succeeds — see the Delivered branch below).
+      // Without this, cancelling or returning a referred customer's
+      // first order kept both sides' referral points permanently, with
+      // no signup/order left to justify them — repeatable by creating a
+      // new account with someone else's referral code, placing a cheap
+      // order, getting it marked Delivered, then cancelling/returning
+      // it. Also releases referralRewarded so a genuinely-delivered
+      // later order can still earn the bonus once, for real.
+      if (order.referralBonusPaid) {
+        const referredUser = await User.findById(order.user).select(
+          "referredBy",
+        );
+
+        if (referredUser?.referredBy && order.referralBonusPoints.referrer > 0) {
+          await applyLoyaltyPointsChange({
+            userId: referredUser.referredBy,
+            type: "clawback",
+            points: -order.referralBonusPoints.referrer,
+            order: order._id,
+            description: `Reversed referral bonus — order ${order._id} cancelled`,
+          });
+        }
+
+        if (order.referralBonusPoints.referred > 0) {
+          await applyLoyaltyPointsChange({
+            userId: order.user,
+            type: "clawback",
+            points: -order.referralBonusPoints.referred,
+            order: order._id,
+            description: `Reversed referral signup bonus — order ${order._id} cancelled`,
+          });
+        }
+
+        await User.updateOne(
+          { _id: order.user },
+          { $set: { referralRewarded: false } },
+        );
+      }
     } else if (status === "Delivered" && !wasAlreadyCredited) {
       if (order.pointsEarned > 0) {
         await applyLoyaltyPointsChange({
@@ -1110,6 +1151,13 @@ export const updateOrderStatus = async (req, res) => {
           order: order._id,
           description: "Referral signup bonus",
         });
+
+        order.referralBonusPaid = true;
+        order.referralBonusPoints = {
+          referrer: referralSettings.referrerPoints,
+          referred: referralSettings.referredPoints,
+        };
+        await order.save();
       }
     }
 
