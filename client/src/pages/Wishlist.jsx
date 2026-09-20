@@ -1,11 +1,13 @@
 import { imgUrl } from "../services/api";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
 import { FaTrash, FaShoppingCart } from "react-icons/fa";
 
 import { useWishlist } from "../context/WishlistContext";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
+import { productUrl } from "../utils/productUrl";
 import Seo from "../components/Seo";
 
 function Wishlist() {
@@ -14,6 +16,27 @@ function Wishlist() {
   const { addToCart } = useCart();
   const { isLoggedIn } = useAuth();
   const { t } = useLanguage();
+  const navigate = useNavigate();
+
+  // A wishlisted product with variants (different sizes, each its own
+  // price/stock) can't be added directly — CartContext falls back to the
+  // top-level price/stock when no variant is given, which only ever
+  // mirrors the FIRST size. That silently charges whatever that size
+  // costs and never reserves stock for the size the customer actually
+  // wants. Send them to the product page to pick one, same as browsing
+  // normally would require.
+  const handleAddToCart = (item) => {
+    if (item.variants?.length > 0) {
+      toast.info(
+        t("Please select a size on the product page", "प्रोडक्ट पेज पर साइज़ चुनें"),
+      );
+      navigate(productUrl(item));
+      return;
+    }
+
+    addToCart(item);
+    removeFromWishlist(item._id);
+  };
 
   const hasItems = wishlistItems && wishlistItems.length > 0;
 
@@ -79,10 +102,7 @@ function Wishlist() {
                   <div className="flex flex-col gap-2 mt-4">
                     <button
                       type="button"
-                      onClick={() => {
-                        addToCart(item);
-                        removeFromWishlist(item._id);
-                      }}
+                      onClick={() => handleAddToCart(item)}
                       className="flex items-center justify-center gap-2 bg-blue-900 hover:bg-blue-950 text-white text-sm font-medium py-2.5 rounded-lg transition-colors"
                     >
                       <FaShoppingCart />

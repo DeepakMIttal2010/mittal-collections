@@ -141,6 +141,14 @@ function ProductDetails() {
   }, []);
 
   useEffect(() => {
+    // Without this, navigating from product A to product B while A's
+    // fetch is still in flight — e.g. clicking a related product before
+    // a slow response resolves — lets A's `.then` chain fire after B's
+    // and silently overwrite the screen (and add-to-cart target) back to
+    // product A while the URL still shows B. Same guard Checkout.jsx's
+    // pincode-check effect already uses.
+    let cancelled = false;
+
     const loadProduct = async () => {
       setLoading(true);
       setRelatedProducts([]);
@@ -149,6 +157,8 @@ function ProductDetails() {
       setBundleDiscountPercent(0);
 
       const response = await getProductById(id);
+
+      if (cancelled) return;
 
       // Only a confirmed 404 counts as "doesn't exist" — a transient
       // failure (cold-starting backend, network blip) must not render
@@ -165,11 +175,11 @@ function ProductDetails() {
         addRecentlyViewed(response.product._id);
 
         getProductViewCount(response.product._id).then((viewRes) => {
-          if (viewRes.success) setViewCount(viewRes.count);
+          if (!cancelled && viewRes.success) setViewCount(viewRes.count);
         });
 
         getProductReviews(response.product._id).then((reviewRes) => {
-          if (reviewRes.success) {
+          if (!cancelled && reviewRes.success) {
             setReviewStats({
               averageRating: reviewRes.averageRating,
               totalReviews: reviewRes.totalReviews,
@@ -192,6 +202,8 @@ function ProductDetails() {
             getProductsByCategory(categoryId),
             getSiteSettings(),
           ]);
+
+          if (cancelled) return;
 
           if (relatedRes.success) {
             setRelatedProducts(
@@ -217,6 +229,8 @@ function ProductDetails() {
               partnerCategory._id,
             );
 
+            if (cancelled) return;
+
             if (bundleRes.success) {
               setBundleProducts(bundleRes.products.slice(0, 8));
               setBundleCategory(partnerCategory);
@@ -226,10 +240,14 @@ function ProductDetails() {
         }
       }
 
-      setLoading(false);
+      if (!cancelled) setLoading(false);
     };
 
     loadProduct();
+
+    return () => {
+      cancelled = true;
+    };
   }, [id]);
 
   const scrollRelated = (direction) => {

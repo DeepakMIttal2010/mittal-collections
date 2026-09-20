@@ -14,6 +14,7 @@ import {
 } from "../services/wishlistService";
 
 import { useAuth } from "./AuthContext";
+import { useLanguage } from "./LanguageContext";
 import { getVisitorId } from "../utils/visitorId";
 
 const WishlistContext = createContext();
@@ -21,6 +22,7 @@ const WishlistContext = createContext();
 export function WishlistProvider({ children }) {
   const [wishlistItems, setWishlistItems] = useState([]);
   const { isLoggedIn } = useAuth();
+  const { t } = useLanguage();
 
   useEffect(() => {
     const loadWishlist = async () => {
@@ -46,7 +48,7 @@ export function WishlistProvider({ children }) {
     const exists = wishlistItems.find((item) => item._id === product._id);
 
     if (exists) {
-      toast.info("Already in wishlist");
+      toast.info(t("Already in wishlist", "पहले से विशलिस्ट में है"));
       return;
     }
 
@@ -57,7 +59,7 @@ export function WishlistProvider({ children }) {
     if (response.success) {
       setWishlistItems([...wishlistItems, product]);
 
-      toast.success("Added to wishlist ❤️");
+      toast.success(t("Added to wishlist ❤️", "विशलिस्ट में जोड़ा गया ❤️"));
     } else {
       toast.error(response.message);
     }
@@ -71,7 +73,7 @@ export function WishlistProvider({ children }) {
     if (response.success) {
       setWishlistItems(wishlistItems.filter((item) => item._id !== productId));
 
-      toast.success("Removed from wishlist");
+      toast.success(t("Removed from wishlist", "विशलिस्ट से हटाया गया"));
     } else {
       toast.error(response.message);
     }
@@ -84,7 +86,7 @@ export function WishlistProvider({ children }) {
 
     if (response.success) {
       setWishlistItems([]);
-      toast.success("Wishlist cleared successfully");
+      toast.success(t("Wishlist cleared successfully", "विशलिस्ट खाली कर दी गई"));
     } else {
       toast.error(response.message);
     }

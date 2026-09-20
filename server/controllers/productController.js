@@ -52,6 +52,11 @@ const generateSlug = (name) =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)/g, "");
 
+// Admin's product search builds a RegExp straight from the search box —
+// an unescaped special char (e.g. an unmatched "(") throws inside `new
+// RegExp`, 500ing the admin panel on an otherwise ordinary search.
+const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 // Size variants (e.g. Curtains sold as 7x4/9x4, same fabric/quality, each
 // with its own price/MRP/stock) arrive as a JSON string in the multipart
 // form, same pattern as existingImages/existingVideos below.
@@ -401,7 +406,7 @@ export const getAllProductsAdmin = async (req, res) => {
       req.query;
 
     if (search && search.trim()) {
-      const regex = new RegExp(search.trim(), "i");
+      const regex = new RegExp(escapeRegex(search.trim()), "i");
       filter.$or = [{ name: regex }, { description: regex }];
     }
 
@@ -1173,6 +1178,12 @@ export const getProductById = async (req, res) => {
 // ADD PRODUCT
 // ============================
 export const addProduct = async (req, res) => {
+  // Declared outside the try block (and assigned, not re-declared,
+  // inside it) so the catch block below can still reach whatever was
+  // already uploaded to Cloudinary if Product.create() fails partway.
+  let images = [];
+  let videos = [];
+
   try {
     const {
       name,
@@ -1213,8 +1224,8 @@ export const addProduct = async (req, res) => {
       visibility,
     } = req.body;
 
-    const images = (req.files?.images || []).map((file) => file.path);
-    const videos = (req.files?.videos || []).map((file) => file.path);
+    images = (req.files?.images || []).map((file) => file.path);
+    videos = (req.files?.videos || []).map((file) => file.path);
 
     if (images.length === 0) {
       return res.status(400).json({
@@ -1298,6 +1309,14 @@ export const addProduct = async (req, res) => {
     });
   } catch (error) {
     console.error(error);
+
+    // imageOptimizer already uploaded every image/video to Cloudinary
+    // before this handler ever ran (multer uses memoryStorage — the
+    // optimizer middleware IS the upload step). If Product.create()
+    // fails here (a validation error, a DB hiccup), those uploads would
+    // otherwise sit orphaned in Cloudinary forever — most reachable via
+    // AdminBulkImport.jsx, which calls this once per CSV row in a loop.
+    await deleteCloudinaryAssetsByUrl([...(images || []), ...(videos || [])]);
 
     res.status(500).json({
       success: false,
