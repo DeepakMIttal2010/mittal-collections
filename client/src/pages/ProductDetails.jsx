@@ -85,6 +85,7 @@ function ProductDetails() {
   const [reviewStats, setReviewStats] = useState({
     averageRating: 0,
     totalReviews: 0,
+    reviews: [],
   });
 
   const [descExpanded, setDescExpanded] = useState(false);
@@ -173,6 +174,7 @@ function ProductDetails() {
             setReviewStats({
               averageRating: reviewRes.averageRating,
               totalReviews: reviewRes.totalReviews,
+              reviews: reviewRes.reviews || [],
             });
           }
         });
@@ -492,7 +494,11 @@ function ProductDetails() {
     "@type": "Product",
     name: product.name,
     description: stripHtml(product.description),
-    image: imgUrl(product.image),
+    // Google's Product rich-result guidance wants multiple angles when
+    // they exist, not just the main photo — productImages already
+    // excludes videos (see mediaItems above) and falls back to the
+    // single product.image when no gallery array is set.
+    image: productImages.map(imgUrl),
     brand: {
       "@type": "Brand",
       name: "Mittal Collections",
@@ -561,6 +567,26 @@ function ProductDetails() {
         ratingValue: reviewStats.averageRating.toFixed(1),
         reviewCount: reviewStats.totalReviews,
       },
+    }),
+    // Individual reviews alongside the aggregate — this content is
+    // already fetched (for the rating badge above) and already shown to
+    // visitors via <ProductReviews> below, just never handed to Google
+    // before now. Capped at the 10 most recent (server already sorts
+    // newest-first) so this doesn't bloat the page with every review
+    // a popular product accumulates over time.
+    ...(reviewStats.reviews.length > 0 && {
+      review: reviewStats.reviews.slice(0, 10).map((r) => ({
+        "@type": "Review",
+        author: { "@type": "Person", name: r.user?.name || "Customer" },
+        reviewRating: {
+          "@type": "Rating",
+          ratingValue: r.rating,
+          bestRating: 5,
+          worstRating: 1,
+        },
+        reviewBody: r.content,
+        datePublished: r.createdAt,
+      })),
     }),
   };
 
