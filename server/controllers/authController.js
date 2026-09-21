@@ -561,16 +561,27 @@ export const forgotPassword = async (req, res) => {
 
       const resetUrl = `${process.env.CLIENT_URL}/reset-password/${rawToken}`;
 
-      await sendEmail({
-        to: user.email,
-        subject: "Reset your Mittal Collections password",
-        html: `
-          <p>Hi ${user.name || "there"},</p>
-          <p>We received a request to reset your password. This link expires in 30 minutes.</p>
-          <p><a href="${resetUrl}">Reset your password</a></p>
-          <p>If you didn't request this, you can safely ignore this email.</p>
-        `,
-      });
+      // Unlike every other sendEmail call site in this file, this one
+      // must never let a transient send failure (Brevo blip, bad key)
+      // propagate up to the outer catch — that would return a 500 only
+      // when the account genuinely exists (a 200 either means no
+      // account or a successful email), turning the response code
+      // itself into exactly the enumeration side-channel the uniform
+      // response below is meant to prevent.
+      try {
+        await sendEmail({
+          to: user.email,
+          subject: "Reset your Mittal Collections password",
+          html: `
+            <p>Hi ${user.name || "there"},</p>
+            <p>We received a request to reset your password. This link expires in 30 minutes.</p>
+            <p><a href="${resetUrl}">Reset your password</a></p>
+            <p>If you didn't request this, you can safely ignore this email.</p>
+          `,
+        });
+      } catch (error) {
+        console.error("Forgot Password Email Error:", error);
+      }
     }
 
     res.status(200).json({

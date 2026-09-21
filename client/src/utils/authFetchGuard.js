@@ -33,7 +33,7 @@ export function installAuthFetchGuard() {
       localStorage.removeItem("adminUser");
 
       if (!window.location.pathname.startsWith("/admin/login")) {
-        window.location.href = `/admin/login?redirect=${encodeURIComponent(
+        window.location.href = `/admin/login?expired=true&redirect=${encodeURIComponent(
           window.location.pathname + window.location.search,
         )}`;
       }
@@ -42,7 +42,7 @@ export function installAuthFetchGuard() {
       localStorage.removeItem("user");
 
       if (window.location.pathname !== "/login") {
-        window.location.href = `/login?redirect=${encodeURIComponent(
+        window.location.href = `/login?expired=true&redirect=${encodeURIComponent(
           window.location.pathname + window.location.search,
         )}`;
       }

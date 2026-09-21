@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { toast } from "react-toastify";
 import { FaArrowLeft } from "react-icons/fa";
@@ -14,6 +14,22 @@ function Login() {
   const redirectTo = searchParams.get("redirect") || "/";
   const { login } = useAuth();
   const { t } = useLanguage();
+
+  // authFetchGuard.js redirects here with this flag the moment any
+  // request comes back 401 for a stale token (expired, or the account
+  // was blocked/deleted) — without this, that bounce to /login reads
+  // as an unexplained, silent logout with no indication why.
+  useEffect(() => {
+    if (searchParams.get("expired") === "true") {
+      toast.error(
+        t(
+          "Your session has expired. Please log in again.",
+          "आपका सेशन समाप्त हो गया है। कृपया फिर से लॉगिन करें।",
+        ),
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const [formData, setFormData] = useState({
     email: "",
