@@ -54,6 +54,19 @@ const notificationSchema = new mongoose.Schema(
 notificationSchema.index({ user: 1, createdAt: -1 });
 notificationSchema.index({ user: 1, isRead: 1 });
 
+// TTL index — auto-deletes notifications older than 1 year, same
+// retention/reasoning as PageVisit and SearchLog: this collection had
+// no cleanup at all and every notifyUser() call (order status, ticket
+// replies, returns, loyalty points, etc.) grows it with no cap. A
+// customer has no use for an in-app notification this old (the linked
+// order/ticket/etc. has long since been resolved), and the emailed
+// copy sent alongside every one of these remains in their own inbox
+// regardless.
+notificationSchema.index(
+  { createdAt: 1 },
+  { expireAfterSeconds: 365 * 24 * 60 * 60 },
+);
+
 const Notification = mongoose.model("Notification", notificationSchema);
 
 export default Notification;

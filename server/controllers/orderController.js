@@ -41,6 +41,26 @@ const getRazorpay = () => {
   return razorpayInstance;
 };
 
+// Shared by createOrder's clientRequestId fast-path (a retry that
+// arrives after the original request already finished) and its
+// duplicate-key race handler (two truly concurrent submissions both
+// reaching Order.create() — see the unique index on
+// {user, clientRequestId} in Order.js) — both hand back the order that
+// actually won, shaped the same way a fresh 201 response is.
+const buildOrderResponse = (order) => ({
+  success: true,
+  order,
+  razorpayOrder:
+    order.paymentMethod === "Razorpay" && order.razorpayOrderId
+      ? {
+          id: order.razorpayOrderId,
+          amount: Math.round(order.totalPrice * 100),
+          currency: "INR",
+        }
+      : null,
+  razorpayKeyId: order.paymentMethod === "Razorpay" ? process.env.RAZORPAY_KEY_ID : null,
+});
+
 // Computes per-item return eligibility (whether the product allows
 // returns at all, and whether "deliveredAt + return period" hasn't
 // passed yet) and attaches it as `returnInfo` on each order item, so
@@ -330,6 +350,7 @@ export const createOrder = async (req, res) => {
       paymentMethod,
       couponCode,
       redeemPoints,
+      clientRequestId,
     } = req.body;
 
     if (!orderItems || orderItems.length === 0) {
@@ -337,6 +358,24 @@ export const createOrder = async (req, res) => {
         success: false,
         message: "No order items",
       });
+    }
+
+    // A retry of a checkout that already succeeded (network auto-retry,
+    // a double-tap on slow mobile data) — Checkout.jsx resends the same
+    // clientRequestId unchanged on any retry, so if an order with it
+    // already exists, this is that exact same checkout attempt landing
+    // twice, not a new one. Handing back the original instead of
+    // re-running verification/stock/points is both cheaper and what
+    // stops a second, fully-valid order from being created.
+    if (clientRequestId) {
+      const existingOrder = await Order.findOne({
+        user: req.user._id,
+        clientRequestId,
+      });
+
+      if (existingOrder) {
+        return res.status(200).json(buildOrderResponse(existingOrder));
+      }
     }
 
     const verifyResult = await verifyOrderItems(orderItems);
@@ -465,10 +504,30 @@ export const createOrder = async (req, res) => {
         bundleDiscountCategories: bundleResult.categoryNames || [],
         pointsRedeemed,
         pointsDiscount,
+        clientRequestId: clientRequestId || null,
         statusHistory: [{ status: "Pending", changedAt: new Date() }],
       });
     } catch (orderError) {
       await restoreStock(verifiedItems);
+
+      // Two truly concurrent submissions of the same checkout (the
+      // fast-path lookup above only catches a retry that arrives after
+      // the first one already finished) can both get past every other
+      // check and both reach here — the unique index on
+      // {user, clientRequestId} is what actually decides a winner. The
+      // loser already reserved stock for nothing (restored above); hand
+      // back whichever order won instead of a generic 500.
+      if (orderError.code === 11000 && clientRequestId) {
+        const winningOrder = await Order.findOne({
+          user: req.user._id,
+          clientRequestId,
+        });
+
+        if (winningOrder) {
+          return res.status(200).json(buildOrderResponse(winningOrder));
+        }
+      }
+
       throw orderError;
     }
 
