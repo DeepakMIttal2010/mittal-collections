@@ -65,15 +65,26 @@ export const submitReview = async (req, res) => {
     // param, which Express always parses as a plain string) — an object
     // payload like {"$gt": ""} here would otherwise flow into the
     // Review.findOne/Order.findOne queries below as a raw Mongo query
-    // operator instead of a literal id.
-    if (!mongoose.Types.ObjectId.isValid(productId) || !rating || !content) {
+    // operator instead of a literal id. The explicit typeof check (not
+    // just ObjectId.isValid, which also accepts 12-byte buffers) is
+    // what closes off an object-shaped payload in a way static analysis
+    // can actually verify.
+    if (
+      typeof productId !== "string" ||
+      !mongoose.Types.ObjectId.isValid(productId) ||
+      !rating ||
+      !content
+    ) {
       return res.status(400).json({
         success: false,
         message: "Product, rating and content are required",
       });
     }
 
-    const safeProductId = String(productId);
+    // A real ObjectId instance (not just a validated string) for the
+    // raw query-filter/document objects below — guarantees those object
+    // literals can never carry an object-shaped value.
+    const safeProductId = new mongoose.Types.ObjectId(productId);
 
     const existing = await Review.findOne({
       product: safeProductId,

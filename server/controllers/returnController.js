@@ -60,7 +60,12 @@ export const createReturnRequest = async (req, res) => {
     // object payload like {"$gt": ""} here would otherwise flow into
     // Order.findById/Product.findById and the ReturnRequest.findOne
     // query below as a raw Mongo query operator instead of a literal id.
+    // The explicit typeof check (not just ObjectId.isValid, which also
+    // accepts 12-byte buffers) is what closes off an object-shaped
+    // payload in a way static analysis can actually verify.
     if (
+      typeof orderId !== "string" ||
+      typeof productId !== "string" ||
       !mongoose.Types.ObjectId.isValid(orderId) ||
       !mongoose.Types.ObjectId.isValid(productId) ||
       !reason?.trim()
@@ -71,8 +76,13 @@ export const createReturnRequest = async (req, res) => {
       });
     }
 
-    const safeOrderId = String(orderId);
-    const safeProductId = String(productId);
+    const safeOrderId = orderId;
+    const safeProductId = productId;
+    // Real ObjectId instances (not just validated strings) for the raw
+    // query-filter/document objects below — guarantees those object
+    // literals can never carry an object-shaped value.
+    const orderObjectId = new mongoose.Types.ObjectId(orderId);
+    const productObjectId = new mongoose.Types.ObjectId(productId);
 
     const order = await Order.findById(safeOrderId);
 
@@ -113,8 +123,8 @@ export const createReturnRequest = async (req, res) => {
     // on {order, product, size} (see ReturnRequest.js) and the
     // duplicate-key handling below actually guard against.
     const existing = await ReturnRequest.findOne({
-      order: safeOrderId,
-      product: safeProductId,
+      order: orderObjectId,
+      product: productObjectId,
       size: orderItem.size || "",
       status: { $ne: "Rejected" },
     });
@@ -157,9 +167,9 @@ export const createReturnRequest = async (req, res) => {
     }
 
     const returnRequest = await ReturnRequest.create({
-      order: safeOrderId,
+      order: orderObjectId,
       user: req.user._id,
-      product: safeProductId,
+      product: productObjectId,
       productName: orderItem.name,
       productImage: orderItem.image,
       quantity: requestedQty,

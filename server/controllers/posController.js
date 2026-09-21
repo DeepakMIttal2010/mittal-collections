@@ -148,15 +148,18 @@ export const recordOfflineSale = async (req, res) => {
     // Mongo query below (`_id: item.productId`) as a query operator
     // instead of a literal id to match, a NoSQL-injection path CodeQL
     // flags as "Database query built from user-controlled sources".
-    // Validating it's a real ObjectId-shaped string closes that off,
-    // and re-assigning it (not just validating) means every later use
-    // of item.productId is guaranteed to be that plain string, not
-    // whatever shape the original request body had.
+    // The explicit typeof check (not just ObjectId.isValid, which also
+    // accepts 12-byte buffers) is what CodeQL's taint tracking actually
+    // recognizes as closing off an object-shaped payload; re-assigning
+    // to a real ObjectId instance (not just a validated string) then
+    // guarantees the value used in every query below can never be a
+    // plain object again, whatever shape the request body had.
     for (const item of items) {
       const qty = Number(item.quantity);
       const price = Number(item.unitPrice);
 
       if (
+        typeof item.productId !== "string" ||
         !mongoose.Types.ObjectId.isValid(item.productId) ||
         !qty ||
         qty < 1 ||
@@ -174,9 +177,9 @@ export const recordOfflineSale = async (req, res) => {
       // `variants: { $elemMatch: { size: item.size, ... } }`), so an
       // object here would be just as exploitable as an unvalidated
       // productId.
-      item.productId = String(item.productId);
+      item.productId = new mongoose.Types.ObjectId(item.productId);
       item.quantity = qty;
-      item.size = item.size ? String(item.size) : "";
+      item.size = typeof item.size === "string" ? item.size : "";
     }
 
     if (!["Cash", "UPI", "Card"].includes(paymentMethod)) {
