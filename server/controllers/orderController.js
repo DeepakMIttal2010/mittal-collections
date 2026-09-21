@@ -360,6 +360,20 @@ export const createOrder = async (req, res) => {
       });
     }
 
+    // Checkout.jsx always sends a crypto.randomUUID() string (36
+    // chars) — anything else is either an old client that never sent
+    // one, or a crafted value. `if (clientRequestId)` alone only checks
+    // truthiness, and an object here (e.g. {"$gt": ""}) would otherwise
+    // flow straight into the Mongo queries below as a query operator
+    // instead of a literal value to match — the same NoSQL-injection
+    // path CodeQL already flagged once in posController.js. Treating
+    // anything non-string-or-oversized as "no id sent" is safe: it just
+    // falls back to the createOrder path's normal (non-retry) behavior.
+    const safeClientRequestId =
+      typeof clientRequestId === "string" && clientRequestId.length <= 100
+        ? clientRequestId
+        : null;
+
     // A retry of a checkout that already succeeded (network auto-retry,
     // a double-tap on slow mobile data) — Checkout.jsx resends the same
     // clientRequestId unchanged on any retry, so if an order with it
@@ -367,10 +381,10 @@ export const createOrder = async (req, res) => {
     // twice, not a new one. Handing back the original instead of
     // re-running verification/stock/points is both cheaper and what
     // stops a second, fully-valid order from being created.
-    if (clientRequestId) {
+    if (safeClientRequestId) {
       const existingOrder = await Order.findOne({
         user: req.user._id,
-        clientRequestId,
+        clientRequestId: safeClientRequestId,
       });
 
       if (existingOrder) {
@@ -504,7 +518,7 @@ export const createOrder = async (req, res) => {
         bundleDiscountCategories: bundleResult.categoryNames || [],
         pointsRedeemed,
         pointsDiscount,
-        clientRequestId: clientRequestId || null,
+        clientRequestId: safeClientRequestId,
         statusHistory: [{ status: "Pending", changedAt: new Date() }],
       });
     } catch (orderError) {
@@ -517,10 +531,10 @@ export const createOrder = async (req, res) => {
       // {user, clientRequestId} is what actually decides a winner. The
       // loser already reserved stock for nothing (restored above); hand
       // back whichever order won instead of a generic 500.
-      if (orderError.code === 11000 && clientRequestId) {
+      if (orderError.code === 11000 && safeClientRequestId) {
         const winningOrder = await Order.findOne({
           user: req.user._id,
-          clientRequestId,
+          clientRequestId: safeClientRequestId,
         });
 
         if (winningOrder) {

@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import Question from "../models/Question.js";
 import Product from "../models/Product.js";
 import SiteSettings from "../models/SiteSettings.js";
@@ -62,7 +63,18 @@ export const submitQuestion = async (req, res) => {
   try {
     const { productId, question } = req.body;
 
-    if (!productId || !question) {
+    // productId comes straight from the request body (unlike a route
+    // param, which Express always parses as a plain string) — an
+    // object payload like {"$gt": ""} here would otherwise flow into
+    // the Product.findById query below as a raw Mongo query operator
+    // instead of a literal id, the same NoSQL-injection path CodeQL
+    // already flagged once in posController.js/returnController.js/
+    // reviewController.js.
+    if (
+      typeof productId !== "string" ||
+      !mongoose.Types.ObjectId.isValid(productId) ||
+      !question
+    ) {
       return res.status(400).json({
         success: false,
         message: "Product and question are required",
