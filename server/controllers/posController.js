@@ -148,12 +148,15 @@ export const recordOfflineSale = async (req, res) => {
     // Mongo query below (`_id: item.productId`) as a query operator
     // instead of a literal id to match, a NoSQL-injection path CodeQL
     // flags as "Database query built from user-controlled sources".
-    // The explicit typeof check (not just ObjectId.isValid, which also
-    // accepts 12-byte buffers) is what CodeQL's taint tracking actually
-    // recognizes as closing off an object-shaped payload; re-assigning
-    // to a real ObjectId instance (not just a validated string) then
-    // guarantees the value used in every query below can never be a
-    // plain object again, whatever shape the request body had.
+    // Building a brand-new array of plain objects here (instead of
+    // mutating the original req.body items in place) is what lets
+    // CodeQL's taint tracking actually see every value used in a query
+    // below coming straight out of a `new ObjectId(...)`/Number() call
+    // — mutating item.productId in place on the original array left it
+    // unable to prove the reassignment happened before
+    // reserveStockForItems read it back out of the same array.
+    const safeItems = [];
+
     for (const item of items) {
       const qty = Number(item.quantity);
       const price = Number(item.unitPrice);
@@ -172,14 +175,12 @@ export const recordOfflineSale = async (req, res) => {
         });
       }
 
-      // Same reasoning for quantity/size — both flow into the Mongo
-      // query below too (`stock: { $gte: item.quantity }`,
-      // `variants: { $elemMatch: { size: item.size, ... } }`), so an
-      // object here would be just as exploitable as an unvalidated
-      // productId.
-      item.productId = new mongoose.Types.ObjectId(item.productId);
-      item.quantity = qty;
-      item.size = typeof item.size === "string" ? item.size : "";
+      safeItems.push({
+        productId: new mongoose.Types.ObjectId(item.productId),
+        quantity: qty,
+        unitPrice: price,
+        size: typeof item.size === "string" ? item.size : "",
+      });
     }
 
     if (!["Cash", "UPI", "Card"].includes(paymentMethod)) {
@@ -189,7 +190,7 @@ export const recordOfflineSale = async (req, res) => {
       });
     }
 
-    const stockResult = await reserveStockForItems(items);
+    const stockResult = await reserveStockForItems(safeItems);
 
     if (!stockResult.success) {
       const failedProduct = await Product.findById(
@@ -209,18 +210,16 @@ export const recordOfflineSale = async (req, res) => {
       });
     }
 
-    const saleItems = items.map((item, i) => {
-      const qty = Number(item.quantity);
-      const price = Number(item.unitPrice);
+    const saleItems = safeItems.map((item, i) => {
       const product = stockResult.products[i];
 
       return {
         product: product._id,
         productName: product.name,
         size: item.size || "",
-        quantity: qty,
-        unitPrice: price,
-        subtotal: qty * price,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        subtotal: item.quantity * item.unitPrice,
       };
     });
 
