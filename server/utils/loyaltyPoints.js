@@ -111,37 +111,53 @@ export const expireInactivePoints = async () => {
 
     const pointsToExpire = user.loyaltyPoints;
 
-    await applyLoyaltyPointsChange({
-      userId: user._id,
-      type: "expired",
-      points: -pointsToExpire,
-      description: `${pointsToExpire} points expired after ${settings.expiryMonths} months of inactivity`,
-    });
+    try {
+      // Same overlapping-run race applyLoyaltyPointsChange's own guard
+      // exists for — two near-simultaneous cron fires (a scheduler
+      // retry, or two overlapping schedules) could both read this same
+      // user as having pointsToExpire, but only the first deduction
+      // actually lands; the second gets null back. Without checking
+      // that, the second run still counted the user as expired and
+      // sent a duplicate "your points expired" notification/email for
+      // a deduction that never happened.
+      const result = await applyLoyaltyPointsChange({
+        userId: user._id,
+        type: "expired",
+        points: -pointsToExpire,
+        description: `${pointsToExpire} points expired after ${settings.expiryMonths} months of inactivity`,
+      });
 
-    expiredCount += 1;
+      if (!result) continue;
 
-    notifyUser({
-      userId: user._id,
-      type: "loyalty_points",
-      title: "Your loyalty points have expired",
-      message: `${pointsToExpire} points expired after ${settings.expiryMonths} months of inactivity`,
-      link: "/account",
-    });
+      expiredCount += 1;
 
-    if (user.email) {
-      try {
-        await sendEmail({
-          to: user.email,
-          subject: "Your loyalty points have expired",
-          html: `
-            <p>Hi ${user.name || "there"},</p>
-            <p>${pointsToExpire} loyalty points on your Mittal Collections account expired due to
-            ${settings.expiryMonths} months of inactivity. Shop again to start earning fresh points!</p>
-          `,
-        });
-      } catch (error) {
-        console.error(`Points expiry email failed for ${user.email}:`, error);
+      notifyUser({
+        userId: user._id,
+        type: "loyalty_points",
+        title: "Your loyalty points have expired",
+        message: `${pointsToExpire} points expired after ${settings.expiryMonths} months of inactivity`,
+        link: "/account",
+      });
+
+      if (user.email) {
+        try {
+          await sendEmail({
+            to: user.email,
+            subject: "Your loyalty points have expired",
+            html: `
+              <p>Hi ${user.name || "there"},</p>
+              <p>${pointsToExpire} loyalty points on your Mittal Collections account expired due to
+              ${settings.expiryMonths} months of inactivity. Shop again to start earning fresh points!</p>
+            `,
+          });
+        } catch (error) {
+          console.error(`Points expiry email failed for ${user.email}:`, error);
+        }
       }
+    } catch (error) {
+      // One bad record shouldn't abort the whole batch and silently
+      // leave every subsequent user unprocessed with no count reported.
+      console.error(`Points expiry failed for user ${user._id}:`, error);
     }
   }
 

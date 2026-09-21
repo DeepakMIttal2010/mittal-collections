@@ -4,6 +4,7 @@ import authMiddleware from "../middleware/authMiddleware.js";
 import adminMiddleware from "../middleware/adminMiddleware.js";
 import requirePermission from "../middleware/requirePermission.js";
 import requireWriteAccess from "../middleware/requireWriteAccess.js";
+import requireCronSecret from "../middleware/requireCronSecret.js";
 
 import {
   createOrder,
@@ -40,13 +41,13 @@ router.get("/", authMiddleware, adminMiddleware, perm, getAllOrders);
 
 // Send Review Request Emails — called by an external scheduler (cron
 // secret, not JWT), registered before "/:id" so it isn't shadowed by it.
-router.post("/send-review-requests", sendReviewRequestEmails);
-router.get("/send-review-requests", sendReviewRequestEmails);
+router.post("/send-review-requests", requireCronSecret, sendReviewRequestEmails);
+router.get("/send-review-requests", requireCronSecret, sendReviewRequestEmails);
 
 // Cancel Stale Unpaid Razorpay Orders — called by an external scheduler
 // (cron secret, not JWT), same registration-order reasoning as above.
-router.post("/cancel-stale-razorpay", cancelStaleRazorpayOrders);
-router.get("/cancel-stale-razorpay", cancelStaleRazorpayOrders);
+router.post("/cancel-stale-razorpay", requireCronSecret, cancelStaleRazorpayOrders);
+router.get("/cancel-stale-razorpay", requireCronSecret, cancelStaleRazorpayOrders);
 
 // Get Single Order — logged-in user (owner ya admin)
 router.get("/:id", authMiddleware, getOrderById);

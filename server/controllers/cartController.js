@@ -124,9 +124,6 @@ export const mergeGuestCart = async (req, res) => {
 // ============================
 export const sendAbandonedCartReminders = async (req, res) => {
   try {
-    if (req.query.secret !== process.env.CRON_SECRET) {
-      return res.status(401).json({ success: false, message: "Unauthorized" });
-    }
 
     const cutoff = new Date(Date.now() - REMINDER_DELAY_HOURS * 60 * 60 * 1000);
 
