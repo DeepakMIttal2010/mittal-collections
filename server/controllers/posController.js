@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import Product from "../models/Product.js";
 import User from "../models/User.js";
 import OfflineSale from "../models/OfflineSale.js";
@@ -11,10 +12,15 @@ import {
 export const getProductForPOS = async (req, res) => {
   try {
     const product = await Product.findById(req.params.id).select(
-      "name image price stock variants",
+      "name image price stock variants isActive",
     );
 
-    if (!product) {
+    // A soft-deleted/discontinued product (deleteProduct only ever sets
+    // isActive: false, stock is untouched) can still have its printed
+    // shelf QR label around — that label permanently encodes this
+    // product's id (ProductQRLabel.jsx), so without this check a scan
+    // completes a sale for something the admin already pulled from sale.
+    if (!product || !product.isActive) {
       return res.status(404).json({
         success: false,
         message: "Product not found",
@@ -68,10 +74,14 @@ const reserveStockForItems = async (items) => {
   const reserved = [];
 
   for (const item of items) {
+    // isActive: true here (not just at the lookup step above) means a
+    // sale can't complete for a since-deactivated product even if that
+    // lookup was bypassed and a stale/known product id posted directly.
     const updated = item.size
       ? await Product.findOneAndUpdate(
           {
             _id: item.productId,
+            isActive: true,
             stock: { $gte: item.quantity },
             variants: {
               $elemMatch: { size: item.size, stock: { $gte: item.quantity } },
@@ -81,7 +91,7 @@ const reserveStockForItems = async (items) => {
           { new: true, arrayFilters: [{ "v.size": item.size }] },
         )
       : await Product.findOneAndUpdate(
-          { _id: item.productId, stock: { $gte: item.quantity } },
+          { _id: item.productId, isActive: true, stock: { $gte: item.quantity } },
           { $inc: { stock: -item.quantity } },
           { new: true },
         );
@@ -133,16 +143,44 @@ export const recordOfflineSale = async (req, res) => {
       });
     }
 
+    // `!item.productId` alone only checks truthiness — an object like
+    // {"$gt": ""} is truthy and would otherwise flow straight into the
+    // Mongo query below (`_id: item.productId`) as a query operator
+    // instead of a literal id to match, a NoSQL-injection path CodeQL
+    // flags as "Database query built from user-controlled sources".
+    // Building a brand-new array of plain objects here (instead of
+    // mutating the original req.body items in place) is what lets
+    // CodeQL's taint tracking actually see every value used in a query
+    // below coming straight out of a `new ObjectId(...)`/Number() call
+    // — mutating item.productId in place on the original array left it
+    // unable to prove the reassignment happened before
+    // reserveStockForItems read it back out of the same array.
+    const safeItems = [];
+
     for (const item of items) {
       const qty = Number(item.quantity);
       const price = Number(item.unitPrice);
 
-      if (!item.productId || !qty || qty < 1 || !price || price < 0) {
+      if (
+        typeof item.productId !== "string" ||
+        !mongoose.Types.ObjectId.isValid(item.productId) ||
+        !qty ||
+        qty < 1 ||
+        !price ||
+        price < 0
+      ) {
         return res.status(400).json({
           success: false,
           message: "Each item needs a product, a valid quantity and price",
         });
       }
+
+      safeItems.push({
+        productId: new mongoose.Types.ObjectId(item.productId),
+        quantity: qty,
+        unitPrice: price,
+        size: typeof item.size === "string" ? item.size : "",
+      });
     }
 
     if (!["Cash", "UPI", "Card"].includes(paymentMethod)) {
@@ -152,33 +190,36 @@ export const recordOfflineSale = async (req, res) => {
       });
     }
 
-    const stockResult = await reserveStockForItems(items);
+    const stockResult = await reserveStockForItems(safeItems);
 
     if (!stockResult.success) {
       const failedProduct = await Product.findById(
         stockResult.failedProductId,
-      ).select("name stock");
+      ).select("name stock isActive");
+
+      let message = "One of the items is out of stock";
+      if (failedProduct && !failedProduct.isActive) {
+        message = `"${failedProduct.name}" is no longer available for sale`;
+      } else if (failedProduct) {
+        message = `Only ${failedProduct.stock} of "${failedProduct.name}" in stock`;
+      }
 
       return res.status(400).json({
         success: false,
-        message: failedProduct
-          ? `Only ${failedProduct.stock} of "${failedProduct.name}" in stock`
-          : "One of the items is out of stock",
+        message,
       });
     }
 
-    const saleItems = items.map((item, i) => {
-      const qty = Number(item.quantity);
-      const price = Number(item.unitPrice);
+    const saleItems = safeItems.map((item, i) => {
       const product = stockResult.products[i];
 
       return {
         product: product._id,
         productName: product.name,
         size: item.size || "",
-        quantity: qty,
-        unitPrice: price,
-        subtotal: qty * price,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        subtotal: item.quantity * item.unitPrice,
       };
     });
 

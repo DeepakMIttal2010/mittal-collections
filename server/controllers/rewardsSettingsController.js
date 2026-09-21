@@ -64,6 +64,47 @@ export const updateLoyaltySettings = async (req, res) => {
       expiryMonths,
     } = req.body;
 
+    // earnRate/redeemValue are divisors elsewhere (pointsEarnedFor:
+    // orderTotal/earnRate; maxRedeemablePoints: subtotal*percent/
+    // redeemValue) — a 0 (or negative) value doesn't just misbehave, it
+    // produces Infinity/NaN that gets written straight into a customer's
+    // real loyaltyPoints balance on their next order, corrupting it for
+    // every order after. The client form only sets a cosmetic HTML
+    // `min` attribute, which a direct API call bypasses entirely.
+    if (earnRate !== undefined && !(Number(earnRate) > 0)) {
+      return res.status(400).json({
+        success: false,
+        message: "Earn rate must be a positive number.",
+      });
+    }
+    if (redeemValue !== undefined && !(Number(redeemValue) > 0)) {
+      return res.status(400).json({
+        success: false,
+        message: "Redeem value must be a positive number.",
+      });
+    }
+    if (
+      maxRedeemPercent !== undefined &&
+      !(Number(maxRedeemPercent) >= 0 && Number(maxRedeemPercent) <= 1)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Max redeem percent must be between 0 and 1.",
+      });
+    }
+    if (minRedeemPoints !== undefined && !(Number(minRedeemPoints) >= 0)) {
+      return res.status(400).json({
+        success: false,
+        message: "Minimum redeem points can't be negative.",
+      });
+    }
+    if (expiryMonths !== undefined && !(Number(expiryMonths) > 0)) {
+      return res.status(400).json({
+        success: false,
+        message: "Expiry months must be a positive number.",
+      });
+    }
+
     const settings = await getLoyaltySettings();
     const changedBy = { id: req.user._id, name: req.user.name };
 
@@ -105,6 +146,19 @@ export const updateLoyaltySettings = async (req, res) => {
 export const updateReferralSettings = async (req, res) => {
   try {
     const { referrerPoints, referredPoints } = req.body;
+
+    if (referrerPoints !== undefined && !(Number(referrerPoints) >= 0)) {
+      return res.status(400).json({
+        success: false,
+        message: "Referrer points can't be negative.",
+      });
+    }
+    if (referredPoints !== undefined && !(Number(referredPoints) >= 0)) {
+      return res.status(400).json({
+        success: false,
+        message: "Referred points can't be negative.",
+      });
+    }
 
     const settings = await getReferralSettings();
     const changedBy = { id: req.user._id, name: req.user.name };

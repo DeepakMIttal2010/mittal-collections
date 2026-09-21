@@ -306,12 +306,18 @@ describe("Reviews", () => {
   });
 
   it("showcase endpoint only returns approved reviews that have photos", async () => {
-    const user = await createUser();
+    // Three different users — Review now has a unique {product, user}
+    // index (one review per customer per product), so three reviews on
+    // the same product can't share a single user the way this test used
+    // to, regardless of the isApproved/images states actually under test.
+    const userWithPhoto = await createUser();
+    const userNoPhoto = await createUser();
+    const userUnapproved = await createUser();
     const product = await createProduct();
 
     const approvedWithPhoto = await Review.create({
       product: product._id,
-      user: user._id,
+      user: userWithPhoto._id,
       rating: 5,
       content: "Beautiful in person",
       images: ["https://res.cloudinary.com/demo/image/upload/photo1.jpg"],
@@ -319,14 +325,14 @@ describe("Reviews", () => {
     });
     await Review.create({
       product: product._id,
-      user: user._id,
+      user: userNoPhoto._id,
       rating: 4,
       content: "No photo attached",
       isApproved: true,
     });
     await Review.create({
       product: product._id,
-      user: user._id,
+      user: userUnapproved._id,
       rating: 5,
       content: "Great but not approved yet",
       images: ["https://res.cloudinary.com/demo/image/upload/photo2.jpg"],
