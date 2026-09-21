@@ -569,11 +569,15 @@ function CategoryPage() {
           unique body text of its own, just breadcrumbs + pills + a
           product grid, which reads as thin/near-duplicate content across
           every category and subcategory URL. No Hindi field exists on
-          Category yet (unlike name/nameHi), so this stays English-only
-          for now, same as the structured data. */}
-      {category.description && (
+          Category/Subcategory yet (unlike name/nameHi), so this stays
+          English-only for now, same as the structured data.
+          A subcategory's own subtitle (Subcategory.subtitle) is more
+          specific to that exact page than the parent category's
+          description — e.g. "Madrasi Towel" gets its own text instead of
+          reusing generic Towels copy — so it takes priority when present. */}
+      {(activeSubcategory?.subtitle || category.description) && (
         <p className="text-sm text-slate-600 mb-4 max-w-3xl">
-          {category.description}
+          {activeSubcategory?.subtitle || category.description}
         </p>
       )}
 

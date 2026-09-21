@@ -1,5 +1,6 @@
 import Banner from "../models/Banner.js";
 import { deleteCloudinaryAssetsByUrl } from "../utils/cloudinaryCleanup.js";
+import { isSafeLinkUrl } from "../utils/isSafeLinkUrl.js";
 
 // ============================
 // GET ACTIVE BANNERS (Public)
@@ -88,6 +89,13 @@ export const addBanner = async (req, res) => {
       });
     }
 
+    if (!isSafeLinkUrl(button1Link) || !isSafeLinkUrl(button2Link)) {
+      return res.status(400).json({
+        success: false,
+        message: "Button links must be a normal http(s)/mailto/tel URL or a relative path",
+      });
+    }
+
     const banner = await Banner.create({
       image: req.file.path,
       subtitle,
@@ -107,6 +115,14 @@ export const addBanner = async (req, res) => {
       banner,
     });
   } catch (error) {
+    // imageOptimizer middleware already uploaded req.file to Cloudinary
+    // before this handler ran — if Banner.create() then fails, that
+    // upload is otherwise never cleaned up (same leak class fixed in
+    // productController.js's addProduct).
+    if (req.file) {
+      await deleteCloudinaryAssetsByUrl([req.file.path]);
+    }
+
     console.error("Add Banner Error:", error);
 
     res.status(500).json({
@@ -141,6 +157,16 @@ export const updateBanner = async (req, res) => {
       displayOrder,
       isActive,
     } = req.body;
+
+    if (
+      (button1Link !== undefined && !isSafeLinkUrl(button1Link)) ||
+      (button2Link !== undefined && !isSafeLinkUrl(button2Link))
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Button links must be a normal http(s)/mailto/tel URL or a relative path",
+      });
+    }
 
     if (title !== undefined) banner.title = title;
     if (subtitle !== undefined) banner.subtitle = subtitle;

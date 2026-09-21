@@ -1,4 +1,5 @@
 import FooterLink from "../models/FooterLink.js";
+import { isSafeLinkUrl } from "../utils/isSafeLinkUrl.js";
 
 // ============================
 // GET ACTIVE FOOTER LINKS (Public)
@@ -70,6 +71,13 @@ export const createFooterLink = async (req, res) => {
       });
     }
 
+    if (!isSafeLinkUrl(url)) {
+      return res.status(400).json({
+        success: false,
+        message: "URL must be a normal http(s)/mailto/tel URL or a relative path",
+      });
+    }
+
     const link = await FooterLink.create({
       label,
       labelHi: labelHi || "",
@@ -108,6 +116,13 @@ export const updateFooterLink = async (req, res) => {
     }
 
     const { label, labelHi, url, displayOrder, isActive } = req.body;
+
+    if (url !== undefined && !isSafeLinkUrl(url)) {
+      return res.status(400).json({
+        success: false,
+        message: "URL must be a normal http(s)/mailto/tel URL or a relative path",
+      });
+    }
 
     if (label !== undefined) link.label = label;
     if (labelHi !== undefined) link.labelHi = labelHi;

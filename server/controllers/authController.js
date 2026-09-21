@@ -48,7 +48,13 @@ export const register = async (req, res) => {
       });
     }
 
-    const existingUser = await User.findOne({ email });
+    // User.email is stored lowercase (schema: `lowercase: true`) —
+    // normalizing here too means the duplicate check below actually
+    // catches an existing account typed in different casing, instead
+    // of deferring the collision to User.create()'s unique-index error.
+    const normalizedEmail = email.toLowerCase().trim();
+
+    const existingUser = await User.findOne({ email: normalizedEmail });
 
     if (existingUser) {
       return res.status(400).json({
@@ -78,11 +84,11 @@ export const register = async (req, res) => {
     }
 
     await createAndSendOtp({
-      target: email,
+      target: normalizedEmail,
       purpose: "register",
       payload: {
         name,
-        email,
+        email: normalizedEmail,
         mobile,
         hashedPassword,
         referredById: referrer?._id || null,
@@ -93,7 +99,7 @@ export const register = async (req, res) => {
     res.status(200).json({
       success: true,
       message: "Verification code sent to your email",
-      email,
+      email: normalizedEmail,
     });
   } catch (error) {
     console.error(error);
@@ -117,8 +123,10 @@ export const verifyRegisterOtp = async (req, res) => {
       });
     }
 
+    const normalizedEmail = email.toLowerCase().trim();
+
     const result = await verifyOtp({
-      target: email.toLowerCase().trim(),
+      target: normalizedEmail,
       purpose: "register",
       code: otp,
     });
@@ -135,7 +143,7 @@ export const verifyRegisterOtp = async (req, res) => {
     // Someone could have registered with this email/mobile via another
     // path (e.g. Google sign-in) while this code was pending — re-check
     // rather than let a stale payload create a duplicate.
-    const existingUser = await User.findOne({ email });
+    const existingUser = await User.findOne({ email: normalizedEmail });
     if (existingUser) {
       return res.status(400).json({
         success: false,
@@ -155,7 +163,7 @@ export const verifyRegisterOtp = async (req, res) => {
 
     const user = await User.create({
       name,
-      email,
+      email: normalizedEmail,
       mobile,
       password: hashedPassword,
       emailVerified: true,
@@ -224,19 +232,20 @@ export const login = async (req, res) => {
       });
     }
 
-    const user = await User.findOne({ email }).populate("adminRole");
+    // User.email is stored lowercase (schema: `lowercase: true`) — a
+    // raw-cased lookup here silently fails to match for anyone who
+    // typed their email differently than at registration (e.g. a
+    // mobile keyboard auto-capitalizing the first letter), a real
+    // "wrong password" -looking bug that isn't actually about the
+    // password at all.
+    const user = await User.findOne({
+      email: email.toLowerCase().trim(),
+    }).populate("adminRole");
 
     if (!user) {
       return res.status(401).json({
         success: false,
         message: "Invalid email or password",
-      });
-    }
-
-    if (user.isBlocked) {
-      return res.status(403).json({
-        success: false,
-        message: "Your account has been blocked. Please contact support.",
       });
     }
 
@@ -246,6 +255,19 @@ export const login = async (req, res) => {
       return res.status(401).json({
         success: false,
         message: "Invalid email or password",
+      });
+    }
+
+    // Checked only after the password is confirmed correct — otherwise
+    // submitting any password for a blocked account's email would
+    // disclose that the email is registered and blocked without
+    // actually knowing the password, the same email-enumeration
+    // concern forgotPassword already avoids by giving a uniform
+    // response regardless of whether the account exists.
+    if (user.isBlocked) {
+      return res.status(403).json({
+        success: false,
+        message: "Your account has been blocked. Please contact support.",
       });
     }
 
@@ -329,7 +351,7 @@ export const googleAuth = async (req, res) => {
       // Not linked yet — but an account with this email may already
       // exist from normal email/password signup. Link rather than
       // creating a duplicate.
-      user = await User.findOne({ email: payload.email });
+      user = await User.findOne({ email: payload.email.toLowerCase().trim() });
 
       if (user) {
         user.googleId = payload.sub;

@@ -1,6 +1,7 @@
 import Subcategory from "../models/Subcategory.js";
 import Product from "../models/Product.js";
 import { deleteCloudinaryAssetsByUrl } from "../utils/cloudinaryCleanup.js";
+import { escapeRegex } from "../utils/escapeRegex.js";
 
 const generateSlug = (name) =>
   name
@@ -41,8 +42,10 @@ export const getAllSubcategoriesAdmin = async (req, res) => {
     const filter = {};
 
     const { search } = req.query;
-    if (search && search.trim()) {
-      const regex = new RegExp(search.trim(), "i");
+    // typeof guard: a bracket-shaped query param (?search[$ne]=null)
+    // parses to an object, not a string, and .trim() would throw.
+    if (typeof search === "string" && search.trim()) {
+      const regex = new RegExp(escapeRegex(search.trim()), "i");
       filter.$or = [{ name: regex }, { groupLabel: regex }];
     }
 

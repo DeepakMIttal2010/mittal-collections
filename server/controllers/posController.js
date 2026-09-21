@@ -11,6 +11,18 @@ import {
 // GET /api/admin/pos/product/:id — what the QR code link resolves to.
 export const getProductForPOS = async (req, res) => {
   try {
+    // A reprinted/tampered QR label can encode an id that was never a
+    // real ObjectId — without this check, Product.findById throws a
+    // CastError that falls into the generic catch below as a 500
+    // "Server Error" instead of the same graceful 404 a
+    // valid-but-missing id already gets.
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(404).json({
+        success: false,
+        message: "Product not found",
+      });
+    }
+
     const product = await Product.findById(req.params.id).select(
       "name image price stock variants isActive",
     );
