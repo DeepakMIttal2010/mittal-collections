@@ -13,7 +13,12 @@ import Wishlist from "../models/Wishlist.js";
 import LoyaltyTransaction from "../models/LoyaltyTransaction.js";
 import Ticket from "../models/Ticket.js";
 import ReturnRequest from "../models/ReturnRequest.js";
-import { istDayStart, istDayEnd } from "../utils/istDate.js";
+import {
+  istDayStart,
+  istDayEnd,
+  istTodayString,
+  istDaysAgoString,
+} from "../utils/istDate.js";
 
 // Matches the customer-facing "Only X left in stock!" threshold in
 // client/src/utils/stock.js — kept in sync manually since one lives on
@@ -347,12 +352,14 @@ export const getReportsData = async (req, res) => {
     } else {
       days = Math.min(Math.max(parseInt(req.query.days, 10) || 30, 7), 90);
 
-      since = new Date();
-      since.setDate(since.getDate() - (days - 1));
-      since.setHours(0, 0, 0, 0);
-
-      until = new Date();
-      until.setHours(23, 59, 59, 999);
+      // Same IST-boundary reasoning as the custom-range branch above
+      // (istDayStart/istDayEnd's own header comment) — this "days"
+      // preset previously built its boundary with
+      // `new Date(); since.setHours(0,0,0,0)`, which computes midnight
+      // in the PROCESS's timezone (UTC on Render), silently shifting
+      // "today" for roughly 00:00-05:29 IST every day.
+      since = istDayStart(istDaysAgoString(days - 1));
+      until = istDayEnd(istTodayString());
     }
 
     const dateRange = { $gte: since, $lte: until };
@@ -426,7 +433,16 @@ export const getReportsData = async (req, res) => {
         {
           $group: {
             _id: {
-              $dateToString: { format: "%Y-%m-%d", date: "$createdAt" },
+              // Without an explicit timezone, Mongo buckets this by UTC
+              // calendar day — a sale between ~18:30-23:59 UTC
+              // (00:00-05:29 IST) would land on the wrong day here even
+              // though dateRange itself is already IST-correct above,
+              // making the chart disagree with the range total.
+              $dateToString: {
+                format: "%Y-%m-%d",
+                date: "$createdAt",
+                timezone: "+05:30",
+              },
             },
             revenue: { $sum: "$totalPrice" },
             orders: { $sum: 1 },
@@ -510,7 +526,11 @@ export const getReportsData = async (req, res) => {
         {
           $group: {
             _id: {
-              $dateToString: { format: "%Y-%m-%d", date: "$createdAt" },
+              $dateToString: {
+                format: "%Y-%m-%d",
+                date: "$createdAt",
+                timezone: "+05:30",
+              },
             },
             visits: { $sum: 1 },
             visitors: { $addToSet: "$visitorId" },
@@ -818,9 +838,10 @@ export const getVisitLog = async (req, res) => {
     const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
     const limit = Math.max(parseInt(req.query.limit, 10) || 25, 1);
 
-    const since = new Date();
-    since.setDate(since.getDate() - (days - 1));
-    since.setHours(0, 0, 0, 0);
+    // Same IST-boundary fix as getReportsData's "days" preset — see
+    // istDate.js's header comment for why a raw `new Date();
+    // setHours(0,0,0,0)` boundary is wrong on a UTC-timezone process.
+    const since = istDayStart(istDaysAgoString(days - 1));
 
     const filter = { createdAt: { $gte: since } };
 

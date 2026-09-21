@@ -13,3 +13,19 @@ export const istDayStart = (dateStr) => new Date(`${dateStr}T00:00:00+05:30`);
 
 // End of the given YYYY-MM-DD date, IST.
 export const istDayEnd = (dateStr) => new Date(`${dateStr}T23:59:59.999+05:30`);
+
+// Today's date in IST, as YYYY-MM-DD — computed from the current UTC
+// timestamp shifted by the fixed +05:30 offset, so (like the two
+// functions above) this is correct no matter what timezone the Node
+// process itself is running in. For a "last N days" preset that isn't
+// given an explicit startDate/endDate from a date picker.
+export const istTodayString = () =>
+  new Date(Date.now() + 5.5 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
+// `days` calendar days before today, IST, as YYYY-MM-DD.
+export const istDaysAgoString = (days) => {
+  const [y, m, d] = istTodayString().split("-").map(Number);
+  const target = new Date(Date.UTC(y, m - 1, d));
+  target.setUTCDate(target.getUTCDate() - days);
+  return target.toISOString().slice(0, 10);
+};
