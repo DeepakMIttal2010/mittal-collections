@@ -10,12 +10,13 @@ import {
 import authMiddleware from "../middleware/authMiddleware.js";
 import adminMiddleware from "../middleware/adminMiddleware.js";
 import requirePermission from "../middleware/requirePermission.js";
+import { emailTriggerLimiter } from "../middleware/emailTriggerLimiter.js";
 
 const router = express.Router();
 const perm = requirePermission("messages");
 
 // Public
-router.post("/", submitMessage);
+router.post("/", emailTriggerLimiter, submitMessage);
 
 // Admin-only
 router.get("/admin", authMiddleware, adminMiddleware, perm, getMessages);
