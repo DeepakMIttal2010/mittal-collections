@@ -338,9 +338,8 @@ export const mergeGuestWishlist = async (req, res) => {
   try {
     const { visitorId } = req.body;
 
-    // Same guard as addToGuestWishlist — must be a plain string, not an
-    // object that could be interpreted as a Mongo query operator.
-    if (!visitorId || typeof visitorId !== "string") {
+    // Same guard as addToGuestWishlist.
+    if (!isValidVisitorId(visitorId)) {
       return res.status(200).json({ success: true, merged: 0 });
     }
 

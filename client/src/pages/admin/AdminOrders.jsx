@@ -329,12 +329,24 @@ function AdminOrders() {
                     {order.orderStatus}
                   </span>
 
-                  {order.paidAfterCancellation && (
+                  {/* isPaid only ever gets set by a real captured
+                      Razorpay payment (never for COD, and cancelling
+                      an order never resets it) — so this is true
+                      whenever real money was taken for an order that's
+                      now Cancelled, whether that happened through the
+                      narrow paidAfterCancellation race (the stale-order
+                      cron cancelling before payment was verified) or
+                      simply an admin cancelling an order that had
+                      already been paid. Either way nothing in this
+                      system tracks whether the refund itself was
+                      actually issued, so this stays visible until an
+                      admin has manually confirmed/handled it. */}
+                  {order.isPaid && order.orderStatus === "Cancelled" && (
                     <span
                       className="text-xs font-semibold px-3 py-1 rounded-full w-fit bg-red-600 text-white"
-                      title="Payment was verified after this order was already cancelled — the customer was charged but stock was already released. Confirm fulfillment or refund manually."
+                      title="This order was paid via Razorpay but is now Cancelled — the customer was charged. Confirm a refund has actually been issued (or re-fulfil the order) manually."
                     >
-                      ⚠ Paid after cancel — needs refund/review
+                      ⚠ Paid & cancelled — needs refund/review
                     </span>
                   )}
 

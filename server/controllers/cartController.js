@@ -1,5 +1,6 @@
 import CartSnapshot from "../models/CartSnapshot.js";
 import { sendEmail } from "../config/mailer.js";
+import { isValidVisitorId } from "../utils/isValidVisitorId.js";
 
 const REMINDER_DELAY_HOURS = 3;
 
@@ -47,10 +48,12 @@ export const syncGuestCart = async (req, res) => {
   try {
     const { visitorId, items } = req.body;
 
-    // Must be a plain string, not just truthy — an object here (e.g.
-    // { "$gt": "" }) would otherwise be passed straight into the Mongo
-    // queries below as a query operator instead of a literal value.
-    if (!visitorId || typeof visitorId !== "string") {
+    // Must be a plain, reasonably-bounded string, not just truthy — an
+    // object here (e.g. { "$gt": "" }) would otherwise be passed
+    // straight into the Mongo queries below as a query operator
+    // instead of a literal value, and an unbounded string could hit
+    // CartSnapshot's unique index on visitorId with an oversized key.
+    if (!isValidVisitorId(visitorId)) {
       return res.status(400).json({
         success: false,
         message: "visitorId is required",
@@ -98,9 +101,8 @@ export const mergeGuestCart = async (req, res) => {
   try {
     const { visitorId } = req.body;
 
-    // Same guard as syncGuestCart — must be a plain string, not an
-    // object that could be interpreted as a Mongo query operator.
-    if (visitorId && typeof visitorId === "string") {
+    // Same guard as syncGuestCart.
+    if (isValidVisitorId(visitorId)) {
       await CartSnapshot.deleteOne({ visitorId });
     }
 
