@@ -5,6 +5,7 @@ import {
   lookupCustomerByMobile,
   recordOfflineSale,
   getOfflineSales,
+  voidOfflineSale,
 } from "../controllers/posController.js";
 import authMiddleware from "../middleware/authMiddleware.js";
 import adminMiddleware from "../middleware/adminMiddleware.js";
@@ -33,5 +34,12 @@ router.post(
   recordOfflineSale,
 );
 router.get("/sales", authMiddleware, adminMiddleware, perm, getOfflineSales);
+router.post(
+  "/sales/:id/void",
+  authMiddleware,
+  adminMiddleware,
+  perm,
+  voidOfflineSale,
+);
 
 export default router;

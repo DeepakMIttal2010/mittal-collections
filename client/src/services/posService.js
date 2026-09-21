@@ -76,3 +76,22 @@ export const getOfflineSales = async ({ page = 1, limit = 25 } = {}) => {
     return { success: false, sales: [] };
   }
 };
+
+export const voidOfflineSale = async (id, reason) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/admin/pos/sales/${id}/void`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${getToken()}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ reason }),
+    });
+
+    return await response.json();
+  } catch (error) {
+    console.error("Void Offline Sale Error:", error);
+
+    return { success: false, message: "Unable to void sale" };
+  }
+};

@@ -126,6 +126,33 @@ const offlineSaleSchema = new mongoose.Schema(
       default: "",
       trim: true,
     },
+
+    // A completed sale had no way to be undone — a mis-scanned item or a
+    // walk-away customer left stock permanently short with no way to get
+    // it back through the app. Voiding restores stock and claws back any
+    // loyalty points, same as a return, but keeps the sale document
+    // itself (not deleted) as an audit trail of what happened.
+    voided: {
+      type: Boolean,
+      default: false,
+    },
+
+    voidedAt: {
+      type: Date,
+      default: null,
+    },
+
+    voidedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+
+    voidReason: {
+      type: String,
+      default: "",
+      trim: true,
+    },
   },
   {
     timestamps: true,

@@ -99,6 +99,20 @@ const getLocationWithFallback = async (rawIp = "") => {
 export const getProductViewCount = async (req, res) => {
   try {
     const { id } = req.params;
+
+    // id is compiled straight into a RegExp below — without this check, an
+    // arbitrary string (this route is public/unauthenticated) could inject
+    // regex metacharacters, including a pathological pattern MongoDB's
+    // regex engine would then evaluate against every PageVisit document
+    // (path has no index) — a real ReDoS surface, not just a malformed
+    // query.
+    if (!/^[0-9a-fA-F]{24}$/.test(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid product id",
+      });
+    }
+
     const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
     // Prefix match, not exact — a real product URL is /product/:id/:slug

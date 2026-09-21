@@ -35,12 +35,16 @@ const notifyAdmin = async (question, productName) => {
 // ============================
 export const getProductQuestions = async (req, res) => {
   try {
+    // Hard ceiling, not real pagination — this collection has no cap
+    // today, and a heavily-asked product could otherwise return an
+    // unbounded array on a public, unauthenticated route.
     const questions = await Question.find({
       product: req.params.productId,
       isPublished: true,
     })
       .populate("user", "name")
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .limit(500);
 
     res.status(200).json({
       success: true,
@@ -112,10 +116,12 @@ export const getAllQuestionsAdmin = async (req, res) => {
   try {
     const sortOrder = req.query.sortOrder === "asc" ? 1 : -1;
 
+    // Same hard ceiling as getProductQuestions above, not real pagination.
     const questions = await Question.find()
       .populate("user", "name email")
       .populate("product", "name image")
-      .sort({ createdAt: sortOrder });
+      .sort({ createdAt: sortOrder })
+      .limit(1000);
 
     res.status(200).json({
       success: true,
@@ -137,6 +143,13 @@ export const getAllQuestionsAdmin = async (req, res) => {
 export const answerQuestion = async (req, res) => {
   try {
     const { answer, isPublished } = req.body;
+
+    if (answer !== undefined && typeof answer !== "string") {
+      return res.status(400).json({
+        success: false,
+        message: "Answer must be text",
+      });
+    }
 
     const question = await Question.findById(req.params.id).populate(
       "product",

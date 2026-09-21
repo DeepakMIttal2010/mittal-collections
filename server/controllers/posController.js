@@ -109,19 +109,13 @@ const reserveStockForItems = async (items) => {
         );
 
     if (!updated) {
-      for (const r of reserved) {
-        if (r.size) {
-          await Product.findOneAndUpdate(
-            { _id: r.product._id, "variants.size": r.size },
-            { $inc: { stock: r.quantity, "variants.$[v].stock": r.quantity } },
-            { arrayFilters: [{ "v.size": r.size }] },
-          );
-        } else {
-          await Product.findByIdAndUpdate(r.product._id, {
-            $inc: { stock: r.quantity },
-          });
-        }
-      }
+      await restoreStockForItems(
+        reserved.map((r) => ({
+          productId: r.product._id,
+          quantity: r.quantity,
+          size: r.size,
+        })),
+      );
 
       return { success: false, failedProductId: item.productId, product: null };
     }
@@ -130,6 +124,25 @@ const reserveStockForItems = async (items) => {
   }
 
   return { success: true, products: reserved.map((r) => r.product) };
+};
+
+// Reverses reserveStockForItems — shared by its own rollback-on-partial-
+// failure path above and by recordOfflineSale below, when the sale itself
+// can't be saved after stock has already been decremented for it.
+const restoreStockForItems = async (items) => {
+  for (const item of items) {
+    if (item.size) {
+      await Product.findOneAndUpdate(
+        { _id: item.productId, "variants.size": item.size },
+        { $inc: { stock: item.quantity, "variants.$[v].stock": item.quantity } },
+        { arrayFilters: [{ "v.size": item.size }] },
+      );
+    } else {
+      await Product.findByIdAndUpdate(item.productId, {
+        $inc: { stock: item.quantity },
+      });
+    }
+  }
 };
 
 // POST /api/admin/pos/sale
@@ -257,30 +270,46 @@ export const recordOfflineSale = async (req, res) => {
     if (customerUser) {
       const settings = await getLoyaltySettings();
       loyaltyPointsAwarded = pointsEarnedFor(totalAmount, settings.earnRate);
-
-      if (loyaltyPointsAwarded > 0) {
-        await applyLoyaltyPointsChange({
-          userId: customerUser._id,
-          type: "earned",
-          points: loyaltyPointsAwarded,
-          description: "Earned on in-store purchase",
-        });
-      }
     }
 
-    const sale = await OfflineSale.create({
-      items: saleItems,
-      discountAmount,
-      totalAmount,
-      paymentMethod,
-      customerMobile: customerMobile || "",
-      customerName: customerUser?.name || customerName || "",
-      customerUser: customerUser?._id || null,
-      loyaltyPointsAwarded,
-      soldBy: req.user._id,
-      soldByMobile: req.user.mobile || "",
-      paymentProofImage: req.file ? req.file.path : "",
-    });
+    // The sale record is saved BEFORE loyalty points are actually credited
+    // (applyLoyaltyPointsChange, a real write to the customer's balance) —
+    // previously it was the other way round, so a failure saving the sale
+    // (a DB blip, a validation edge case) left stock already decremented
+    // and points already credited with no OfflineSale document to explain
+    // either one. Saving the sale first means a failure here can still be
+    // cleanly rolled back (stock restored, no points touched yet); a
+    // failure crediting points *after* the sale is already recorded is the
+    // lesser, recoverable inconsistency — the sale document itself still
+    // shows exactly what was promised, for manual reconciliation.
+    let sale;
+    try {
+      sale = await OfflineSale.create({
+        items: saleItems,
+        discountAmount,
+        totalAmount,
+        paymentMethod,
+        customerMobile: customerMobile || "",
+        customerName: customerUser?.name || customerName || "",
+        customerUser: customerUser?._id || null,
+        loyaltyPointsAwarded,
+        soldBy: req.user._id,
+        soldByMobile: req.user.mobile || "",
+        paymentProofImage: req.file ? req.file.path : "",
+      });
+    } catch (saleError) {
+      await restoreStockForItems(safeItems);
+      throw saleError;
+    }
+
+    if (loyaltyPointsAwarded > 0) {
+      await applyLoyaltyPointsChange({
+        userId: customerUser._id,
+        type: "earned",
+        points: loyaltyPointsAwarded,
+        description: "Earned on in-store purchase",
+      });
+    }
 
     res.status(201).json({
       success: true,
@@ -318,6 +347,74 @@ export const getOfflineSales = async (req, res) => {
     });
   } catch (error) {
     console.error("Get Offline Sales Error:", error);
+
+    res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+
+// POST /api/admin/pos/sales/:id/void — undoes a completed in-store sale
+// (mis-scanned item, customer walked away): restores stock and claws back
+// any loyalty points awarded, same corrective actions a return already
+// performs for an online order. The sale document itself is kept (not
+// deleted) with a voided flag, as an audit trail of what happened.
+export const voidOfflineSale = async (req, res) => {
+  try {
+    const sale = await OfflineSale.findById(req.params.id);
+
+    if (!sale) {
+      return res.status(404).json({
+        success: false,
+        message: "Sale not found",
+      });
+    }
+
+    // Atomic claim — the same double-click/two-tab race stockRestored on
+    // ReturnRequest already guards against — stops two concurrent void
+    // requests for the same sale from both restoring stock/clawing back
+    // points.
+    const claimed = await OfflineSale.findOneAndUpdate(
+      { _id: sale._id, voided: false },
+      { $set: { voided: true } },
+    );
+
+    if (!claimed) {
+      return res.status(400).json({
+        success: false,
+        message: "This sale has already been voided",
+      });
+    }
+
+    await restoreStockForItems(
+      sale.items.map((item) => ({
+        productId: item.product,
+        quantity: item.quantity,
+        size: item.size,
+      })),
+    );
+
+    if (sale.loyaltyPointsAwarded > 0 && sale.customerUser) {
+      await applyLoyaltyPointsChange({
+        userId: sale.customerUser,
+        type: "clawback",
+        points: -sale.loyaltyPointsAwarded,
+        description: `Reversed for voided in-store sale (${sale._id})`,
+      });
+    }
+
+    sale.voided = true;
+    sale.voidedAt = new Date();
+    sale.voidedBy = req.user._id;
+    sale.voidReason =
+      typeof req.body.reason === "string" ? req.body.reason.trim() : "";
+    await sale.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Sale voided — stock restored",
+      sale,
+    });
+  } catch (error) {
+    console.error("Void Offline Sale Error:", error);
 
     res.status(500).json({ success: false, message: "Server Error" });
   }

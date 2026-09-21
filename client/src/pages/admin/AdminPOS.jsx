@@ -6,6 +6,8 @@ import {
   getProductForPOS,
   lookupCustomerByMobile,
   recordOfflineSale,
+  getOfflineSales,
+  voidOfflineSale,
 } from "../../services/posService";
 import {
   getPosCart,
@@ -44,6 +46,33 @@ function AdminPOS() {
   // accuracy (see posCart.js/reserveStockForItems), so it waits here
   // until the staff member picks one.
   const [pendingVariantProduct, setPendingVariantProduct] = useState(null);
+
+  const [recentSales, setRecentSales] = useState([]);
+  const [voidingId, setVoidingId] = useState(null);
+
+  const loadRecentSales = async () => {
+    const response = await getOfflineSales({ page: 1, limit: 10 });
+    if (response.success) setRecentSales(response.sales);
+  };
+
+  const handleVoidSale = async (saleId) => {
+    if (!window.confirm("Void this sale? Stock will be restored and any loyalty points reversed.")) {
+      return;
+    }
+
+    const reason = window.prompt("Reason for voiding (optional):") || "";
+
+    setVoidingId(saleId);
+    const response = await voidOfflineSale(saleId, reason);
+    setVoidingId(null);
+
+    if (response.success) {
+      toast.success("Sale voided — stock restored");
+      loadRecentSales();
+    } else {
+      toast.error(response.message || "Unable to void sale");
+    }
+  };
 
   // Guards against React StrictMode's deliberate double-invoke of
   // effects in development (and any other accidental double-mount) —
@@ -84,6 +113,7 @@ function AdminPOS() {
     };
 
     scanIntoCart();
+    loadRecentSales();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
@@ -176,6 +206,7 @@ function AdminPOS() {
     if (response.success) {
       clearPosCart();
       setSale(response.sale);
+      loadRecentSales();
     } else {
       setError(response.message || "Unable to record sale");
     }
@@ -594,6 +625,47 @@ function AdminPOS() {
       <p className="text-center text-sm text-slate-400 mt-4">
         Scan another product's QR code to add it to this same cart.
       </p>
+
+      {recentSales.length > 0 && (
+        <div className="bg-white border border-slate-200 rounded-xl p-5 mt-6">
+          <h3 className="font-semibold text-slate-800 mb-3">Recent Sales</h3>
+
+          <div className="space-y-3">
+            {recentSales.map((s) => (
+              <div
+                key={s._id}
+                className="flex items-center justify-between border-b border-slate-100 pb-3 last:border-0 last:pb-0"
+              >
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-slate-800">
+                    ₹{s.totalAmount} · {s.paymentMethod}
+                    {s.customerName && ` · ${s.customerName}`}
+                  </p>
+                  <p className="text-xs text-slate-400">
+                    {new Date(s.createdAt).toLocaleString("en-IN")}
+                    {s.soldBy?.name && ` · by ${s.soldBy.name}`}
+                  </p>
+                </div>
+
+                {s.voided ? (
+                  <span className="text-xs font-medium text-red-500 shrink-0 ml-2">
+                    Voided
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => handleVoidSale(s._id)}
+                    disabled={voidingId === s._id}
+                    className="text-xs text-red-600 hover:underline shrink-0 ml-2 disabled:opacity-50"
+                  >
+                    {voidingId === s._id ? "Voiding..." : "Void"}
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -13,6 +13,7 @@ import Wishlist from "../models/Wishlist.js";
 import LoyaltyTransaction from "../models/LoyaltyTransaction.js";
 import Ticket from "../models/Ticket.js";
 import ReturnRequest from "../models/ReturnRequest.js";
+import OfflineSale from "../models/OfflineSale.js";
 import {
   istDayStart,
   istDayEnd,
@@ -86,7 +87,19 @@ export const getDashboardData = async (req, res) => {
       { $group: { _id: null, totalSales: { $sum: "$totalPrice" } } },
     ]);
 
-    const totalSales = salesAgg[0]?.totalSales || 0;
+    // In-store POS sales (OfflineSale) were completely invisible to this
+    // figure — they fully execute (stock decremented, loyalty points
+    // awarded) but never counted toward revenue anywhere in admin
+    // reporting. Folded into the same top-line total here and in
+    // getReportsData below; best-sellers/category-breakdown/daily-chart
+    // stay online-orders-only for now (a larger, separate change).
+    const offlineSalesAgg = await OfflineSale.aggregate([
+      { $match: { voided: { $ne: true } } },
+      { $group: { _id: null, totalSales: { $sum: "$totalAmount" } } },
+    ]);
+
+    const totalSales =
+      (salesAgg[0]?.totalSales || 0) + (offlineSalesAgg[0]?.totalSales || 0);
 
     const recentOrders = await Order.find()
       .populate("user", "name")
@@ -385,6 +398,8 @@ export const getReportsData = async (req, res) => {
       revenueAgg,
       prevRevenueAgg,
       prevOrdersCount,
+      offlineSalesAgg,
+      prevOfflineSalesAgg,
       salesOverTime,
       ordersByStatus,
       topProducts,
@@ -427,6 +442,24 @@ export const getReportsData = async (req, res) => {
       ]),
 
       Order.countDocuments({ createdAt: prevDateRange }),
+
+      // POS sales in range/prev-range — same top-line-only fold-in as
+      // getDashboardData above.
+      OfflineSale.aggregate([
+        { $match: { voided: { $ne: true }, createdAt: dateRange } },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: "$totalAmount" },
+            count: { $sum: 1 },
+          },
+        },
+      ]),
+
+      OfflineSale.aggregate([
+        { $match: { voided: { $ne: true }, createdAt: prevDateRange } },
+        { $group: { _id: null, total: { $sum: "$totalAmount" } } },
+      ]),
 
       Order.aggregate([
         { $match: revenueOrdersInRange },
@@ -708,10 +741,21 @@ export const getReportsData = async (req, res) => {
       ).length,
     };
 
-    const totalRevenue = revenueAgg[0]?.total || 0;
-    const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+    const posRevenue = offlineSalesAgg[0]?.total || 0;
+    const posSalesCount = offlineSalesAgg[0]?.count || 0;
+    const prevPosRevenue = prevOfflineSalesAgg[0]?.total || 0;
 
-    const prevRevenue = prevRevenueAgg[0]?.total || 0;
+    const totalRevenue = (revenueAgg[0]?.total || 0) + posRevenue;
+    // Denominator includes POS sales alongside online orders so this stays
+    // a true average now that the numerator (totalRevenue) includes both
+    // — using just totalOrders here would inflate it once POS revenue is
+    // folded in above.
+    const avgOrderValue =
+      totalOrders + posSalesCount > 0
+        ? totalRevenue / (totalOrders + posSalesCount)
+        : 0;
+
+    const prevRevenue = (prevRevenueAgg[0]?.total || 0) + prevPosRevenue;
 
     // null growth (rather than 0% or +Infinity) when the previous period
     // had nothing to compare against — the UI shows "—" in that case.
@@ -790,6 +834,7 @@ export const getReportsData = async (req, res) => {
       success: true,
       summary: {
         totalRevenue,
+        posRevenue,
         totalOrders,
         avgOrderValue,
         totalCustomers,
