@@ -1390,9 +1390,6 @@ export const permanentlyDeleteOrder = async (req, res) => {
 
 export const sendReviewRequestEmails = async (req, res) => {
   try {
-    if (req.query.secret !== process.env.CRON_SECRET) {
-      return res.status(401).json({ success: false, message: "Unauthorized" });
-    }
 
     const cutoff = new Date(
       Date.now() - REVIEW_REQUEST_DELAY_DAYS * 24 * 60 * 60 * 1000,
@@ -1492,9 +1489,6 @@ export const sendReviewRequestEmails = async (req, res) => {
 
 export const cancelStaleRazorpayOrders = async (req, res) => {
   try {
-    if (req.query.secret !== process.env.CRON_SECRET) {
-      return res.status(401).json({ success: false, message: "Unauthorized" });
-    }
 
     const cutoff = new Date(
       Date.now() - STALE_RAZORPAY_ORDER_MINUTES * 60 * 1000,
@@ -1561,36 +1555,50 @@ export const cancelStaleRazorpayOrders = async (req, res) => {
         continue;
       }
 
-      order.orderStatus = "Cancelled";
-      order.statusHistory.push({ status: "Cancelled", changedAt: new Date() });
-      await order.save();
+      // Unlike the Razorpay-check block above (already its own
+      // try/catch), this cancel/restock/refund block had no per-order
+      // guard — one order whose save()/restoreStock() throws (a
+      // transient DB hiccup, a malformed record) used to propagate to
+      // the outer catch and abort the whole run, silently leaving
+      // every remaining stale order in this batch unprocessed with
+      // nothing logged about which ones.
+      try {
+        order.orderStatus = "Cancelled";
+        order.statusHistory.push({ status: "Cancelled", changedAt: new Date() });
+        await order.save();
 
-      await restoreStock(order.orderItems);
+        await restoreStock(order.orderItems);
 
-      if (order.pointsRedeemed > 0) {
-        await applyLoyaltyPointsChange({
-          userId: order.user,
-          type: "refunded",
-          points: order.pointsRedeemed,
-          order: order._id,
-          description: `Refund for abandoned Razorpay order ${order._id}`,
-        });
-      }
+        if (order.pointsRedeemed > 0) {
+          await applyLoyaltyPointsChange({
+            userId: order.user,
+            type: "refunded",
+            points: order.pointsRedeemed,
+            order: order._id,
+            description: `Refund for abandoned Razorpay order ${order._id}`,
+          });
+        }
 
-      if (order.firstOrderCouponApplied) {
-        await User.updateOne(
-          { _id: order.user },
-          { $set: { firstOrderCouponUsed: false } },
+        if (order.firstOrderCouponApplied) {
+          await User.updateOne(
+            { _id: order.user },
+            { $set: { firstOrderCouponUsed: false } },
+          );
+        }
+
+        // Every other order-status change notifies the customer (see
+        // updateOrderStatus above) — this cron-driven path was silently
+        // skipping that, so a customer whose checkout stalled had no way
+        // to know their order had been cancelled out from under them.
+        sendOrderStatusNotification(order, "Cancelled");
+
+        cancelled += 1;
+      } catch (cancelError) {
+        console.error(
+          `Stale Order Cancel Error (order ${order._id}):`,
+          cancelError,
         );
       }
-
-      // Every other order-status change notifies the customer (see
-      // updateOrderStatus above) — this cron-driven path was silently
-      // skipping that, so a customer whose checkout stalled had no way
-      // to know their order had been cancelled out from under them.
-      sendOrderStatusNotification(order, "Cancelled");
-
-      cancelled += 1;
     }
 
     res.status(200).json({

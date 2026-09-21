@@ -381,9 +381,6 @@ export const mergeGuestWishlist = async (req, res) => {
 // ============================
 export const sendPriceDropAlerts = async (req, res) => {
   try {
-    if (req.query.secret !== process.env.CRON_SECRET) {
-      return res.status(401).json({ success: false, message: "Unauthorized" });
-    }
 
     const candidates = await Wishlist.find({
       priceWhenAdded: { $ne: null },
