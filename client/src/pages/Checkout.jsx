@@ -120,6 +120,8 @@ function Checkout() {
   }, []);
 
   useEffect(() => {
+    if (!isLoggedIn) return;
+
     const loadAddresses = async () => {
       const data = await getAddresses();
 
@@ -135,7 +137,7 @@ function Checkout() {
     };
 
     loadAddresses();
-  }, []);
+  }, [isLoggedIn]);
 
   const selectedAddress = addresses.find((a) => a._id === selectedAddressId);
   const hasLocalOnlyItems = cartItems.some((item) => item.localDeliveryOnly);
