@@ -20,7 +20,19 @@ export const stripHtml = (html) => {
     .replace(/<\/(p|li|div|h[1-6])>/gi, "</$1> ")
     .replace(/<br\s*\/?>/gi, " ");
 
-  return DOMPurify.sanitize(withSpacing, { ALLOWED_TAGS: [] })
-    .replace(/\s+/g, " ")
-    .trim();
+  const safeHtml = DOMPurify.sanitize(withSpacing, { ALLOWED_TAGS: [] });
+
+  // DOMPurify's return value here is still HTML-safe markup meant to be
+  // re-inserted via innerHTML, not literal plain text — it keeps (and
+  // sometimes inserts, e.g. a "&nbsp;" separator at a word boundary
+  // where two adjacent stripped tags met) real HTML entities. Every
+  // caller renders this result directly as plain text (a JSX text
+  // node, which doesn't decode entities), so "&nbsp;" was showing up
+  // verbatim instead of as a space. Round-tripping through a real
+  // element's innerHTML/textContent is what actually decodes it — safe
+  // here since DOMPurify has already stripped every tag from safeHtml.
+  const el = document.createElement("div");
+  el.innerHTML = safeHtml;
+
+  return el.textContent.replace(/\s+/g, " ").trim();
 };

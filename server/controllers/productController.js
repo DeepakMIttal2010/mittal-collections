@@ -9,6 +9,7 @@ import SearchLog from "../models/SearchLog.js";
 import User from "../models/User.js";
 import Wishlist from "../models/Wishlist.js";
 import Review from "../models/Review.js";
+import Question from "../models/Question.js";
 import { rankProducts } from "../utils/fuzzySearch.js";
 import { sendEmail } from "../config/mailer.js";
 import { notifyUser } from "../utils/notify.js";
@@ -1364,7 +1365,18 @@ export const updateProduct = async (req, res) => {
     product.description = sanitizeProductDescription(req.body.description);
     product.nameHi = req.body.nameHi || "";
     product.descriptionHi = sanitizeProductDescription(req.body.descriptionHi);
-    const variants = parseVariants(req.body.variants);
+    // Whether this specific request included a `variants` field at all
+    // — not just whether it happened to be non-empty. Omitting it
+    // (a partial-update script, anything that isn't the exact admin
+    // edit form re-sending the full array) must fall back to the
+    // product's EXISTING variants, not silently wipe them to [] and
+    // start trusting req.body.price/stock instead — the same class of
+    // footgun mainImageIndex/adminRemarks already guard against
+    // elsewhere in this function via an explicit `!== undefined` check.
+    const variantsProvided = req.body.variants !== undefined;
+    const variants = variantsProvided
+      ? parseVariants(req.body.variants)
+      : product.variants;
     const hasVariants = variants.length > 0;
 
     // Same rule as addProduct — once variants exist they're the source of
@@ -1379,7 +1391,9 @@ export const updateProduct = async (req, res) => {
     product.stock = hasVariants
       ? variants.reduce((sum, v) => sum + v.stock, 0)
       : req.body.stock;
-    product.variants = variants;
+    if (variantsProvided) {
+      product.variants = variants;
+    }
 
     product.featured = req.body.featured === "true";
     product.isActive = req.body.isActive === "true";
@@ -1655,6 +1669,7 @@ export const permanentlyDeleteProduct = async (req, res) => {
       Wishlist.deleteMany({ product: product._id }),
       StockAlert.deleteMany({ product: product._id }),
       Review.deleteMany({ product: product._id }),
+      Question.deleteMany({ product: product._id }),
     ]);
 
     res.json({

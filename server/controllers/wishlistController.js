@@ -4,6 +4,7 @@ import Wishlist from "../models/Wishlist.js";
 import Product from "../models/Product.js";
 import { sendEmail } from "../config/mailer.js";
 import { notifyUser } from "../utils/notify.js";
+import { isValidVisitorId } from "../utils/isValidVisitorId.js";
 
 // Keeps a single account/guest from growing an unbounded wishlist
 // (accidental or scripted) — well above any real shopper's use, just a
@@ -88,6 +89,18 @@ export const addToWishlist = async (req, res) => {
       wishlistItem,
     });
   } catch (error) {
+    // The unique partial index on {user, product} (see Wishlist.js) is
+    // what actually stops two concurrent add requests for the same
+    // item from both succeeding — the findOne check above can't fully
+    // close that race. Surface the loser's duplicate-key error as the
+    // same message the check above gives, not a generic 500.
+    if (error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: "Product already in wishlist",
+      });
+    }
+
     console.error("Add Wishlist Error:", error);
 
     res.status(500).json({
@@ -139,6 +152,13 @@ export const removeFromWishlist = async (req, res) => {
 // GET /api/wishlist/guest/:visitorId
 export const getGuestWishlist = async (req, res) => {
   try {
+    if (!isValidVisitorId(req.params.visitorId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid visitor id",
+      });
+    }
+
     const wishlist = await Wishlist.find({
       visitorId: req.params.visitorId,
     }).populate({
@@ -168,10 +188,12 @@ export const addToGuestWishlist = async (req, res) => {
   try {
     const { visitorId, productId } = req.body;
 
-    // Must be a plain string, not just truthy — an object here (e.g.
-    // { "$gt": "" }) would otherwise be passed straight into the Mongo
-    // queries below as a query operator instead of a literal value.
-    if (!visitorId || typeof visitorId !== "string") {
+    // Must be a plain, reasonably-bounded string, not just a truthy
+    // value — an object here (e.g. { "$gt": "" }) would otherwise be
+    // passed straight into the Mongo queries below as a query operator
+    // instead of a literal value, and an unbounded string could reach
+    // the index key.
+    if (!isValidVisitorId(visitorId)) {
       return res.status(400).json({
         success: false,
         message: "visitorId is required",
@@ -223,6 +245,15 @@ export const addToGuestWishlist = async (req, res) => {
       wishlistItem,
     });
   } catch (error) {
+    // Same true-concurrency backstop as addToWishlist — see that
+    // function's comment.
+    if (error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: "Product already in wishlist",
+      });
+    }
+
     console.error("Add Guest Wishlist Error:", error);
 
     res.status(500).json({
@@ -235,6 +266,13 @@ export const addToGuestWishlist = async (req, res) => {
 // DELETE /api/wishlist/guest/:visitorId/:productId
 export const removeFromGuestWishlist = async (req, res) => {
   try {
+    if (!isValidVisitorId(req.params.visitorId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid visitor id",
+      });
+    }
+
     const item = await Wishlist.findOneAndDelete({
       visitorId: req.params.visitorId,
       product: req.params.productId,
@@ -266,6 +304,13 @@ export const removeFromGuestWishlist = async (req, res) => {
 // DELETE /api/wishlist/guest/:visitorId
 export const clearGuestWishlist = async (req, res) => {
   try {
+    if (!isValidVisitorId(req.params.visitorId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid visitor id",
+      });
+    }
+
     await Wishlist.deleteMany({ visitorId: req.params.visitorId });
 
     res.status(200).json({

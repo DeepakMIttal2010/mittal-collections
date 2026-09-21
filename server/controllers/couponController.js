@@ -183,6 +183,33 @@ export const addCoupon = async (req, res) => {
       });
     }
 
+    const effectiveType = discountType || "percentage";
+
+    // calculateDiscount only ever clamps a negative discount into being
+    // MORE negative (Math.min(discount, maxDiscount/subtotal) — the
+    // min of two negatives is still negative), which orderController.js
+    // then subtracts from the order total, increasing it — a coupon
+    // with a negative value or maxDiscount would silently overcharge
+    // every customer who applies it, with nothing catching it before
+    // save. A percentage over 100 is separately just a no-op typo trap
+    // (calculateDiscount already caps at the order subtotal), but still
+    // worth catching here rather than leaving the admin no warning.
+    if (
+      !["percentage", "flat"].includes(effectiveType) ||
+      !(Number(discountValue) > 0) ||
+      (effectiveType === "percentage" && Number(discountValue) > 100) ||
+      (maxDiscount !== undefined &&
+        maxDiscount !== null &&
+        maxDiscount !== "" &&
+        !(Number(maxDiscount) >= 0))
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Enter a valid discount value (0-100 for a percentage coupon, above 0 for a flat one) and a non-negative max discount",
+      });
+    }
+
     const existing = await Coupon.findOne({ code: code.trim().toUpperCase() });
 
     if (existing) {
@@ -241,6 +268,31 @@ export const updateCoupon = async (req, res) => {
       showAsBanner,
       isActive,
     } = req.body;
+
+    const effectiveType =
+      discountType !== undefined ? discountType : coupon.discountType;
+    const effectiveValue =
+      discountValue !== undefined ? discountValue : coupon.discountValue;
+    const effectiveMaxDiscount =
+      maxDiscount !== undefined ? maxDiscount || null : coupon.maxDiscount;
+
+    // Same reasoning as addCoupon — validated against the FINAL
+    // effective values (existing + this request's overrides), since an
+    // update might only touch one field but leave the resulting
+    // combination invalid (e.g. switching type to "percentage" without
+    // also lowering an existing flat discountValue of 500).
+    if (
+      !["percentage", "flat"].includes(effectiveType) ||
+      !(Number(effectiveValue) > 0) ||
+      (effectiveType === "percentage" && Number(effectiveValue) > 100) ||
+      (effectiveMaxDiscount !== null && !(Number(effectiveMaxDiscount) >= 0))
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Enter a valid discount value (0-100 for a percentage coupon, above 0 for a flat one) and a non-negative max discount",
+      });
+    }
 
     if (discountType !== undefined) coupon.discountType = discountType;
     if (discountValue !== undefined) coupon.discountValue = discountValue;
