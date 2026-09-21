@@ -19,11 +19,13 @@ const couponSchema = new mongoose.Schema(
     discountValue: {
       type: Number,
       required: [true, "Discount value is required"],
+      min: 0,
     },
 
     maxDiscount: {
       type: Number,
       default: null,
+      min: 0,
     },
 
     firstOrderOnly: {

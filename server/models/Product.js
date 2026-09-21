@@ -44,6 +44,7 @@ const productSchema = new mongoose.Schema(
     oldPrice: {
       type: Number,
       default: 0,
+      min: 0,
     },
 
     category: {
@@ -117,7 +118,7 @@ const productSchema = new mongoose.Schema(
         {
           size: { type: String, required: true, trim: true },
           price: { type: Number, required: true, min: 0 },
-          oldPrice: { type: Number, default: 0 },
+          oldPrice: { type: Number, default: 0, min: 0 },
           stock: { type: Number, default: 0, min: 0 },
           // Internal cost accounting, same admin-only visibility as the
           // top-level purchasePrice below — different sizes of the same
