@@ -70,7 +70,7 @@ function GrowthBadge({ percent }) {
   );
 }
 
-function StatTile({ icon, label, value, growth }) {
+function StatTile({ icon, label, value, growth, subtext }) {
   return (
     <div className="bg-white border border-slate-200 rounded-xl p-5 flex items-center gap-4">
       <div className="w-11 h-11 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center text-lg shrink-0">
@@ -81,6 +81,7 @@ function StatTile({ icon, label, value, growth }) {
           {value}
         </p>
         <p className="text-sm text-slate-500">{label}</p>
+        {subtext && <p className="text-xs text-slate-400 mt-0.5">{subtext}</p>}
         {growth !== undefined && (
           <div className="mt-0.5">
             <GrowthBadge percent={growth} />
@@ -761,6 +762,7 @@ function AdminReports() {
   const [report, setReport] = useState({
     summary: {
       totalRevenue: 0,
+      posRevenue: 0,
       totalOrders: 0,
       avgOrderValue: 0,
       totalCustomers: 0,
@@ -1229,6 +1231,11 @@ function AdminReports() {
           label={`Revenue — ${rangeLabel}`}
           value={formatCurrency(summary.totalRevenue)}
           growth={report.growth?.revenue}
+          subtext={
+            summary.posRevenue > 0
+              ? `Includes ${formatCurrency(summary.posRevenue)} in-store (POS)`
+              : undefined
+          }
         />
         <StatTile
           icon={<FaShoppingCart />}

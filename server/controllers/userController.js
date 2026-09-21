@@ -4,6 +4,12 @@ import LoyaltyTransaction from "../models/LoyaltyTransaction.js";
 import Wishlist from "../models/Wishlist.js";
 import CartSnapshot from "../models/CartSnapshot.js";
 import PageVisit from "../models/PageVisit.js";
+import Address from "../models/Address.js";
+import Notification from "../models/Notification.js";
+import Review from "../models/Review.js";
+import Question from "../models/Question.js";
+import Ticket from "../models/Ticket.js";
+import ReturnRequest from "../models/ReturnRequest.js";
 import { applyLoyaltyPointsChange } from "../utils/loyaltyPoints.js";
 import { notifyUser } from "../utils/notify.js";
 import { sendEmail } from "../config/mailer.js";
@@ -288,6 +294,40 @@ export const deleteCustomer = async (req, res) => {
         message: "Customer not found",
       });
     }
+
+    // Order history is a real business/financial record (and every other
+    // admin list that shows orders populates `user` for a name/email) —
+    // deleting a customer who has any would leave those orders pointing
+    // at a dangling user reference forever. toggleBlockCustomer already
+    // exists as the reversible alternative for "stop this customer from
+    // using the account" without destroying that history.
+    const hasOrders = await Order.exists({ user: customer._id });
+
+    if (hasOrders) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "This customer has order history and can't be deleted — block them instead to prevent further activity.",
+      });
+    }
+
+    // No orders means none of this customer's other data has any
+    // standalone record-keeping value either — clean it up alongside the
+    // account instead of leaving it as dangling references (the same
+    // class of gap already closed for product deletion, which cleans up
+    // orphaned Questions in permanentlyDeleteProduct).
+    await Promise.all([
+      Address.deleteMany({ user: customer._id }),
+      Wishlist.deleteMany({ user: customer._id }),
+      CartSnapshot.deleteOne({ user: customer._id }),
+      Notification.deleteMany({ user: customer._id }),
+      Review.deleteMany({ user: customer._id }),
+      Question.deleteMany({ user: customer._id }),
+      Ticket.deleteMany({ user: customer._id }),
+      ReturnRequest.deleteMany({ user: customer._id }),
+      LoyaltyTransaction.deleteMany({ user: customer._id }),
+      PageVisit.updateMany({ user: customer._id }, { $set: { user: null } }),
+    ]);
 
     await customer.deleteOne();
 

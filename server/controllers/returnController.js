@@ -7,6 +7,7 @@ import { sendEmail } from "../config/mailer.js";
 import { notifyUser } from "../utils/notify.js";
 import { restoreStock } from "./orderController.js";
 import { applyLoyaltyPointsChange } from "../utils/loyaltyPoints.js";
+import { escapeHtml } from "../utils/escapeHtml.js";
 
 const notifyAdmin = async (returnRequest) => {
   try {
@@ -19,8 +20,8 @@ const notifyAdmin = async (returnRequest) => {
       subject: `New return request: ${returnRequest.productName}`,
       html: `
         <p>A customer requested a return.</p>
-        <p><strong>Product:</strong> ${returnRequest.productName} (Qty: ${returnRequest.quantity})</p>
-        <p><strong>Reason:</strong> ${returnRequest.reason}</p>
+        <p><strong>Product:</strong> ${escapeHtml(returnRequest.productName)} (Qty: ${returnRequest.quantity})</p>
+        <p><strong>Reason:</strong> ${escapeHtml(returnRequest.reason)}</p>
         <p><a href="${process.env.CLIENT_URL}/admin/returns">View in admin panel</a></p>
       `,
     });
@@ -36,10 +37,15 @@ const notifyCustomer = async (returnRequest, customerEmail) => {
       subject: `Your return request is now "${returnRequest.status}"`,
       html: `
         <p>Hi,</p>
-        <p>Your return request for <strong>${returnRequest.productName}</strong> is now:
-          <strong>${returnRequest.status}</strong>
+        <p>Your return request for <strong>${escapeHtml(returnRequest.productName)}</strong> is now:
+          <strong>${escapeHtml(returnRequest.status)}</strong>
         </p>
-        ${returnRequest.adminNote ? `<p>Note from our team: ${returnRequest.adminNote}</p>` : ""}
+        ${
+          returnRequest.status === "Refunded"
+            ? `<p>Your refund is being processed by our team and will reflect in your original payment method within 5-7 business days.</p>`
+            : ""
+        }
+        ${returnRequest.adminNote ? `<p>Note from our team: ${escapeHtml(returnRequest.adminNote)}</p>` : ""}
         <p><a href="${process.env.CLIENT_URL}/returns">View your returns</a></p>
       `,
     });
