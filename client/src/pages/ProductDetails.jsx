@@ -37,6 +37,7 @@ import {
   FaBan,
   FaPalette,
   FaTruck,
+  FaRulerCombined,
 } from "react-icons/fa";
 import {
   FaFacebookF,
@@ -1008,6 +1009,25 @@ function ProductDetails() {
                 </div>
               ))}
             </div>
+          )}
+
+          {/* The calculator page has real Search Console demand (13+
+              "curtain size calculator" query variants) but was only
+              linked from the Curtains category page and the Articles
+              hub — nowhere a customer actually about to buy a curtain
+              would see it. Every curtain product is exactly that
+              moment. */}
+          {product.category?.slug === "curtains" && (
+            <Link
+              to="/curtain-size-calculator"
+              className="flex items-center gap-2 text-sm text-blue-700 hover:underline mb-6"
+            >
+              <FaRulerCombined className="shrink-0" />
+              {t(
+                "Not sure what size you need? Use our Curtain Size Calculator →",
+                "साइज़ पक्का नहीं? हमारा कर्टन साइज़ कैलकुलेटर इस्तेमाल करें →",
+              )}
+            </Link>
           )}
 
           <div className="flex items-center gap-3 mb-6">
