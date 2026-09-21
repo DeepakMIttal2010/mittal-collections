@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import Review from "../models/Review.js";
 import Order from "../models/Order.js";
 import cloudinary from "../config/cloudinary.js";
@@ -60,15 +61,22 @@ export const submitReview = async (req, res) => {
   try {
     const { productId, rating, title, content } = req.body;
 
-    if (!productId || !rating || !content) {
+    // productId comes straight from the request body (unlike a route
+    // param, which Express always parses as a plain string) — an object
+    // payload like {"$gt": ""} here would otherwise flow into the
+    // Review.findOne/Order.findOne queries below as a raw Mongo query
+    // operator instead of a literal id.
+    if (!mongoose.Types.ObjectId.isValid(productId) || !rating || !content) {
       return res.status(400).json({
         success: false,
         message: "Product, rating and content are required",
       });
     }
 
+    const safeProductId = String(productId);
+
     const existing = await Review.findOne({
-      product: productId,
+      product: safeProductId,
       user: req.user._id,
     });
 
@@ -107,11 +115,11 @@ export const submitReview = async (req, res) => {
     const order = await Order.findOne({
       user: req.user._id,
       orderStatus: "Delivered",
-      "orderItems.product": productId,
+      "orderItems.product": safeProductId,
     }).sort({ createdAt: -1 });
 
     const review = await Review.create({
-      product: productId,
+      product: safeProductId,
       user: req.user._id,
       order: order?._id || null,
       rating,

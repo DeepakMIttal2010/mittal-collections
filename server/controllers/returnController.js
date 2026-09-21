@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import ReturnRequest from "../models/ReturnRequest.js";
 import Order from "../models/Order.js";
 import Product from "../models/Product.js";
@@ -54,14 +55,26 @@ export const createReturnRequest = async (req, res) => {
   try {
     const { orderId, productId, quantity, reason } = req.body;
 
-    if (!orderId || !productId || !reason?.trim()) {
+    // orderId/productId come straight from the request body (unlike a
+    // route param, which Express always parses as a plain string) — an
+    // object payload like {"$gt": ""} here would otherwise flow into
+    // Order.findById/Product.findById and the ReturnRequest.findOne
+    // query below as a raw Mongo query operator instead of a literal id.
+    if (
+      !mongoose.Types.ObjectId.isValid(orderId) ||
+      !mongoose.Types.ObjectId.isValid(productId) ||
+      !reason?.trim()
+    ) {
       return res.status(400).json({
         success: false,
         message: "Order, product and reason are required",
       });
     }
 
-    const order = await Order.findById(orderId);
+    const safeOrderId = String(orderId);
+    const safeProductId = String(productId);
+
+    const order = await Order.findById(safeOrderId);
 
     if (!order || order.user.toString() !== req.user._id.toString()) {
       return res.status(404).json({
@@ -78,7 +91,7 @@ export const createReturnRequest = async (req, res) => {
     }
 
     const orderItem = order.orderItems.find(
-      (item) => item.product.toString() === productId,
+      (item) => item.product.toString() === safeProductId,
     );
 
     if (!orderItem) {
@@ -100,8 +113,8 @@ export const createReturnRequest = async (req, res) => {
     // on {order, product, size} (see ReturnRequest.js) and the
     // duplicate-key handling below actually guard against.
     const existing = await ReturnRequest.findOne({
-      order: orderId,
-      product: productId,
+      order: safeOrderId,
+      product: safeProductId,
       size: orderItem.size || "",
       status: { $ne: "Rejected" },
     });
@@ -113,7 +126,7 @@ export const createReturnRequest = async (req, res) => {
       });
     }
 
-    const product = await Product.findById(productId);
+    const product = await Product.findById(safeProductId);
 
     if (!product || !product.isReturnable) {
       return res.status(400).json({
@@ -144,9 +157,9 @@ export const createReturnRequest = async (req, res) => {
     }
 
     const returnRequest = await ReturnRequest.create({
-      order: orderId,
+      order: safeOrderId,
       user: req.user._id,
-      product: productId,
+      product: safeProductId,
       productName: orderItem.name,
       productImage: orderItem.image,
       quantity: requestedQty,
