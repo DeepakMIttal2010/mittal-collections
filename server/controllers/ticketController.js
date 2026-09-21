@@ -3,6 +3,7 @@ import SiteSettings from "../models/SiteSettings.js";
 import { sendEmail } from "../config/mailer.js";
 import { notifyUser } from "../utils/notify.js";
 import { hasAdminPermission } from "../utils/adminAccess.js";
+import { escapeHtml } from "../utils/escapeHtml.js";
 
 const notifyAdmin = async (ticket, latestMessage) => {
   try {
@@ -14,8 +15,8 @@ const notifyAdmin = async (ticket, latestMessage) => {
       to: settings.email,
       subject: `[Ticket #${ticket._id.toString().slice(-6)}] ${ticket.subject}`,
       html: `
-        <p>${latestMessage.senderName} wrote:</p>
-        <p>${latestMessage.message}</p>
+        <p>${escapeHtml(latestMessage.senderName)} wrote:</p>
+        <p>${escapeHtml(latestMessage.message)}</p>
         <p><a href="${process.env.CLIENT_URL}/admin/tickets">View in admin panel</a></p>
       `,
     });
@@ -31,8 +32,8 @@ const notifyCustomer = async (ticket, customerEmail, latestMessage) => {
       subject: `New reply on your support ticket: ${ticket.subject}`,
       html: `
         <p>Hi,</p>
-        <p>You have a new reply on your support ticket "${ticket.subject}":</p>
-        <p style="padding:12px; background:#f8f9fa; border-radius:8px;">${latestMessage.message}</p>
+        <p>You have a new reply on your support ticket "${escapeHtml(ticket.subject)}":</p>
+        <p style="padding:12px; background:#f8f9fa; border-radius:8px;">${escapeHtml(latestMessage.message)}</p>
         <p><a href="${process.env.CLIENT_URL}/tickets/${ticket._id}">View and reply</a></p>
       `,
     });
@@ -315,8 +316,8 @@ export const updateTicketStatus = async (req, res) => {
         to: ticket.user.email,
         subject: statusText,
         html: `
-          <p>Hi ${ticket.user.name || "there"},</p>
-          <p>${statusText} for "${ticket.subject}".</p>
+          <p>Hi ${escapeHtml(ticket.user.name || "there")},</p>
+          <p>${escapeHtml(statusText)} for "${escapeHtml(ticket.subject)}".</p>
           <p><a href="${process.env.CLIENT_URL}/tickets/${ticket._id}">View your ticket</a></p>
         `,
       }).catch((error) =>

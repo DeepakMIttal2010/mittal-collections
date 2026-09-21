@@ -56,6 +56,24 @@ const optimizeBuffer = async (file) => {
   return pipeline.jpeg({ quality: JPEG_QUALITY, mozjpeg: true }).toBuffer();
 };
 
+// multer's fileFilter only checks the client-supplied Content-Type
+// header for the file part, which any caller fully controls — it's not
+// a real content check. Normally sharp's resize/re-encode in
+// optimizeBuffer decodes the buffer as a side effect and throws on
+// anything that isn't genuinely that image format, which is the real
+// validation. But a caller can skip that entirely via the
+// "optimizeImages=false" form field (meant for admin-curated assets
+// that shouldn't be recompressed) — and that field isn't restricted to
+// admin routes, so an authenticated customer posting straight to
+// POST /api/reviews (uploadReviewMedia + this middleware, no admin gate)
+// could set it to upload an arbitrary file mislabeled as an image with
+// no content check at all. Decoding (without re-encoding) whenever
+// optimization is skipped closes that off while still letting a
+// legitimate caller avoid the recompression cost.
+const assertValidImage = async (file) => {
+  await sharp(file.buffer).metadata();
+};
+
 const uploadBufferToCloudinary = (buffer, resourceType, publicId) =>
   new Promise((resolve, reject) => {
     const options = {
@@ -87,6 +105,10 @@ const processFile = async (file, shouldOptimize, publicId) => {
     // the URL alone doesn't carry that.
     file.cloudinaryResult = result;
     return;
+  }
+
+  if (!shouldOptimize) {
+    await assertValidImage(file);
   }
 
   const buffer = shouldOptimize ? await optimizeBuffer(file) : file.buffer;

@@ -18,6 +18,7 @@ import {
 } from "../utils/costCipher.js";
 import { deleteCloudinaryAssetsByUrl } from "../utils/cloudinaryCleanup.js";
 import { sanitizeProductDescription } from "../utils/sanitizeProductDescription.js";
+import { escapeRegex } from "../utils/escapeRegex.js";
 
 // Never sent by a public route — cost data is admin-only. The nested
 // variants.purchasePrice needs its own dotted exclusion; a bare
@@ -51,11 +52,6 @@ const generateSlug = (name) =>
     .trim()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)/g, "");
-
-// Admin's product search builds a RegExp straight from the search box —
-// an unescaped special char (e.g. an unmatched "(") throws inside `new
-// RegExp`, 500ing the admin panel on an otherwise ordinary search.
-const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 // Size variants (e.g. Curtains sold as 7x4/9x4, same fabric/quality, each
 // with its own price/MRP/stock) arrive as a JSON string in the multipart
@@ -217,7 +213,11 @@ export const getProducts = async (req, res) => {
     const { search, category, subcategory, maxPrice, minPrice, sortBy } =
       req.query;
 
-    if (category && category.trim()) {
+    // typeof guards: a bracket-shaped query param (e.g. ?category[$ne]=null)
+    // parses to an object under Express's default query parser, not a
+    // string — `.trim()` would throw, and an object reaching a query
+    // filter below would be a Mongo operator-injection risk.
+    if (typeof category === "string" && category.trim()) {
       const categoryId = category.trim();
       // filter.$or is already taken by the stock/willRestock condition
       // above — can't reuse the key here, that would silently replace it
@@ -227,7 +227,7 @@ export const getProducts = async (req, res) => {
         { $or: [{ category: categoryId }, { additionalCategories: categoryId }] },
       ];
     }
-    if (subcategory && subcategory.trim()) {
+    if (typeof subcategory === "string" && subcategory.trim()) {
       filter.subcategories = subcategory.trim();
     }
     if (maxPrice && !Number.isNaN(Number(maxPrice))) {
@@ -244,7 +244,7 @@ export const getProducts = async (req, res) => {
       .sort({ createdAt: -1 })
       .lean();
 
-    const hasSearch = search && search.trim();
+    const hasSearch = typeof search === "string" && search.trim();
     if (hasSearch) {
       products = rankProducts(search.trim(), products);
 
@@ -357,7 +357,9 @@ export const getSearchSuggestions = async (req, res) => {
   try {
     const { q, category } = req.query;
 
-    if (!q || !q.trim()) {
+    // typeof guards: a bracket-shaped query param parses to an object,
+    // not a string — `.trim()` would throw.
+    if (typeof q !== "string" || !q.trim()) {
       return res.status(200).json({ success: true, products: [] });
     }
 
@@ -367,7 +369,7 @@ export const getSearchSuggestions = async (req, res) => {
       $or: [{ stock: { $gt: 0 } }, { willRestock: { $ne: false } }],
     };
 
-    if (category && category.trim()) {
+    if (typeof category === "string" && category.trim()) {
       const categoryId = category.trim();
       filter.$and = [
         ...(filter.$and || []),
@@ -405,12 +407,14 @@ export const getAllProductsAdmin = async (req, res) => {
     const { search, category, subcategory, stockStatus, dateFrom, dateTo } =
       req.query;
 
-    if (search && search.trim()) {
+    // typeof guards: a bracket-shaped query param parses to an object,
+    // not a string — `.trim()` would throw.
+    if (typeof search === "string" && search.trim()) {
       const regex = new RegExp(escapeRegex(search.trim()), "i");
       filter.$or = [{ name: regex }, { description: regex }];
     }
 
-    if (category && category.trim()) {
+    if (typeof category === "string" && category.trim()) {
       const categoryId = category.trim();
       // filter.$or may already be taken by the search condition above —
       // $and keeps both instead of one silently replacing the other.
@@ -419,7 +423,7 @@ export const getAllProductsAdmin = async (req, res) => {
         { $or: [{ category: categoryId }, { additionalCategories: categoryId }] },
       ];
     }
-    if (subcategory && subcategory.trim()) {
+    if (typeof subcategory === "string" && subcategory.trim()) {
       filter.subcategories = subcategory.trim();
     }
 
