@@ -37,6 +37,16 @@ function Checkout() {
   const [paymentMethod, setPaymentMethod] = useState("Razorpay");
   const [placing, setPlacing] = useState(false);
 
+  // Generated once per visit to this page (not per click) so a network
+  // auto-retry of the same submission, or a double-tap that somehow
+  // fires handlePlaceOrder twice before `placing` blocks the button,
+  // both carry the identical id — the server's unique index on
+  // {user, clientRequestId} is what actually decides a single winner
+  // and hands the loser back the same order instead of creating a
+  // second one. Reloading/renavigating to Checkout is a genuinely new
+  // attempt, so it correctly gets a fresh id.
+  const [clientRequestId] = useState(() => crypto.randomUUID());
+
   const [firstOrderOffer, setFirstOrderOffer] = useState(null);
   const [couponInput, setCouponInput] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState(null);
@@ -283,6 +293,7 @@ function Checkout() {
       paymentMethod,
       couponCode: appliedCoupon?.code || undefined,
       redeemPoints: usePoints ? redeemPoints : undefined,
+      clientRequestId,
     });
 
     if (!response.success) {

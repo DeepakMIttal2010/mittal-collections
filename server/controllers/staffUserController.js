@@ -4,6 +4,7 @@ import mongoose from "mongoose";
 import User from "../models/User.js";
 import Role from "../models/Role.js";
 import { hasAdminPermission } from "../utils/adminAccess.js";
+import { isSubsetOfCallerAccess } from "../utils/rbacSubset.js";
 
 // This file manages admin-panel login accounts (role: "admin") —
 // deliberately separate from userController.js, which manages customer
@@ -93,6 +94,25 @@ export const addStaffUser = async (req, res) => {
           message: "Selected role not found",
         });
       }
+
+      // Same escalation this file's adminRole:null branch already
+      // guards against, via a different door: a restricted staff
+      // account could otherwise assign an existing Role broader than
+      // its own access (e.g. one it just created via addRole) to a new
+      // staff account instead of granting literal Full Admin — see
+      // rbacSubset.js.
+      if (
+        !isSubsetOfCallerAccess(req.user, {
+          permissions: role.permissions,
+          writeAccess: role.writeAccess,
+        })
+      ) {
+        return res.status(403).json({
+          success: false,
+          message: "You can't assign a role with permissions you don't have yourself.",
+        });
+      }
+
       roleId = role._id;
     } else if (!hasAdminPermission(req.user, "roles")) {
       // Granting "Full Admin" (no role = unrestricted access, see
@@ -184,6 +204,22 @@ export const updateStaffUser = async (req, res) => {
             message: "Selected role not found",
           });
         }
+
+        // Same escalation guard as addStaffUser — re-roling an
+        // *existing* staff account to a broader Role than the caller
+        // holds themselves is the same gap either way.
+        if (
+          !isSubsetOfCallerAccess(req.user, {
+            permissions: role.permissions,
+            writeAccess: role.writeAccess,
+          })
+        ) {
+          return res.status(403).json({
+            success: false,
+            message: "You can't assign a role with permissions you don't have yourself.",
+          });
+        }
+
         staffUser.adminRole = role._id;
       } else if (!hasAdminPermission(req.user, "roles")) {
         // Same gate as addStaffUser — removing another staff account's

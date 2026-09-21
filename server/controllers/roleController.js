@@ -1,6 +1,7 @@
 import Role from "../models/Role.js";
 import User from "../models/User.js";
 import { PERMISSION_KEYS, GRANULAR_MODULES } from "../config/adminPermissions.js";
+import { isSubsetOfCallerAccess } from "../utils/rbacSubset.js";
 
 const WRITE_ACCESS_KEYS = GRANULAR_MODULES.flatMap((module) =>
   module.actions.map((action) => `${module.key}:${action}`),
@@ -51,11 +52,30 @@ export const addRole = async (req, res) => {
       });
     }
 
+    const cleanedPermissions = cleanPermissions(permissions);
+    const cleanedWriteAccess = cleanWriteAccess(writeAccess);
+
+    // Closes the escalation path a restricted staff account (one
+    // holding just the "roles" permission) would otherwise have: mint
+    // a Role with every permission/writeAccess key, then assign it to
+    // a puppet staff account via addStaffUser — see rbacSubset.js.
+    if (
+      !isSubsetOfCallerAccess(req.user, {
+        permissions: cleanedPermissions,
+        writeAccess: cleanedWriteAccess,
+      })
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: "You can't grant permissions you don't have yourself.",
+      });
+    }
+
     const role = await Role.create({
       name,
       description: description || "",
-      permissions: cleanPermissions(permissions),
-      writeAccess: cleanWriteAccess(writeAccess),
+      permissions: cleanedPermissions,
+      writeAccess: cleanedWriteAccess,
     });
 
     res.status(201).json({
@@ -115,8 +135,30 @@ export const updateRole = async (req, res) => {
 
     if (name) role.name = name;
     if (description !== undefined) role.description = description;
-    if (permissions !== undefined) role.permissions = cleanPermissions(permissions);
-    if (writeAccess !== undefined) role.writeAccess = cleanWriteAccess(writeAccess);
+
+    const nextPermissions =
+      permissions !== undefined ? cleanPermissions(permissions) : role.permissions;
+    const nextWriteAccess =
+      writeAccess !== undefined ? cleanWriteAccess(writeAccess) : role.writeAccess;
+
+    // Same escalation path as addRole, via editing an existing role
+    // (including one already assigned to other staff accounts) instead
+    // of creating a new one — see rbacSubset.js.
+    if (
+      (permissions !== undefined || writeAccess !== undefined) &&
+      !isSubsetOfCallerAccess(req.user, {
+        permissions: nextPermissions,
+        writeAccess: nextWriteAccess,
+      })
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: "You can't grant permissions you don't have yourself.",
+      });
+    }
+
+    role.permissions = nextPermissions;
+    role.writeAccess = nextWriteAccess;
 
     await role.save();
 

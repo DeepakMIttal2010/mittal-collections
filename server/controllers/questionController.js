@@ -1,5 +1,34 @@
+import mongoose from "mongoose";
 import Question from "../models/Question.js";
+import Product from "../models/Product.js";
+import SiteSettings from "../models/SiteSettings.js";
+import { sendEmail } from "../config/mailer.js";
 import { notifyUser } from "../utils/notify.js";
+import { escapeHtml } from "../utils/escapeHtml.js";
+
+// Unlike Tickets, submitting a question previously only ever produced
+// an in-app admin notification (the unseen-questions poll) — an admin
+// not actively watching the dashboard had no way to learn a customer
+// was waiting on an answer. Mirrors ticketController.js's notifyAdmin.
+const notifyAdmin = async (question, productName) => {
+  try {
+    const settings = await SiteSettings.findOne();
+
+    if (!settings?.email) return;
+
+    await sendEmail({
+      to: settings.email,
+      subject: `New product question: ${productName}`,
+      html: `
+        <p>A customer asked a question about <strong>${escapeHtml(productName)}</strong>:</p>
+        <p>${escapeHtml(question.question)}</p>
+        <p><a href="${process.env.CLIENT_URL}/admin/questions">View in admin panel</a></p>
+      `,
+    });
+  } catch (error) {
+    console.error("Notify Admin (Question) Error:", error);
+  }
+};
 
 // ============================
 // GET PUBLISHED Q&A FOR A PRODUCT (Public)
@@ -34,7 +63,18 @@ export const submitQuestion = async (req, res) => {
   try {
     const { productId, question } = req.body;
 
-    if (!productId || !question) {
+    // productId comes straight from the request body (unlike a route
+    // param, which Express always parses as a plain string) — an
+    // object payload like {"$gt": ""} here would otherwise flow into
+    // the Product.findById query below as a raw Mongo query operator
+    // instead of a literal id, the same NoSQL-injection path CodeQL
+    // already flagged once in posController.js/returnController.js/
+    // reviewController.js.
+    if (
+      typeof productId !== "string" ||
+      !mongoose.Types.ObjectId.isValid(productId) ||
+      !question
+    ) {
       return res.status(400).json({
         success: false,
         message: "Product and question are required",
@@ -46,6 +86,9 @@ export const submitQuestion = async (req, res) => {
       user: req.user._id,
       question,
     });
+
+    const product = await Product.findById(productId).select("name");
+    notifyAdmin(newQuestion, product?.name || "a product").catch(() => {});
 
     res.status(201).json({
       success: true,

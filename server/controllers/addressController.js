@@ -117,6 +117,15 @@ export const updateAddress = async (req, res) => {
       );
     }
 
+    // isDefault === false with no other address promoted would leave
+    // this customer with zero default addresses — checkout assumes
+    // there's always one to preselect. deleteAddress already handles
+    // the equivalent case (losing the default address entirely) by
+    // promoting the most recent remaining one; explicitly un-defaulting
+    // the current default via an update needs the same fallback.
+    const isUnsettingOwnDefault =
+      isDefault === false && existing.isDefault === true;
+
     existing.fullName = fullName ?? existing.fullName;
     existing.mobile = mobile ?? existing.mobile;
     existing.address = address ?? existing.address;
@@ -127,6 +136,19 @@ export const updateAddress = async (req, res) => {
     if (isDefault !== undefined) existing.isDefault = isDefault;
 
     await existing.save();
+
+    if (isUnsettingOwnDefault) {
+      const another = await Address.findOne({
+        user: req.user.id,
+        isActive: true,
+        _id: { $ne: existing._id },
+      }).sort({ createdAt: -1 });
+
+      if (another) {
+        another.isDefault = true;
+        await another.save();
+      }
+    }
 
     res.status(200).json({
       success: true,
