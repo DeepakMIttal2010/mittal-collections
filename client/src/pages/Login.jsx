@@ -7,6 +7,7 @@ import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
 import GoogleSignInButton from "../components/GoogleSignInButton";
 import CompleteMobileModal from "../components/CompleteMobileModal";
+import Seo from "../components/Seo";
 
 function Login() {
   const navigate = useNavigate();
@@ -84,6 +85,7 @@ function Login() {
 
   return (
     <div className="min-h-[70vh] flex items-center justify-center py-16 px-4">
+      <Seo title="Login" noindex />
       <div className="w-full max-w-md">
         <h1 className="text-5xl font-bold text-center text-slate-900 mb-10">
           {t("Login", "लॉगिन")}

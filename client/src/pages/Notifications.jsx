@@ -4,6 +4,7 @@ import { FaBell } from "react-icons/fa";
 
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
+import Seo from "../components/Seo";
 import {
   getMyNotifications,
   markNotificationRead,
@@ -68,6 +69,7 @@ function Notifications() {
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-8">
+      <Seo title="Notifications" noindex />
       <div className="text-sm mb-2">
         <Link to="/account" className="text-blue-700 hover:underline">
           {t("Your Account", "आपका खाता")}
