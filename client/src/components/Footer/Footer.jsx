@@ -133,36 +133,13 @@ function Footer() {
             <div>
               <h3 className="text-amber-500 font-semibold mb-4">{t("Company", "कंपनी")}</h3>
               <ul className="space-y-2 text-sm">
-                {/* Hardcoded, not CMS-driven like footerLinks below — About,
-                    Contact and the Returns *policy* are permanent site
-                    pages that should never depend on someone remembering
-                    to add them via the admin panel. Before this, /about
-                    had zero internal links anywhere on the site
-                    (unreachable by browsing or by a crawler following real
-                    links) despite being the 2nd-highest-impression page in
-                    Search Console; /contact was similarly orphaned.
-                    /policies/returns (not /returns, which is the
-                    logged-in customer's own return-requests page —
-                    correctly noindexed/disallowed, not a public content
-                    page) is the real public Returns & Refunds policy. */}
-                <li>
-                  <Link to="/about" className="hover:text-white transition-colors">
-                    {t("About Us", "हमारे बारे में")}
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/contact" className="hover:text-white transition-colors">
-                    {t("Contact Us", "संपर्क करें")}
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    to="/policies/returns"
-                    className="hover:text-white transition-colors"
-                  >
-                    {t("Returns & Refunds", "रिटर्न व रिफंड")}
-                  </Link>
-                </li>
+                {/* About/Contact/Returns turned out to already be real,
+                    working CMS-driven links here (footerLinks below,
+                    configured since 2026-07-30) — a hardcoded addition
+                    here briefly duplicated them. The earlier "orphaned
+                    page" finding was a static-analysis blind spot: a
+                    code-only grep can't see database-driven <Link>
+                    destinations, only literal strings in source. */}
                 {footerLinks.map((item) =>
                   item.url.startsWith("http") ? (
                     <li key={item._id}>
