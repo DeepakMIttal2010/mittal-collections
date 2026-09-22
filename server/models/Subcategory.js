@@ -64,6 +64,13 @@ const subcategorySchema = new mongoose.Schema(
   },
 );
 
+// Scoped to the parent category (not global, unlike Category's own
+// name/slug uniqueness) — the same subcategory name legitimately repeats
+// across different categories (e.g. a "Small" size subcategory under both
+// Bedsheets and Curtains), but two identical entries under the SAME
+// category were previously createable with no guard at all.
+subcategorySchema.index({ category: 1, slug: 1 }, { unique: true });
+
 const Subcategory = mongoose.model("Subcategory", subcategorySchema);
 
 export default Subcategory;

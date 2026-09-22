@@ -302,6 +302,24 @@ function Checkout() {
       return;
     }
 
+    // The server always recomputes the authoritative total (a coupon,
+    // bundle rule, or pricing rule can change between this page loading
+    // and the customer submitting) — the client's own orderTotal above is
+    // never what's actually charged. If they differ, say so now instead
+    // of letting the customer discover a different amount later on My
+    // Orders with no explanation.
+    if (
+      response.order?.totalPrice !== undefined &&
+      Math.abs(response.order.totalPrice - orderTotal) >= 1
+    ) {
+      toast.info(
+        t(
+          `Note: prices updated since you loaded this page — your final total is ₹${response.order.totalPrice}.`,
+          `ध्यान दें: इस पेज को लोड करने के बाद कीमतें बदल गईं — आपका अंतिम total ₹${response.order.totalPrice} है।`,
+        ),
+      );
+    }
+
     if (paymentMethod !== "Razorpay") {
       setPlacing(false);
       toast.success(t("Order placed successfully 🎉", "ऑर्डर सफलतापूर्वक हो गया 🎉"));
@@ -392,7 +410,14 @@ function Checkout() {
       );
     });
 
-    setPlacing(false);
+    // Deliberately NOT setPlacing(false) here — the button stays disabled
+    // until the Razorpay flow actually resolves (finishRazorpayFlow,
+    // fired by handler/ondismiss above). Re-enabling it right as the
+    // modal opens let a fast second click re-run this whole function and
+    // spawn a SECOND Razorpay modal on top of the first while the first
+    // was still mounting — harmless server-side (clientRequestId makes
+    // createOrder idempotent, so no duplicate order/charge), but
+    // confusing UX.
     razorpay.open();
   };
 

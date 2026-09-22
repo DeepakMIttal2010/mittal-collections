@@ -14,6 +14,7 @@ import adminMiddleware from "../middleware/adminMiddleware.js";
 import { uploadReviewMedia } from "../middleware/uploadMiddleware.js";
 import imageOptimizer from "../middleware/imageOptimizer.js";
 import requirePermission from "../middleware/requirePermission.js";
+import { uploadLimiter } from "../middleware/uploadLimiter.js";
 
 const router = express.Router();
 const perm = requirePermission("reviews");
@@ -23,6 +24,7 @@ router.get("/product/:productId", getProductReviews);
 router.post(
   "/",
   authMiddleware,
+  uploadLimiter,
   uploadReviewMedia.fields([
     { name: "images", maxCount: 3 },
     { name: "video", maxCount: 1 },

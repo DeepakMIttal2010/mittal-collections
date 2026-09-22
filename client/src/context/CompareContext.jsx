@@ -13,24 +13,29 @@ export function CompareProvider({ children }) {
   const [compareItems, setCompareItems] = useState(() =>
     readJsonFromStorage("compareItems", []),
   );
-  const { isLoggedIn } = useAuth();
+  const { user } = useAuth();
   const { t } = useLanguage();
 
   useEffect(() => {
     localStorage.setItem("compareItems", JSON.stringify(compareItems));
   }, [compareItems]);
 
-  // Same reasoning as CartContext's identical guard: a shared/kiosk
-  // device would otherwise keep whoever-logged-out's compare list
-  // sitting in localStorage for the next person to log in and see.
-  const wasLoggedIn = useRef(isLoggedIn);
+  // Same reasoning as CartContext's identical guard (see its comment for
+  // the full explanation): tracks the actual user id, not just a
+  // logged-in boolean, so User A logging in as User B WITHOUT an
+  // explicit logout first still clears the compare list — a plain
+  // true/false check never transitions through false in that case.
+  const wasUserId = useRef(user?._id ?? null);
 
   useEffect(() => {
-    if (wasLoggedIn.current && !isLoggedIn) {
+    const currentUserId = user?._id ?? null;
+
+    if (wasUserId.current && currentUserId !== wasUserId.current) {
       setCompareItems([]);
     }
-    wasLoggedIn.current = isLoggedIn;
-  }, [isLoggedIn]);
+
+    wasUserId.current = currentUserId;
+  }, [user]);
 
   const isInCompare = (productId) =>
     compareItems.some((item) => item._id === productId);

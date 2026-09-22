@@ -14,9 +14,37 @@ export const getRoles = async (req, res) => {
   try {
     const roles = await Role.find().sort({ name: 1 });
 
+    // A restricted caller (holding just the "roles" permission, not full
+    // admin) could otherwise see the exact permission/writeAccess grid of
+    // a role broader than their own — isSubsetOfCallerAccess already
+    // blocks them from assigning/editing it, but the full grid still
+    // reveals capability info they have no legitimate reason to see. Full
+    // admins (req.user.adminRole is null) see every role unchanged.
+    const visibleRoles = req.user.adminRole
+      ? roles.map((role) => {
+          const withinCeiling = isSubsetOfCallerAccess(req.user, {
+            permissions: role.permissions,
+            writeAccess: role.writeAccess,
+          });
+
+          if (withinCeiling) return role;
+
+          return {
+            _id: role._id,
+            name: role.name,
+            description: role.description,
+            createdAt: role.createdAt,
+            updatedAt: role.updatedAt,
+            permissions: [],
+            writeAccess: [],
+            redacted: true,
+          };
+        })
+      : roles;
+
     res.status(200).json({
       success: true,
-      roles,
+      roles: visibleRoles,
     });
   } catch (error) {
     console.error("Get Roles Error:", error);
@@ -195,6 +223,24 @@ export const deleteRole = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Role not found",
+      });
+    }
+
+    // Same escalation path as addRole/updateRole, via destroying a role
+    // instead of editing one — without this, a staff account holding
+    // just the "roles" permission (but a narrow permissions/writeAccess
+    // set overall) could permanently delete an unassigned role broader
+    // than their own access, even though they could never create or
+    // assign one that broad themselves.
+    if (
+      !isSubsetOfCallerAccess(req.user, {
+        permissions: role.permissions,
+        writeAccess: role.writeAccess,
+      })
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: "You can't delete a role with permissions you don't have yourself.",
       });
     }
 

@@ -5,6 +5,7 @@ import Home from "../pages/Home";
 import NotFound from "../pages/NotFound";
 import MainLayout from "../layouts/MainLayout";
 import PageLoader from "../components/PageLoader";
+import ProtectedRoute from "./ProtectedRoute";
 
 // Every route below this point is code-split, so its JS chunk is only
 // fetched from the CDN the first time someone navigates there. If a
@@ -189,26 +190,34 @@ function AppRoutes() {
           <Route path="/about" element={<About />} />
           <Route path="/contact" element={<Contact />} />
           <Route path="/cart" element={<Cart />} />
-          <Route path="/checkout" element={<Checkout />} />
           <Route path="/wishlist" element={<Wishlist />} />
           <Route path="/compare" element={<Compare />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password/:token" element={<ResetPassword />} />
-          <Route path="/change-password" element={<ChangePassword />} />
-          <Route path="/account" element={<Account />} />
-          <Route path="/loyalty-history" element={<LoyaltyHistory />} />
-          <Route path="/edit-profile" element={<EditProfile />} />
-          <Route path="/addresses" element={<Addresses />} />
-          <Route path="/addresses/add" element={<AddressForm />} />
-          <Route path="/addresses/edit/:id" element={<AddressForm />} />
-          <Route path="/my-orders" element={<MyOrders />} />
-          <Route path="/my-orders/:id" element={<OrderDetails />} />
-          <Route path="/tickets" element={<Tickets />} />
-          <Route path="/tickets/:id" element={<TicketDetail />} />
-          <Route path="/returns" element={<Returns />} />
-          <Route path="/notifications" element={<Notifications />} />
+
+          {/* ================= CUSTOMER-PRIVATE (login required) =================
+              See routes/ProtectedRoute.jsx — single guard for this whole
+              subtree instead of each page reimplementing its own
+              isLoggedIn redirect. */}
+          <Route element={<ProtectedRoute />}>
+            <Route path="/checkout" element={<Checkout />} />
+            <Route path="/change-password" element={<ChangePassword />} />
+            <Route path="/account" element={<Account />} />
+            <Route path="/loyalty-history" element={<LoyaltyHistory />} />
+            <Route path="/edit-profile" element={<EditProfile />} />
+            <Route path="/addresses" element={<Addresses />} />
+            <Route path="/addresses/add" element={<AddressForm />} />
+            <Route path="/addresses/edit/:id" element={<AddressForm />} />
+            <Route path="/my-orders" element={<MyOrders />} />
+            <Route path="/my-orders/:id" element={<OrderDetails />} />
+            <Route path="/tickets" element={<Tickets />} />
+            <Route path="/tickets/:id" element={<TicketDetail />} />
+            <Route path="/returns" element={<Returns />} />
+            <Route path="/notifications" element={<Notifications />} />
+          </Route>
+
           <Route path="/policies/:slug" element={<PolicyPage />} />
           <Route path="/articles" element={<Articles />} />
           <Route path="/articles/:slug" element={<ArticleDetail />} />

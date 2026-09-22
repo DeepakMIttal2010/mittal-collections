@@ -17,7 +17,7 @@ export function CartProvider({ children }) {
   );
 
   const [isCartOpen, setIsCartOpen] = useState(false);
-  const { isLoggedIn } = useAuth();
+  const { isLoggedIn, user } = useAuth();
   const { t } = useLanguage();
 
   // "Complete the Look" bundle rules — admin-managed. Buying from both
@@ -55,22 +55,30 @@ export function CartProvider({ children }) {
     }
   }, [isLoggedIn]);
 
-  // Clears the cart on an actual logout (isLoggedIn true -> false) — a
-  // shared/kiosk device would otherwise keep whoever-logged-out's cart
-  // sitting in localStorage for the next person to log in and
-  // checkout with. wasLoggedIn starts at the same value as isLoggedIn
-  // so a guest's own cart survives the very first render (there's no
-  // "logout" transition to react to yet). Login is deliberately left
-  // alone — a guest cart carrying over once they log in is the
-  // expected "add to cart, then sign in to check out" flow, not a leak.
-  const wasLoggedIn = useRef(isLoggedIn);
+  // Clears the cart whenever the LOGGED-IN identity actually changes: a
+  // real logout (some user -> guest), or — just as importantly — User A
+  // logging in as User B without an explicit logout first (their token/
+  // user object in localStorage is simply overwritten; isLoggedIn stays
+  // true the whole time, so a plain true/false check never catches this
+  // case, only a real true -> false transition). A shared/kiosk device
+  // would otherwise keep User A's cart items, quantities and prices
+  // sitting there for User B to unknowingly check out with. Tracking the
+  // actual user id (not just the boolean) is what closes both cases.
+  // wasUserId starts at the current id so a guest's own cart survives the
+  // very first render, and guest -> first login is deliberately left
+  // alone — that carry-over is the expected "add to cart, then sign in"
+  // flow, not a leak.
+  const wasUserId = useRef(user?._id ?? null);
 
   useEffect(() => {
-    if (wasLoggedIn.current && !isLoggedIn) {
+    const currentUserId = user?._id ?? null;
+
+    if (wasUserId.current && currentUserId !== wasUserId.current) {
       setCartItems([]);
     }
-    wasLoggedIn.current = isLoggedIn;
-  }, [isLoggedIn]);
+
+    wasUserId.current = currentUserId;
+  }, [user]);
 
   // Mirror the cart to the backend (debounced) — logged-in customers sync
   // by account (also used for the abandoned-cart reminder), guests sync

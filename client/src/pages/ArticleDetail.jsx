@@ -8,6 +8,7 @@ import Breadcrumbs from "../components/Breadcrumbs";
 import { buildBreadcrumbJsonLd } from "../utils/breadcrumbJsonLd";
 import { useLanguage } from "../context/LanguageContext";
 import { SITE_URL } from "../utils/siteUrl";
+import { sanitizeArticleHtml } from "../utils/sanitizeArticleHtml";
 
 function ArticleDetail() {
   const { slug } = useParams();
@@ -211,7 +212,7 @@ function ArticleDetail() {
           [&_table]:w-full [&_table]:my-6 [&_table]:border-collapse [&_table]:text-sm
           [&_th]:text-left [&_th]:bg-slate-50 [&_th]:font-semibold [&_th]:text-slate-700 [&_th]:px-3 [&_th]:py-2 [&_th]:border [&_th]:border-slate-200
           [&_td]:px-3 [&_td]:py-2 [&_td]:border [&_td]:border-slate-200"
-        dangerouslySetInnerHTML={{ __html: displayContent }}
+        dangerouslySetInnerHTML={{ __html: sanitizeArticleHtml(displayContent) }}
       />
     </div>
   );
