@@ -133,6 +133,13 @@ function Footer() {
             <div>
               <h3 className="text-amber-500 font-semibold mb-4">{t("Company", "कंपनी")}</h3>
               <ul className="space-y-2 text-sm">
+                {/* About/Contact/Returns turned out to already be real,
+                    working CMS-driven links here (footerLinks below,
+                    configured since 2026-07-30) — a hardcoded addition
+                    here briefly duplicated them. The earlier "orphaned
+                    page" finding was a static-analysis blind spot: a
+                    code-only grep can't see database-driven <Link>
+                    destinations, only literal strings in source. */}
                 {footerLinks.map((item) =>
                   item.url.startsWith("http") ? (
                     <li key={item._id}>
