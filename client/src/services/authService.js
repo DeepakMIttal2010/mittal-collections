@@ -1,4 +1,5 @@
 import API_BASE_URL from "./api";
+import { readJsonFromStorage } from "../utils/safeLocalStorage";
 
 // ================= LOGIN =================
 
@@ -231,9 +232,7 @@ export const getToken = () => {
 // ================= CURRENT USER =================
 
 export const getCurrentUser = () => {
-  const user = localStorage.getItem("user");
-
-  return user ? JSON.parse(user) : null;
+  return readJsonFromStorage("user", null);
 };
 
 // ================= ADMIN CHECK =================
@@ -272,9 +271,7 @@ export const getAdminToken = () => {
 };
 
 export const getCurrentAdminUser = () => {
-  const user = localStorage.getItem("adminUser");
-
-  return user ? JSON.parse(user) : null;
+  return readJsonFromStorage("adminUser", null);
 };
 
 export const isAdminLoggedIn = () => {
