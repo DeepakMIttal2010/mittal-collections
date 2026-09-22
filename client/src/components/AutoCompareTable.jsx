@@ -1,4 +1,5 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
 import { FaShoppingCart } from "react-icons/fa";
 
 import { imgUrl } from "../services/api";
@@ -25,7 +26,26 @@ function getSpecRows(t) {
 function AutoCompareTable({ mainProduct, similarProducts }) {
   const { addToCart } = useCart();
   const { t } = useLanguage();
+  const navigate = useNavigate();
   const products = [mainProduct, ...similarProducts];
+
+  // Same guard as Wishlist.jsx/Compare.jsx's handleAddToCart — a product
+  // with size variants can't be added directly here; CartContext falls
+  // back to the top-level price/stock when no variant is given, which
+  // only ever mirrors the FIRST size, silently charging whatever that
+  // size costs and never reserving stock for the size the customer
+  // actually wants.
+  const handleAddToCart = (product) => {
+    if (product.variants?.length > 0) {
+      toast.info(
+        t("Please select a size on the product page", "प्रोडक्ट पेज पर साइज़ चुनें"),
+      );
+      navigate(productUrl(product));
+      return;
+    }
+
+    addToCart(product);
+  };
 
   const specRows = getSpecRows(t);
   const visibleRows = specRows.filter((row) =>
@@ -108,7 +128,7 @@ function AutoCompareTable({ mainProduct, similarProducts }) {
                 <td key={product._id} className="p-3 align-top">
                   <button
                     type="button"
-                    onClick={() => addToCart(product)}
+                    onClick={() => handleAddToCart(product)}
                     disabled={product.stock <= 0}
                     className="w-full max-w-[170px] flex items-center justify-center gap-1.5 bg-blue-900 hover:bg-blue-950 text-white text-xs font-semibold rounded-full py-2.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >

@@ -204,6 +204,19 @@ export function CartProvider({ children }) {
     toast.warning(t("Cart cleared", "कार्ट खाली किया गया"));
   };
 
+  // Patches a single line item's price/oldPrice/stock (and caps its
+  // quantity to the new stock) — used by Cart.jsx to refresh stale
+  // snapshots against live product data on load. addToCart only ever
+  // copies price/stock in at add-time; nothing else revisits it for as
+  // long as the item sits in the cart, so a price change or a stock drop
+  // after adding was otherwise invisible until checkout rejected it with
+  // a confusing error.
+  const reconcileCartItem = (id, updates) => {
+    setCartItems((prev) =>
+      prev.map((item) => (item._id === id ? { ...item, ...updates } : item)),
+    );
+  };
+
   const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
   const totalPrice = cartItems.reduce(
@@ -288,6 +301,7 @@ export function CartProvider({ children }) {
         increaseQty,
         decreaseQty,
         clearCart,
+        reconcileCartItem,
         totalItems,
         totalPrice,
         bundleInfo,

@@ -18,6 +18,7 @@ function getTypeLabels(t) {
     return_status: t("Return Update", "रिटर्न अपडेट"),
     back_in_stock: t("Back in Stock", "फिर से स्टॉक में"),
     loyalty_points: t("Loyalty Points", "लॉयल्टी पॉइंट्स"),
+    price_drop: t("Price Drop", "कीमत घटी"),
     account_status: t("Account Update", "खाता अपडेट"),
     question_answered: t("Question Answered", "सवाल का जवाब"),
   };
