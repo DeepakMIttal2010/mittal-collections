@@ -37,6 +37,16 @@ function Rewards() {
   if (!rewards) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-16 text-center text-slate-500">
+        {/* Unlike TrendingPage/NewArrivalsPage/ClearanceSalePage/
+            GiftingPage, this page's <Seo> only rendered after
+            getPublicRewardsInfo() resolved — a crawler hitting this
+            public page during a slow or failed API call got no
+            title/description/canonical at all. */}
+        <Seo
+          title="Rewards Program — Earn While You Shop"
+          description="How Mittal Collections' rewards program works: welcome offer, loyalty points, referrals and review bonuses."
+          url={`${SITE_URL}/rewards`}
+        />
         {t("Loading...", "लोड हो रहा है...")}
       </div>
     );

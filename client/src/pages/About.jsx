@@ -22,9 +22,15 @@ function About() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 pt-16 pb-20">
+      {/* Was getting real Search Console impressions (92 over 90 days,
+          2nd-highest on the site after the homepage) at a decent position
+          but 0% CTR — the old title/description weren't wrong, just
+          generic ("About Mittal Collections — Home Furnishing Store"
+          reads like every other furnishing store's about page). Made it
+          more specific to what actually differentiates this one. */}
       <Seo
-        title="About Mittal Collections — Home Furnishing Store"
-        description="Mittal Collections is a home furnishing store offering premium bedsheets, towels, curtains, cushions and doormats with pan-India delivery — quality materials, fast 24-hour delivery in Ghaziabad, and easy returns."
+        title="About Us — Why Mittal Collections | Home Furnishing"
+        description="Mittal Collections: a focused range of bedsheets, towels, curtains and cushions chosen for real material quality, not sheer catalog size. Pan-India delivery, easy returns, 24-hour delivery in Ghaziabad."
         url={`${SITE_URL}/about`}
       />
 
