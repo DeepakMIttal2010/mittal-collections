@@ -59,6 +59,19 @@ function Header() {
   const [deliverPlace, setDeliverPlace] = useState("");
   const [savedAddresses, setSavedAddresses] = useState([]);
   const [addressOpen, setAddressOpen] = useState(false);
+  const addressCloseTimer = useRef(null);
+
+  // Same zero-gap hover-handoff fix as openAccountMenu/scheduleCloseAccountMenu
+  // above — this panel is likewise absolutely positioned outside its
+  // trigger's layout box, so a bare mouseleave with no delay could dismiss
+  // it before a click on a listed address registers.
+  const openAddressMenu = () => {
+    clearTimeout(addressCloseTimer.current);
+    setAddressOpen(true);
+  };
+  const scheduleCloseAddressMenu = () => {
+    addressCloseTimer.current = setTimeout(() => setAddressOpen(false), 150);
+  };
   const [switchingAddressId, setSwitchingAddressId] = useState(null);
   const recognitionRef = useRef(null);
   const searchFormRef = useRef(null);
@@ -320,8 +333,8 @@ function Header() {
           (isLoggedIn && savedAddresses.length > 0 ? (
             <div
               className="relative hidden lg:block shrink-0"
-              onMouseEnter={() => setAddressOpen(true)}
-              onMouseLeave={() => setAddressOpen(false)}
+              onMouseEnter={openAddressMenu}
+              onMouseLeave={scheduleCloseAddressMenu}
             >
               <button
                 type="button"

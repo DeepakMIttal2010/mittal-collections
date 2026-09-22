@@ -1046,7 +1046,7 @@ function ProductDetails() {
               <button
                 type="button"
                 onClick={() =>
-                  setQuantity((q) => Math.min(q + 1, displayStock || q + 1))
+                  setQuantity((q) => Math.min(q + 1, displayStock))
                 }
                 className="px-3 py-1.5 text-slate-600 hover:bg-slate-50"
               >

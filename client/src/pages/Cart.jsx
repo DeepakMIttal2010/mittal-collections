@@ -1,12 +1,14 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { imgUrl } from "../services/api";
 import { Link } from "react-router-dom";
+import { toast } from "react-toastify";
 import { FaTrash, FaPlus, FaMinus, FaGift, FaTags } from "react-icons/fa";
 
 import { useCart } from "../context/CartContext";
 import { useLanguage } from "../context/LanguageContext";
 import { getPublicRewardsInfo } from "../services/rewardsService";
 import { getSiteSettings } from "../services/settingsService";
+import { getProductById } from "../services/productService";
 import { calculateDeliveryFee } from "../utils/shipping";
 import Seo from "../components/Seo";
 import "./Cart.css";
@@ -22,6 +24,7 @@ function Cart() {
     totalItems,
     totalPrice,
     bundleInfo,
+    reconcileCartItem,
   } = useCart();
 
   const [showBundleInfo, setShowBundleInfo] = useState(false);
@@ -47,6 +50,113 @@ function Cart() {
         });
       }
     });
+  }, []);
+
+  // addToCart only ever copies price/stock into the line item at
+  // add-time — nothing revisits that snapshot for as long as the item
+  // sits in the cart, so a price change or a stock drop since adding was
+  // otherwise invisible until checkout rejected an unfulfillable
+  // quantity with a confusing error. Reconciles once against live
+  // product data whenever the cart page is opened with items already in
+  // it (deliberately not on every cartItems change, which would refetch
+  // on every quantity click).
+  const reconciledRef = useRef(false);
+
+  useEffect(() => {
+    if (reconciledRef.current || cartItems.length === 0) return;
+    reconciledRef.current = true;
+
+    const itemsToCheck = cartItems;
+
+    (async () => {
+      let priceChanged = false;
+      let stockReduced = false;
+
+      for (const item of itemsToCheck) {
+        const response = await getProductById(item.productId);
+        const product = response.success ? response.product : null;
+
+        // getProductById already 404s (success: false) for a soft-deleted,
+        // deactivated, or offline-visibility product — no separate
+        // isActive check needed here.
+        if (!product) {
+          removeFromCart(item._id);
+          toast.info(
+            t(
+              `${item.name} is no longer available and was removed from your cart`,
+              `${item.name} अब उपलब्ध नहीं है और कार्ट से हटा दिया गया`,
+            ),
+          );
+          continue;
+        }
+
+        const variant = item.selectedSize
+          ? product.variants?.find((v) => v.size === item.selectedSize)
+          : null;
+
+        if (item.selectedSize && !variant) {
+          removeFromCart(item._id);
+          toast.info(
+            t(
+              `${item.name} (${item.selectedSize}) is no longer available and was removed from your cart`,
+              `${item.name} (${item.selectedSize}) अब उपलब्ध नहीं है और कार्ट से हटा दिया गया`,
+            ),
+          );
+          continue;
+        }
+
+        const liveStock = variant ? variant.stock : product.stock;
+
+        if (liveStock <= 0) {
+          removeFromCart(item._id);
+          toast.info(
+            t(
+              `${item.name} is now out of stock and was removed from your cart`,
+              `${item.name} अब स्टॉक में नहीं है और कार्ट से हटा दिया गया`,
+            ),
+          );
+          continue;
+        }
+
+        const livePrice = variant ? variant.price : product.price;
+        const liveOldPrice = variant ? variant.oldPrice : product.oldPrice;
+        const cappedQuantity = Math.min(item.quantity, liveStock);
+
+        const updates = {};
+        if (livePrice !== item.price) {
+          updates.price = livePrice;
+          updates.oldPrice = liveOldPrice;
+          priceChanged = true;
+        }
+        if (liveStock !== item.stock) updates.stock = liveStock;
+        if (cappedQuantity !== item.quantity) {
+          updates.quantity = cappedQuantity;
+          stockReduced = true;
+        }
+
+        if (Object.keys(updates).length > 0) {
+          reconcileCartItem(item._id, updates);
+        }
+      }
+
+      if (priceChanged) {
+        toast.info(
+          t(
+            "Some prices in your cart were updated to reflect the latest price",
+            "आपके कार्ट में कुछ कीमतें नवीनतम कीमत दर्शाने के लिए अपडेट हुई हैं",
+          ),
+        );
+      }
+      if (stockReduced) {
+        toast.info(
+          t(
+            "Some quantities in your cart were adjusted due to limited stock",
+            "सीमित स्टॉक के कारण आपके कार्ट में कुछ मात्राएं समायोजित की गई हैं",
+          ),
+        );
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const pointsPreview = earnRate ? Math.floor(totalPrice / earnRate) : 0;

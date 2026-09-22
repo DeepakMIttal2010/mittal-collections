@@ -1,4 +1,5 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
 import { FaTimes, FaShoppingCart } from "react-icons/fa";
 
 import { useCompare } from "../context/CompareContext";
@@ -12,7 +13,7 @@ import Seo from "../components/Seo";
 
 function getRows(t) {
   return [
-    { label: t("Price", "कीमत"), render: (p) => `₹${p.price}` },
+    { label: t("Price", "कीमत"), render: (p) => `₹${p.price}`, spec: null },
     {
       label: t("MRP", "MRP"),
       render: (p) =>
@@ -21,8 +22,25 @@ function getRows(t) {
         ) : (
           "—"
         ),
+      spec: null,
     },
-    { label: t("Category", "श्रेणी"), render: (p) => p.category?.name || "—" },
+    // Same spec fields AutoCompareTable.jsx already shows on the product
+    // page's auto-generated comparison — the dedicated Compare page
+    // customers explicitly navigate to was missing exactly the fields
+    // that actually differentiate similar products (which bedsheet is
+    // thicker/what fabric/what size), showing only Price/MRP/Category/
+    // Availability/Description.
+    { label: t("Fabric", "फैब्रिक"), render: (p) => p.fabric || "—", spec: "fabric" },
+    { label: t("Size", "साइज़"), render: (p) => p.size || "—", spec: "size" },
+    { label: t("GSM", "GSM"), render: (p) => p.gsm || "—", spec: "gsm" },
+    { label: t("Wash Care", "वॉश केयर"), render: (p) => p.washCare || "—", spec: "washCare" },
+    { label: t("Brand", "ब्रांड"), render: (p) => p.brand || "—", spec: "brand" },
+    {
+      label: t("Country of Origin", "मूल देश"),
+      render: (p) => p.countryOfOrigin || "—",
+      spec: "countryOfOrigin",
+    },
+    { label: t("Category", "श्रेणी"), render: (p) => p.category?.name || "—", spec: null },
     {
       label: t("Availability", "उपलब्धता"),
       render: (p) => (
@@ -30,12 +48,14 @@ function getRows(t) {
           {getStockStatus(p.stock).label}
         </span>
       ),
+      spec: null,
     },
     {
       label: t("Description", "विवरण"),
       render: (p) => (
         <span className="line-clamp-4 text-left">{stripHtml(p.description)}</span>
       ),
+      spec: null,
     },
   ];
 }
@@ -44,7 +64,32 @@ function Compare() {
   const { compareItems, removeFromCompare, clearCompare } = useCompare();
   const { addToCart } = useCart();
   const { t } = useLanguage();
-  const rows = getRows(t);
+  const navigate = useNavigate();
+  // Spec rows (fabric, size, GSM, etc.) only show if at least one
+  // compared product actually has a value for that field — matches
+  // AutoCompareTable.jsx's identical getSpecRows/visibleRows filtering,
+  // so a row isn't a wall of "—" for a product type that spec doesn't
+  // apply to.
+  const rows = getRows(t).filter(
+    (row) => !row.spec || compareItems.some((p) => p[row.spec]),
+  );
+
+  // Same guard as Wishlist.jsx's handleAddToCart — a product with size
+  // variants can't be added directly here; CartContext falls back to the
+  // top-level price/stock when no variant is given, which only ever
+  // mirrors the FIRST size, silently charging whatever that size costs
+  // and never reserving stock for the size the customer actually wants.
+  const handleAddToCart = (product) => {
+    if (product.variants?.length > 0) {
+      toast.info(
+        t("Please select a size on the product page", "प्रोडक्ट पेज पर साइज़ चुनें"),
+      );
+      navigate(productUrl(product));
+      return;
+    }
+
+    addToCart(product);
+  };
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-12">
@@ -117,7 +162,7 @@ function Compare() {
 
                       <button
                         type="button"
-                        onClick={() => addToCart(product)}
+                        onClick={() => handleAddToCart(product)}
                         disabled={product.stock <= 0}
                         className="mt-2 w-full flex items-center justify-center gap-1.5 bg-blue-900 hover:bg-blue-950 text-white text-xs font-semibold rounded-full py-2 transition-colors disabled:opacity-50"
                       >
