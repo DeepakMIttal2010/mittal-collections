@@ -548,12 +548,31 @@ function CategoryPage() {
   const sizeHelpLinks = getSizeHelpLinks(t);
   const sortOptions = getSortOptions(t);
 
+  // A category with exactly one primary-group subcategory (verified live:
+  // Cushion Covers, Dohars, Hotel Linen) renders the same product grid at
+  // both /category/x and /category/x/only-sub — a genuine duplicate-content
+  // pair, not a hypothetical one. Rather than remove the subcategory page
+  // (it's still a real, valid URL someone could land on or share),
+  // canonicalize it back to the parent category so Google consolidates
+  // ranking signal onto one URL instead of splitting/flagging it as a
+  // duplicate. A subcategory in a facet group (Material/Size on a
+  // multi-subcategory category) is unaffected — only the sole member of
+  // an otherwise-empty primary group triggers this.
+  const activeSubcategoryIsOnlyPrimaryOption =
+    activeSubcategory &&
+    !activeSubcategoryIsFacet &&
+    primaryGroup?.items.length === 1;
+
+  const canonicalCategoryUrl = activeSubcategoryIsOnlyPrimaryOption
+    ? `${SITE_URL}/category/${categorySlug}`
+    : `${SITE_URL}/category/${categorySlug}${subcategorySlug ? `/${subcategorySlug}` : ""}`;
+
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
       <Seo
         title={pageTitle}
         description={`Buy ${pageTitle} online with pan-India delivery at Mittal Collections - fast 24-hour delivery in Ghaziabad. ${category.description || ""}`.trim().slice(0, 160)}
-        url={`${SITE_URL}/category/${categorySlug}${subcategorySlug ? `/${subcategorySlug}` : ""}`}
+        url={canonicalCategoryUrl}
         jsonLd={buildBreadcrumbJsonLd(breadcrumbItemsForSeo)}
       />
       <Breadcrumbs items={breadcrumbItems} />
