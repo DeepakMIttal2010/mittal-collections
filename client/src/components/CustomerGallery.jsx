@@ -6,6 +6,7 @@ import { getShowcaseReviews } from "../services/reviewService";
 import { productUrl } from "../utils/productUrl";
 import { useLanguage } from "../context/LanguageContext";
 import { imgUrl, imgSrcSet } from "../services/api";
+import { handleImageError } from "../utils/imageFallback";
 
 // Real customer photos are the whole point here — see the "real photos
 // over stock images" convention this project already follows for product
@@ -59,6 +60,7 @@ function CustomerGallery() {
                 sizes="(min-width: 768px) 22vw, (min-width: 640px) 30vw, 45vw"
                 alt={review.product?.name || t("Customer photo", "ग्राहक फ़ोटो")}
                 loading="lazy"
+                onError={handleImageError}
                 className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
               />
 
