@@ -605,9 +605,33 @@ function ProductDetails() {
         },
         reviewBody: r.content,
         datePublished: r.createdAt,
+        // Review.images are already full Cloudinary URLs (see
+        // Review.js), not the raw public-id paths imgUrl() transforms —
+        // this data was already fetched and displayed on real customer
+        // photo reviews but never handed to Google's Review markup,
+        // which supports an `image` property for exactly this case.
+        ...(r.images?.length > 0 && { image: r.images }),
       })),
     }),
   };
+
+  // `video` is not a valid schema.org property on Product — it's only
+  // defined on CreativeWork-type things, so nesting it inside
+  // productJsonLd (as this used to) is silently ignored by Google's
+  // parser and unlocks no video-result eligibility at all. A standalone
+  // VideoObject block (its own top-level entry in the jsonLd array
+  // below) is the correct, documented way to associate a video with the
+  // page. No per-video thumbnail/title exists in this data model, so
+  // the main product photo/name/description stand in.
+  const videoJsonLd = (product.videos || []).map((url) => ({
+    "@context": "https://schema.org",
+    "@type": "VideoObject",
+    name: product.name,
+    description: stripHtml(product.description),
+    thumbnailUrl: imgUrl(product.image),
+    contentUrl: url,
+    uploadDate: product.createdAt,
+  }));
 
   // Structured data stays English-only regardless of the language toggle
   // (schema.org/SEO convention) — only the visible breadcrumb trail below
@@ -699,6 +723,7 @@ function ProductDetails() {
           productJsonLd,
           buildBreadcrumbJsonLd(breadcrumbItemsForSeo),
           faqJsonLd,
+          ...videoJsonLd,
         ]}
       />
       <Breadcrumbs items={breadcrumbItems} />
@@ -1046,7 +1071,7 @@ function ProductDetails() {
               <button
                 type="button"
                 onClick={() =>
-                  setQuantity((q) => Math.min(q + 1, displayStock || q + 1))
+                  setQuantity((q) => Math.min(q + 1, displayStock))
                 }
                 className="px-3 py-1.5 text-slate-600 hover:bg-slate-50"
               >

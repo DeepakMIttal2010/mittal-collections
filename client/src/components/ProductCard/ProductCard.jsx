@@ -141,7 +141,7 @@ function ProductCard({ product }) {
           <div className="price">
             <span className="new-price">₹{product.price}</span>
 
-            <span className="old-price">₹{product.oldPrice}</span>
+            {hasDiscount && <span className="old-price">₹{product.oldPrice}</span>}
           </div>
 
           {pointsPreview > 0 && (

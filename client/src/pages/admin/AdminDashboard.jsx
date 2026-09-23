@@ -24,12 +24,20 @@ function AdminDashboard() {
   });
 
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
   const loadDashboard = async () => {
+    setLoadError(false);
     const response = await getDashboardData();
 
     if (response.success) {
       setDashboard(response.data);
+    } else {
+      // Previously fell through silently, leaving the all-zero initial
+      // state rendered as if it were real data — indistinguishable from
+      // a genuinely quiet day, with no indication the fetch actually
+      // failed (expired token, server error, etc.).
+      setLoadError(true);
     }
 
     setLoading(false);
@@ -72,6 +80,18 @@ function AdminDashboard() {
 
   if (loading) {
     return <h2 style={{ padding: 30 }}>Loading Dashboard...</h2>;
+  }
+
+  if (loadError) {
+    return (
+      <div style={{ padding: 30 }}>
+        <h2>Couldn't load the dashboard</h2>
+        <p>There was a problem fetching dashboard data. Please try again.</p>
+        <button type="button" onClick={loadDashboard}>
+          Retry
+        </button>
+      </div>
+    );
   }
 
   return (

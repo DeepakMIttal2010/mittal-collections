@@ -25,7 +25,11 @@ import { SITE_URL } from "../utils/siteUrl";
 // (which needs an admin-configured address to be meaningful), this is
 // always valid and should never depend on any async data being loaded,
 // so the homepage is never left with zero structured data at all.
-const organizationJsonLd = {
+// sameAs is added inside the component once settings load (see
+// organizationJsonLd below) rather than here, since it needs
+// settings.facebook/instagram/twitter — the base object here is what
+// renders before that data arrives.
+const baseOrganizationJsonLd = {
   "@context": "https://schema.org",
   "@type": "Organization",
   "@id": `${SITE_URL}/#organization`,
@@ -33,12 +37,28 @@ const organizationJsonLd = {
   url: `${SITE_URL}/`,
 };
 
+// potentialAction doesn't depend on any runtime data — SearchResults.jsx
+// already reads its query from a plain `?q=` param, so this is exactly
+// the URL shape Google's sitelinks-searchbox feature needs, just never
+// declared.
 const websiteJsonLd = {
   "@context": "https://schema.org",
   "@type": "WebSite",
   "@id": `${SITE_URL}/#website`,
   name: "Mittal Collections",
   url: `${SITE_URL}/`,
+  potentialAction: {
+    "@type": "SearchAction",
+    // schema.org's Action.target expects an EntryPoint, not a bare
+    // string — Google's parser tolerates the flat-string form today,
+    // but EntryPoint/urlTemplate is what the spec and Google's current
+    // Sitelinks Searchbox docs actually show.
+    target: {
+      "@type": "EntryPoint",
+      urlTemplate: `${SITE_URL}/search?q={search_term_string}`,
+    },
+    "query-input": "required name=search_term_string",
+  },
 };
 
 function Home() {
@@ -53,6 +73,23 @@ function Home() {
 
     loadSettings();
   }, []);
+
+  // Base fields always present (see baseOrganizationJsonLd's comment);
+  // sameAs only gets added once settings load, same social links
+  // localBusinessJsonLd/Contact.jsx already use for the same purpose —
+  // this was previously the one JSON-LD block guaranteed to always
+  // render that DIDN'T carry it, while the conditional block below
+  // duplicated it.
+  const socialSameAs = [
+    settings.facebook,
+    settings.instagram,
+    settings.twitter,
+  ].filter(Boolean);
+
+  const organizationJsonLd = {
+    ...baseOrganizationJsonLd,
+    ...(socialSameAs.length > 0 && { sameAs: socialSameAs }),
+  };
 
   const localBusinessJsonLd = settings.address
     ? {

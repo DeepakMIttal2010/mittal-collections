@@ -919,6 +919,14 @@ function AdminReports() {
 
   const applyEngagementRange = () => {
     if (!engagementDraftStart || !engagementDraftEnd) return;
+    // Without this, an end date picked before the start date silently
+    // matches nothing server-side ($gte since, $lte until with since >
+    // until) — the report just renders a confident all-zero result with
+    // no indication the range itself was invalid.
+    if (engagementDraftEnd < engagementDraftStart) {
+      alert("End date can't be before start date");
+      return;
+    }
     setEngagementRange({ startDate: engagementDraftStart, endDate: engagementDraftEnd });
     setShowEngagementPicker(false);
   };
@@ -941,6 +949,11 @@ function AdminReports() {
 
   const applyCustomRange = () => {
     if (!draftStart || !draftEnd) return;
+    // Same reasoning as applyEngagementRange above.
+    if (draftEnd < draftStart) {
+      alert("End date can't be before start date");
+      return;
+    }
     setCustomRange({ startDate: draftStart, endDate: draftEnd });
     setShowCustomPicker(false);
   };
@@ -971,9 +984,13 @@ function AdminReports() {
     blocks.push(
       Papa.unparse([
         {
-          "Total Revenue": summary.totalRevenue,
+          // Rounded the same way formatCurrency rounds the on-screen
+          // StatTile — the raw unrounded value here previously let the
+          // CSV disagree with what's actually shown (e.g. screen ₹45,679,
+          // CSV 45678.73).
+          "Total Revenue": Math.round(summary.totalRevenue),
           "Total Orders": summary.totalOrders,
-          "Avg Order Value": summary.avgOrderValue.toFixed(2),
+          "Avg Order Value": Math.round(summary.avgOrderValue),
           "Total Customers (all-time)": summary.totalCustomers,
           "Website Visits": summary.totalVisits,
           "Unique Visitors": summary.uniqueVisitors,
@@ -982,7 +999,7 @@ function AdminReports() {
           "Revenue Growth %": report.growth?.revenue?.toFixed(1) ?? "",
           "Orders Growth %": report.growth?.orders?.toFixed(1) ?? "",
           "Currently Abandoned Carts": report.cartAbandonment.abandonedCount,
-          "Abandoned Cart Value": report.cartAbandonment.abandonedValue,
+          "Abandoned Cart Value": Math.round(report.cartAbandonment.abandonedValue),
         },
       ]),
     );
@@ -1197,6 +1214,7 @@ function AdminReports() {
                 <input
                   type="date"
                   value={draftEnd}
+                  min={draftStart}
                   max={todayISO()}
                   onChange={(e) => setDraftEnd(e.target.value)}
                   className="border border-slate-300 rounded-lg px-2 py-1.5 text-sm"
@@ -1665,6 +1683,7 @@ function AdminReports() {
                   <input
                     type="date"
                     value={engagementDraftEnd}
+                    min={engagementDraftStart}
                     max={todayISO()}
                     onChange={(e) => setEngagementDraftEnd(e.target.value)}
                     className="border border-slate-300 rounded-lg px-2 py-1.5 text-sm"

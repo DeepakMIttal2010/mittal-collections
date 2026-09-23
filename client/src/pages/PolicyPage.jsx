@@ -86,9 +86,15 @@ function PolicyPage() {
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-16">
+      {/* displayTitle/displayContent already switch to Hindi with the
+          toggle (below) — title/description here must match, or a
+          Hindi-toggled visitor/crawler sees Hindi body copy under an
+          English meta title/description. Seo.jsx's own `lang` prop
+          already defaults to the live toggle state, so that part needs
+          no change here. */}
       <Seo
-        title={page.title}
-        description={page.content.slice(0, 160)}
+        title={displayTitle}
+        description={displayContent.slice(0, 160)}
         url={`${SITE_URL}/policies/${slug}`}
       />
 

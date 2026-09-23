@@ -7,6 +7,7 @@ import {
 } from "../services/rewardsService";
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
+import Seo from "../components/Seo";
 
 function getTypeLabels(t) {
   return {
@@ -62,6 +63,7 @@ function LoyaltyHistory() {
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-10">
+      <Seo title="Loyalty Points History" noindex />
       <Link
         to="/account"
         className="text-sm text-blue-600 hover:underline mb-4 inline-block"
