@@ -177,11 +177,11 @@ function AppRoutes() {
           />
           <Route
             path="/pillows"
-            element={<Navigate to="/category/pillows" replace />}
+            element={<Navigate to="/category/cushions" replace />}
           />
           <Route
             path="/blankets"
-            element={<Navigate to="/category/blankets" replace />}
+            element={<Navigate to="/category/dohars" replace />}
           />
           <Route
             path="/offers"
