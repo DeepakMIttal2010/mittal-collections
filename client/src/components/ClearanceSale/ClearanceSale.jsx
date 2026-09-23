@@ -7,6 +7,7 @@ import { getBigSavingsProducts } from "../../services/productService";
 import Skeleton from "../Skeleton";
 import { productUrl } from "../../utils/productUrl";
 import { useLanguage } from "../../context/LanguageContext";
+import { handleImageError } from "../../utils/imageFallback";
 
 function ClearanceCategoryRow({ category, products, t, isFirst }) {
   const scrollRef = useRef(null);
@@ -72,6 +73,7 @@ function ClearanceCategoryRow({ category, products, t, isFirst }) {
                   sizes="(min-width: 640px) 240px, 192px"
                   alt={t(product.name, product.nameHi)}
                   loading="lazy"
+                  onError={handleImageError}
                   className="w-full h-full object-cover"
                 />
 

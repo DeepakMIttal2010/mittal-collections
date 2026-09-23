@@ -15,6 +15,7 @@ import { useCart } from "../../context/CartContext";
 import { useCompare } from "../../context/CompareContext";
 import { LOW_STOCK_THRESHOLD, getStockStatus } from "../../utils/stock";
 import { productUrl } from "../../utils/productUrl";
+import { handleImageError } from "../../utils/imageFallback";
 import { getEarnRate } from "../../services/rewardsService";
 import { useLanguage } from "../../context/LanguageContext";
 
@@ -61,6 +62,7 @@ function ProductCard({ product }) {
             sizes="(min-width: 1024px) 270px, (min-width: 768px) 29vw, 45vw"
             alt={t(product.name, product.nameHi)}
             loading="lazy"
+            onError={handleImageError}
           />
 
           {hasDiscount && (

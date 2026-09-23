@@ -16,6 +16,7 @@ import { calculateDeliveryFee } from "../utils/shipping";
 import { toWhatsAppNumber } from "../utils/whatsapp";
 import { stripHtml } from "../utils/stripHtml";
 import { sanitizeDescriptionHtml } from "../utils/sanitizeDescriptionHtml";
+import { handleImageError } from "../utils/imageFallback";
 import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import {
@@ -772,6 +773,13 @@ function ProductDetails() {
                     alt={t(product.name, product.nameHi)}
                     style={zoomStyle}
                     onLoad={() => setMainImageLoaded(true)}
+                    onError={(e) => {
+                      // Reveal the fallback instead of leaving it stuck
+                      // behind the loading-pulse placeholder forever —
+                      // onLoad never fires for a failed image.
+                      setMainImageLoaded(true);
+                      handleImageError(e);
+                    }}
                     fetchPriority="high"
                     className={`w-full h-full object-cover transition-all duration-300 pointer-events-none ${
                       mainImageLoaded ? "opacity-100" : "opacity-0"
@@ -832,6 +840,7 @@ function ProductDetails() {
                         src={`${imgUrl(item.url, "w_150,q_auto,f_auto")}`}
                         alt={`${t(product.name, product.nameHi)} - photo ${index + 1}`}
                         loading="lazy"
+                        onError={handleImageError}
                         className="w-full h-full object-cover"
                       />
                     )}
@@ -1375,6 +1384,7 @@ function ProductDetails() {
                 src={`${imgUrl(mediaItems[lightboxIndex]?.url)}`}
                 alt={`${t(product.name, product.nameHi)} - ${t("photo", "फ़ोटो")} ${lightboxIndex + 1}`}
                 onClick={toggleLightboxZoom}
+                onError={handleImageError}
                 className={
                   isLightboxZoomed
                     ? "max-w-none cursor-zoom-out"
