@@ -132,6 +132,12 @@ const STATIC_PAGES = {
       "Get in touch with Mittal Collections for order support, returns, bulk orders or general questions about our home furnishing products.",
     breadcrumb: "Contact Us",
   },
+  "/ghaziabad-home-furnishing-store": {
+    title: "Home Furnishing Store in Ghaziabad — Mittal Collections",
+    description:
+      "Mittal Collections is a home furnishing store in Sector-3, Vasundhara, Ghaziabad, near Vanasthali Public School — bedsheets, curtains, towels & more with 24-hour local delivery across Vasundhara, Vaishali, Indirapuram and nearby areas.",
+    breadcrumb: "Home Furnishing Store in Ghaziabad",
+  },
   "/rewards": {
     title: "Rewards Program — Earn While You Shop",
     description:
@@ -665,6 +671,57 @@ const buildMeta = async (path) => {
         buildBreadcrumbJsonLd([{ name: "Home", path: "/" }, { name: staticPage.breadcrumb }]),
         localBusinessJsonLd,
       ].filter(Boolean),
+    };
+  }
+
+  if (path === "/ghaziabad-home-furnishing-store") {
+    // Mirrors GhaziabadStore.jsx's localBusinessJsonLd exactly -- a
+    // dedicated local-SEO landing page, unconditional (not gated on
+    // settings.address like Home.jsx/Contact.jsx's blocks) since the
+    // landmark-based address here is hardcoded content, not admin data.
+    const staticPage = STATIC_PAGES["/ghaziabad-home-furnishing-store"];
+    const settingsData = await fetch(`${API_BASE}/api/settings`).then((r) =>
+      r.json(),
+    );
+    const settings = settingsData.settings || {};
+
+    const localBusinessJsonLd = {
+      "@context": "https://schema.org",
+      "@type": "HomeGoodsStore",
+      "@id": `${SITE_URL}/#business`,
+      name: SITE_NAME,
+      url: `${SITE_URL}/`,
+      telephone: settings.phone || undefined,
+      address: {
+        "@type": "PostalAddress",
+        streetAddress: "Near Vanasthali Public School, Sector-3, Vasundhara",
+        addressLocality: "Ghaziabad",
+        addressRegion: "Uttar Pradesh",
+        postalCode: "201012",
+        addressCountry: "IN",
+      },
+      areaServed: [
+        ...DELIVERY_AREAS.map((area) => ({
+          "@type": "Place",
+          name: `${area}, Ghaziabad`,
+        })),
+        { "@type": "City", name: "Ghaziabad" },
+      ],
+      sameAs: [settings.facebook, settings.instagram, settings.twitter].filter(
+        Boolean,
+      ),
+    };
+
+    return {
+      title: staticPage.title,
+      description: staticPage.description,
+      image: DEFAULT_IMAGE,
+      url: `${SITE_URL}${path}`,
+      ogType: "website",
+      jsonLd: [
+        localBusinessJsonLd,
+        buildBreadcrumbJsonLd([{ name: "Home", path: "/" }, { name: staticPage.breadcrumb }]),
+      ],
     };
   }
 

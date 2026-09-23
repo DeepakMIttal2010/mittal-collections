@@ -25,6 +25,7 @@ const STATIC_ROUTES = [
   "/rewards",
   "/about",
   "/contact",
+  "/ghaziabad-home-furnishing-store",
   "/articles",
   "/hi/articles",
   "/curtain-size-calculator",

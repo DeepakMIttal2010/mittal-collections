@@ -41,6 +41,7 @@ function lazyWithReload(importer) {
 
 const About = lazyWithReload(() => import("../pages/About"));
 const Contact = lazyWithReload(() => import("../pages/Contact"));
+const GhaziabadStore = lazyWithReload(() => import("../pages/GhaziabadStore"));
 const Cart = lazyWithReload(() => import("../pages/Cart"));
 const Wishlist = lazyWithReload(() => import("../pages/Wishlist"));
 const Login = lazyWithReload(() => import("../pages/Login"));
@@ -189,6 +190,10 @@ function AppRoutes() {
           />
           <Route path="/about" element={<About />} />
           <Route path="/contact" element={<Contact />} />
+          <Route
+            path="/ghaziabad-home-furnishing-store"
+            element={<GhaziabadStore />}
+          />
           <Route path="/cart" element={<Cart />} />
           <Route path="/wishlist" element={<Wishlist />} />
           <Route path="/compare" element={<Compare />} />
