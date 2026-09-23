@@ -377,6 +377,56 @@ const buildMeta = async (path) => {
     };
   }
 
+  if (path === "/contact") {
+    // Contact.jsx's client-side render carries a HomeGoodsStore/@id
+    // sameAs-homepage JSON-LD block (added after an earlier audit found
+    // this page's own address/phone data was fetched and displayed but
+    // never structured) -- this STATIC_PAGES entry never got that same
+    // treatment, so a bot hitting /contact (routed here, never to the
+    // real React app) saw only a breadcrumb, no business schema at all.
+    // Mirrors Contact.jsx's exact shape, not Home.jsx's (no priceRange/
+    // areaServed there -- those are homepage-specific, not per Contact.jsx).
+    const staticPage = STATIC_PAGES["/contact"];
+    const settingsData = await fetch(`${API_BASE}/api/settings`).then((r) =>
+      r.json(),
+    );
+    const settings = settingsData.settings || {};
+
+    const localBusinessJsonLd = settings.address
+      ? {
+          "@context": "https://schema.org",
+          "@type": "HomeGoodsStore",
+          "@id": `${SITE_URL}/#business`,
+          name: SITE_NAME,
+          url: `${SITE_URL}/`,
+          telephone: settings.phone || undefined,
+          email: settings.email || undefined,
+          address: {
+            "@type": "PostalAddress",
+            streetAddress: settings.address,
+            addressLocality: "Ghaziabad",
+            addressRegion: "Uttar Pradesh",
+            addressCountry: "IN",
+          },
+          sameAs: [settings.facebook, settings.instagram, settings.twitter].filter(
+            Boolean,
+          ),
+        }
+      : null;
+
+    return {
+      title: staticPage.title,
+      description: staticPage.description,
+      image: DEFAULT_IMAGE,
+      url: `${SITE_URL}${path}`,
+      ogType: "website",
+      jsonLd: [
+        buildBreadcrumbJsonLd([{ name: "Home", path: "/" }, { name: staticPage.breadcrumb }]),
+        localBusinessJsonLd,
+      ].filter(Boolean),
+    };
+  }
+
   if (STATIC_PAGES[path]) {
     const staticPage = STATIC_PAGES[path];
 
