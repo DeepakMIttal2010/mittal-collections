@@ -49,7 +49,14 @@ const websiteJsonLd = {
   url: `${SITE_URL}/`,
   potentialAction: {
     "@type": "SearchAction",
-    target: `${SITE_URL}/search?q={search_term_string}`,
+    // schema.org's Action.target expects an EntryPoint, not a bare
+    // string — Google's parser tolerates the flat-string form today,
+    // but EntryPoint/urlTemplate is what the spec and Google's current
+    // Sitelinks Searchbox docs actually show.
+    target: {
+      "@type": "EntryPoint",
+      urlTemplate: `${SITE_URL}/search?q={search_term_string}`,
+    },
     "query-input": "required name=search_term_string",
   },
 };

@@ -504,8 +504,13 @@ function CategoryPage() {
     );
   }
 
+  // These pills are the main crawlable navigation from a category to its
+  // subcategory pages (see the <Link> conversion earlier this session) —
+  // at py-1.5 they measured only ~26-32px tall, well under Google's
+  // ~44-48px tap-target guidance. min-h-11 (44px) guarantees the floor
+  // regardless of text length, rather than tuning padding by trial.
   const pillClass = (isActive) =>
-    `px-4 py-1.5 rounded-full border text-sm font-medium whitespace-nowrap transition-colors ${
+    `inline-flex items-center min-h-11 px-4 py-1.5 rounded-full border text-sm font-medium whitespace-nowrap transition-colors ${
       isActive
         ? "bg-amber-600 border-amber-600 text-white"
         : "border-slate-300 text-slate-700 hover:border-amber-600 hover:text-amber-600"
