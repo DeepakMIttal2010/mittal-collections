@@ -169,7 +169,7 @@ const STATIC_PAGES = {
     breadcrumb: "Gifting",
   },
   "/curtain-size-calculator": {
-    title: "Curtain Size & Rod Length Calculator (in Inches)",
+    title: "Curtain Size & Rod Length Calculator",
     description:
       "Free curtain size calculator — enter your window measurements and instantly get the rod length, fabric width and curtain length to buy, plus a size chart.",
     breadcrumb: "Curtain Size Calculator",
