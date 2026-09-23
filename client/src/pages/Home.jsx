@@ -35,6 +35,14 @@ const baseOrganizationJsonLd = {
   "@id": `${SITE_URL}/#organization`,
   name: "Mittal Collections",
   url: `${SITE_URL}/`,
+  // icon-512.png is the site's only real brand mark (a gold circular
+  // "M" monogram used as the PWA icon) — reused here rather than adding
+  // a separate logo asset. Unconditional, same reasoning as everything
+  // else in this base object.
+  logo: {
+    "@type": "ImageObject",
+    url: `${SITE_URL}/icon-512.png`,
+  },
 };
 
 // potentialAction doesn't depend on any runtime data — SearchResults.jsx

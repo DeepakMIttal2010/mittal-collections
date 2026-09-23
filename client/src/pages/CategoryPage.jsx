@@ -14,6 +14,7 @@ import Breadcrumbs from "../components/Breadcrumbs";
 import { buildBreadcrumbJsonLd } from "../utils/breadcrumbJsonLd";
 import { getSiteSettings } from "../services/settingsService";
 import { SITE_URL } from "../utils/siteUrl";
+import { productUrl } from "../utils/productUrl";
 import { useLanguage } from "../context/LanguageContext";
 import { FaGift, FaFilter, FaTimes } from "react-icons/fa";
 
@@ -572,13 +573,30 @@ function CategoryPage() {
     ? `${SITE_URL}/category/${categorySlug}`
     : `${SITE_URL}/category/${categorySlug}${subcategorySlug ? `/${subcategorySlug}` : ""}`;
 
+  // Built from `products` (the base fetched list for this category/
+  // subcategory), not `sortedProducts` (post-filter/sort) — a bot sees
+  // one static render, and this should describe the page's actual
+  // collection, not whatever a visitor's client-side filter state
+  // happens to be. Capped well under any practical page size so a large
+  // category doesn't bloat the JSON-LD payload; a carousel rich result
+  // only ever needs a representative sample, not the full catalog.
+  const itemListJsonLd = products.length > 0 && {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    itemListElement: products.slice(0, 50).map((p, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      url: `${SITE_URL}${productUrl(p)}`,
+    })),
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
       <Seo
         title={pageTitle}
         description={`Buy ${pageTitle} online with pan-India delivery at Mittal Collections - fast 24-hour delivery in Ghaziabad. ${category.description || ""}`.trim().slice(0, 160)}
         url={canonicalCategoryUrl}
-        jsonLd={buildBreadcrumbJsonLd(breadcrumbItemsForSeo)}
+        jsonLd={[buildBreadcrumbJsonLd(breadcrumbItemsForSeo), itemListJsonLd]}
       />
       <Breadcrumbs items={breadcrumbItems} />
       <h1 className="text-xl font-semibold text-slate-800 mb-4">
