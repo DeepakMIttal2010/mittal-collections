@@ -518,6 +518,21 @@ function ProductDetails() {
     // excludes videos (see mediaItems above) and falls back to the
     // single product.image when no gallery array is set.
     image: productImages.map(imgUrl),
+    // ~8% of the catalog has a real product video (rendered in the
+    // gallery/lightbox, see mediaItems above) but it was never
+    // structured — no per-video thumbnail/title exists in the data
+    // model, so the main product photo/name/description stand in,
+    // same as most stores without a dedicated video-metadata field.
+    ...(product.videos?.length > 0 && {
+      video: product.videos.map((url) => ({
+        "@type": "VideoObject",
+        name: product.name,
+        description: stripHtml(product.description),
+        thumbnailUrl: imgUrl(product.image),
+        contentUrl: url,
+        uploadDate: product.createdAt,
+      })),
+    }),
     brand: {
       "@type": "Brand",
       name: "Mittal Collections",
@@ -605,6 +620,12 @@ function ProductDetails() {
         },
         reviewBody: r.content,
         datePublished: r.createdAt,
+        // Review.images are already full Cloudinary URLs (see
+        // Review.js), not the raw public-id paths imgUrl() transforms —
+        // this data was already fetched and displayed on real customer
+        // photo reviews but never handed to Google's Review markup,
+        // which supports an `image` property for exactly this case.
+        ...(r.images?.length > 0 && { image: r.images }),
       })),
     }),
   };
