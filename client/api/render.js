@@ -115,10 +115,15 @@ const imgUrl = (path) => {
 // page's own.
 const STATIC_PAGES = {
   "/about": {
-    title:
-      "About Mittal Collections — Home Furnishing Store",
+    // Kept in sync with About.jsx's <Seo> call by hand (see this file's
+    // header comment) -- this entry previously still held the ORIGINAL
+    // generic copy from before a past round replaced it client-side
+    // after Search Console showed 0% CTR at a decent position despite
+    // real impressions. Bots never saw the fix because they're routed
+    // here, never to the real React app.
+    title: "About Us — Why Mittal Collections | Home Furnishing",
     description:
-      "Mittal Collections is a home furnishing store offering premium bedsheets, towels, curtains, cushions and doormats with pan-India delivery — quality materials, fast 24-hour delivery in Ghaziabad, and easy returns.",
+      "Mittal Collections: a focused range of bedsheets, towels, curtains and cushions chosen for real material quality, not sheer catalog size. Pan-India delivery, easy returns, 24-hour delivery in Ghaziabad.",
     breadcrumb: "About",
   },
   "/contact": {
