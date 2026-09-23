@@ -196,7 +196,7 @@
           "value": ".*([bB]ot|facebookexternalhit|WhatsApp|Pinterest|embedly|Quora Link Preview|Slurp|ia_archiver|Discordbot|TelegramBot|redirectionio).*"
         }
       ],
-      "destination": "/api/render?path=/(.*)"
+      "destination": "/api/render?path=/$1"
     },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
