@@ -25,7 +25,18 @@ export const imgUrl = (path, transform) => {
   if (!path.startsWith("http")) return `${SERVER_URL}${path}`;
 
   if (transform && isCloudinaryUploadUrl(path)) {
-    return path.replace("/upload/", `/upload/${transform}/`);
+    // f_auto is meant to content-negotiate WebP/AVIF via the request's
+    // Accept header, but a live check (Deep SEO Round 6) found real
+    // browser requests still got served JPEG despite requesting it and
+    // the response advertising Vary: Accept -- an edge-cache-not-really-
+    // varying-by-Accept problem, not a code bug, and not something
+    // fixable from here. f_webp sidesteps content negotiation (and its
+    // caching pitfall) entirely by asking for one fixed, near-universally
+    // supported modern format instead of asking Cloudinary to guess per
+    // request -- confirmed via the same live check that forcing an
+    // explicit format (f_avif there) reliably returns that format.
+    const resolvedTransform = transform.replace(/f_auto\b/, "f_webp");
+    return path.replace("/upload/", `/upload/${resolvedTransform}/`);
   }
 
   return path;
