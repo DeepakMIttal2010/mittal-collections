@@ -142,7 +142,18 @@ function ArticleDetail() {
     dateModified: article.updatedAt,
     inLanguage: isHindi ? "hi" : "en",
     author: { "@type": "Organization", name: "Mittal Collections" },
-    publisher: { "@type": "Organization", name: "Mittal Collections" },
+    // Google's Article structured-data guidance requires publisher.logo
+    // for enriched-result eligibility — icon-512.png is the site's only
+    // real brand mark (a gold circular "M" monogram used as the PWA
+    // icon), reused here rather than adding a separate asset.
+    publisher: {
+      "@type": "Organization",
+      name: "Mittal Collections",
+      logo: {
+        "@type": "ImageObject",
+        url: `${SITE_URL}/icon-512.png`,
+      },
+    },
   };
 
   const breadcrumbItems = [

@@ -226,6 +226,13 @@ const buildMeta = async (path) => {
       "@id": `${SITE_URL}/#organization`,
       name: SITE_NAME,
       url: `${SITE_URL}/`,
+      // Mirrors Home.jsx's baseOrganizationJsonLd -- icon-512.png is the
+      // site's only real brand mark (a gold circular "M" monogram used
+      // as the PWA icon).
+      logo: {
+        "@type": "ImageObject",
+        url: `${SITE_URL}/icon-512.png`,
+      },
       ...(socialSameAs.length > 0 && { sameAs: socialSameAs }),
     };
     const websiteJsonLd = {
@@ -549,13 +556,37 @@ const buildMeta = async (path) => {
           .trim()
           .slice(0, 160);
 
+    // Mirrors CategoryPage.jsx's itemListJsonLd -- same endpoints/params
+    // it uses (getProductsByCategory / getProductsBySubcategory), capped
+    // the same way. A carousel rich result only needs a representative
+    // sample, not the full catalog.
+    const productsQuery = subcategory
+      ? `subcategory=${encodeURIComponent(subcategory._id)}`
+      : `category=${encodeURIComponent(category._id)}`;
+    const productsData = await fetch(`${API_BASE}/api/products?${productsQuery}`).then(
+      (r) => r.json(),
+    );
+    const categoryProducts = productsData.success ? productsData.products || [] : [];
+    const itemListJsonLd = categoryProducts.length > 0 && {
+      "@context": "https://schema.org",
+      "@type": "ItemList",
+      itemListElement: categoryProducts.slice(0, 50).map((p, i) => {
+        const productSlug = p.slug || "";
+        return {
+          "@type": "ListItem",
+          position: i + 1,
+          url: `${SITE_URL}${productSlug ? `/product/${p._id}/${productSlug}` : `/product/${p._id}`}`,
+        };
+      }),
+    };
+
     return {
       title,
       description,
       image: imgUrl(category.image) || DEFAULT_IMAGE,
       url,
       ogType: "website",
-      jsonLd: buildBreadcrumbJsonLd(breadcrumbItems),
+      jsonLd: [buildBreadcrumbJsonLd(breadcrumbItems), itemListJsonLd].filter(Boolean),
     };
   }
 
@@ -695,7 +726,15 @@ const buildMeta = async (path) => {
           dateModified: article.updatedAt,
           inLanguage: "en",
           author: { "@type": "Organization", name: SITE_NAME },
-          publisher: { "@type": "Organization", name: SITE_NAME },
+          // Mirrors ArticleDetail.jsx's publisher.logo requirement.
+          publisher: {
+            "@type": "Organization",
+            name: SITE_NAME,
+            logo: {
+              "@type": "ImageObject",
+              url: `${SITE_URL}/icon-512.png`,
+            },
+          },
         },
         buildBreadcrumbJsonLd(breadcrumbItems),
       ],
@@ -753,7 +792,15 @@ const buildMeta = async (path) => {
           dateModified: article.updatedAt,
           inLanguage: "hi",
           author: { "@type": "Organization", name: SITE_NAME },
-          publisher: { "@type": "Organization", name: SITE_NAME },
+          // Mirrors ArticleDetail.jsx's publisher.logo requirement.
+          publisher: {
+            "@type": "Organization",
+            name: SITE_NAME,
+            logo: {
+              "@type": "ImageObject",
+              url: `${SITE_URL}/icon-512.png`,
+            },
+          },
         },
         buildBreadcrumbJsonLd(breadcrumbItems),
       ],
