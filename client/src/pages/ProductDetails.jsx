@@ -518,21 +518,6 @@ function ProductDetails() {
     // excludes videos (see mediaItems above) and falls back to the
     // single product.image when no gallery array is set.
     image: productImages.map(imgUrl),
-    // ~8% of the catalog has a real product video (rendered in the
-    // gallery/lightbox, see mediaItems above) but it was never
-    // structured — no per-video thumbnail/title exists in the data
-    // model, so the main product photo/name/description stand in,
-    // same as most stores without a dedicated video-metadata field.
-    ...(product.videos?.length > 0 && {
-      video: product.videos.map((url) => ({
-        "@type": "VideoObject",
-        name: product.name,
-        description: stripHtml(product.description),
-        thumbnailUrl: imgUrl(product.image),
-        contentUrl: url,
-        uploadDate: product.createdAt,
-      })),
-    }),
     brand: {
       "@type": "Brand",
       name: "Mittal Collections",
@@ -630,6 +615,24 @@ function ProductDetails() {
     }),
   };
 
+  // `video` is not a valid schema.org property on Product — it's only
+  // defined on CreativeWork-type things, so nesting it inside
+  // productJsonLd (as this used to) is silently ignored by Google's
+  // parser and unlocks no video-result eligibility at all. A standalone
+  // VideoObject block (its own top-level entry in the jsonLd array
+  // below) is the correct, documented way to associate a video with the
+  // page. No per-video thumbnail/title exists in this data model, so
+  // the main product photo/name/description stand in.
+  const videoJsonLd = (product.videos || []).map((url) => ({
+    "@context": "https://schema.org",
+    "@type": "VideoObject",
+    name: product.name,
+    description: stripHtml(product.description),
+    thumbnailUrl: imgUrl(product.image),
+    contentUrl: url,
+    uploadDate: product.createdAt,
+  }));
+
   // Structured data stays English-only regardless of the language toggle
   // (schema.org/SEO convention) — only the visible breadcrumb trail below
   // gets translated.
@@ -720,6 +723,7 @@ function ProductDetails() {
           productJsonLd,
           buildBreadcrumbJsonLd(breadcrumbItemsForSeo),
           faqJsonLd,
+          ...videoJsonLd,
         ]}
       />
       <Breadcrumbs items={breadcrumbItems} />

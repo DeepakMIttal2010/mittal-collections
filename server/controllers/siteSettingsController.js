@@ -55,6 +55,21 @@ export const updateSiteSettings = async (req, res) => {
       pricingRules,
     } = req.body;
 
+    // These feed straight into sameAs on the site's Organization/
+    // HomeGoodsStore JSON-LD (Home.jsx, Contact.jsx) — schema.org
+    // requires sameAs entries to be full URLs, not bare handles, but
+    // nothing before this point enforced that; only the admin form's
+    // placeholder text ("https://facebook.com/yourpage") guided it.
+    const socialLinkFields = { facebook, instagram, twitter, linkedin };
+    for (const [field, value] of Object.entries(socialLinkFields)) {
+      if (value && !/^https?:\/\//i.test(value)) {
+        return res.status(400).json({
+          success: false,
+          message: `${field} must be a full URL starting with http:// or https://`,
+        });
+      }
+    }
+
     // bundleRules/pricingRules feed straight into real pricing logic
     // (bundleDiscount.js, and the Cost/Price Auto-Fill suggestion
     // AddProduct/EditProduct use to fill purchasePrice -> price) with no

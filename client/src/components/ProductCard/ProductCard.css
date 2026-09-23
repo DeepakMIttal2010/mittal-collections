@@ -92,9 +92,20 @@
   opacity: 1;
 }
 
+/* Touch devices have no real :hover — without this, these buttons sat
+   at opacity: 0 until a browser's hover-simulation-on-tap kicked in
+   (a well-known mobile anti-pattern that needs a second tap to
+   actually register the click), on top of being under Google's
+   ~44-48px tap-target guidance at 40px. */
+@media (hover: none) {
+  .product-icons {
+    opacity: 1;
+  }
+}
+
 .product-icons button {
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   border: none;
   border-radius: 50%;
   background: white;
