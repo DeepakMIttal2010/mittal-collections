@@ -65,13 +65,17 @@ const stripHtml = (html) => {
     text = text.replace(/<[^>]*>/g, "");
   } while (text !== previous);
 
+  // &amp; must decode LAST -- decoding it first would double-unescape a
+  // literal "&amp;lt;" (an escaped ampersand followed by literal "lt;")
+  // into an actual "<" instead of leaving it as the text "&lt;" (CodeQL:
+  // "double escaping or unescaping").
   return text
     .replace(/&nbsp;/gi, " ")
-    .replace(/&amp;/gi, "&")
     .replace(/&lt;/gi, "<")
     .replace(/&gt;/gi, ">")
     .replace(/&quot;/gi, '"')
     .replace(/&#39;/gi, "'")
+    .replace(/&amp;/gi, "&")
     .replace(/\s+/g, " ")
     .trim();
 };
