@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 import {
   FaGift,
   FaHeart,
+  FaRegHeart,
   FaEye,
   FaShoppingCart,
   FaExchangeAlt,
@@ -30,11 +31,12 @@ const QuickViewModal = lazy(() => import("./QuickViewModal"));
 
 function ProductCard({ product }) {
   const { addToCart } = useCart();
-  const { addToWishlist } = useWishlist();
+  const { wishlistItems, addToWishlist, removeFromWishlist } = useWishlist();
   const { toggleCompare, isInCompare } = useCompare();
   const { t } = useLanguage();
   const [showQuickView, setShowQuickView] = useState(false);
   const inCompare = isInCompare(product._id);
+  const isWishlisted = wishlistItems.some((item) => item._id === product._id);
   const [earnRate, setEarnRate] = useState(null);
   // oldPrice defaults to 0 for a product an admin never set one for —
   // unguarded, (0-price)/0*100 renders as a literal "-Infinity% OFF"
@@ -85,18 +87,31 @@ function ProductCard({ product }) {
             )
           )}
 
-          <div className="product-icons">
-            <button
-              type="button"
-              aria-label={t("Add to wishlist", "विशलिस्ट में डालें")}
-              onClick={(e) => {
-                e.preventDefault();
-                addToWishlist(product);
-              }}
-            >
-              <FaHeart />
-            </button>
+          {/* Only the heart stays on the photo at all times (the Flipkart/
+              Myntra pattern) -- three always-visible 44px buttons were
+              covering a real chunk of the product photo on touch devices,
+              and real photos are this site's main selling point. */}
+          <button
+            type="button"
+            className={`wishlist-btn ${isWishlisted ? "active" : ""}`}
+            aria-label={
+              isWishlisted
+                ? t("Remove from wishlist", "विशलिस्ट से हटाएं")
+                : t("Add to wishlist", "विशलिस्ट में डालें")
+            }
+            aria-pressed={isWishlisted}
+            onClick={(e) => {
+              e.preventDefault();
+              if (isWishlisted) removeFromWishlist(product._id);
+              else addToWishlist(product);
+            }}
+          >
+            <span className="wishlist-btn-circle">
+              {isWishlisted ? <FaHeart /> : <FaRegHeart />}
+            </span>
+          </button>
 
+          <div className="product-icons">
             <button
               type="button"
               aria-label={t("Quick view", "क्विक व्यू")}
