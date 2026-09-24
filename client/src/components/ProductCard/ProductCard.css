@@ -116,7 +116,10 @@
    focus). Below the heart so the two never overlap. */
 .product-icons {
   position: absolute;
-  top: 58px;
+  /* Heart's visible circle spans 13px-47px from the top (34px circle
+     centred in a 44px button at top: 8px); same right edge and an 8px
+     gap keep all three in one evenly spaced column. */
+  top: 55px;
   right: 13px;
 
   display: flex;
@@ -143,14 +146,21 @@
   }
 }
 
+/* Same 34px circle, icon size and shadow as .wishlist-btn-circle so the
+   three read as one set (desktop-only, so no tap-target concern). */
 .product-icons button {
-  width: 40px;
-  height: 40px;
+  width: 34px;
+  height: 34px;
   border: none;
   border-radius: 50%;
   background: white;
+  color: #555;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.15);
   transition: 0.3s;
 }
 
