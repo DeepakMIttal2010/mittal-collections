@@ -39,6 +39,7 @@ import {
   FaPalette,
   FaTruck,
   FaRulerCombined,
+  FaExchangeAlt,
 } from "react-icons/fa";
 import {
   FaFacebookF,
@@ -54,6 +55,7 @@ import {
 } from "../services/productService";
 import { useCart } from "../context/CartContext";
 import { useWishlist } from "../context/WishlistContext";
+import { useCompare } from "../context/CompareContext";
 import { useAuth } from "../context/AuthContext";
 import ProductCard from "../components/ProductCard/ProductCard";
 import RecentlyViewed from "../components/RecentlyViewed/RecentlyViewed";
@@ -104,6 +106,7 @@ function ProductDetails() {
   const bundleScrollRef = useRef(null);
 
   const { addToCart } = useCart();
+  const { toggleCompare, isInCompare } = useCompare();
   const { wishlistItems, addToWishlist, removeFromWishlist } = useWishlist();
   const { user, isLoggedIn } = useAuth();
 
@@ -1109,6 +1112,21 @@ function ProductDetails() {
               }`}
             >
               <FaHeart />
+            </button>
+
+            {/* Touch devices no longer get compare on the product card
+                (see ProductCard.css) -- this is their way in. */}
+            <button
+              onClick={() => toggleCompare(product)}
+              aria-label={t("Toggle compare", "तुलना टॉगल करें")}
+              aria-pressed={isInCompare(product._id)}
+              className={`w-12 h-12 shrink-0 rounded-full border flex items-center justify-center transition-colors ${
+                isInCompare(product._id)
+                  ? "bg-blue-50 border-blue-200 text-blue-700"
+                  : "border-slate-300 text-slate-600 hover:bg-slate-50"
+              }`}
+            >
+              <FaExchangeAlt />
             </button>
           </div>
 
