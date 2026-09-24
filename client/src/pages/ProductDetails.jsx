@@ -518,7 +518,7 @@ function ProductDetails() {
     // they exist, not just the main photo — productImages already
     // excludes videos (see mediaItems above) and falls back to the
     // single product.image when no gallery array is set.
-    image: productImages.map(imgUrl),
+    image: productImages.map((url) => imgUrl(url)),
     brand: {
       "@type": "Brand",
       name: "Mittal Collections",
