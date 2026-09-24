@@ -264,10 +264,17 @@ export const recordOfflineSale = async (req, res) => {
     );
     const totalAmount = subtotal - discountAmount;
 
+    // Re-derived immediately before the query as its own fresh
+    // string-or-empty value — see updateOfflineSale's identical comment
+    // on why this sits right next to the query rather than relying on
+    // the type guard several lines/awaits earlier.
+    const safeCustomerMobile =
+      typeof customerMobile === "string" ? customerMobile : "";
+
     let customerUser = null;
-    if (customerMobile) {
+    if (safeCustomerMobile) {
       customerUser = await User.findOne({
-        mobile: customerMobile,
+        mobile: safeCustomerMobile,
         role: "user",
       });
     }
@@ -295,7 +302,7 @@ export const recordOfflineSale = async (req, res) => {
         discountAmount,
         totalAmount,
         paymentMethod,
-        customerMobile: customerMobile || "",
+        customerMobile: safeCustomerMobile,
         customerName: customerUser?.name || customerName || "",
         customerUser: customerUser?._id || null,
         loyaltyPointsAwarded,
@@ -544,9 +551,17 @@ export const updateOfflineSale = async (req, res) => {
     );
     const totalAmount = subtotal - discountAmount;
 
+    // Re-derived immediately before the query, as its own fresh
+    // string-or-empty value, rather than relying on the type guard at
+    // the top of this function to still visibly hold by the time
+    // execution gets here (several awaits/branches earlier) — removes
+    // any ambiguity about what value this specific query can ever see.
+    const safeCustomerMobile =
+      typeof customerMobile === "string" ? customerMobile : "";
+
     let customerUser = null;
-    if (customerMobile) {
-      customerUser = await User.findOne({ mobile: customerMobile, role: "user" });
+    if (safeCustomerMobile) {
+      customerUser = await User.findOne({ mobile: safeCustomerMobile, role: "user" });
     }
 
     let loyaltyPointsAwarded = 0;
@@ -583,7 +598,7 @@ export const updateOfflineSale = async (req, res) => {
     sale.discountAmount = discountAmount;
     sale.totalAmount = totalAmount;
     sale.paymentMethod = paymentMethod;
-    sale.customerMobile = customerMobile || "";
+    sale.customerMobile = safeCustomerMobile;
     sale.customerName = customerUser?.name || customerName || "";
     sale.customerUser = customerUser?._id || null;
     sale.loyaltyPointsAwarded = loyaltyPointsAwarded;
