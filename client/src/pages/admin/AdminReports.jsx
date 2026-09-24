@@ -465,6 +465,7 @@ function VisitLogModal({ view, days, customRange, onClose }) {
   const [q, setQ] = useState("");
   const [qInput, setQInput] = useState("");
   const [loading, setLoading] = useState(true);
+  const [exportingVisits, setExportingVisits] = useState(false);
   const limit = 25;
 
   useEffect(() => {
@@ -499,9 +500,31 @@ function VisitLogModal({ view, days, customRange, onClose }) {
     setQ(qInput.trim());
   };
 
-  const exportVisitsCSV = () => {
+  const exportVisitsCSV = async () => {
+    // `visits` is only the current page (25 rows) — exporting that
+    // directly silently produced a CSV missing every other page's rows,
+    // with nothing in the filename or content to warn the admin it was
+    // partial. Fetches every row matching the same view/search/date
+    // range instead, same "full fresh fetch for export" pattern the
+    // other CSV export button in this file already uses.
+    setExportingVisits(true);
+
+    const response = await getVisitLog({
+      view,
+      page: 1,
+      limit: Math.max(total, 1),
+      q,
+      ...(customRange
+        ? { startDate: customRange.startDate, endDate: customRange.endDate }
+        : { days }),
+    });
+
+    setExportingVisits(false);
+
+    if (!response.success) return;
+
     const csv = Papa.unparse(
-      visits.map((v) => ({
+      response.visits.map((v) => ({
         "Visitor ID": v.visitorId,
         Path: v.path,
         Device: v.device || "",
@@ -517,7 +540,7 @@ function VisitLogModal({ view, days, customRange, onClose }) {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `${view}-visitors-page-${page}.csv`;
+    link.download = `${view}-visitors.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -549,9 +572,10 @@ function VisitLogModal({ view, days, customRange, onClose }) {
               <button
                 type="button"
                 onClick={exportVisitsCSV}
-                className="text-xs font-medium text-blue-700 hover:underline whitespace-nowrap"
+                disabled={exportingVisits}
+                className="text-xs font-medium text-blue-700 hover:underline whitespace-nowrap disabled:opacity-50 disabled:no-underline"
               >
-                Export CSV
+                {exportingVisits ? "Preparing..." : "Export CSV"}
               </button>
             )}
             <button
