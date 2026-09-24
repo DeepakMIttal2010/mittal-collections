@@ -369,7 +369,7 @@ function AdminSettings() {
                   </span>
                   <input
                     type="number"
-                    min="0"
+                    min="1"
                     value={tier.maxOrderValue}
                     onChange={(e) =>
                       handleTierChange(index, "maxOrderValue", e.target.value)
@@ -431,7 +431,16 @@ function AdminSettings() {
                 >
                   <option value="">Category A</option>
                   {categories.map((c) => (
-                    <option key={c._id} value={c._id}>
+                    <option
+                      key={c._id}
+                      value={c._id}
+                      // A bundle rule needs two DIFFERENT categories — the
+                      // server already rejects categoryA === categoryB
+                      // (self-reference check), but that previously only
+                      // surfaced after Save. Disabling the option here
+                      // catches it at selection time instead.
+                      disabled={c._id === rule.categoryB}
+                    >
                       {c.name}
                     </option>
                   ))}
@@ -448,7 +457,11 @@ function AdminSettings() {
                 >
                   <option value="">Category B</option>
                   {categories.map((c) => (
-                    <option key={c._id} value={c._id}>
+                    <option
+                      key={c._id}
+                      value={c._id}
+                      disabled={c._id === rule.categoryA}
+                    >
                       {c.name}
                     </option>
                   ))}
@@ -583,7 +596,7 @@ function AdminSettings() {
                 </span>
                 <input
                   type="number"
-                  min="0"
+                  min="0.1"
                   step="0.1"
                   value={rule.mrpMultiplier}
                   onChange={(e) =>
@@ -602,7 +615,7 @@ function AdminSettings() {
                 <input
                   type="number"
                   min="0"
-                  max="100"
+                  max="99"
                   value={rule.priceDiscountPercent}
                   onChange={(e) =>
                     handlePricingRuleChange(
@@ -707,7 +720,7 @@ function AdminSettings() {
           <input
             type="number"
             name="defaultReturnPeriodDays"
-            min="0"
+            min="1"
             value={formData.defaultReturnPeriodDays}
             onChange={handleChange}
             className="w-full max-w-xs border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"

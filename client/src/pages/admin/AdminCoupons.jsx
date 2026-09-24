@@ -204,6 +204,7 @@ function AdminCoupons() {
             type="number"
             name="discountValue"
             min="0"
+            max={formData.discountType === "percentage" ? 100 : undefined}
             value={formData.discountValue}
             onChange={handleChange}
             required

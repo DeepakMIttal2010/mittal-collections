@@ -170,7 +170,10 @@ function AdminBulkImport() {
     if (!row.categoryId) return { ok: false, reason: "Category not matched" };
     if (row.subcategoryName && !row.subcategoryId)
       return { ok: false, reason: "Subcategory not matched" };
-    if (!row.price || isNaN(Number(row.price)))
+    // !row.price alone treats the string "0" as truthy (non-empty), so a
+    // price of exactly 0 previously slipped through as "valid" — a CSV
+    // row with price=0 imported as a free product with no warning.
+    if (!(Number(row.price) > 0))
       return { ok: false, reason: "Price is invalid" };
     return { ok: true, reason: "" };
   };
