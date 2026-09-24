@@ -1,3 +1,5 @@
+import { isIP } from "net";
+
 import geoip from "geoip-lite";
 
 import PageVisit from "../models/PageVisit.js";
@@ -52,7 +54,17 @@ const getClientIpForGeo = (req) => {
   const xff = req.headers["x-forwarded-for"];
 
   if (typeof xff === "string" && xff.trim()) {
-    return xff.split(",")[0].trim();
+    const candidate = xff.split(",")[0].trim();
+
+    // The header is fully attacker-controlled (any client can set it to
+    // literally anything) — getLocationWithFallback interpolates this
+    // value straight into a URL for a real outbound fetch(), so an
+    // unvalidated value here is a server-side request forgery vector,
+    // not just a malformed-geolocation one. Only ever return something
+    // that actually parses as an IP; isIP() returns 0 (falsy) for
+    // anything else, e.g. an injected hostname/URL. Falls through to
+    // req.ip below, same as a header that's absent entirely.
+    if (isIP(candidate)) return candidate;
   }
 
   return req.ip;
