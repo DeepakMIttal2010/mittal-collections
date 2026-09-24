@@ -24,7 +24,11 @@ export const imgUrl = (path, transform) => {
 
   if (!path.startsWith("http")) return `${SERVER_URL}${path}`;
 
-  if (transform && isCloudinaryUploadUrl(path)) {
+  // typeof check, not just truthiness: passing imgUrl straight to
+  // Array.map hands it the element's index as `transform` (a number),
+  // which crashed the whole product page once this function started
+  // calling transform.replace below.
+  if (typeof transform === "string" && transform && isCloudinaryUploadUrl(path)) {
     // f_auto is meant to content-negotiate WebP/AVIF via the request's
     // Accept header, but a live check (Deep SEO Round 6) found real
     // browser requests still got served JPEG despite requesting it and
