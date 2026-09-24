@@ -32,6 +32,40 @@ const BOT_USER_AGENT_PATTERN =
 
 const isBotUserAgent = (userAgent = "") => BOT_USER_AGENT_PATTERN.test(userAgent);
 
+// isIP() alone confirms a string is shaped like an IP — it doesn't stop
+// an attacker-controlled X-Forwarded-For from supplying a perfectly
+// valid one that's still dangerous to fetch server-side: 169.254.169.254
+// is the standard cloud metadata endpoint on AWS/GCP/Azure, and any
+// 10.x/172.16-31.x/192.168.x address reaches whatever's on our own
+// private network. That's the actual SSRF risk in getLocationWithFallback
+// below, not just "is this text IP-shaped" — so anything in a
+// private/loopback/link-local/reserved range is rejected here too.
+// IPv6 is rejected outright rather than hand-rolling the equivalent
+// IPv6 ranges — this live fallback only ever exists for the IPv4 CGNAT
+// ranges geoip-lite's local database can't resolve (see the comment
+// below), so nothing real is lost by not supporting it here.
+const isPubliclyRoutableIPv4 = (ip) => {
+  if (isIP(ip) !== 4) return false;
+
+  const [a, b, c] = ip.split(".").map(Number);
+
+  if (a === 0) return false; // 0.0.0.0/8
+  if (a === 10) return false; // 10.0.0.0/8 private
+  if (a === 100 && b >= 64 && b <= 127) return false; // 100.64.0.0/10 CGNAT
+  if (a === 127) return false; // 127.0.0.0/8 loopback
+  if (a === 169 && b === 254) return false; // 169.254.0.0/16 link-local + cloud metadata
+  if (a === 172 && b >= 16 && b <= 31) return false; // 172.16.0.0/12 private
+  if (a === 192 && b === 0 && c === 0) return false; // 192.0.0.0/24 IETF protocol assignments
+  if (a === 192 && b === 0 && c === 2) return false; // 192.0.2.0/24 TEST-NET-1
+  if (a === 192 && b === 168) return false; // 192.168.0.0/16 private
+  if (a === 198 && (b === 18 || b === 19)) return false; // 198.18.0.0/15 benchmarking
+  if (a === 198 && b === 51 && c === 100) return false; // 198.51.100.0/24 TEST-NET-2
+  if (a === 203 && b === 0 && c === 113) return false; // 203.0.113.0/24 TEST-NET-3
+  if (a >= 224) return false; // 224.0.0.0/4 multicast, 240.0.0.0/4 reserved, 255.255.255.255 broadcast
+
+  return true;
+};
+
 // Geolocation is best-effort analytics/display data, not a security
 // boundary (unlike the IP-keyed rate limiters in app.js, which must keep
 // using Express's own hop-counted req.ip to resist spoofing) — so unlike
@@ -61,10 +95,11 @@ const getClientIpForGeo = (req) => {
     // value straight into a URL for a real outbound fetch(), so an
     // unvalidated value here is a server-side request forgery vector,
     // not just a malformed-geolocation one. Only ever return something
-    // that actually parses as an IP; isIP() returns 0 (falsy) for
-    // anything else, e.g. an injected hostname/URL. Falls through to
+    // that's actually a plausible real visitor IP (see
+    // isPubliclyRoutableIPv4 above); anything else — an injected
+    // hostname/URL, or a private/internal address — falls through to
     // req.ip below, same as a header that's absent entirely.
-    if (isIP(candidate)) return candidate;
+    if (isPubliclyRoutableIPv4(candidate)) return candidate;
   }
 
   return req.ip;
@@ -122,10 +157,11 @@ const getLocationWithFallback = async (rawIp = "") => {
   // (same class of limitation already hit once this session: it can't
   // always follow a sanitizer through a function boundary). Validating
   // the exact value used in the fetch URL below, in this same function,
-  // right before it's used, is what actually clears the alert. Anything
-  // that isn't IP-shaped just skips the live lookup and falls through
-  // to whatever geoip-lite already gave us.
-  if (!isIP(ip)) return local;
+  // right before it's used, is what actually clears the alert. Rejects
+  // both non-IP values AND private/internal ranges (see
+  // isPubliclyRoutableIPv4) — either way, just skips the live lookup
+  // and falls through to whatever geoip-lite already gave us.
+  if (!isPubliclyRoutableIPv4(ip)) return local;
 
   try {
     const response = await fetch(
