@@ -15,13 +15,18 @@ export const recordVisit = async (path, visitorId, userId) => {
 
 // Admin-only: tells the server this browser belongs to the owner/staff
 // so it deletes this visitorId's past visits (see VisitTracker.jsx).
+// adminToken first -- the dedicated /admin/login form is the only way
+// VisitTracker's isStaff ever sees true on the admin panel itself, and
+// that form saves its session under adminToken, not the shared
+// customer `token` key (see authService.js's saveAdminLogin).
 export const markInternalDevice = async (visitorId) => {
   try {
+    const token = localStorage.getItem("adminToken") || localStorage.getItem("token");
     const response = await fetch(`${API_BASE_URL}/analytics/internal-device`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${localStorage.getItem("token")}`,
+        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({ visitorId }),
     });

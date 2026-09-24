@@ -3,6 +3,7 @@ import { useLocation } from "react-router-dom";
 
 import { recordVisit, markInternalDevice } from "../services/analyticsService";
 import { useAuth } from "../context/AuthContext";
+import { isAdminLoggedIn } from "../services/authService";
 import {
   getVisitorId,
   isInternalDevice,
@@ -14,7 +15,14 @@ import {
 function VisitTracker() {
   const { pathname } = useLocation();
   const { user } = useAuth();
-  const isStaff = user?.role === "admin";
+  // Two separate ways to be "staff" here: an admin account logged in
+  // through the customer-facing form (role lands in the shared
+  // AuthContext/`user`+`token` localStorage keys), or the dedicated
+  // /admin/login form -- which saveAdminLogin() writes to its own
+  // `adminUser`/`adminToken` keys, entirely invisible to useAuth(). The
+  // admin panel is only ever reached the second way, so checking role
+  // alone left this never firing for it at all.
+  const isStaff = user?.role === "admin" || isAdminLoggedIn();
 
   useEffect(() => {
     if (!isStaff || isInternalDevice()) return;

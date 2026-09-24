@@ -897,26 +897,137 @@ export const getReportsData = async (req, res) => {
 
 export const getVisitLog = async (req, res) => {
   try {
-    const days = Math.min(Math.max(parseInt(req.query.days, 10) || 30, 7), 90);
     const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
     const limit = Math.max(parseInt(req.query.limit, 10) || 25, 1);
 
-    // Same IST-boundary fix as getReportsData's "days" preset — see
-    // istDate.js's header comment for why a raw `new Date();
-    // setHours(0,0,0,0)` boundary is wrong on a UTC-timezone process.
-    const since = istDayStart(istDaysAgoString(days - 1));
+    // Same custom-range-wins-over-days resolution as getReportsData
+    // above, so a stat tile's "View Details" list always covers exactly
+    // the range that tile's own number was computed from.
+    let since;
+    let until;
 
-    const filter = { createdAt: { $gte: since } };
+    if (req.query.startDate && req.query.endDate) {
+      since = istDayStart(req.query.startDate);
+      until = istDayEnd(req.query.endDate);
+    } else {
+      const days = Math.min(Math.max(parseInt(req.query.days, 10) || 30, 7), 90);
+      since = istDayStart(istDaysAgoString(days - 1));
+      until = istDayEnd(istTodayString());
+    }
 
-    const [total, visits] = await Promise.all([
-      PageVisit.countDocuments(filter),
+    const filter = { createdAt: { $gte: since, $lte: until } };
 
-      PageVisit.find(filter)
-        .sort({ createdAt: -1 })
-        .skip((page - 1) * limit)
-        .limit(limit)
-        .select("path visitorId device country city createdAt"),
-    ]);
+    // Optional free-text search across path/visitorId — lets an admin
+    // verifying a suspicious-looking number jump straight to, say, one
+    // visitorId's full history instead of paging through everything.
+    const q = typeof req.query.q === "string" ? req.query.q.trim() : "";
+    if (q) {
+      // Escaped before it reaches $regex — an unescaped admin-supplied
+      // pattern is both a NoSQL-injection surface (regex metacharacters
+      // change what the query matches) and a ReDoS one (a pathological
+      // pattern like "(a+)+" evaluated against every PageVisit.path).
+      const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      filter.$or = [
+        { path: { $regex: escaped, $options: "i" } },
+        { visitorId: { $regex: escaped, $options: "i" } },
+      ];
+    }
+
+    // Backs each of the four visitor stat tiles' own "View Details" —
+    // "unique" collapses to one (most recent) row per visitor; "new"/
+    // "returning" mirror getReportsData's exact classification (a
+    // visitor already seen before `since`, or seen on 2+ distinct IST
+    // days inside the range, counts as returning) so the list an admin
+    // opens always agrees with the number they clicked on.
+    const view = ["unique", "new", "returning"].includes(req.query.view)
+      ? req.query.view
+      : "all";
+
+    let total;
+    let visits;
+
+    if (view === "all") {
+      [total, visits] = await Promise.all([
+        PageVisit.countDocuments(filter),
+        PageVisit.find(filter)
+          .sort({ createdAt: -1 })
+          .skip((page - 1) * limit)
+          .limit(limit)
+          .select("path visitorId device country city createdAt"),
+      ]);
+    } else {
+      let visitorIdFilter = null;
+
+      if (view === "new" || view === "returning") {
+        const [inRangeAgg, beforeRangeAgg] = await Promise.all([
+          PageVisit.aggregate([
+            { $match: filter },
+            {
+              $group: {
+                _id: "$visitorId",
+                days: {
+                  $addToSet: {
+                    $dateToString: { format: "%Y-%m-%d", date: "$createdAt", timezone: "+05:30" },
+                  },
+                },
+              },
+            },
+          ]),
+          PageVisit.aggregate([
+            { $match: { createdAt: { $lt: since } } },
+            { $group: { _id: "$visitorId" } },
+          ]),
+        ]);
+
+        const seenBefore = new Set(beforeRangeAgg.map((v) => v._id));
+        const returningIds = inRangeAgg
+          .filter((v) => seenBefore.has(v._id) || v.days.length >= 2)
+          .map((v) => v._id);
+        const newIds = inRangeAgg
+          .filter((v) => !seenBefore.has(v._id) && v.days.length < 2)
+          .map((v) => v._id);
+
+        visitorIdFilter = view === "returning" ? returningIds : newIds;
+      }
+
+      if (visitorIdFilter) filter.visitorId = { $in: visitorIdFilter };
+
+      if (view === "unique") {
+        const [countAgg, rows] = await Promise.all([
+          PageVisit.aggregate([{ $match: filter }, { $group: { _id: "$visitorId" } }, { $count: "n" }]),
+          PageVisit.aggregate([
+            { $match: filter },
+            { $sort: { createdAt: -1 } },
+            {
+              $group: {
+                _id: "$visitorId",
+                path: { $first: "$path" },
+                device: { $first: "$device" },
+                country: { $first: "$country" },
+                city: { $first: "$city" },
+                createdAt: { $first: "$createdAt" },
+              },
+            },
+            { $sort: { createdAt: -1 } },
+            { $skip: (page - 1) * limit },
+            { $limit: limit },
+            { $project: { _id: 0, visitorId: "$_id", path: 1, device: 1, country: 1, city: 1, createdAt: 1 } },
+          ]),
+        ]);
+
+        total = countAgg[0]?.n || 0;
+        visits = rows;
+      } else {
+        [total, visits] = await Promise.all([
+          PageVisit.countDocuments(filter),
+          PageVisit.find(filter)
+            .sort({ createdAt: -1 })
+            .skip((page - 1) * limit)
+            .limit(limit)
+            .select("path visitorId device country city createdAt"),
+        ]);
+      }
+    }
 
     res.status(200).json({
       success: true,
