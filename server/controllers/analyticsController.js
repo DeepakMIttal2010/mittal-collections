@@ -114,8 +114,20 @@ const getLocationWithFallback = async (rawIp = "") => {
 
   if (local.city) return normalizeLocation(local);
 
+  const ip = rawIp.replace("::ffff:", "");
+
+  // rawIp can originate from a client-controlled X-Forwarded-For header
+  // (see getClientIpForGeo) — already validated there, but CodeQL's
+  // cross-function taint tracking didn't recognize that as sufficient
+  // (same class of limitation already hit once this session: it can't
+  // always follow a sanitizer through a function boundary). Validating
+  // the exact value used in the fetch URL below, in this same function,
+  // right before it's used, is what actually clears the alert. Anything
+  // that isn't IP-shaped just skips the live lookup and falls through
+  // to whatever geoip-lite already gave us.
+  if (!isIP(ip)) return local;
+
   try {
-    const ip = rawIp.replace("::ffff:", "");
     const response = await fetch(
       `http://ip-api.com/json/${ip}?fields=status,countryCode,regionName,city`,
       { signal: AbortSignal.timeout(2000) },
