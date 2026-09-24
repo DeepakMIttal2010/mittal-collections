@@ -197,6 +197,17 @@ export const recordOfflineSale = async (req, res) => {
   try {
     const { paymentMethod, customerMobile, customerName } = req.body;
 
+    // An object here (e.g. {"$gt": ""}) would otherwise flow straight
+    // into the User.findOne query below as a query operator instead of
+    // a literal mobile number — same NoSQL-injection class
+    // authController.js's register() already guards against.
+    if (customerMobile !== undefined && typeof customerMobile !== "string") {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid customer mobile number",
+      });
+    }
+
     const { safeItems, error: itemsError } = parseSafeItems(req.body.items);
 
     if (itemsError) {
@@ -326,35 +337,55 @@ export const getOfflineSales = async (req, res) => {
     const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
     const limit = Math.max(parseInt(req.query.limit, 10) || 25, 1);
 
-    const filter = {};
+    // Each piece resolved to a definite, validated primitive (or
+    // undefined) BEFORE the filter object is built, rather than
+    // mutating one shared object across several conditional branches —
+    // same "construct fresh from validated values" shape parseSafeItems
+    // above already uses, so it's clear no branch can smuggle an
+    // unvalidated req.query value through untouched.
+    const dateFilter =
+      req.query.startDate && req.query.endDate
+        ? {
+            $gte: istDayStart(req.query.startDate),
+            $lte: istDayEnd(req.query.endDate),
+          }
+        : undefined;
 
-    if (req.query.startDate && req.query.endDate) {
-      filter.createdAt = {
-        $gte: istDayStart(req.query.startDate),
-        $lte: istDayEnd(req.query.endDate),
-      };
-    }
+    const paymentMethodFilter = ["Cash", "UPI", "Card"].includes(
+      req.query.paymentMethod,
+    )
+      ? req.query.paymentMethod
+      : undefined;
 
-    if (["Cash", "UPI", "Card"].includes(req.query.paymentMethod)) {
-      filter.paymentMethod = req.query.paymentMethod;
-    }
-
-    if (req.query.status === "voided") filter.voided = true;
-    else if (req.query.status === "active") filter.voided = false;
+    const voidedFilter =
+      req.query.status === "voided"
+        ? true
+        : req.query.status === "active"
+          ? false
+          : undefined;
 
     // Free-text search across customer/staff/product — escaped before
     // it reaches $regex for the same NoSQL-injection/ReDoS reason the
     // visit-log search does (see adminController.js's getVisitLog).
+    // typeof-checked first, so a query-string trick like ?q[$ne]=
+    // (parsed by Express as an object, not a string) never reaches
+    // .replace/.trim at all.
     const q = typeof req.query.q === "string" ? req.query.q.trim() : "";
-    if (q) {
-      const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      filter.$or = [
-        { customerName: { $regex: escaped, $options: "i" } },
-        { customerMobile: { $regex: escaped, $options: "i" } },
-        { soldByMobile: { $regex: escaped, $options: "i" } },
-        { "items.productName": { $regex: escaped, $options: "i" } },
-      ];
-    }
+    const searchFilter = q
+      ? [
+          { customerName: { $regex: q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" } },
+          { customerMobile: { $regex: q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" } },
+          { soldByMobile: { $regex: q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" } },
+          { "items.productName": { $regex: q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" } },
+        ]
+      : undefined;
+
+    const filter = {
+      ...(dateFilter && { createdAt: dateFilter }),
+      ...(paymentMethodFilter && { paymentMethod: paymentMethodFilter }),
+      ...(voidedFilter !== undefined && { voided: voidedFilter }),
+      ...(searchFilter && { $or: searchFilter }),
+    };
 
     const [sales, total, summaryAgg, byPaymentMethodAgg] = await Promise.all([
       OfflineSale.find(filter)
@@ -438,6 +469,16 @@ export const updateOfflineSale = async (req, res) => {
     }
 
     const { paymentMethod, customerMobile, customerName } = req.body;
+
+    // Same NoSQL-injection guard as recordOfflineSale — an object here
+    // would otherwise flow straight into the User.findOne query below as
+    // a query operator instead of a literal mobile number.
+    if (customerMobile !== undefined && typeof customerMobile !== "string") {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid customer mobile number",
+      });
+    }
 
     const { safeItems, error: itemsError } = parseSafeItems(req.body.items);
 
