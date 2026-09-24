@@ -504,16 +504,20 @@ function VisitLogModal({ view, days, customRange, onClose }) {
     // `visits` is only the current page (25 rows) — exporting that
     // directly silently produced a CSV missing every other page's rows,
     // with nothing in the filename or content to warn the admin it was
-    // partial. Fetches every row matching the same view/search/date
-    // range instead, same "full fresh fetch for export" pattern the
-    // other CSV export button in this file already uses.
+    // partial. Fetches every row matching the date range instead, same
+    // "full fresh fetch for export" pattern the other CSV export button
+    // in this file already uses. Deliberately ignores the on-screen
+    // search box (`q`) and `total` (which reflects whatever search is
+    // currently active) — Export CSV always means the complete dataset
+    // for this view/range, not just whatever's currently filtered/typed
+    // into the search box. A fixed large limit avoids a second
+    // round-trip just to learn the true unfiltered count first.
     setExportingVisits(true);
 
     const response = await getVisitLog({
       view,
       page: 1,
-      limit: Math.max(total, 1),
-      q,
+      limit: 100000,
       ...(customRange
         ? { startDate: customRange.startDate, endDate: customRange.endDate }
         : { days }),
