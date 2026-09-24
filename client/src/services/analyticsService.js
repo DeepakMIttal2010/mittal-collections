@@ -13,6 +13,25 @@ export const recordVisit = async (path, visitorId, userId) => {
   }
 };
 
+// Admin-only: tells the server this browser belongs to the owner/staff
+// so it deletes this visitorId's past visits (see VisitTracker.jsx).
+export const markInternalDevice = async (visitorId) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/analytics/internal-device`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${localStorage.getItem("token")}`,
+      },
+      body: JSON.stringify({ visitorId }),
+    });
+
+    return await response.json();
+  } catch {
+    return { success: false };
+  }
+};
+
 // Same fix as getCategories in categoryService.js — a real network trace
 // showed 3 duplicate /api/analytics/my-location requests on one homepage
 // load. See requestCache.js.

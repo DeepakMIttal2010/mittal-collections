@@ -22,8 +22,11 @@ const getDeviceType = (userAgent = "") => {
 // This can't catch everything — a bot that fully spoofs a real
 // browser's UA slips through — but it removes the obvious, high-volume
 // majority for free.
+// Second line: tools that run a real browser but never say "bot" in
+// their UA -- PageSpeed/Lighthouse, Google's URL Inspection and other
+// "Google-*" fetchers, and uptime/performance monitors.
 const BOT_USER_AGENT_PATTERN =
-  /bot|crawl|spider|slurp|scraper|headless|phantomjs|selenium|puppeteer|playwright|python-requests|python-urllib|go-http-client|okhttp|java\/|curl\/|wget\/|postman|ahrefs|semrush|mj12bot|dotbot|bytespider|gptbot|chatgpt|claude-web|ccbot|perplexity|facebookexternalhit|linkedinbot|whatsapp|telegrambot|discordbot|uptimerobot/i;
+  /bot|crawl|spider|slurp|scraper|headless|phantomjs|selenium|puppeteer|playwright|python-requests|python-urllib|go-http-client|okhttp|java\/|curl\/|wget\/|postman|ahrefs|semrush|mj12bot|dotbot|bytespider|gptbot|chatgpt|claude-web|ccbot|perplexity|facebookexternalhit|linkedinbot|whatsapp|telegrambot|discordbot|uptimerobot|lighthouse|pagespeed|inspectiontool|google-|googleother|apis-google|mediapartners|feedfetcher|gtmetrix|pingdom|statuscake|site24x7|prerender/i;
 
 const isBotUserAgent = (userAgent = "") => BOT_USER_AGENT_PATTERN.test(userAgent);
 
@@ -91,6 +94,40 @@ const getLocationWithFallback = async (rawIp = "") => {
   }
 
   return local;
+};
+
+// ============================
+// Mark Internal Device (Admin)
+// ============================
+// Called once by a browser the moment an admin/staff account is signed
+// in on it (see VisitTracker.jsx) -- that browser stops recording visits
+// from then on, and its past visits are deleted here so reports only
+// count real shoppers. Confirmed necessary 2026-09-24: the owner's own
+// desktop browser alone was 4,762 of 9,041 visits (53%) over 90 days.
+export const markInternalDevice = async (req, res) => {
+  try {
+    const { visitorId } = req.body;
+
+    // Checked as a plain string before it reaches a Mongo filter -- an
+    // object here would otherwise be treated as a query operator.
+    if (typeof visitorId !== "string" || !/^[A-Za-z0-9-]{8,64}$/.test(visitorId)) {
+      return res.status(400).json({
+        success: false,
+        message: "A valid visitorId is required",
+      });
+    }
+
+    const { deletedCount } = await PageVisit.deleteMany({ visitorId });
+
+    res.json({ success: true, deletedCount });
+  } catch (error) {
+    console.error("Mark Internal Device Error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
 };
 
 // ============================

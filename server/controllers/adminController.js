@@ -591,9 +591,27 @@ export const getReportsData = async (req, res) => {
         { $sort: { count: -1 } },
       ]),
 
+      // Distinct IST days per visitor -- a visitor who came back on a
+      // second day inside the range is "returning" too, not just one
+      // seen before the range started (which alone made this always 0
+      // whenever the range reached back past the first recorded visit).
       PageVisit.aggregate([
         { $match: { createdAt: dateRange } },
-        { $group: { _id: "$visitorId" } },
+        {
+          $group: {
+            _id: "$visitorId",
+            days: {
+              $addToSet: {
+                $dateToString: {
+                  format: "%Y-%m-%d",
+                  date: "$createdAt",
+                  timezone: "+05:30",
+                },
+              },
+            },
+          },
+        },
+        { $project: { dayCount: { $size: "$days" } } },
       ]),
 
       PageVisit.aggregate([
@@ -776,7 +794,7 @@ export const getReportsData = async (req, res) => {
     let returningVisitors = 0;
 
     visitorsInRangeAgg.forEach((v) => {
-      if (visitorsBeforeRangeSet.has(v._id)) returningVisitors += 1;
+      if (visitorsBeforeRangeSet.has(v._id) || v.dayCount >= 2) returningVisitors += 1;
       else newVisitors += 1;
     });
 
