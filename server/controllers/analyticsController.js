@@ -152,25 +152,33 @@ const getLocationWithFallback = async (rawIp = "") => {
   const ip = rawIp.replace("::ffff:", "");
 
   // rawIp can originate from a client-controlled X-Forwarded-For header
-  // (see getClientIpForGeo) — already validated there, but CodeQL's
-  // cross-function taint tracking didn't recognize that as sufficient
-  // (same class of limitation already hit once this session: it can't
-  // always follow a sanitizer through a function boundary). Validating
-  // the exact value used in the fetch URL below, in this same function,
-  // right before it's used, is what actually clears the alert. Rejects
-  // both non-IP values AND private/internal ranges (see
-  // isPubliclyRoutableIPv4) — either way, just skips the live lookup
-  // and falls through to whatever geoip-lite already gave us.
+  // (see getClientIpForGeo). Runtime-validating it (isPubliclyRoutableIPv4)
+  // is still correct and kept as defense-in-depth, but CodeQL's
+  // server-side-request-forgery query doesn't recognize a custom
+  // validation function as clearing the alert no matter where it's
+  // called from — same class of limitation already hit once this
+  // session with a different alert, just not resolvable by adding more
+  // validation this time. What actually satisfies it structurally: the
+  // fetch URL below is now a fixed, hardcoded string with zero
+  // interpolation — the IP goes in the POST body instead (ip-api.com's
+  // batch endpoint, which accepts exactly one IP the same as the
+  // single-IP endpoint did), so nothing user-controlled reaches the URL
+  // CodeQL is tracking at all.
   if (!isPubliclyRoutableIPv4(ip)) return local;
 
   try {
     const response = await fetch(
-      `http://ip-api.com/json/${ip}?fields=status,countryCode,regionName,city`,
-      { signal: AbortSignal.timeout(2000) },
+      "http://ip-api.com/batch?fields=status,countryCode,regionName,city",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify([ip]),
+        signal: AbortSignal.timeout(2000),
+      },
     );
-    const data = await response.json();
+    const [data] = await response.json();
 
-    if (data.status === "success") {
+    if (data?.status === "success") {
       return normalizeLocation({
         country: data.countryCode || local.country,
         region: data.regionName || local.region,
