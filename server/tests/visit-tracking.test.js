@@ -104,3 +104,100 @@ describe("GET /api/admin/reports — returning visitors", () => {
     expect(res.body.summary.newVisitors).toBe(1);
   });
 });
+
+describe("GET /api/admin/visits — stat-tile drill-down", () => {
+  const seed = async () => {
+    await PageVisit.collection.insertMany([
+      { path: "/", visitorId: "came-back", createdAt: daysAgo(10) },
+      { path: "/cart", visitorId: "came-back", createdAt: daysAgo(3) },
+      // All three of "one-time"'s visits share the same IST day (unlike
+      // "came-back", spread across two) -- otherwise this visitor would
+      // itself cross the 2-distinct-days threshold and be "returning".
+      { path: "/", visitorId: "one-time", createdAt: daysAgo(2) },
+      { path: "/cart", visitorId: "one-time", createdAt: daysAgo(2) },
+      { path: "/product/xyz", visitorId: "one-time", createdAt: daysAgo(2) },
+    ]);
+  };
+
+  it("view=all returns every raw visit row, matching totalVisits", async () => {
+    await seed();
+    const admin = await createUser({ role: "admin" });
+
+    const res = await request(app)
+      .get("/api/admin/visits?days=30&view=all")
+      .set("Authorization", `Bearer ${signToken(admin)}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.total).toBe(5);
+    expect(res.body.visits).toHaveLength(5);
+  });
+
+  it("view=unique collapses to one row per visitor, matching uniqueVisitors", async () => {
+    await seed();
+    const admin = await createUser({ role: "admin" });
+
+    const res = await request(app)
+      .get("/api/admin/visits?days=30&view=unique")
+      .set("Authorization", `Bearer ${signToken(admin)}`);
+
+    expect(res.body.total).toBe(2);
+    expect(res.body.visits.map((v) => v.visitorId).sort()).toEqual([
+      "came-back",
+      "one-time",
+    ]);
+  });
+
+  it("view=new/returning agree with the reports summary's own split", async () => {
+    await seed();
+    const admin = await createUser({ role: "admin" });
+    const token = signToken(admin);
+
+    const [returning, newer, summary] = await Promise.all([
+      request(app)
+        .get("/api/admin/visits?days=30&view=returning")
+        .set("Authorization", `Bearer ${token}`),
+      request(app)
+        .get("/api/admin/visits?days=30&view=new")
+        .set("Authorization", `Bearer ${token}`),
+      request(app)
+        .get("/api/admin/reports?days=30")
+        .set("Authorization", `Bearer ${token}`),
+    ]);
+
+    const returningIds = new Set(returning.body.visits.map((v) => v.visitorId));
+    const newIds = new Set(newer.body.visits.map((v) => v.visitorId));
+
+    expect(returningIds.has("came-back")).toBe(true);
+    expect(newIds.has("one-time")).toBe(true);
+    expect([...returningIds].some((id) => newIds.has(id))).toBe(false);
+
+    // The two views' visitor counts must add up to the same
+    // new+returning split the summary card itself shows.
+    const uniqueReturning = new Set(returningIds).size;
+    const uniqueNew = new Set(newIds).size;
+    expect(uniqueReturning).toBe(summary.body.summary.returningVisitors);
+    expect(uniqueNew).toBe(summary.body.summary.newVisitors);
+  });
+
+  it("search (q) matches path or visitorId, case-insensitively, without breaking on regex metacharacters", async () => {
+    await seed();
+    const admin = await createUser({ role: "admin" });
+    const token = signToken(admin);
+
+    const byPath = await request(app)
+      .get("/api/admin/visits?days=30&q=PRODUCT")
+      .set("Authorization", `Bearer ${token}`);
+    const byVisitor = await request(app)
+      .get("/api/admin/visits?days=30&q=came-back")
+      .set("Authorization", `Bearer ${token}`);
+    const literalDots = await request(app)
+      .get("/api/admin/visits?days=30&q=" + encodeURIComponent("product/xyz)("))
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(byPath.body.total).toBe(1);
+    expect(byPath.body.visits[0].path).toBe("/product/xyz");
+    expect(byVisitor.body.total).toBe(2);
+    expect(literalDots.status).toBe(200);
+    expect(literalDots.body.total).toBe(0);
+  });
+});
