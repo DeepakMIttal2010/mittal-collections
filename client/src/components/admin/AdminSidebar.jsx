@@ -64,6 +64,7 @@ const NAV_GROUPS = [
     items: [
       { to: "/admin/orders", icon: FaShoppingCart, label: "Orders" },
       { to: "/admin/pos", icon: FaShoppingCart, label: "POS Cart" },
+      { to: "/admin/pos/sales", icon: FaShoppingCart, label: "POS Sales" },
       { to: "/admin/coupons", icon: FaPercent, label: "Coupons" },
       { to: "/admin/returns", icon: FaUndoAlt, label: "Returns" },
     ],

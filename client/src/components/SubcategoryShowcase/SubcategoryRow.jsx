@@ -3,6 +3,7 @@ import { useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import { useLanguage } from "../../context/LanguageContext";
+import { handleImageError } from "../../utils/imageFallback";
 
 const titleCase = (str) =>
   str.replace(/\w\S*/g, (word) => word[0].toUpperCase() + word.slice(1));
@@ -79,6 +80,7 @@ function SubcategoryRow({ category, groupLabel, items, activeSubcategory }) {
                       sizes="208px"
                       alt={t(sub.name, sub.nameHi)}
                       loading="lazy"
+                      onError={handleImageError}
                       className="w-full h-full object-cover"
                     />
                   )}

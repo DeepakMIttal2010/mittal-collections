@@ -10,6 +10,9 @@ Disallow: /my-orders
 Disallow: /tickets
 Disallow: /returns
 Disallow: /addresses
+Disallow: /notifications
+Disallow: /loyalty-history
+Disallow: /edit-profile
 Disallow: /login
 Disallow: /register
 Disallow: /forgot-password

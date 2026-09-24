@@ -14,6 +14,7 @@ import Breadcrumbs from "../components/Breadcrumbs";
 import { buildBreadcrumbJsonLd } from "../utils/breadcrumbJsonLd";
 import { getSiteSettings } from "../services/settingsService";
 import { SITE_URL } from "../utils/siteUrl";
+import { productUrl } from "../utils/productUrl";
 import { useLanguage } from "../context/LanguageContext";
 import { FaGift, FaFilter, FaTimes } from "react-icons/fa";
 
@@ -504,8 +505,13 @@ function CategoryPage() {
     );
   }
 
+  // These pills are the main crawlable navigation from a category to its
+  // subcategory pages (see the <Link> conversion earlier this session) —
+  // at py-1.5 they measured only ~26-32px tall, well under Google's
+  // ~44-48px tap-target guidance. min-h-11 (44px) guarantees the floor
+  // regardless of text length, rather than tuning padding by trial.
   const pillClass = (isActive) =>
-    `px-4 py-1.5 rounded-full border text-sm font-medium whitespace-nowrap transition-colors ${
+    `inline-flex items-center min-h-11 px-4 py-1.5 rounded-full border text-sm font-medium whitespace-nowrap transition-colors ${
       isActive
         ? "bg-amber-600 border-amber-600 text-white"
         : "border-slate-300 text-slate-700 hover:border-amber-600 hover:text-amber-600"
@@ -548,13 +554,49 @@ function CategoryPage() {
   const sizeHelpLinks = getSizeHelpLinks(t);
   const sortOptions = getSortOptions(t);
 
+  // A category with exactly one primary-group subcategory (verified live:
+  // Cushion Covers, Dohars, Hotel Linen) renders the same product grid at
+  // both /category/x and /category/x/only-sub — a genuine duplicate-content
+  // pair, not a hypothetical one. Rather than remove the subcategory page
+  // (it's still a real, valid URL someone could land on or share),
+  // canonicalize it back to the parent category so Google consolidates
+  // ranking signal onto one URL instead of splitting/flagging it as a
+  // duplicate. A subcategory in a facet group (Material/Size on a
+  // multi-subcategory category) is unaffected — only the sole member of
+  // an otherwise-empty primary group triggers this.
+  const activeSubcategoryIsOnlyPrimaryOption =
+    activeSubcategory &&
+    !activeSubcategoryIsFacet &&
+    primaryGroup?.items.length === 1;
+
+  const canonicalCategoryUrl = activeSubcategoryIsOnlyPrimaryOption
+    ? `${SITE_URL}/category/${categorySlug}`
+    : `${SITE_URL}/category/${categorySlug}${subcategorySlug ? `/${subcategorySlug}` : ""}`;
+
+  // Built from `products` (the base fetched list for this category/
+  // subcategory), not `sortedProducts` (post-filter/sort) — a bot sees
+  // one static render, and this should describe the page's actual
+  // collection, not whatever a visitor's client-side filter state
+  // happens to be. Capped well under any practical page size so a large
+  // category doesn't bloat the JSON-LD payload; a carousel rich result
+  // only ever needs a representative sample, not the full catalog.
+  const itemListJsonLd = products.length > 0 && {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    itemListElement: products.slice(0, 50).map((p, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      url: `${SITE_URL}${productUrl(p)}`,
+    })),
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
       <Seo
         title={pageTitle}
         description={`Buy ${pageTitle} online with pan-India delivery at Mittal Collections - fast 24-hour delivery in Ghaziabad. ${category.description || ""}`.trim().slice(0, 160)}
-        url={`${SITE_URL}/category/${categorySlug}${subcategorySlug ? `/${subcategorySlug}` : ""}`}
-        jsonLd={buildBreadcrumbJsonLd(breadcrumbItemsForSeo)}
+        url={canonicalCategoryUrl}
+        jsonLd={[buildBreadcrumbJsonLd(breadcrumbItemsForSeo), itemListJsonLd]}
       />
       <Breadcrumbs items={breadcrumbItems} />
       <h1 className="text-xl font-semibold text-slate-800 mb-4">

@@ -184,6 +184,40 @@ export const getAbandonedCartDetails = async () => {
   }
 };
 
+// Backs the "View Details" drill-down on the Website Visits/Unique/New/
+// Returning Visitors tiles — raw PageVisit rows so an admin can verify
+// what's actually behind those numbers, not just trust the aggregate.
+export const getVisitLog = async ({
+  days,
+  startDate,
+  endDate,
+  page = 1,
+  limit = 25,
+  q = "",
+  view = "all",
+} = {}) => {
+  try {
+    const params = new URLSearchParams({ page, limit, view });
+    if (startDate && endDate) {
+      params.set("startDate", startDate);
+      params.set("endDate", endDate);
+    } else if (days) {
+      params.set("days", days);
+    }
+    if (q) params.set("q", q);
+
+    const response = await fetch(`${API_BASE_URL}/admin/visits?${params}`, {
+      headers: { Authorization: `Bearer ${getToken()}` },
+    });
+
+    return await response.json();
+  } catch (error) {
+    console.error("Get Visit Log Error:", error);
+
+    return { success: false };
+  }
+};
+
 export const getGoogleReportsData = async (days = 28) => {
   try {
     const response = await fetch(

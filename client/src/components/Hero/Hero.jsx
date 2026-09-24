@@ -162,6 +162,16 @@ function Hero() {
             alt={imageAlt}
             className="hero-split-image"
             fetchPriority="high"
+            // Falls back to the bundled default banner (guaranteed to
+            // exist, no network round-trip) rather than the generic
+            // site-icon placeholder every other image uses — this is the
+            // page's LCP element, so a visibly broken hero would be worse
+            // than any other spot.
+            onError={(e) => {
+              e.target.onerror = null;
+              e.target.srcset = "";
+              e.target.src = heroBanner;
+            }}
           />
           {arrowsAndDots}
         </div>

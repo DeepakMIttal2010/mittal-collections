@@ -16,6 +16,7 @@ import { calculateDeliveryFee } from "../utils/shipping";
 import { toWhatsAppNumber } from "../utils/whatsapp";
 import { stripHtml } from "../utils/stripHtml";
 import { sanitizeDescriptionHtml } from "../utils/sanitizeDescriptionHtml";
+import { handleImageError } from "../utils/imageFallback";
 import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import {
@@ -38,6 +39,7 @@ import {
   FaPalette,
   FaTruck,
   FaRulerCombined,
+  FaExchangeAlt,
 } from "react-icons/fa";
 import {
   FaFacebookF,
@@ -53,6 +55,7 @@ import {
 } from "../services/productService";
 import { useCart } from "../context/CartContext";
 import { useWishlist } from "../context/WishlistContext";
+import { useCompare } from "../context/CompareContext";
 import { useAuth } from "../context/AuthContext";
 import ProductCard from "../components/ProductCard/ProductCard";
 import RecentlyViewed from "../components/RecentlyViewed/RecentlyViewed";
@@ -103,6 +106,7 @@ function ProductDetails() {
   const bundleScrollRef = useRef(null);
 
   const { addToCart } = useCart();
+  const { toggleCompare, isInCompare } = useCompare();
   const { wishlistItems, addToWishlist, removeFromWishlist } = useWishlist();
   const { user, isLoggedIn } = useAuth();
 
@@ -517,7 +521,7 @@ function ProductDetails() {
     // they exist, not just the main photo — productImages already
     // excludes videos (see mediaItems above) and falls back to the
     // single product.image when no gallery array is set.
-    image: productImages.map(imgUrl),
+    image: productImages.map((url) => imgUrl(url)),
     brand: {
       "@type": "Brand",
       name: "Mittal Collections",
@@ -605,9 +609,33 @@ function ProductDetails() {
         },
         reviewBody: r.content,
         datePublished: r.createdAt,
+        // Review.images are already full Cloudinary URLs (see
+        // Review.js), not the raw public-id paths imgUrl() transforms —
+        // this data was already fetched and displayed on real customer
+        // photo reviews but never handed to Google's Review markup,
+        // which supports an `image` property for exactly this case.
+        ...(r.images?.length > 0 && { image: r.images }),
       })),
     }),
   };
+
+  // `video` is not a valid schema.org property on Product — it's only
+  // defined on CreativeWork-type things, so nesting it inside
+  // productJsonLd (as this used to) is silently ignored by Google's
+  // parser and unlocks no video-result eligibility at all. A standalone
+  // VideoObject block (its own top-level entry in the jsonLd array
+  // below) is the correct, documented way to associate a video with the
+  // page. No per-video thumbnail/title exists in this data model, so
+  // the main product photo/name/description stand in.
+  const videoJsonLd = (product.videos || []).map((url) => ({
+    "@context": "https://schema.org",
+    "@type": "VideoObject",
+    name: product.name,
+    description: stripHtml(product.description),
+    thumbnailUrl: imgUrl(product.image),
+    contentUrl: url,
+    uploadDate: product.createdAt,
+  }));
 
   // Structured data stays English-only regardless of the language toggle
   // (schema.org/SEO convention) — only the visible breadcrumb trail below
@@ -699,6 +727,7 @@ function ProductDetails() {
           productJsonLd,
           buildBreadcrumbJsonLd(breadcrumbItemsForSeo),
           faqJsonLd,
+          ...videoJsonLd,
         ]}
       />
       <Breadcrumbs items={breadcrumbItems} />
@@ -747,6 +776,13 @@ function ProductDetails() {
                     alt={t(product.name, product.nameHi)}
                     style={zoomStyle}
                     onLoad={() => setMainImageLoaded(true)}
+                    onError={(e) => {
+                      // Reveal the fallback instead of leaving it stuck
+                      // behind the loading-pulse placeholder forever —
+                      // onLoad never fires for a failed image.
+                      setMainImageLoaded(true);
+                      handleImageError(e);
+                    }}
                     fetchPriority="high"
                     className={`w-full h-full object-cover transition-all duration-300 pointer-events-none ${
                       mainImageLoaded ? "opacity-100" : "opacity-0"
@@ -807,6 +843,7 @@ function ProductDetails() {
                         src={`${imgUrl(item.url, "w_150,q_auto,f_auto")}`}
                         alt={`${t(product.name, product.nameHi)} - photo ${index + 1}`}
                         loading="lazy"
+                        onError={handleImageError}
                         className="w-full h-full object-cover"
                       />
                     )}
@@ -1075,6 +1112,21 @@ function ProductDetails() {
               }`}
             >
               <FaHeart />
+            </button>
+
+            {/* Touch devices no longer get compare on the product card
+                (see ProductCard.css) -- this is their way in. */}
+            <button
+              onClick={() => toggleCompare(product)}
+              aria-label={t("Toggle compare", "तुलना टॉगल करें")}
+              aria-pressed={isInCompare(product._id)}
+              className={`w-12 h-12 shrink-0 rounded-full border flex items-center justify-center transition-colors ${
+                isInCompare(product._id)
+                  ? "bg-blue-50 border-blue-200 text-blue-700"
+                  : "border-slate-300 text-slate-600 hover:bg-slate-50"
+              }`}
+            >
+              <FaExchangeAlt />
             </button>
           </div>
 
@@ -1350,6 +1402,7 @@ function ProductDetails() {
                 src={`${imgUrl(mediaItems[lightboxIndex]?.url)}`}
                 alt={`${t(product.name, product.nameHi)} - ${t("photo", "फ़ोटो")} ${lightboxIndex + 1}`}
                 onClick={toggleLightboxZoom}
+                onError={handleImageError}
                 className={
                   isLightboxZoomed
                     ? "max-w-none cursor-zoom-out"

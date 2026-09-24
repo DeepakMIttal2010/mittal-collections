@@ -5,6 +5,8 @@ import {
   lookupCustomerByMobile,
   recordOfflineSale,
   getOfflineSales,
+  updateOfflineSale,
+  deleteOfflineSale,
   voidOfflineSale,
 } from "../controllers/posController.js";
 import authMiddleware from "../middleware/authMiddleware.js";
@@ -34,6 +36,22 @@ router.post(
   recordOfflineSale,
 );
 router.get("/sales", authMiddleware, adminMiddleware, perm, getOfflineSales);
+router.put(
+  "/sales/:id",
+  authMiddleware,
+  adminMiddleware,
+  perm,
+  upload.single("paymentProof"),
+  imageOptimizer,
+  updateOfflineSale,
+);
+router.delete(
+  "/sales/:id",
+  authMiddleware,
+  adminMiddleware,
+  perm,
+  deleteOfflineSale,
+);
 router.post(
   "/sales/:id/void",
   authMiddleware,

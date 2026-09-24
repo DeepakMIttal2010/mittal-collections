@@ -628,7 +628,15 @@ function AdminPOS() {
 
       {recentSales.length > 0 && (
         <div className="bg-white border border-slate-200 rounded-xl p-5 mt-6">
-          <h3 className="font-semibold text-slate-800 mb-3">Recent Sales</h3>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-semibold text-slate-800">Recent Sales</h3>
+            <Link
+              to="/admin/pos/sales"
+              className="text-xs font-medium text-blue-700 hover:underline"
+            >
+              Manage all sales →
+            </Link>
+          </div>
 
           <div className="space-y-3">
             {recentSales.map((s) => (

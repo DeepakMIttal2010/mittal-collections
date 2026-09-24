@@ -21,7 +21,7 @@ function App() {
       </ErrorBoundary>
       <BackToTopButton />
       {isAdmin && <ZoomControl />}
-      {!isAdmin && <VisitTracker />}
+      <VisitTracker />
       {!isAdmin && <WhatsAppButton />}
       {!isAdmin && <CompareBar />}
     </>
