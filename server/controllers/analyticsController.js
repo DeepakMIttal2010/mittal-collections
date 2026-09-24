@@ -30,6 +30,34 @@ const BOT_USER_AGENT_PATTERN =
 
 const isBotUserAgent = (userAgent = "") => BOT_USER_AGENT_PATTERN.test(userAgent);
 
+// Geolocation is best-effort analytics/display data, not a security
+// boundary (unlike the IP-keyed rate limiters in app.js, which must keep
+// using Express's own hop-counted req.ip to resist spoofing) — so unlike
+// req.ip, this doesn't need to trust an exact, fixed number of proxy
+// hops. That fixed-count assumption (`trust proxy: 2`, see app.js) is
+// wrong for a real, confirmed slice of production traffic: several
+// Indian mobile carriers (Jio in particular) route requests through
+// their own transparent proxy before they ever reach Render, adding an
+// extra untrusted hop app.js's hop-count doesn't know about — req.ip
+// then silently lands on that carrier's own proxy (or Render's edge)
+// instead of the real visitor, recording as a random foreign country
+// instead of India (confirmed live 2026-09-24: a request simulating an
+// extra carrier-added hop resolved to Singapore/Tallahassee instead of
+// the real client's IP, while a single-hop request resolved correctly).
+// X-Forwarded-For is always built left-to-right as a request passes
+// through each hop, so the leftmost entry is whichever IP the FIRST hop
+// saw — the real client — regardless of how many untrusted hops follow
+// it before reaching us.
+const getClientIpForGeo = (req) => {
+  const xff = req.headers["x-forwarded-for"];
+
+  if (typeof xff === "string" && xff.trim()) {
+    return xff.split(",")[0].trim();
+  }
+
+  return req.ip;
+};
+
 const getLocation = (rawIp = "") => {
   const ip = rawIp.replace("::ffff:", "");
   const geo = geoip.lookup(ip);
@@ -179,7 +207,9 @@ export const getProductViewCount = async (req, res) => {
 // ============================
 export const getMyLocation = async (req, res) => {
   try {
-    const { country, region, city } = await getLocationWithFallback(req.ip);
+    const { country, region, city } = await getLocationWithFallback(
+      getClientIpForGeo(req),
+    );
 
     res.json({
       success: true,
@@ -218,7 +248,7 @@ export const recordVisit = async (req, res) => {
     }
 
     const device = getDeviceType(req.headers["user-agent"]);
-    const { country, region, city } = getLocation(req.ip);
+    const { country, region, city } = getLocation(getClientIpForGeo(req));
 
     // userId comes straight from the request body, not decoded from a
     // token — this endpoint stays public/unauthenticated (every visitor,
