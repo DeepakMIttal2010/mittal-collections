@@ -5,6 +5,7 @@ import { FaTrash, FaEdit, FaTimes, FaPlus } from "react-icons/fa";
 
 import {
   getOfflineSales,
+  recordOfflineSale,
   updateOfflineSale,
   deleteOfflineSale,
   voidOfflineSale,
@@ -24,27 +25,34 @@ const formatDateTime = (iso) =>
     minute: "2-digit",
   });
 
-// The edit modal for one sale — item quantities/prices are editable
-// inline, a new item can be added by pasting a product id (same lookup
-// AdminPOS.jsx's QR-scan flow already uses under the hood), and payment/
-// customer/discount fields are plain inputs. A voided sale never reaches
-// this (the "Edit" action is hidden for those on the list itself, and
-// the server refuses it too) — void.js's own comment explains why it's
-// kept as a fixed record instead of being editable.
-function EditSaleModal({ sale, onClose, onSaved }) {
+// One modal for both Create and Edit — a brand new sale (sale=null)
+// starts with an empty cart and calls recordOfflineSale; editing an
+// existing one pre-fills from it and calls updateOfflineSale instead.
+// Item quantities/prices are editable inline, a new item is added by
+// pasting a product id (same lookup AdminPOS.jsx's QR-scan flow already
+// uses under the hood), and payment/customer/discount fields are plain
+// inputs. A voided sale never reaches this in edit mode (the "Edit"
+// action is hidden for those on the list itself, and the server refuses
+// it too) — void.js's own comment explains why it's kept as a fixed
+// record instead of being editable.
+function SaleFormModal({ sale, onClose, onSaved }) {
+  const isEdit = Boolean(sale);
+
   const [items, setItems] = useState(
-    sale.items.map((item) => ({
-      productId: item.product,
-      productName: item.productName,
-      size: item.size || "",
-      quantity: item.quantity,
-      unitPrice: item.unitPrice,
-    })),
+    isEdit
+      ? sale.items.map((item) => ({
+          productId: item.product,
+          productName: item.productName,
+          size: item.size || "",
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+        }))
+      : [],
   );
-  const [paymentMethod, setPaymentMethod] = useState(sale.paymentMethod);
-  const [customerMobile, setCustomerMobile] = useState(sale.customerMobile || "");
-  const [customerName, setCustomerName] = useState(sale.customerName || "");
-  const [discountAmount, setDiscountAmount] = useState(sale.discountAmount || 0);
+  const [paymentMethod, setPaymentMethod] = useState(isEdit ? sale.paymentMethod : "Cash");
+  const [customerMobile, setCustomerMobile] = useState(isEdit ? sale.customerMobile || "" : "");
+  const [customerName, setCustomerName] = useState(isEdit ? sale.customerName || "" : "");
+  const [discountAmount, setDiscountAmount] = useState(isEdit ? sale.discountAmount || 0 : 0);
   const [editReason, setEditReason] = useState("");
   const [newProductId, setNewProductId] = useState("");
   const [addingItem, setAddingItem] = useState(false);
@@ -94,8 +102,7 @@ function EditSaleModal({ sale, onClose, onSaved }) {
       return;
     }
 
-    setSaving(true);
-    const response = await updateOfflineSale(sale._id, {
+    const payload = {
       items: items.map((i) => ({
         productId: i.productId,
         quantity: Number(i.quantity),
@@ -106,15 +113,19 @@ function EditSaleModal({ sale, onClose, onSaved }) {
       customerMobile,
       customerName,
       discountAmount,
-      editReason,
-    });
+    };
+
+    setSaving(true);
+    const response = isEdit
+      ? await updateOfflineSale(sale._id, { ...payload, editReason })
+      : await recordOfflineSale(payload);
     setSaving(false);
 
     if (response.success) {
-      toast.success("Sale updated");
+      toast.success(isEdit ? "Sale updated" : "Sale recorded");
       onSaved();
     } else {
-      toast.error(response.message || "Unable to update sale");
+      toast.error(response.message || `Unable to ${isEdit ? "update" : "record"} the sale`);
     }
   };
 
@@ -128,7 +139,7 @@ function EditSaleModal({ sale, onClose, onSaved }) {
         className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col"
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 shrink-0">
-          <h3 className="font-bold text-slate-900">Edit Sale</h3>
+          <h3 className="font-bold text-slate-900">{isEdit ? "Edit Sale" : "New Sale"}</h3>
           <button
             type="button"
             onClick={onClose}
@@ -141,6 +152,11 @@ function EditSaleModal({ sale, onClose, onSaved }) {
 
         <div className="p-5 overflow-y-auto space-y-4">
           <div className="space-y-2">
+            {items.length === 0 && (
+              <p className="text-sm text-slate-400 text-center py-4 border border-dashed border-slate-200 rounded-lg">
+                No items yet — add one below by product ID.
+              </p>
+            )}
             {items.map((item, i) => (
               <div key={i} className="flex items-center gap-2 border border-slate-200 rounded-lg p-2">
                 <div className="flex-1 min-w-0">
@@ -245,16 +261,18 @@ function EditSaleModal({ sale, onClose, onSaved }) {
             </div>
           </div>
 
-          <div>
-            <label className="text-xs text-slate-500">Reason for this edit (optional, kept for the record)</label>
-            <input
-              type="text"
-              value={editReason}
-              onChange={(e) => setEditReason(e.target.value)}
-              placeholder="e.g. mis-scanned quantity, wrong price typed in"
-              className="w-full text-sm border border-slate-300 rounded-lg px-3 py-1.5"
-            />
-          </div>
+          {isEdit && (
+            <div>
+              <label className="text-xs text-slate-500">Reason for this edit (optional, kept for the record)</label>
+              <input
+                type="text"
+                value={editReason}
+                onChange={(e) => setEditReason(e.target.value)}
+                placeholder="e.g. mis-scanned quantity, wrong price typed in"
+                className="w-full text-sm border border-slate-300 rounded-lg px-3 py-1.5"
+              />
+            </div>
+          )}
 
           <div className="flex items-center justify-between pt-2 border-t border-slate-200 text-sm">
             <span className="text-slate-500">Subtotal: {formatCurrency(subtotal)}</span>
@@ -278,7 +296,7 @@ function EditSaleModal({ sale, onClose, onSaved }) {
             disabled={saving}
             className="text-sm font-medium text-white bg-blue-900 hover:bg-blue-950 px-4 py-2 rounded-lg disabled:opacity-50"
           >
-            {saving ? "Saving..." : "Save Changes"}
+            {saving ? "Saving..." : isEdit ? "Save Changes" : "Record Sale"}
           </button>
         </div>
       </div>
@@ -302,6 +320,7 @@ function AdminPOSSales() {
   const [q, setQ] = useState("");
 
   const [editingSale, setEditingSale] = useState(null);
+  const [showCreate, setShowCreate] = useState(false);
   const [busyId, setBusyId] = useState(null);
 
   const limit = 25;
@@ -390,12 +409,21 @@ function AdminPOSSales() {
             Every in-store sale — search, edit, void or delete.
           </p>
         </div>
-        <Link
-          to="/admin/pos"
-          className="text-sm font-medium text-blue-700 hover:underline"
-        >
-          ← Back to POS Cart
-        </Link>
+        <div className="flex items-center gap-4">
+          <button
+            type="button"
+            onClick={() => setShowCreate(true)}
+            className="text-sm font-medium text-white bg-blue-900 hover:bg-blue-950 rounded-lg px-4 py-2 flex items-center gap-1.5"
+          >
+            <FaPlus className="text-xs" /> New Sale
+          </button>
+          <Link
+            to="/admin/pos"
+            className="text-sm font-medium text-blue-700 hover:underline whitespace-nowrap"
+          >
+            ← Back to POS Cart
+          </Link>
+        </div>
       </div>
 
       {summary && (
@@ -619,11 +647,15 @@ function AdminPOSSales() {
         </div>
       )}
 
-      {editingSale && (
-        <EditSaleModal
+      {(showCreate || editingSale) && (
+        <SaleFormModal
           sale={editingSale}
-          onClose={() => setEditingSale(null)}
+          onClose={() => {
+            setShowCreate(false);
+            setEditingSale(null);
+          }}
           onSaved={() => {
+            setShowCreate(false);
             setEditingSale(null);
             load();
           }}
