@@ -153,6 +153,28 @@ const offlineSaleSchema = new mongoose.Schema(
       default: "",
       trim: true,
     },
+
+    // Set only when an already-recorded sale is later corrected (a
+    // mis-scanned quantity, wrong price typed in) via updateOfflineSale
+    // — items/totalAmount always reflect the CURRENT version; this is
+    // just "was this touched after creation, by whom, and why," not a
+    // full version history.
+    lastEditedAt: {
+      type: Date,
+      default: null,
+    },
+
+    lastEditedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+
+    editReason: {
+      type: String,
+      default: "",
+      trim: true,
+    },
   },
   {
     timestamps: true,

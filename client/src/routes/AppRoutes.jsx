@@ -144,6 +144,7 @@ const AdminTicketDetail = lazyWithReload(
 );
 const AdminReturns = lazyWithReload(() => import("../pages/admin/AdminReturns"));
 const AdminPOS = lazyWithReload(() => import("../pages/admin/AdminPOS"));
+const AdminPOSSales = lazyWithReload(() => import("../pages/admin/AdminPOSSales"));
 const AdminWalkthrough = lazyWithReload(() => import("../pages/admin/AdminWalkthrough"));
 const PrintLabels = lazyWithReload(() => import("../pages/admin/PrintLabels"));
 const ProductQRLabel = lazyWithReload(() => import("../pages/admin/ProductQRLabel"));
@@ -309,6 +310,7 @@ function AppRoutes() {
           <Route path="returns" element={<AdminReturns />} />
           <Route path="pos" element={<AdminPOS />} />
           <Route path="pos/:id" element={<AdminPOS />} />
+          <Route path="pos/sales" element={<AdminPOSSales />} />
           <Route path="walkthrough" element={<AdminWalkthrough />} />
           <Route path="print-labels" element={<PrintLabels />} />
           <Route path="products/:id/qr" element={<ProductQRLabel />} />

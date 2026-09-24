@@ -7,6 +7,52 @@ import {
   pointsEarnedFor,
   applyLoyaltyPointsChange,
 } from "../utils/loyaltyPoints.js";
+import { istDayStart, istDayEnd } from "../utils/istDate.js";
+
+// Shared by recordOfflineSale and updateOfflineSale — validates and
+// normalizes the raw cart payload into plain objects with real
+// ObjectId/Number values before anything touches a Mongo query. See the
+// inline comment at the original call site (recordOfflineSale) for why
+// this can't just check `!item.productId` truthiness.
+const parseSafeItems = (rawItems) => {
+  let items;
+  try {
+    items = typeof rawItems === "string" ? JSON.parse(rawItems) : rawItems;
+  } catch {
+    return { error: "Cart is empty" };
+  }
+
+  if (!Array.isArray(items) || items.length === 0) {
+    return { error: "A sale must have at least one item" };
+  }
+
+  const safeItems = [];
+
+  for (const item of items) {
+    const qty = Number(item.quantity);
+    const price = Number(item.unitPrice);
+
+    if (
+      typeof item.productId !== "string" ||
+      !mongoose.Types.ObjectId.isValid(item.productId) ||
+      !qty ||
+      qty < 1 ||
+      !price ||
+      price < 0
+    ) {
+      return { error: "Each item needs a product, a valid quantity and price" };
+    }
+
+    safeItems.push({
+      productId: new mongoose.Types.ObjectId(item.productId),
+      quantity: qty,
+      unitPrice: price,
+      size: typeof item.size === "string" ? item.size : "",
+    });
+  }
+
+  return { safeItems };
+};
 
 // GET /api/admin/pos/product/:id — what the QR code link resolves to.
 export const getProductForPOS = async (req, res) => {
@@ -151,61 +197,21 @@ export const recordOfflineSale = async (req, res) => {
   try {
     const { paymentMethod, customerMobile, customerName } = req.body;
 
-    let items;
-    try {
-      items =
-        typeof req.body.items === "string"
-          ? JSON.parse(req.body.items)
-          : req.body.items;
-    } catch {
-      items = null;
-    }
-
-    if (!Array.isArray(items) || items.length === 0) {
+    // An object here (e.g. {"$gt": ""}) would otherwise flow straight
+    // into the User.findOne query below as a query operator instead of
+    // a literal mobile number — same NoSQL-injection class
+    // authController.js's register() already guards against.
+    if (customerMobile !== undefined && typeof customerMobile !== "string") {
       return res.status(400).json({
         success: false,
-        message: "Cart is empty",
+        message: "Invalid customer mobile number",
       });
     }
 
-    // `!item.productId` alone only checks truthiness — an object like
-    // {"$gt": ""} is truthy and would otherwise flow straight into the
-    // Mongo query below (`_id: item.productId`) as a query operator
-    // instead of a literal id to match, a NoSQL-injection path CodeQL
-    // flags as "Database query built from user-controlled sources".
-    // Building a brand-new array of plain objects here (instead of
-    // mutating the original req.body items in place) is what lets
-    // CodeQL's taint tracking actually see every value used in a query
-    // below coming straight out of a `new ObjectId(...)`/Number() call
-    // — mutating item.productId in place on the original array left it
-    // unable to prove the reassignment happened before
-    // reserveStockForItems read it back out of the same array.
-    const safeItems = [];
+    const { safeItems, error: itemsError } = parseSafeItems(req.body.items);
 
-    for (const item of items) {
-      const qty = Number(item.quantity);
-      const price = Number(item.unitPrice);
-
-      if (
-        typeof item.productId !== "string" ||
-        !mongoose.Types.ObjectId.isValid(item.productId) ||
-        !qty ||
-        qty < 1 ||
-        !price ||
-        price < 0
-      ) {
-        return res.status(400).json({
-          success: false,
-          message: "Each item needs a product, a valid quantity and price",
-        });
-      }
-
-      safeItems.push({
-        productId: new mongoose.Types.ObjectId(item.productId),
-        quantity: qty,
-        unitPrice: price,
-        size: typeof item.size === "string" ? item.size : "",
-      });
+    if (itemsError) {
+      return res.status(400).json({ success: false, message: itemsError });
     }
 
     if (!["Cash", "UPI", "Card"].includes(paymentMethod)) {
@@ -258,10 +264,17 @@ export const recordOfflineSale = async (req, res) => {
     );
     const totalAmount = subtotal - discountAmount;
 
+    // Re-derived immediately before the query as its own fresh
+    // string-or-empty value — see updateOfflineSale's identical comment
+    // on why this sits right next to the query rather than relying on
+    // the type guard several lines/awaits earlier.
+    const safeCustomerMobile =
+      typeof customerMobile === "string" ? customerMobile : "";
+
     let customerUser = null;
-    if (customerMobile) {
+    if (safeCustomerMobile) {
       customerUser = await User.findOne({
-        mobile: customerMobile,
+        mobile: safeCustomerMobile,
         role: "user",
       });
     }
@@ -289,7 +302,7 @@ export const recordOfflineSale = async (req, res) => {
         discountAmount,
         totalAmount,
         paymentMethod,
-        customerMobile: customerMobile || "",
+        customerMobile: safeCustomerMobile,
         customerName: customerUser?.name || customerName || "",
         customerUser: customerUser?._id || null,
         loyaltyPointsAwarded,
@@ -323,19 +336,98 @@ export const recordOfflineSale = async (req, res) => {
   }
 };
 
-// GET /api/admin/pos/sales — recent offline sales log, for the admin to review.
+// GET /api/admin/pos/sales — the full POS sales log/management list, with
+// filters and a lightweight report (revenue + payment-method breakdown)
+// scoped to whatever filter is currently applied, not the whole table.
 export const getOfflineSales = async (req, res) => {
   try {
     const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
     const limit = Math.max(parseInt(req.query.limit, 10) || 25, 1);
 
-    const [sales, total] = await Promise.all([
-      OfflineSale.find()
+    // Each piece resolved to a definite, validated primitive (or
+    // undefined) BEFORE the filter object is built, rather than
+    // mutating one shared object across several conditional branches —
+    // same "construct fresh from validated values" shape parseSafeItems
+    // above already uses, so it's clear no branch can smuggle an
+    // unvalidated req.query value through untouched.
+    const dateFilter =
+      req.query.startDate && req.query.endDate
+        ? {
+            $gte: istDayStart(req.query.startDate),
+            $lte: istDayEnd(req.query.endDate),
+          }
+        : undefined;
+
+    const paymentMethodFilter = ["Cash", "UPI", "Card"].includes(
+      req.query.paymentMethod,
+    )
+      ? req.query.paymentMethod
+      : undefined;
+
+    const voidedFilter =
+      req.query.status === "voided"
+        ? true
+        : req.query.status === "active"
+          ? false
+          : undefined;
+
+    // Free-text search across customer/staff/product — escaped before
+    // it reaches $regex for the same NoSQL-injection/ReDoS reason the
+    // visit-log search does (see adminController.js's getVisitLog).
+    // typeof-checked first, so a query-string trick like ?q[$ne]=
+    // (parsed by Express as an object, not a string) never reaches
+    // .replace/.trim at all.
+    const q = typeof req.query.q === "string" ? req.query.q.trim() : "";
+    const searchFilter = q
+      ? [
+          { customerName: { $regex: q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" } },
+          { customerMobile: { $regex: q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" } },
+          { soldByMobile: { $regex: q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" } },
+          { "items.productName": { $regex: q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" } },
+        ]
+      : undefined;
+
+    const filter = {
+      ...(dateFilter && { createdAt: dateFilter }),
+      ...(paymentMethodFilter && { paymentMethod: paymentMethodFilter }),
+      ...(voidedFilter !== undefined && { voided: voidedFilter }),
+      ...(searchFilter && { $or: searchFilter }),
+    };
+
+    const [sales, total, summaryAgg, byPaymentMethodAgg] = await Promise.all([
+      OfflineSale.find(filter)
         .populate("soldBy", "name")
+        .populate("lastEditedBy", "name")
+        .populate("voidedBy", "name")
         .sort({ createdAt: -1 })
         .skip((page - 1) * limit)
         .limit(limit),
-      OfflineSale.countDocuments(),
+
+      OfflineSale.countDocuments(filter),
+
+      OfflineSale.aggregate([
+        { $match: filter },
+        {
+          $group: {
+            _id: null,
+            totalRevenue: { $sum: { $cond: ["$voided", 0, "$totalAmount"] } },
+            activeCount: { $sum: { $cond: ["$voided", 0, 1] } },
+            voidedCount: { $sum: { $cond: ["$voided", 1, 0] } },
+          },
+        },
+      ]),
+
+      OfflineSale.aggregate([
+        { $match: { ...filter, voided: false } },
+        {
+          $group: {
+            _id: "$paymentMethod",
+            total: { $sum: "$totalAmount" },
+            count: { $sum: 1 },
+          },
+        },
+        { $sort: { total: -1 } },
+      ]),
     ]);
 
     res.status(200).json({
@@ -344,9 +436,233 @@ export const getOfflineSales = async (req, res) => {
       total,
       page,
       totalPages: Math.ceil(total / limit),
+      summary: {
+        totalRevenue: summaryAgg[0]?.totalRevenue || 0,
+        activeCount: summaryAgg[0]?.activeCount || 0,
+        voidedCount: summaryAgg[0]?.voidedCount || 0,
+        byPaymentMethod: byPaymentMethodAgg.map((p) => ({
+          paymentMethod: p._id,
+          total: p.total,
+          count: p.count,
+        })),
+      },
     });
   } catch (error) {
     console.error("Get Offline Sales Error:", error);
+
+    res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+
+// PUT /api/admin/pos/sales/:id — edits an active sale's items/payment/
+// customer details (a mis-scanned quantity, wrong price typed in, wrong
+// payment method selected). A voided sale can't be edited — void.js's own
+// comment explains why it's kept as a fixed record of what was reversed;
+// deleteOfflineSale is the right tool if a voided sale needs to go away
+// entirely.
+export const updateOfflineSale = async (req, res) => {
+  try {
+    const sale = await OfflineSale.findById(req.params.id);
+
+    if (!sale) {
+      return res.status(404).json({ success: false, message: "Sale not found" });
+    }
+
+    if (sale.voided) {
+      return res.status(400).json({
+        success: false,
+        message: "A voided sale can't be edited — delete it instead if it needs to go away.",
+      });
+    }
+
+    const { paymentMethod, customerMobile, customerName } = req.body;
+
+    // Same NoSQL-injection guard as recordOfflineSale — an object here
+    // would otherwise flow straight into the User.findOne query below as
+    // a query operator instead of a literal mobile number.
+    if (customerMobile !== undefined && typeof customerMobile !== "string") {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid customer mobile number",
+      });
+    }
+
+    const { safeItems, error: itemsError } = parseSafeItems(req.body.items);
+
+    if (itemsError) {
+      return res.status(400).json({ success: false, message: itemsError });
+    }
+
+    if (!["Cash", "UPI", "Card"].includes(paymentMethod)) {
+      return res.status(400).json({
+        success: false,
+        message: "Select a valid payment method",
+      });
+    }
+
+    // Put the sale's ORIGINAL stock back first, then try to reserve for
+    // the edited cart. If that fails (someone else has since sold out
+    // what this edit now asks for), re-reserve the original items so
+    // stock ends up exactly where it started rather than half-changed.
+    const originalStockItems = sale.items.map((item) => ({
+      productId: item.product,
+      quantity: item.quantity,
+      size: item.size,
+    }));
+
+    await restoreStockForItems(originalStockItems);
+
+    const stockResult = await reserveStockForItems(safeItems);
+
+    if (!stockResult.success) {
+      await reserveStockForItems(originalStockItems);
+
+      const failedProduct = await Product.findById(
+        stockResult.failedProductId,
+      ).select("name stock isActive");
+
+      let message = "One of the items is out of stock";
+      if (failedProduct && !failedProduct.isActive) {
+        message = `"${failedProduct.name}" is no longer available for sale`;
+      } else if (failedProduct) {
+        message = `Only ${failedProduct.stock} of "${failedProduct.name}" in stock`;
+      }
+
+      return res.status(400).json({ success: false, message });
+    }
+
+    const saleItems = safeItems.map((item, i) => {
+      const product = stockResult.products[i];
+
+      return {
+        product: product._id,
+        productName: product.name,
+        size: item.size || "",
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        subtotal: item.quantity * item.unitPrice,
+      };
+    });
+
+    const subtotal = saleItems.reduce((sum, i) => sum + i.subtotal, 0);
+    const discountAmount = Math.min(
+      Math.max(Number(req.body.discountAmount) || 0, 0),
+      subtotal,
+    );
+    const totalAmount = subtotal - discountAmount;
+
+    // Re-derived immediately before the query, as its own fresh
+    // string-or-empty value, rather than relying on the type guard at
+    // the top of this function to still visibly hold by the time
+    // execution gets here (several awaits/branches earlier) — removes
+    // any ambiguity about what value this specific query can ever see.
+    const safeCustomerMobile =
+      typeof customerMobile === "string" ? customerMobile : "";
+
+    let customerUser = null;
+    if (safeCustomerMobile) {
+      customerUser = await User.findOne({ mobile: safeCustomerMobile, role: "user" });
+    }
+
+    let loyaltyPointsAwarded = 0;
+    if (customerUser) {
+      const settings = await getLoyaltySettings();
+      loyaltyPointsAwarded = pointsEarnedFor(totalAmount, settings.earnRate);
+    }
+
+    // Loyalty reconciliation: claw back whatever the OLD version of this
+    // sale had awarded (to whichever customer that was — matters if the
+    // matched customer changed too), then award fresh points for the new
+    // version. One clawback-then-award pair handles every case (same
+    // customer's total changed, a different customer now matched, or no
+    // customer either time) without trying to diff old vs new.
+    if (sale.loyaltyPointsAwarded > 0 && sale.customerUser) {
+      await applyLoyaltyPointsChange({
+        userId: sale.customerUser,
+        type: "clawback",
+        points: -sale.loyaltyPointsAwarded,
+        description: `Reversed — sale edited (${sale._id})`,
+      });
+    }
+
+    if (loyaltyPointsAwarded > 0) {
+      await applyLoyaltyPointsChange({
+        userId: customerUser._id,
+        type: "earned",
+        points: loyaltyPointsAwarded,
+        description: `Earned — sale edited (${sale._id})`,
+      });
+    }
+
+    sale.items = saleItems;
+    sale.discountAmount = discountAmount;
+    sale.totalAmount = totalAmount;
+    sale.paymentMethod = paymentMethod;
+    sale.customerMobile = safeCustomerMobile;
+    sale.customerName = customerUser?.name || customerName || "";
+    sale.customerUser = customerUser?._id || null;
+    sale.loyaltyPointsAwarded = loyaltyPointsAwarded;
+    if (req.file) sale.paymentProofImage = req.file.path;
+    sale.lastEditedAt = new Date();
+    sale.lastEditedBy = req.user._id;
+    sale.editReason =
+      typeof req.body.editReason === "string" ? req.body.editReason.trim() : "";
+
+    await sale.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Sale updated",
+      sale,
+    });
+  } catch (error) {
+    console.error("Update Offline Sale Error:", error);
+
+    res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+
+// DELETE /api/admin/pos/sales/:id — permanently removes a sale record.
+// If it hadn't already been voided, this first performs the exact same
+// stock-restore + loyalty-clawback voidOfflineSale does — deleting a
+// still-active sale must never silently leave stock/loyalty as if the
+// sale still happened, with no record left explaining why either one
+// changed.
+export const deleteOfflineSale = async (req, res) => {
+  try {
+    const sale = await OfflineSale.findById(req.params.id);
+
+    if (!sale) {
+      return res.status(404).json({ success: false, message: "Sale not found" });
+    }
+
+    if (!sale.voided) {
+      await restoreStockForItems(
+        sale.items.map((item) => ({
+          productId: item.product,
+          quantity: item.quantity,
+          size: item.size,
+        })),
+      );
+
+      if (sale.loyaltyPointsAwarded > 0 && sale.customerUser) {
+        await applyLoyaltyPointsChange({
+          userId: sale.customerUser,
+          type: "clawback",
+          points: -sale.loyaltyPointsAwarded,
+          description: `Reversed — sale deleted (${sale._id})`,
+        });
+      }
+    }
+
+    await OfflineSale.findByIdAndDelete(req.params.id);
+
+    res.status(200).json({
+      success: true,
+      message: "Sale permanently deleted",
+    });
+  } catch (error) {
+    console.error("Delete Offline Sale Error:", error);
 
     res.status(500).json({ success: false, message: "Server Error" });
   }
