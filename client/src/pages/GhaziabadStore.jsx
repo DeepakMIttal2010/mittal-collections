@@ -155,6 +155,17 @@ function GhaziabadStore() {
                 "वनस्थली पब्लिक स्कूल के पास, सेक्टर-3, वसुंधरा, ग़ाज़ियाबाद, उत्तर प्रदेश 201012",
               )}
             </p>
+            {/* The shop isn't currently taking walk-ins (matches the
+                Google Business Profile's own "in-store shopping"
+                attribute) — this caveat keeps the page from inviting a
+                visit the store can't actually accommodate right now.
+                Remove it once the shop reopens to walk-ins. */}
+            <p className="text-sm text-amber-700 mt-1">
+              {t(
+                "Currently order online or call ahead — not accepting walk-ins at the moment.",
+                "फिलहाल ऑनलाइन ऑर्डर करें या पहले कॉल करें — अभी वॉक-इन स्वीकार नहीं किए जा रहे।",
+              )}
+            </p>
           </div>
         </div>
 

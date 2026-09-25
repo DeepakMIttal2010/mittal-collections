@@ -31,8 +31,11 @@ const STATIC_ROUTES = [
   "/curtain-size-calculator",
 ];
 
+// No timeout previously meant a slow/cold Render backend could hang this
+// function rather than failing fast into the catch below. 6s mirrors
+// api/render.js's own fetchJson timeout for the same backend.
 const fetchJson = async (url) => {
-  const res = await fetch(url);
+  const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
 
   if (!res.ok) throw new Error(`Failed to fetch ${url}: ${res.status}`);
 
@@ -105,6 +108,7 @@ const urlEntry = (loc, alternates, lastmod, images) => {
 
 export default async function handler(req, res) {
   const urls = [...STATIC_ROUTES.map((loc) => urlEntry(loc))];
+  let degraded = false;
 
   try {
     const [categoriesRes, subcategoriesRes, products, articlesRes, pagesRes] =
@@ -174,6 +178,7 @@ export default async function handler(req, res) {
     });
   } catch (error) {
     console.error("Sitemap generation error, serving static routes only:", error);
+    degraded = true;
   }
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -183,9 +188,16 @@ ${urls.join("\n")}
 `;
 
   res.setHeader("Content-Type", "application/xml; charset=utf-8");
+  // A backend hiccup degrades this to only the 12 static routes (see the
+  // catch above) — caching that for up to a day at the edge would hide
+  // the entire catalog from Google's sitemap fetch that whole time.
+  // Cache it for a minute instead so the next crawl attempt self-heals
+  // quickly once the backend recovers.
   res.setHeader(
     "Cache-Control",
-    "public, max-age=300, s-maxage=3600, stale-while-revalidate=86400",
+    degraded
+      ? "public, max-age=60, s-maxage=60"
+      : "public, max-age=300, s-maxage=3600, stale-while-revalidate=86400",
   );
   res.status(200).send(xml);
 }

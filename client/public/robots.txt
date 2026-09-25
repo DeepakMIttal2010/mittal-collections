@@ -1,23 +1,15 @@
 User-agent: *
 Allow: /
+# /admin is deliberately the only Disallow left — everything else that
+# used to be listed here (cart, checkout, account, login, reset-password,
+# etc.) already carries its own <Seo noindex /> tag. Disallowing a URL
+# blocks Googlebot from ever crawling it, which means it can never see
+# that noindex tag in the first place — Google's own guidance is that
+# combining the two is contradictory and can leave the URL showing up in
+# results anyway (as a bare link with no snippet) if discovered
+# externally. noindex alone is the correct, sufficient signal for all of
+# these; only /admin (not a page with its own noindex tag, and not meant
+# to be crawled at all) still needs a hard Disallow.
 Disallow: /admin
-Disallow: /account
-Disallow: /cart
-Disallow: /checkout
-Disallow: /wishlist
-Disallow: /compare
-Disallow: /my-orders
-Disallow: /tickets
-Disallow: /returns
-Disallow: /addresses
-Disallow: /notifications
-Disallow: /loyalty-history
-Disallow: /edit-profile
-Disallow: /login
-Disallow: /register
-Disallow: /forgot-password
-Disallow: /reset-password
-Disallow: /change-password
-Disallow: /search
 
 Sitemap: https://www.mittalcollections.com/sitemap.xml
