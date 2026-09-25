@@ -13,7 +13,10 @@ function BottomNav({ onOpenCategories, categoriesOpen, onOpenAccount, accountOpe
 
   const tabClass = (active) =>
     `flex flex-col items-center justify-center gap-0.5 text-[11px] font-medium transition-colors ${
-      active ? "text-amber-600" : "text-slate-600"
+      // amber-600 on this bar's white background measured 3.19:1 in a
+      // live Lighthouse audit (2026-09-25) -- below the 4.5:1 AA floor
+      // for text this small (11px). amber-700 clears ~5:1.
+      active ? "text-amber-700" : "text-slate-600"
     }`;
 
   return (
