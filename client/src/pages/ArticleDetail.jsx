@@ -12,7 +12,7 @@ import { sanitizeArticleHtml } from "../utils/sanitizeArticleHtml";
 
 function ArticleDetail() {
   const { slug } = useParams();
-  const { language } = useLanguage();
+  const { language, t } = useLanguage();
   const location = useLocation();
   const navigate = useNavigate();
   // The URL prefix is what actually decides which content renders — a
@@ -225,6 +225,26 @@ function ArticleDetail() {
           [&_td]:px-3 [&_td]:py-2 [&_td]:border [&_td]:border-slate-200"
         dangerouslySetInnerHTML={{ __html: sanitizeArticleHtml(displayContent) }}
       />
+
+      {/* The only link FROM a guide BACK to the products it's actually
+          about — these pages previously had no internal link back to
+          the catalog at all, a one-directional linking gap flagged in
+          the 2026-09-25 SEO audit. Optional (Article.category), so an
+          article with no category set just shows nothing here, same as
+          before. */}
+      {article.category && (
+        <div className="mt-10 pt-6 border-t border-slate-200">
+          <Link
+            to={`/category/${article.category.slug}`}
+            className="inline-block bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-full px-6 py-3 transition-colors"
+          >
+            {t(
+              `Shop ${article.category.name} →`,
+              `${t(article.category.name, article.category.nameHi)} खरीदें →`,
+            )}
+          </Link>
+        </div>
+      )}
     </div>
   );
 }

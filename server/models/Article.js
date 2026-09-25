@@ -54,6 +54,17 @@ const articleSchema = new mongoose.Schema(
       default: "",
     },
 
+    // Optional — the category this guide is most relevant to (e.g. the
+    // "Bedsheet Size Guide" -> the Bedsheets category), so the article
+    // page can link back to it. Guides existed with no link back to the
+    // catalog at all before this; an admin who doesn't set one just gets
+    // no CTA, same as today.
+    category: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Category",
+      default: null,
+    },
+
     isActive: {
       type: Boolean,
       default: true,
