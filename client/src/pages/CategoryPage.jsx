@@ -594,7 +594,13 @@ function CategoryPage() {
     <div className="max-w-7xl mx-auto px-4 py-8">
       <Seo
         title={pageTitle}
-        description={`Buy ${pageTitle} online with pan-India delivery at Mittal Collections - fast 24-hour delivery in Ghaziabad. ${category.description || ""}`.trim().slice(0, 160)}
+        // Shorter fixed wrapper than the old "Buy X online with pan-India
+        // delivery at Mittal Collections - fast 24-hour delivery in
+        // Ghaziabad. " (~85 chars before category.description even
+        // starts) — that left barely any budget for the one thing that
+        // actually differs page to page, making every category's meta
+        // description read as near-identical boilerplate.
+        description={`${pageTitle}: pan-India delivery, 24hr in Ghaziabad. ${category.description || ""}`.trim().slice(0, 160)}
         url={canonicalCategoryUrl}
         jsonLd={[buildBreadcrumbJsonLd(breadcrumbItemsForSeo), itemListJsonLd]}
       />

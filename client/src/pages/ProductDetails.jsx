@@ -717,7 +717,13 @@ function ProductDetails() {
         title={seoTitle}
         description={
           product.description
-            ? `Buy online, pan-India delivery (24hr in Ghaziabad) - ${stripHtml(product.description)}`.slice(0, 160)
+            ? // Shorter than the old "Buy online, pan-India delivery (24hr
+              // in Ghaziabad) - " prefix (53 chars) — that was eating a
+              // third of the 160-char budget on every single product
+              // before any product-specific content (material, size,
+              // features — what actually differentiates one product's
+              // snippet from another's) got a chance to show.
+              `Pan-India delivery, 24hr in Ghaziabad. ${stripHtml(product.description)}`.slice(0, 160)
             : `Buy ${product.name} online with pan-India delivery - fast 24-hour delivery in Ghaziabad`.slice(0, 160)
         }
         image={imgUrl(product.image)}
