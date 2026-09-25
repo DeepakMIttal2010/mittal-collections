@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import Seo from "../components/Seo";
+import LazyMount from "../components/LazyMount";
 import Hero from "../components/Hero/Hero";
 import CategoryQuickLinks from "../components/CategoryQuickLinks/CategoryQuickLinks";
 import TrustBar from "../components/TrustBar/TrustBar";
@@ -149,11 +150,29 @@ function Home() {
       <SizeShowcase />
       <PriceShowcase />
       <CategoryNewArrivals />
-      <WhyChooseUs />
-      <Testimonials />
-      <CustomerGallery />
+      {/* Below-the-fold from here on every real viewport (16 sections
+          total on this page) — deferring these specifically cut ~1s of
+          main-thread blocking time in a throttled Lighthouse trace, see
+          LazyMount's own comment for the full reasoning.
+          Faq is deliberately NOT deferred here, unlike its neighbours —
+          it carries real FAQPage JSON-LD tied to its visible questions
+          (already confirmed picked up by Rich Results Test), and
+          IntersectionObserver-gated content isn't guaranteed to be seen
+          the same way by a crawler that doesn't scroll the way a real
+          visitor does. Not worth risking that for a CWV gain. */}
+      <LazyMount>
+        <WhyChooseUs />
+      </LazyMount>
+      <LazyMount>
+        <Testimonials />
+      </LazyMount>
+      <LazyMount>
+        <CustomerGallery />
+      </LazyMount>
       <Faq />
-      <Newsletter />
+      <LazyMount>
+        <Newsletter />
+      </LazyMount>
     </>
   );
 }
