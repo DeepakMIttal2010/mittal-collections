@@ -191,9 +191,13 @@ const STATIC_PAGES = {
     breadcrumb: "Gifting",
   },
   "/curtain-size-calculator": {
-    title: "Curtain Size & Rod Length Calculator",
+    // Kept in sync with CurtainSizeCalculator.jsx's <Seo> -- see that
+    // file's comment (a real "calculate curtain size" Search Console
+    // query landing this page at position 83 despite solid on-page
+    // content, 2026-09-25).
+    title: "Calculate Curtain Size & Rod Length",
     description:
-      "Free curtain size calculator — enter your window measurements and instantly get the rod length, fabric width and curtain length to buy, plus a size chart.",
+      "Calculate your curtain size, rod length and fabric width free — enter your window measurements and get the exact size to buy, plus a size chart.",
     breadcrumb: "Curtain Size Calculator",
   },
   "/articles": {

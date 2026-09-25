@@ -213,8 +213,14 @@ function CurtainSizeCalculator() {
   return (
     <div className="max-w-5xl mx-auto px-4 py-12">
       <Seo
-        title="Curtain Size & Rod Length Calculator"
-        description="Free curtain size calculator — enter your window measurements and instantly get the rod length, fabric width and curtain length to buy, plus a size chart."
+        // Search Console (2026-09-25) showed a real "calculate curtain
+        // size" query landing this page at position 83 despite the page
+        // already having solid content/FAQ+WebApplication schema — the
+        // title just didn't contain the phrase a searcher actually
+        // types. Leads with it now, still well under the ~60-char
+        // budget once " | Mittal Collections" is appended.
+        title="Calculate Curtain Size & Rod Length"
+        description="Calculate your curtain size, rod length and fabric width free — enter your window measurements and get the exact size to buy, plus a size chart."
         url={`${SITE_URL}/curtain-size-calculator`}
         jsonLd={jsonLd}
       />
