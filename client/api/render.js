@@ -46,6 +46,28 @@ const escapeHtml = (value) =>
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
 
+// Mirrors client/src/components/Seo.jsx's safeJsonLdStringify exactly —
+// see that file's comment for why plain JSON.stringify is unsafe here:
+// a review's content (productJsonLd.review[].reviewBody, sourced from
+// live customer reviews) can contain a literal "</script><script>"
+// sequence that closes this tag early and opens a real one, regardless
+// of JSON quoting. This is the bot-facing prerender path (Googlebot,
+// WhatsApp/Facebook crawlers) so it needs its own copy, not just the
+// client-side one.
+const safeJsonLdStringify = (block) =>
+  JSON.stringify(block).replace(/</g, "\\u003c");
+
+// A slow/cold Render backend previously had no way to fail fast here —
+// a plain `fetch()` with no timeout just hangs until Vercel's own
+// function-duration limit kills it, wasting the whole budget instead of
+// hitting the "fail open to plain shell" catch in the handler below
+// quickly. 6s leaves headroom under Vercel's default limits while still
+// being generous for a Render free/starter-tier cold start.
+const fetchJson = async (url) => {
+  const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
+  return res.json();
+};
+
 // Mirrors client/src/utils/stripHtml.js's intent (plain text for a meta
 // description / JSON-LD description, not markup) but can't reuse that
 // file as-is -- it goes through DOMPurify and a real `document`, neither
@@ -216,9 +238,7 @@ const buildMeta = async (path) => {
     // /client/middleware.js is what actually routes a bot's "/" request
     // here now, since Edge Middleware runs ahead of that static-file
     // lookup — this branch is what it lands on.
-    const settingsData = await fetch(`${API_BASE}/api/settings`).then((r) =>
-      r.json(),
-    );
+    const settingsData = await fetchJson(`${API_BASE}/api/settings`);
     const settings = settingsData.settings || {};
 
     // Base fields unconditional, same reasoning as Home.jsx's
@@ -296,7 +316,13 @@ const buildMeta = async (path) => {
       : null;
 
     return {
-      title: `Buy Bedsheets, Curtains & Towels — Pan-India Delivery | ${SITE_NAME}`,
+      // Kept in sync with Home.jsx's <Seo title> — this is the version
+      // Googlebot actually sees (it's always routed here, never to the
+      // real React app), so a length mismatch here is the real SEO bug,
+      // not the client-side one. Bare title must stay short enough that
+      // appending " | SITE_NAME" doesn't push the final <title> past
+      // Google's ~60-char truncation point.
+      title: `Bedsheets, Curtains & Towels Online | ${SITE_NAME}`,
       description:
         "Shop premium cotton bedsheets, curtains, towels, cushions & doormats online with pan-India delivery — fast 24-hour delivery in Ghaziabad. Easy returns.",
       image: DEFAULT_IMAGE,
@@ -311,10 +337,10 @@ const buildMeta = async (path) => {
     // loads all four independently too (reviews/questions/settings never
     // block the product itself from rendering).
     const [data, settingsData, reviewsData, questionsData] = await Promise.all([
-      fetch(`${API_BASE}/api/products/${parts[1]}`).then((r) => r.json()),
-      fetch(`${API_BASE}/api/settings`).then((r) => r.json()),
-      fetch(`${API_BASE}/api/reviews/product/${parts[1]}`).then((r) => r.json()),
-      fetch(`${API_BASE}/api/questions/product/${parts[1]}`).then((r) => r.json()),
+      fetchJson(`${API_BASE}/api/products/${parts[1]}`),
+      fetchJson(`${API_BASE}/api/settings`),
+      fetchJson(`${API_BASE}/api/reviews/product/${parts[1]}`),
+      fetchJson(`${API_BASE}/api/questions/product/${parts[1]}`),
     ]);
 
     if (!data.success) return null;
@@ -511,9 +537,7 @@ const buildMeta = async (path) => {
   }
 
   if (parts[0] === "category" && parts[1]) {
-    const data = await fetch(`${API_BASE}/api/categories`).then((r) =>
-      r.json(),
-    );
+    const data = await fetchJson(`${API_BASE}/api/categories`);
 
     if (!data.success) return null;
 
@@ -536,9 +560,7 @@ const buildMeta = async (path) => {
     // CategoryPage.jsx does client-side and fold its name into both.
     let subcategory = null;
     if (parts[2]) {
-      const subRes = await fetch(`${API_BASE}/api/subcategories`).then((r) =>
-        r.json(),
-      );
+      const subRes = await fetchJson(`${API_BASE}/api/subcategories`);
       subcategory = subRes.subcategories?.find(
         (s) => s.category?._id === category._id && s.slug === parts[2],
       );
@@ -574,9 +596,7 @@ const buildMeta = async (path) => {
     const productsQuery = subcategory
       ? `subcategory=${encodeURIComponent(subcategory._id)}`
       : `category=${encodeURIComponent(category._id)}`;
-    const productsData = await fetch(`${API_BASE}/api/products?${productsQuery}`).then(
-      (r) => r.json(),
-    );
+    const productsData = await fetchJson(`${API_BASE}/api/products?${productsQuery}`);
     const categoryProducts = productsData.success ? productsData.products || [] : [];
     const itemListJsonLd = categoryProducts.length > 0 && {
       "@context": "https://schema.org",
@@ -602,9 +622,7 @@ const buildMeta = async (path) => {
   }
 
   if (parts[0] === "policies" && parts[1]) {
-    const data = await fetch(`${API_BASE}/api/pages/${parts[1]}`).then((r) =>
-      r.json(),
-    );
+    const data = await fetchJson(`${API_BASE}/api/pages/${parts[1]}`);
 
     if (!data.success || !data.page) return null;
 
@@ -634,9 +652,7 @@ const buildMeta = async (path) => {
     // Mirrors Contact.jsx's exact shape, not Home.jsx's (no priceRange/
     // areaServed there -- those are homepage-specific, not per Contact.jsx).
     const staticPage = STATIC_PAGES["/contact"];
-    const settingsData = await fetch(`${API_BASE}/api/settings`).then((r) =>
-      r.json(),
-    );
+    const settingsData = await fetchJson(`${API_BASE}/api/settings`);
     const settings = settingsData.settings || {};
 
     const localBusinessJsonLd = settings.address
@@ -680,9 +696,7 @@ const buildMeta = async (path) => {
     // settings.address like Home.jsx/Contact.jsx's blocks) since the
     // landmark-based address here is hardcoded content, not admin data.
     const staticPage = STATIC_PAGES["/ghaziabad-home-furnishing-store"];
-    const settingsData = await fetch(`${API_BASE}/api/settings`).then((r) =>
-      r.json(),
-    );
+    const settingsData = await fetchJson(`${API_BASE}/api/settings`);
     const settings = settingsData.settings || {};
 
     const localBusinessJsonLd = {
@@ -743,9 +757,7 @@ const buildMeta = async (path) => {
   }
 
   if (parts[0] === "articles" && parts[1]) {
-    const data = await fetch(`${API_BASE}/api/articles/slug/${parts[1]}`).then(
-      (r) => r.json(),
-    );
+    const data = await fetchJson(`${API_BASE}/api/articles/slug/${parts[1]}`);
 
     if (!data.success) return null;
 
@@ -804,9 +816,7 @@ const buildMeta = async (path) => {
   }
 
   if (parts[0] === "hi" && parts[1] === "articles" && parts[2]) {
-    const data = await fetch(`${API_BASE}/api/articles/slug/${parts[2]}`).then(
-      (r) => r.json(),
-    );
+    const data = await fetchJson(`${API_BASE}/api/articles/slug/${parts[2]}`);
 
     if (!data.success) return null;
 
@@ -897,7 +907,7 @@ const injectMeta = (html, meta) => {
     <meta name="twitter:title" content="${escapeHtml(meta.title)}" />
     <meta name="twitter:description" content="${escapeHtml(meta.description)}" />
     <meta name="twitter:image" content="${escapeHtml(meta.image)}" />
-    ${meta.jsonLd ? `<script type="application/ld+json">${JSON.stringify(meta.jsonLd)}</script>` : ""}
+    ${meta.jsonLd ? `<script type="application/ld+json">${safeJsonLdStringify(meta.jsonLd)}</script>` : ""}
   `;
 
   let result = html

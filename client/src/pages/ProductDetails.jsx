@@ -1,4 +1,4 @@
-import { imgUrl } from "../services/api";
+import { imgUrl, imgSrcSet } from "../services/api";
 import Seo from "../components/Seo";
 import PincodeChecker from "../components/PincodeChecker";
 import ProductDetailsSkeleton from "./ProductDetailsSkeleton";
@@ -773,6 +773,8 @@ function ProductDetails() {
                   <img
                     key={activeMedia?.url}
                     src={`${imgUrl(activeMedia?.url, "w_1600,q_auto,f_auto")}`}
+                    srcSet={imgSrcSet(activeMedia?.url, [400, 800, 1200, 1600])}
+                    sizes="(min-width: 1024px) 50vw, 100vw"
                     alt={t(product.name, product.nameHi)}
                     style={zoomStyle}
                     onLoad={() => setMainImageLoaded(true)}

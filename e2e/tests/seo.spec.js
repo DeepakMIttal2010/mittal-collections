@@ -144,22 +144,43 @@ test.describe("Crawling infrastructure", () => {
     },
   );
 
-  test("robots.txt disallows account/cart/checkout/admin/search/compare", async ({
+  // robots.txt Disallow-ing a URL blocks Googlebot from ever crawling it,
+  // which means it can never see that page's own <Seo noindex/> tag in
+  // the first place — combining the two is contradictory (Google's own
+  // guidance) and can leave the URL showing up in results anyway, as a
+  // bare link with no snippet, if discovered externally. Only /admin
+  // (which carries no noindex tag of its own, and isn't meant to be
+  // crawled at all) should still be hard-Disallow'd; everything else
+  // relies on noindex alone, verified per-page below.
+  test("robots.txt disallows only /admin, not pages that already carry noindex", async ({
     request,
   }) => {
     const res = await request.get("http://localhost:5173/robots.txt");
     expect(res.status()).toBe(200);
     const body = await res.text();
 
+    expect(body).toContain("Disallow: /admin");
+
     for (const path of [
       "/account",
       "/cart",
       "/checkout",
-      "/admin",
       "/search",
       "/compare",
     ]) {
-      expect(body).toContain(`Disallow: ${path}`);
+      expect(body).not.toContain(`Disallow: ${path}`);
+    }
+  });
+
+  test("account/cart/compare/wishlist/login pages carry a noindex meta tag", async ({
+    page,
+  }) => {
+    for (const path of ["/cart", "/compare", "/wishlist", "/login"]) {
+      await page.goto(path);
+      await expect(page.locator('meta[name="robots"]')).toHaveAttribute(
+        "content",
+        /noindex/,
+      );
     }
   });
 });
