@@ -348,10 +348,12 @@ const buildMeta = async (path) => {
     const p = data.product;
     const settings = settingsData.settings || {};
     const plainDescription = stripHtml(p.description);
-    // Same "pan-India delivery" lead-in ProductDetails.jsx's <Seo> uses —
-    // this bot-facing copy had drifted from that client-side convention.
+    // Same shorter "pan-India delivery" lead-in ProductDetails.jsx's <Seo>
+    // uses — the old 53-char "Buy online, pan-India delivery (24hr in
+    // Ghaziabad) - " prefix ate a third of the 160-char budget on every
+    // product before any product-specific content got a chance to show.
     const description = p.description
-      ? `Buy online, pan-India delivery (24hr in Ghaziabad) - ${plainDescription}`.slice(0, 160)
+      ? `Pan-India delivery, 24hr in Ghaziabad. ${plainDescription}`.slice(0, 160)
       : `Buy ${p.name} online with pan-India delivery - fast 24-hour delivery in Ghaziabad`.slice(0, 160);
     // Google's Product rich-result guidance wants multiple angles when
     // they exist, not just the main photo — mirrors ProductDetails.jsx's
@@ -577,17 +579,25 @@ const buildMeta = async (path) => {
       { name: subcategory ? subcategory.name : category.name },
     ];
 
-    // Same "pan-India delivery" lead-in CategoryPage.jsx's <Seo> uses,
-    // extended with the subcategory's own name so it isn't just the
-    // parent category's copy repeated verbatim.
+    // Same lead-in CategoryPage.jsx's <Seo> uses, extended with the
+    // subcategory's own name so it isn't just the parent category's copy
+    // repeated verbatim. Shorter wrapper (mirrors the client-side fix)
+    // leaves real budget for the actual differentiator -- a subcategory's
+    // own subtitle when it has one (more specific than the parent
+    // category's description, matching CategoryPage.jsx's own priority),
+    // falling back to the category description otherwise.
     const title = subcategory
       ? `${subcategory.name} | ${category.name} | ${SITE_NAME}`
       : `${category.name} | ${SITE_NAME}`;
-    const description = subcategory
-      ? `Buy ${subcategory.name} (${category.name}) online with pan-India delivery at ${SITE_NAME} - fast 24-hour delivery in Ghaziabad.`
-      : `Buy ${category.name} online with pan-India delivery at ${SITE_NAME} - fast 24-hour delivery in Ghaziabad. ${category.description || ""}`
-          .trim()
-          .slice(0, 160);
+    const pageTitle = subcategory
+      ? `${subcategory.name} - ${category.name}`
+      : category.name;
+    const bodyText = subcategory
+      ? subcategory.subtitle || ""
+      : category.description || "";
+    const description = `${pageTitle}: pan-India delivery, 24hr in Ghaziabad. ${bodyText}`
+      .trim()
+      .slice(0, 160);
 
     // Mirrors CategoryPage.jsx's itemListJsonLd -- same endpoints/params
     // it uses (getProductsByCategory / getProductsBySubcategory), capped
