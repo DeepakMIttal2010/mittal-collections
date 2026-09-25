@@ -14,6 +14,7 @@ import {
   addToPosCart,
   updatePosCartQuantity,
   updatePosCartPrice,
+  updatePosCartPriceReason,
   removeFromPosCart,
   clearPosCart,
 } from "../../utils/posCart";
@@ -125,6 +126,10 @@ function AdminPOS() {
     setCart(updatePosCartPrice(productId, size, unitPrice));
   };
 
+  const handlePriceReasonChange = (productId, size, reason) => {
+    setCart(updatePosCartPriceReason(productId, size, reason));
+  };
+
   const handleRemove = (productId, size) => {
     setCart(removeFromPosCart(productId, size));
   };
@@ -185,6 +190,22 @@ function AdminPOS() {
       return;
     }
 
+    // Server-enforced too (posController.js's buildSaleItems) — checked
+    // here first so a staff member finds out before the round-trip,
+    // right next to the price field that needs a reason, rather than
+    // from a generic error after tapping "Complete Sale".
+    const missingReason = cart.find(
+      (item) =>
+        Math.abs(item.unitPrice - item.originalPrice) > 0.01 &&
+        !item.priceOverrideReason?.trim(),
+    );
+    if (missingReason) {
+      setError(
+        `Add a reason for "${missingReason.name}"'s changed price before completing the sale`,
+      );
+      return;
+    }
+
     setSubmitting(true);
 
     const response = await recordOfflineSale({
@@ -193,6 +214,7 @@ function AdminPOS() {
         size: item.size || "",
         quantity: item.quantity,
         unitPrice: item.unitPrice,
+        priceOverrideReason: item.priceOverrideReason || "",
       })),
       paymentMethod,
       customerMobile,
@@ -407,90 +429,115 @@ function AdminPOS() {
         </div>
       ) : (
         <div className="bg-white border border-slate-200 rounded-xl p-5 mb-5 space-y-4">
-          {cart.map((item) => (
-            <div
-              key={`${item.productId}::${item.size}`}
-              className="flex items-center gap-3 border-b border-slate-100 pb-4 last:border-0 last:pb-0"
-            >
-              <img
-                src={imgUrl(item.image)}
-                alt={item.name}
-                className="w-14 h-14 object-cover rounded-lg shrink-0"
-              />
+          {cart.map((item) => {
+            const priceChanged =
+              Math.abs(item.unitPrice - item.originalPrice) > 0.01;
 
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-slate-800 truncate">
-                  {item.name}
-                  {item.size && (
-                    <span className="text-slate-400 font-normal">
-                      {" "}
-                      — {item.size}
-                    </span>
-                  )}
-                </p>
-
-                <div className="flex items-center gap-2 mt-1">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      handleQuantityChange(
-                        item.productId,
-                        item.size,
-                        item.quantity - 1,
-                      )
-                    }
-                    className="w-6 h-6 rounded bg-slate-100 hover:bg-slate-200 text-slate-700"
-                  >
-                    −
-                  </button>
-                  <span className="w-6 text-center text-sm">
-                    {item.quantity}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      handleQuantityChange(
-                        item.productId,
-                        item.size,
-                        item.quantity + 1,
-                      )
-                    }
-                    className="w-6 h-6 rounded bg-slate-100 hover:bg-slate-200 text-slate-700"
-                  >
-                    +
-                  </button>
-
-                  <span className="text-slate-400 mx-1">×</span>
-                  <input
-                    type="number"
-                    min="0"
-                    value={item.unitPrice}
-                    onChange={(e) =>
-                      handlePriceChange(
-                        item.productId,
-                        item.size,
-                        Number(e.target.value),
-                      )
-                    }
-                    className="w-20 border border-slate-300 rounded px-1.5 py-0.5 text-sm"
+            return (
+              <div
+                key={`${item.productId}::${item.size}`}
+                className="border-b border-slate-100 pb-4 last:border-0 last:pb-0"
+              >
+                <div className="flex items-center gap-3">
+                  <img
+                    src={imgUrl(item.image)}
+                    alt={item.name}
+                    className="w-14 h-14 object-cover rounded-lg shrink-0"
                   />
-                </div>
-              </div>
 
-              <div className="text-right shrink-0">
-                <p className="font-semibold text-slate-800">
-                  ₹{item.quantity * item.unitPrice}
-                </p>
-                <button
-                  type="button"
-                  onClick={() => handleRemove(item.productId, item.size)}
-                  className="text-xs text-red-600 hover:underline"
-                >
-                  Remove
-                </button>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-slate-800 truncate">
+                      {item.name}
+                      {item.size && (
+                        <span className="text-slate-400 font-normal">
+                          {" "}
+                          — {item.size}
+                        </span>
+                      )}
+                    </p>
+
+                    <div className="flex items-center gap-2 mt-1">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleQuantityChange(
+                            item.productId,
+                            item.size,
+                            item.quantity - 1,
+                          )
+                        }
+                        className="w-6 h-6 rounded bg-slate-100 hover:bg-slate-200 text-slate-700"
+                      >
+                        −
+                      </button>
+                      <span className="w-6 text-center text-sm">
+                        {item.quantity}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleQuantityChange(
+                            item.productId,
+                            item.size,
+                            item.quantity + 1,
+                          )
+                        }
+                        className="w-6 h-6 rounded bg-slate-100 hover:bg-slate-200 text-slate-700"
+                      >
+                        +
+                      </button>
+
+                      <span className="text-slate-400 mx-1">×</span>
+                      <input
+                        type="number"
+                        min="0"
+                        value={item.unitPrice}
+                        onChange={(e) =>
+                          handlePriceChange(
+                            item.productId,
+                            item.size,
+                            Number(e.target.value),
+                          )
+                        }
+                        className="w-20 border border-slate-300 rounded px-1.5 py-0.5 text-sm"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="text-right shrink-0">
+                    <p className="font-semibold text-slate-800">
+                      ₹{item.quantity * item.unitPrice}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => handleRemove(item.productId, item.size)}
+                      className="text-xs text-red-600 hover:underline"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+
+                {priceChanged && (
+                  <div className="mt-2 pl-[68px]">
+                    <input
+                      type="text"
+                      value={item.priceOverrideReason}
+                      onChange={(e) =>
+                        handlePriceReasonChange(
+                          item.productId,
+                          item.size,
+                          e.target.value,
+                        )
+                      }
+                      placeholder={`Reason for changing price from ₹${item.originalPrice} (required)`}
+                      className="w-full border border-amber-300 bg-amber-50 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-amber-500"
+                    />
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
 
           <div className="pt-2 border-t border-slate-200 space-y-1">
             <div className="flex justify-between text-slate-600 text-sm">

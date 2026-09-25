@@ -46,6 +46,12 @@ function SaleFormModal({ sale, onClose, onSaved }) {
           size: item.size || "",
           quantity: item.quantity,
           unitPrice: item.unitPrice,
+          // Falls back to unitPrice (i.e. "no override") for a sale
+          // recorded before originalPrice existed on the schema —
+          // never undefined here, so the priceChanged check below
+          // always has a real number to compare against.
+          originalPrice: item.originalPrice ?? item.unitPrice,
+          priceOverrideReason: item.priceOverrideReason || "",
         }))
       : [],
   );
@@ -63,7 +69,18 @@ function SaleFormModal({ sale, onClose, onSaved }) {
 
   const updateItem = (index, field, value) => {
     setItems((prev) =>
-      prev.map((item, i) => (i === index ? { ...item, [field]: value } : item)),
+      prev.map((item, i) => {
+        if (i !== index) return item;
+
+        const updated = { ...item, [field]: value };
+        // Same as posCart.js's updatePosCartPrice -- a stale reason from
+        // a previous override shouldn't silently survive a further
+        // price edit that happens to land back on the catalog price.
+        if (field === "unitPrice" && Number(value) === item.originalPrice) {
+          updated.priceOverrideReason = "";
+        }
+        return updated;
+      }),
     );
   };
 
@@ -91,6 +108,8 @@ function SaleFormModal({ sale, onClose, onSaved }) {
         size: "",
         quantity: 1,
         unitPrice: response.product.price,
+        originalPrice: response.product.price,
+        priceOverrideReason: "",
       },
     ]);
     setNewProductId("");
@@ -102,12 +121,27 @@ function SaleFormModal({ sale, onClose, onSaved }) {
       return;
     }
 
+    // Server-enforced too (posController.js's buildSaleItems) — checked
+    // here first for the same reason AdminPOS.jsx's cart checkout does.
+    const missingReason = items.find(
+      (i) =>
+        Math.abs(Number(i.unitPrice) - i.originalPrice) > 0.01 &&
+        !i.priceOverrideReason?.trim(),
+    );
+    if (missingReason) {
+      toast.error(
+        `Add a reason for "${missingReason.productName}"'s changed price`,
+      );
+      return;
+    }
+
     const payload = {
       items: items.map((i) => ({
         productId: i.productId,
         quantity: Number(i.quantity),
         unitPrice: Number(i.unitPrice),
         size: i.size,
+        priceOverrideReason: i.priceOverrideReason || "",
       })),
       paymentMethod,
       customerMobile,
@@ -157,45 +191,64 @@ function SaleFormModal({ sale, onClose, onSaved }) {
                 No items yet — add one below by product ID.
               </p>
             )}
-            {items.map((item, i) => (
-              <div key={i} className="flex items-center gap-2 border border-slate-200 rounded-lg p-2">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-800 truncate">
-                    {item.productName}
-                  </p>
-                  <input
-                    type="text"
-                    value={item.size}
-                    onChange={(e) => updateItem(i, "size", e.target.value)}
-                    placeholder="Size (optional)"
-                    className="text-xs text-slate-500 border-b border-transparent hover:border-slate-300 outline-none w-24"
-                  />
+            {items.map((item, i) => {
+              const priceChanged =
+                Math.abs(Number(item.unitPrice) - item.originalPrice) > 0.01;
+
+              return (
+                <div key={i} className="border border-slate-200 rounded-lg p-2">
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-slate-800 truncate">
+                        {item.productName}
+                      </p>
+                      <input
+                        type="text"
+                        value={item.size}
+                        onChange={(e) => updateItem(i, "size", e.target.value)}
+                        placeholder="Size (optional)"
+                        className="text-xs text-slate-500 border-b border-transparent hover:border-slate-300 outline-none w-24"
+                      />
+                    </div>
+                    <input
+                      type="number"
+                      min="1"
+                      value={item.quantity}
+                      onChange={(e) => updateItem(i, "quantity", e.target.value)}
+                      className="w-16 text-sm border border-slate-300 rounded px-2 py-1"
+                    />
+                    <span className="text-slate-400">×</span>
+                    <input
+                      type="number"
+                      min="0"
+                      value={item.unitPrice}
+                      onChange={(e) => updateItem(i, "unitPrice", e.target.value)}
+                      className="w-20 text-sm border border-slate-300 rounded px-2 py-1"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeItem(i)}
+                      aria-label="Remove item"
+                      className="text-red-500 hover:text-red-700 shrink-0"
+                    >
+                      <FaTrash className="text-xs" />
+                    </button>
+                  </div>
+
+                  {priceChanged && (
+                    <input
+                      type="text"
+                      value={item.priceOverrideReason}
+                      onChange={(e) =>
+                        updateItem(i, "priceOverrideReason", e.target.value)
+                      }
+                      placeholder={`Reason for changing price from ₹${item.originalPrice} (required)`}
+                      className="w-full mt-1.5 border border-amber-300 bg-amber-50 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-amber-500"
+                    />
+                  )}
                 </div>
-                <input
-                  type="number"
-                  min="1"
-                  value={item.quantity}
-                  onChange={(e) => updateItem(i, "quantity", e.target.value)}
-                  className="w-16 text-sm border border-slate-300 rounded px-2 py-1"
-                />
-                <span className="text-slate-400">×</span>
-                <input
-                  type="number"
-                  min="0"
-                  value={item.unitPrice}
-                  onChange={(e) => updateItem(i, "unitPrice", e.target.value)}
-                  className="w-20 text-sm border border-slate-300 rounded px-2 py-1"
-                />
-                <button
-                  type="button"
-                  onClick={() => removeItem(i)}
-                  aria-label="Remove item"
-                  className="text-red-500 hover:text-red-700 shrink-0"
-                >
-                  <FaTrash className="text-xs" />
-                </button>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           <div className="flex gap-2">
@@ -557,6 +610,17 @@ function AdminPOSSales() {
                     <p className="text-slate-700 truncate" title={s.items.map((i) => i.productName).join(", ")}>
                       {s.items.map((i) => `${i.productName} ×${i.quantity}`).join(", ")}
                     </p>
+                    {s.items.some((i) => i.priceOverrideReason) && (
+                      <p
+                        className="text-[10px] text-amber-600 truncate"
+                        title={s.items
+                          .filter((i) => i.priceOverrideReason)
+                          .map((i) => `${i.productName}: ₹${i.originalPrice} → ₹${i.unitPrice} — ${i.priceOverrideReason}`)
+                          .join(" | ")}
+                      >
+                        Price overridden
+                      </p>
+                    )}
                   </td>
                   <td className="py-2 px-3 font-medium text-slate-800 whitespace-nowrap">
                     {formatCurrency(s.totalAmount)}
