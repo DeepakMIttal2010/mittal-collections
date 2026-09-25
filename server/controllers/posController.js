@@ -48,10 +48,60 @@ const parseSafeItems = (rawItems) => {
       quantity: qty,
       unitPrice: price,
       size: typeof item.size === "string" ? item.size : "",
+      priceOverrideReason:
+        typeof item.priceOverrideReason === "string"
+          ? item.priceOverrideReason.trim()
+          : "",
     });
   }
 
   return { safeItems };
+};
+
+// Shared by recordOfflineSale and updateOfflineSale — builds the final
+// per-item sale records, cross-checking each typed unitPrice against
+// the product/variant's real catalog price (`products[i]`, the fresh
+// doc reserveStockForItems already fetched, so no extra query needed).
+// A POS sale previously trusted a staff-typed price outright with no
+// cross-check at all — unlike verifyOrderItems/createOrder's
+// established pattern for online orders — which meant totalAmount and
+// any loyalty points earned were only ever as trustworthy as whatever
+// was typed in. In-person retail legitimately needs some flexibility
+// here (haggling, a damaged-item discount), so this doesn't block a
+// deviation outright — it just requires a reason, the same
+// accountability `adjustLoyaltyPoints` already requires for its own
+// manual override, creating an audit trail where there was none.
+const buildSaleItems = (safeItems, products) => {
+  const saleItems = [];
+
+  for (let i = 0; i < safeItems.length; i += 1) {
+    const item = safeItems[i];
+    const product = products[i];
+    const variant = item.size
+      ? product.variants?.find((v) => v.size === item.size)
+      : null;
+    const catalogPrice = variant ? variant.price : product.price;
+    const isOverride = Math.abs(item.unitPrice - catalogPrice) > 0.01;
+
+    if (isOverride && !item.priceOverrideReason) {
+      return {
+        error: `"${product.name}" is priced at ₹${item.unitPrice}, but the catalog price is ₹${catalogPrice} — add a reason for the price change to continue.`,
+      };
+    }
+
+    saleItems.push({
+      product: product._id,
+      productName: product.name,
+      size: item.size || "",
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+      originalPrice: catalogPrice,
+      priceOverrideReason: isOverride ? item.priceOverrideReason : "",
+      subtotal: item.quantity * item.unitPrice,
+    });
+  }
+
+  return { saleItems };
 };
 
 // GET /api/admin/pos/product/:id — what the QR code link resolves to.
@@ -241,18 +291,15 @@ export const recordOfflineSale = async (req, res) => {
       });
     }
 
-    const saleItems = safeItems.map((item, i) => {
-      const product = stockResult.products[i];
+    const { saleItems, error: priceError } = buildSaleItems(
+      safeItems,
+      stockResult.products,
+    );
 
-      return {
-        product: product._id,
-        productName: product.name,
-        size: item.size || "",
-        quantity: item.quantity,
-        unitPrice: item.unitPrice,
-        subtotal: item.quantity * item.unitPrice,
-      };
-    });
+    if (priceError) {
+      await restoreStockForItems(safeItems);
+      return res.status(400).json({ success: false, message: priceError });
+    }
 
     const subtotal = saleItems.reduce((sum, i) => sum + i.subtotal, 0);
 
@@ -531,18 +578,19 @@ export const updateOfflineSale = async (req, res) => {
       return res.status(400).json({ success: false, message });
     }
 
-    const saleItems = safeItems.map((item, i) => {
-      const product = stockResult.products[i];
+    const { saleItems, error: priceError } = buildSaleItems(
+      safeItems,
+      stockResult.products,
+    );
 
-      return {
-        product: product._id,
-        productName: product.name,
-        size: item.size || "",
-        quantity: item.quantity,
-        unitPrice: item.unitPrice,
-        subtotal: item.quantity * item.unitPrice,
-      };
-    });
+    if (priceError) {
+      // Mirrors the stock-reservation-failure rollback just above: undo
+      // the new reservation just made, then put the original items back
+      // into "reserved" state so stock ends up exactly where it started.
+      await restoreStockForItems(safeItems);
+      await reserveStockForItems(originalStockItems);
+      return res.status(400).json({ success: false, message: priceError });
+    }
 
     const subtotal = saleItems.reduce((sum, i) => sum + i.subtotal, 0);
     const discountAmount = Math.min(

@@ -40,6 +40,25 @@ const offlineSaleItemSchema = new mongoose.Schema(
       min: 0,
     },
 
+    // The product/variant's real catalog price at the moment of sale,
+    // captured alongside unitPrice so a deviation is always auditable
+    // later even if the product's price has since changed. Equal to
+    // unitPrice on a normal sale; only diverges when a staff member
+    // typed a different price in (haggling, a damaged-item discount,
+    // a mistake) — see priceOverrideReason below, required by
+    // posController.js whenever these two differ.
+    originalPrice: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+
+    priceOverrideReason: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
     subtotal: {
       type: Number,
       required: true,
