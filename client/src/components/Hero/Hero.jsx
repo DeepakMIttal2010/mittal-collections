@@ -9,6 +9,29 @@ import { getBanners } from "../../services/bannerService";
 import { useLanguage } from "../../context/LanguageContext";
 
 const AUTO_ROTATE_MS = 6000;
+// Caches the last-fetched banner slides so Hero can render a REAL
+// banner (with its real Cloudinary image URL) on the very first paint
+// instead of the bundled FALLBACK_SLIDE while getBanners() is still in
+// flight. This is the page's LCP element, and a live Lighthouse audit
+// (2026-09-25) measured ~4.3s of pure "resource load delay" on it --
+// the browser can't discover/request the real image until AFTER
+// getBanners() resolves and React re-renders, since only then does an
+// <img> with the real src exist in the DOM. Skipping straight to
+// cached real data on first render removes that whole wait; the
+// banners rarely change between visits, and the effect below still
+// re-fetches and self-corrects (including clearing a stale cache) if
+// they have.
+const CACHE_KEY = "mc_hero_banners_cache";
+
+const getCachedSlides = () => {
+  try {
+    const cached = localStorage.getItem(CACHE_KEY);
+    const parsed = cached ? JSON.parse(cached) : null;
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed : null;
+  } catch {
+    return null;
+  }
+};
 
 const FALLBACK_SLIDE = {
   _id: "fallback",
@@ -58,7 +81,9 @@ function HeroButton({ label, link, variant }) {
 }
 
 function Hero() {
-  const [slides, setSlides] = useState([FALLBACK_SLIDE]);
+  const [slides, setSlides] = useState(
+    () => getCachedSlides() || [FALLBACK_SLIDE],
+  );
   const [activeIndex, setActiveIndex] = useState(0);
   const { t } = useLanguage();
 
@@ -68,6 +93,17 @@ function Hero() {
 
       if (response.success && response.banners.length > 0) {
         setSlides(response.banners);
+        try {
+          localStorage.setItem(CACHE_KEY, JSON.stringify(response.banners));
+        } catch {
+          /* private-mode/quota -- cache is a best-effort optimization only */
+        }
+      } else {
+        try {
+          localStorage.removeItem(CACHE_KEY);
+        } catch {
+          /* private-mode/quota -- cache is a best-effort optimization only */
+        }
       }
     };
 
