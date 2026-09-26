@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { imgUrl } from "../services/api";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { FaTrash, FaPlus, FaMinus, FaGift, FaTags } from "react-icons/fa";
 
 import { useCart } from "../context/CartContext";
+import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
 import { getPublicRewardsInfo } from "../services/rewardsService";
 import { getSiteSettings } from "../services/settingsService";
@@ -15,6 +16,8 @@ import "./Cart.css";
 
 function Cart() {
   const { t } = useLanguage();
+  const navigate = useNavigate();
+  const { isLoggedIn } = useAuth();
   const {
     cartItems,
     increaseQty,
@@ -450,9 +453,22 @@ function Cart() {
               </p>
             )}
 
-            <Link to="/checkout" className="checkout-btn">
+            <button
+              type="button"
+              // CartDrawer.jsx already pre-checks auth before ever
+              // navigating to Checkout, so a guest there goes straight
+              // to /login with no wasted hop -- this page's own CTA was
+              // a plain <Link to="/checkout"> with no such check, so a
+              // guest landed on Checkout, saw it fully mount, and only
+              // then got redirected by its own effect. Same pre-check
+              // here removes that page-flash and matches the drawer.
+              onClick={() =>
+                navigate(isLoggedIn ? "/checkout" : "/login?redirect=/checkout")
+              }
+              className="checkout-btn"
+            >
               {t("Proceed to Checkout", "चेकआउट पर जाएं")}
-            </Link>
+            </button>
 
             <button className="clear-btn" onClick={clearCart}>
               {t("Clear Cart", "कार्ट खाली करें")}

@@ -198,12 +198,28 @@ export function CartProvider({ children }) {
   const decreaseQty = (id) => {
     const item = cartItems.find((cartItem) => cartItem._id === id);
 
+    // Silently did nothing at quantity 1 before -- no toast, no disabled
+    // state, unlike increaseQty above which already toasts when capped
+    // by stock. A customer clicking "-" at 1 had no way to tell the
+    // click even registered; "Remove" is the only way to actually drop
+    // an item, and this makes that explicit instead of leaving them to
+    // guess why nothing happened.
+    if (item && item.quantity <= 1) {
+      toast.info(
+        t(
+          "Already at the minimum — use Remove to take this out of your cart",
+          "पहले से न्यूनतम पर है — कार्ट से हटाने के लिए Remove इस्तेमाल करें",
+        ),
+      );
+      return;
+    }
+
     setCartItems(
       cartItems.map((cartItem) =>
         cartItem._id === id
           ? {
               ...cartItem,
-              quantity: cartItem.quantity > 1 ? cartItem.quantity - 1 : 1,
+              quantity: cartItem.quantity - 1,
             }
           : cartItem,
       ),
