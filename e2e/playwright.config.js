@@ -39,5 +39,19 @@ export default defineConfig({
       name: "mobile-375",
       use: { viewport: { width: 375, height: 740 } },
     },
+    // Browser QA audit (2026-09-26) found this suite was Chromium-only
+    // on both projects above (mobile-375 has no explicit browserName,
+    // so it inherits Chromium too) -- meaning a genuine Firefox/WebKit-
+    // only regression could never fail CI at all, not because none
+    // exist but because nothing here would ever exercise that engine.
+    // Firefox specifically (not WebKit) since it's a real desktop
+    // target in the checklist this addresses and Playwright's Firefox
+    // build doesn't need the extra system libraries WebKit does in a
+    // CI container -- see ci.yml's `playwright install` step for the
+    // matching browser-binary install this project needs.
+    {
+      name: "desktop-firefox",
+      use: { ...devices["Desktop Firefox"] },
+    },
   ],
 });

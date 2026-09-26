@@ -108,7 +108,7 @@ jobs:
 
       - name: Install Playwright browsers
         working-directory: e2e
-        run: npx playwright install chromium --with-deps
+        run: npx playwright install chromium firefox --with-deps
 
       # Started in the background rather than via a separate step so the
       # process survives past this step — GitHub Actions keeps background

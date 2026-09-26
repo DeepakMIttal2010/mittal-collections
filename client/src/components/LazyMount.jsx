@@ -15,7 +15,17 @@ import { useEffect, useRef, useState } from "react";
 // the user is currently looking at.
 function LazyMount({ children }) {
   const ref = useRef(null);
-  const [visible, setVisible] = useState(false);
+  // IntersectionObserver has shipped in every real target browser for
+  // years, so this is cheap insurance rather than a fix for a live bug
+  // — but this one component gates all ~16 of Home.jsx's below-the-fold
+  // sections, so if it were ever unavailable, defaulting to "just render
+  // the content" is the only safe fallback. Without this guard,
+  // `new IntersectionObserver(...)` below would throw synchronously
+  // inside every one of those useEffects, uncaught, which could blank
+  // the whole homepage rather than just skip this one optimization.
+  const [visible, setVisible] = useState(
+    () => typeof IntersectionObserver === "undefined",
+  );
 
   useEffect(() => {
     if (visible || !ref.current) return;
