@@ -8,6 +8,7 @@ import { useAuth } from "./AuthContext";
 import { useLanguage } from "./LanguageContext";
 import { getVisitorId } from "../utils/visitorId";
 import { readJsonFromStorage } from "../utils/safeLocalStorage";
+import { trackAddToCart, trackRemoveFromCart } from "../utils/analytics";
 
 const CartContext = createContext();
 
@@ -133,6 +134,9 @@ export function CartProvider({ children }) {
         ),
       );
 
+      // Actual units added may be less than the requested qty if stock
+      // capped it — track what really got added, not what was asked for.
+      trackAddToCart(existingItem, newQuantity - existingItem.quantity);
       toast.info(t("Product quantity updated", "प्रोडक्ट मात्रा अपडेट हुई"));
     } else {
       if (stock <= 0) {
@@ -140,20 +144,20 @@ export function CartProvider({ children }) {
         return;
       }
 
-      setCartItems([
-        ...cartItems,
-        {
-          ...product,
-          _id: lineId,
-          productId: product._id,
-          price,
-          oldPrice,
-          stock,
-          selectedSize: variant?.size || "",
-          quantity: Math.min(qty, stock),
-        },
-      ]);
+      const newItem = {
+        ...product,
+        _id: lineId,
+        productId: product._id,
+        price,
+        oldPrice,
+        stock,
+        selectedSize: variant?.size || "",
+        quantity: Math.min(qty, stock),
+      };
 
+      setCartItems([...cartItems, newItem]);
+
+      trackAddToCart(newItem, newItem.quantity);
       toast.success(t("Product added to cart 🛒", "प्रोडक्ट कार्ट में जोड़ा गया 🛒"));
     }
 
@@ -161,8 +165,11 @@ export function CartProvider({ children }) {
   };
 
   const removeFromCart = (id) => {
+    const item = cartItems.find((cartItem) => cartItem._id === id);
+
     setCartItems(cartItems.filter((item) => item._id !== id));
 
+    if (item) trackRemoveFromCart(item);
     toast.error(t("Product removed from cart", "प्रोडक्ट कार्ट से हटाया गया"));
   };
 
@@ -184,6 +191,8 @@ export function CartProvider({ children }) {
           : cartItem,
       ),
     );
+
+    if (item) trackAddToCart(item, 1);
   };
 
   const decreaseQty = (id) => {
@@ -215,6 +224,10 @@ export function CartProvider({ children }) {
           : cartItem,
       ),
     );
+
+    // Only a real decrement (already-at-1 is a no-op above) counts as
+    // actually removing a unit from the cart.
+    if (item && item.quantity > 1) trackRemoveFromCart({ ...item, quantity: 1 });
   };
 
   const clearCart = () => {

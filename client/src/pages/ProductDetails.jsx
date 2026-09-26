@@ -18,6 +18,7 @@ import { stripHtml } from "../utils/stripHtml";
 import { sanitizeDescriptionHtml } from "../utils/sanitizeDescriptionHtml";
 import { handleImageError } from "../utils/imageFallback";
 import { toast } from "react-toastify";
+import { trackViewItem } from "../utils/analytics";
 import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import {
@@ -180,6 +181,7 @@ function ProductDetails() {
         setSelectedVariant(response.product.variants?.[0] || null);
         setQuantity(1);
         addRecentlyViewed(response.product._id);
+        trackViewItem(response.product);
 
         getProductViewCount(response.product._id).then((viewRes) => {
           if (!cancelled && viewRes.success) setViewCount(viewRes.count);
