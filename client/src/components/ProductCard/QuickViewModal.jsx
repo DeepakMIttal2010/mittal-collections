@@ -1,7 +1,8 @@
 import { imgUrl } from "../../services/api";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { toast } from "react-toastify";
 import {
   FaTimes,
   FaShoppingCart,
@@ -20,6 +21,7 @@ import { useLanguage } from "../../context/LanguageContext";
 import { stripHtml } from "../../utils/stripHtml";
 
 function QuickViewModal({ product, onClose }) {
+  const navigate = useNavigate();
   const { addToCart } = useCart();
   const { wishlistItems, addToWishlist, removeFromWishlist } = useWishlist();
   const { toggleCompare, isInCompare } = useCompare();
@@ -129,6 +131,24 @@ function QuickViewModal({ product, onClose }) {
           <div className="mt-auto flex gap-2">
             <button
               onClick={() => {
+                // Same guard as ProductCard.jsx's own cart button and
+                // Wishlist.jsx's handleAddToCart — a variant product
+                // added with no size picked silently falls back to the
+                // top-level price/stock, which only ever mirrors the
+                // FIRST variant (Product.js's schema comment), with no
+                // size recorded on the cart line at all.
+                if (product.variants?.length > 0) {
+                  toast.info(
+                    t(
+                      "Please select a size on the product page",
+                      "प्रोडक्ट पेज पर साइज़ चुनें",
+                    ),
+                  );
+                  onClose();
+                  navigate(productUrl(product));
+                  return;
+                }
+
                 addToCart(product);
                 onClose();
               }}

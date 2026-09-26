@@ -17,6 +17,8 @@ import { toWhatsAppNumber } from "../utils/whatsapp";
 import { stripHtml } from "../utils/stripHtml";
 import { sanitizeDescriptionHtml } from "../utils/sanitizeDescriptionHtml";
 import { handleImageError } from "../utils/imageFallback";
+import { toast } from "react-toastify";
+import { trackViewItem } from "../utils/analytics";
 import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import {
@@ -179,6 +181,7 @@ function ProductDetails() {
         setSelectedVariant(response.product.variants?.[0] || null);
         setQuantity(1);
         addRecentlyViewed(response.product._id);
+        trackViewItem(response.product);
 
         getProductViewCount(response.product._id).then((viewRes) => {
           if (!cancelled && viewRes.success) setViewCount(viewRes.count);
@@ -1090,9 +1093,25 @@ function ProductDetails() {
               </span>
               <button
                 type="button"
-                onClick={() =>
-                  setQuantity((q) => Math.min(q + 1, displayStock))
-                }
+                onClick={() => {
+                  // displayStock === 0 previously let this compute
+                  // Math.min(q + 1, 0) = 0, visibly showing "Qty: 0"
+                  // even though Add to Cart is already disabled in that
+                  // state — cosmetic but confusing. Also toasts once the
+                  // cap is actually reached, matching the same "Only X
+                  // in stock" message CartContext's increaseQty already
+                  // shows for an item already sitting in the cart.
+                  if (displayStock <= 0) return;
+
+                  if (quantity >= displayStock) {
+                    toast.error(
+                      t(`Only ${displayStock} in stock`, `केवल ${displayStock} स्टॉक में`),
+                    );
+                    return;
+                  }
+
+                  setQuantity((q) => Math.min(q + 1, displayStock));
+                }}
                 className="px-3 py-1.5 text-slate-600 hover:bg-slate-50"
               >
                 +

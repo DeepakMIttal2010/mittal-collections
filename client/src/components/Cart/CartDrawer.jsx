@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { imgUrl } from "../../services/api";
 import { Link, useNavigate } from "react-router-dom";
-import { FaTimes, FaPlus, FaMinus, FaLock, FaGift } from "react-icons/fa";
+import { FaTimes, FaPlus, FaMinus, FaLock, FaGift, FaTags } from "react-icons/fa";
 
 import { useCart } from "../../context/CartContext";
 import { useAuth } from "../../context/AuthContext";
@@ -20,6 +20,7 @@ function CartDrawer() {
     removeFromCart,
     totalItems,
     totalPrice,
+    bundleInfo,
     isCartOpen,
     closeCart,
   } = useCart();
@@ -186,6 +187,26 @@ function CartDrawer() {
                   "टैक्स शामिल है। शिपिंग चेकआउट पर calculate होगी।",
                 )}
               </p>
+
+              {/* Cart.jsx's full-page summary already shows this same
+                  bundleInfo.eligible state as a prominent "Extra X% OFF
+                  Applied!" banner -- this drawer previously showed only
+                  a plain Subtotal with no mention of it at all, so a
+                  customer who unlocked the discount and checks out
+                  straight from here never saw it confirmed anywhere
+                  before landing on Checkout. Compact version of the
+                  same message, not the full missing-category nudge --
+                  that's better suited to the full cart page's more
+                  spacious layout. */}
+              {bundleInfo.eligible && (
+                <div className="flex items-center gap-1.5 text-indigo-700 text-xs font-semibold mb-2">
+                  <FaTags className="text-[10px]" />
+                  {t(
+                    `Extra ${bundleInfo.discountPercent}% OFF applied!`,
+                    `अतिरिक्त ${bundleInfo.discountPercent}% छूट लागू हुई!`,
+                  )}
+                </div>
+              )}
 
               <div className="flex items-center justify-between mb-2">
                 <span className="font-semibold text-slate-800">

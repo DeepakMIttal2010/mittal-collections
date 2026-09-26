@@ -1,7 +1,8 @@
 import { imgUrl, imgSrcSet } from "../../services/api";
 import { lazy, Suspense, useEffect, useState } from "react";
 import "./ProductCard.css";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
 import {
   FaGift,
   FaHeart,
@@ -30,6 +31,7 @@ import { useLanguage } from "../../context/LanguageContext";
 const QuickViewModal = lazy(() => import("./QuickViewModal"));
 
 function ProductCard({ product }) {
+  const navigate = useNavigate();
   const { addToCart } = useCart();
   const { wishlistItems, addToWishlist, removeFromWishlist } = useWishlist();
   const { toggleCompare, isInCompare } = useCompare();
@@ -177,6 +179,27 @@ function ProductCard({ product }) {
           disabled={isOutOfStock}
           onClick={(e) => {
             e.preventDefault();
+
+            // A variant product added with no size picked falls back to
+            // CartContext's top-level product.price/stock, which only
+            // ever mirrors the FIRST variant (Product.js's own schema
+            // comment) — this silently added whatever size happened to
+            // be first in the array, at that size's price, with no size
+            // recorded on the cart line at all. Same guard
+            // Wishlist.jsx's handleAddToCart already uses for the exact
+            // same reason — send them to the product page to pick a
+            // real size instead of guessing one.
+            if (product.variants?.length > 0) {
+              toast.info(
+                t(
+                  "Please select a size on the product page",
+                  "प्रोडक्ट पेज पर साइज़ चुनें",
+                ),
+              );
+              navigate(productUrl(product));
+              return;
+            }
+
             addToCart(product);
           }}
         >
