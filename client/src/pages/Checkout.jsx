@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { FaTag, FaTimes, FaGift, FaTags } from "react-icons/fa";
@@ -21,6 +21,7 @@ import { getPublicRewardsInfo } from "../services/rewardsService";
 import { checkPincodeDelivery } from "../services/deliveryService";
 import { calculateDeliveryFee } from "../utils/shipping";
 import { loadRazorpayScript } from "../utils/razorpay";
+import { trackBeginCheckout, trackPurchase } from "../utils/analytics";
 import Seo from "../components/Seo";
 
 function Checkout() {
@@ -77,6 +78,22 @@ function Checkout() {
       navigate("/login?redirect=/checkout");
     }
   }, [isLoggedIn, navigate]);
+
+  // Fired once per real visit to this page with a non-empty cart, using
+  // the cart's own subtotal — not the final orderTotal below, which
+  // keeps changing as the customer picks an address/applies a coupon/
+  // redeems points through the rest of this flow. beginCheckoutFiredRef
+  // (not an effect dependency array) is what actually prevents a
+  // second fire on every one of those later re-renders.
+  const beginCheckoutFiredRef = useRef(false);
+
+  useEffect(() => {
+    if (beginCheckoutFiredRef.current || cartItems.length === 0) return;
+
+    beginCheckoutFiredRef.current = true;
+    trackBeginCheckout(cartItems, totalPrice);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cartItems.length]);
 
   useEffect(() => {
     const loadShippingSettings = async () => {
@@ -322,6 +339,7 @@ function Checkout() {
 
     if (paymentMethod !== "Razorpay") {
       setPlacing(false);
+      trackPurchase(response.order, cartItems);
       toast.success(t("Order placed successfully 🎉", "ऑर्डर सफलतापूर्वक हो गया 🎉"));
       clearCart();
       navigate("/my-orders");
@@ -373,6 +391,15 @@ function Checkout() {
           razorpay_payment_id: razorpayResponse.razorpay_payment_id,
           razorpay_signature: razorpayResponse.razorpay_signature,
         });
+
+        // Only a verified payment is a completed transaction — the
+        // script-load-failure and modal.ondismiss paths below both leave
+        // a real order behind too (Pending, unpaid), but neither is an
+        // actual completed sale, so neither should count as a GA4
+        // purchase.
+        if (verifyResponse.success) {
+          trackPurchase(response.order, cartItems);
+        }
 
         finishRazorpayFlow(
           verifyResponse.success
