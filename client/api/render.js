@@ -399,9 +399,22 @@ const buildMeta = async (path) => {
       { name: p.name },
     ];
 
-    // Mirrors ProductDetails.jsx's seoTitle — search queries for this
-    // category routinely include the exact dimension.
-    const seoTitle = p.size ? `${p.name} — ${p.size}` : p.name;
+    // Mirrors ProductDetails.jsx's seoTitle — p.name already carries the
+    // exact dimension by convention, so appending p.size duplicated it.
+    const seoTitle = p.name;
+
+    // Mirrors ProductDetails.jsx's displayPrice/displayStock — a
+    // variant product's flat p.price only mirrors variants[0], but flat
+    // p.stock is the SUM of every variant (see Product.js). Bots see
+    // the same default-selected variant a visitor would on first load
+    // (variants[0]), so the offer must reflect THAT variant's own
+    // price/stock, not the misleading summed stock -- otherwise a
+    // sold-out default variant with stock left in another size still
+    // reports InStock here while the page itself would show Out of
+    // Stock, a real Merchant Center suspension risk.
+    const defaultVariant = p.variants?.[0];
+    const offerPrice = defaultVariant ? defaultVariant.price : p.price;
+    const offerStock = defaultVariant ? defaultVariant.stock : p.stock;
 
     // Mirrors ProductDetails.jsx's effectiveReturnDaysForSeo/shippingFeeForSeo
     // — these unlock the enhanced free-listing treatment in Google
@@ -426,9 +439,9 @@ const buildMeta = async (path) => {
       offers: {
         "@type": "Offer",
         priceCurrency: "INR",
-        price: p.price,
+        price: offerPrice,
         availability:
-          p.stock > 0
+          offerStock > 0
             ? "https://schema.org/InStock"
             : "https://schema.org/OutOfStock",
         url,

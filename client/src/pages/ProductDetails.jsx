@@ -444,11 +444,12 @@ function ProductDetails() {
     ? selectedVariant.oldPrice
     : product.oldPrice;
   const displayStock = selectedVariant ? selectedVariant.stock : product.stock;
-  const displaySize = selectedVariant?.size || product.size;
-  // Search queries for this category routinely include the exact
-  // dimension ("king size bedsheet 90x108", "7x4 curtains") — appending
-  // it is a real keyword match a bare product name misses.
-  const seoTitle = displaySize ? `${product.name} — ${displaySize}` : product.name;
+  // product.name already carries the exact dimension by convention (see
+  // seo_title_convention) -- appending the variant/product size here
+  // used to duplicate it (confirmed live across every sampled product,
+  // one case 3x over, pushing titles past 200 chars), so the name alone
+  // is the title.
+  const seoTitle = product.name;
 
   const pointsPreview = earnRate
     ? Math.floor((displayPrice * quantity) / earnRate)
@@ -532,9 +533,15 @@ function ProductDetails() {
     offers: {
       "@type": "Offer",
       priceCurrency: "INR",
-      price: product.price,
+      // displayPrice/displayStock (not the flat product.price/stock,
+      // which only mirror the FIRST variant / SUM every variant) so
+      // this always matches whatever's actually shown on screen —
+      // otherwise a sold-out default variant with stock left in
+      // another size still reports InStock here while the visible page
+      // shows Out of Stock, a real Merchant Center suspension risk.
+      price: displayPrice,
       availability:
-        product.stock > 0
+        displayStock > 0
           ? "https://schema.org/InStock"
           : "https://schema.org/OutOfStock",
       url: shareUrl,
