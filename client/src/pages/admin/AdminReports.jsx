@@ -264,7 +264,7 @@ function RankedBarList({ items, labelKey, valueKey, formatValue, emptyText }) {
               {item[labelKey]}
             </span>
             <span className="text-slate-500 shrink-0">
-              {formatValue(item[valueKey])}
+              {formatValue(item[valueKey], item)}
             </span>
           </div>
           <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
@@ -1746,6 +1746,24 @@ function AdminReports() {
                   </p>
                 </div>
                 <div>
+                  <p className="text-xs text-slate-400">
+                    Engaged Sessions
+                  </p>
+                  <p className="text-xl font-bold text-slate-800">
+                    {formatNumber(googleReport.analytics.engagedSessions)}
+                  </p>
+                  {/* GA4 counts a session "engaged" only if it lasted 10s+,
+                      had a conversion, or had 2+ pageviews -- a big gap
+                      from raw Sessions above is low-quality/bot traffic,
+                      not real visitors (see pending_ga4_bot_filtering
+                      memory). */}
+                  <p className="text-[11px] text-slate-400">
+                    {googleReport.analytics.sessions > 0
+                      ? `${((googleReport.analytics.engagedSessions / googleReport.analytics.sessions) * 100).toFixed(0)}% of sessions`
+                      : ""}
+                  </p>
+                </div>
+                <div>
                   <p className="text-xs text-slate-400">Page Views</p>
                   <p className="text-xl font-bold text-slate-800">
                     {formatNumber(googleReport.analytics.pageViews)}
@@ -1767,6 +1785,32 @@ function AdminReports() {
                 valueKey="views"
                 formatValue={(v) => `${formatNumber(v)} views`}
                 emptyText="No page view data yet."
+              />
+
+              <p className="text-xs text-slate-400 mb-2 mt-4">
+                Sessions by Channel
+              </p>
+              <RankedBarList
+                items={googleReport.analytics.byChannel}
+                labelKey="channel"
+                valueKey="sessions"
+                formatValue={(v, item) =>
+                  `${formatNumber(v)} sessions, ${item.engagementRate.toFixed(0)}% engaged`
+                }
+                emptyText="No channel data yet."
+              />
+
+              <p className="text-xs text-slate-400 mb-2 mt-4">
+                Sessions by Device / Browser
+              </p>
+              <RankedBarList
+                items={googleReport.analytics.byDevice}
+                labelKey="label"
+                valueKey="sessions"
+                formatValue={(v, item) =>
+                  `${formatNumber(v)} sessions, ${item.engagementRate.toFixed(0)}% engaged`
+                }
+                emptyText="No device data yet."
               />
             </div>
 
