@@ -77,7 +77,7 @@ function QuickViewModal({ product, onClose }) {
 
         <div className="relative">
           <img
-            src={`${imgUrl(product.image)}`}
+            src={`${imgUrl(product.image, "w_700,q_auto,f_auto")}`}
             alt={t(product.name, product.nameHi)}
             className="w-full h-full object-cover"
           />

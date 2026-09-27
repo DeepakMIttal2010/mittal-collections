@@ -130,7 +130,7 @@ function Articles() {
                 <div className="aspect-[4/3] bg-slate-100 rounded-lg overflow-hidden mb-3">
                   {article.coverImage && (
                     <img
-                      src={imgUrl(article.coverImage)}
+                      src={imgUrl(article.coverImage, "w_400,q_auto,f_auto")}
                       alt={displayTitle}
                       loading="lazy"
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
