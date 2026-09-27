@@ -127,11 +127,7 @@ function CartDrawer() {
               {cartItems.map((item) => (
                 <div key={item._id} className="flex gap-4 py-4">
                   <img
-                    src={
-                      item.image?.startsWith("http")
-                        ? item.image
-                        : `${imgUrl(item.image)}`
-                    }
+                    src={imgUrl(item.image, "w_200,q_auto,f_auto")}
                     alt={item.name}
                     className="w-20 h-20 object-cover rounded-lg shrink-0"
                   />

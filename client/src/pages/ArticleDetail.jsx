@@ -204,7 +204,7 @@ function ArticleDetail() {
 
       {article.coverImage && (
         <img
-          src={imgUrl(article.coverImage)}
+          src={imgUrl(article.coverImage, "w_1000,q_auto,f_auto")}
           alt={displayTitle}
           className="w-full rounded-xl mb-8 object-cover max-h-96"
         />

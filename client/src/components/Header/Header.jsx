@@ -530,7 +530,7 @@ function Header() {
                   className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 text-left"
                 >
                   <img
-                    src={imgUrl(product.image)}
+                    src={imgUrl(product.image, "w_100,q_auto,f_auto")}
                     alt={t(product.name, product.nameHi)}
                     className="w-10 h-10 rounded-lg object-cover shrink-0"
                   />
@@ -739,7 +739,7 @@ function Header() {
                 className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 text-left"
               >
                 <img
-                  src={imgUrl(product.image)}
+                  src={imgUrl(product.image, "w_100,q_auto,f_auto")}
                   alt={t(product.name, product.nameHi)}
                   className="w-10 h-10 rounded-lg object-cover shrink-0"
                 />

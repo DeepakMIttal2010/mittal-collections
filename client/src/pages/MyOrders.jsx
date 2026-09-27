@@ -148,7 +148,7 @@ function OrderCard({ order, onBuyAgain, onPayNow, payingId }) {
               <div key={i} className="flex items-center gap-3">
                 {item.image && (
                   <img
-                    src={imgUrl(item.image)}
+                    src={imgUrl(item.image, "w_150,q_auto,f_auto")}
                     alt={item.name}
                     className="w-14 h-14 object-cover rounded-lg shrink-0 border border-slate-100"
                   />
@@ -465,7 +465,7 @@ function MyOrders() {
                     <div className="flex items-center gap-4 min-w-0">
                       {item.image && (
                         <img
-                          src={`${imgUrl(item.image)}`}
+                          src={`${imgUrl(item.image, "w_150,q_auto,f_auto")}`}
                           alt={item.name}
                           className="w-14 h-14 object-cover rounded-lg shrink-0"
                         />
