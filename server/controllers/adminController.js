@@ -1366,6 +1366,7 @@ export const getAbandonedCartDetails = async (req, res) => {
       .sort({ updatedAt: 1 }); // longest-abandoned first
 
     const carts = snapshots.map((cart) => ({
+      _id: cart._id,
       name: cart.user?.name || "Guest (not logged in)",
       email: cart.user?.email || null,
       mobile: cart.user?.mobile || null,
@@ -1385,6 +1386,43 @@ export const getAbandonedCartDetails = async (req, res) => {
     res.status(200).json({ success: true, carts });
   } catch (error) {
     console.error("Get Abandoned Cart Details Error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};
+
+// ============================
+// Delete one abandoned-cart snapshot (Admin) — for clearing a stale/test
+// entry out of the list above. This is a diagnostic-data cleanup, not a
+// customer-facing action: it only ever removes the server-side
+// CartSnapshot mirror used for abandonment tracking, never a real
+// customer's actual cart (that lives client-side / in their own
+// account), so there's nothing for a customer to notice either way.
+// ============================
+export const deleteAbandonedCart = async (req, res) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid cart id",
+      });
+    }
+
+    const deleted = await CartSnapshot.findByIdAndDelete(req.params.id);
+
+    if (!deleted) {
+      return res.status(404).json({
+        success: false,
+        message: "Abandoned cart not found",
+      });
+    }
+
+    res.status(200).json({ success: true });
+  } catch (error) {
+    console.error("Delete Abandoned Cart Error:", error);
 
     res.status(500).json({
       success: false,

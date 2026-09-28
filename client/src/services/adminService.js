@@ -184,6 +184,23 @@ export const getAbandonedCartDetails = async () => {
   }
 };
 
+export const deleteAbandonedCart = async (id) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/admin/abandoned-carts/${id}`, {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${getToken()}`,
+      },
+    });
+
+    return await response.json();
+  } catch (error) {
+    console.error("Delete Abandoned Cart Error:", error);
+
+    return { success: false, message: "Unable to delete abandoned cart" };
+  }
+};
+
 // Backs the "View Details" drill-down on the Website Visits/Unique/New/
 // Returning Visitors tiles — raw PageVisit rows so an admin can verify
 // what's actually behind those numbers, not just trust the aggregate.

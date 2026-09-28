@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import Papa from "papaparse";
+import { toast } from "react-toastify";
 import {
   FaRupeeSign,
   FaShoppingCart,
@@ -28,6 +29,7 @@ import {
   getProductViewUsers,
   getEngagementDetails,
   getAbandonedCartDetails,
+  deleteAbandonedCart,
   getVisitLog,
 } from "../../services/adminService";
 
@@ -316,6 +318,7 @@ const USER_MODAL_CONFIG = {
 function AbandonedCartsModal({ onClose }) {
   const [carts, setCarts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState(null);
 
   useEffect(() => {
     const load = async () => {
@@ -330,6 +333,25 @@ function AbandonedCartsModal({ onClose }) {
 
     load();
   }, []);
+
+  const handleDelete = async (cart) => {
+    if (
+      !window.confirm(
+        `Remove this abandoned-cart entry (${cart.name}, ${formatCurrency(cart.value)})? This only clears the tracking record, not a real customer's cart.`,
+      )
+    )
+      return;
+
+    setDeletingId(cart._id);
+    const response = await deleteAbandonedCart(cart._id);
+    setDeletingId(null);
+
+    if (response.success) {
+      setCarts((prev) => prev.filter((c) => c._id !== cart._id));
+    } else {
+      toast.error(response.message || "Unable to delete this entry.");
+    }
+  };
 
   const exportCartsCSV = () => {
     const csv = Papa.unparse(
@@ -398,9 +420,9 @@ function AbandonedCartsModal({ onClose }) {
             </p>
           ) : (
             <div className="space-y-3">
-              {carts.map((cart, i) => (
+              {carts.map((cart) => (
                 <div
-                  key={i}
+                  key={cart._id}
                   className="border border-slate-200 rounded-lg p-3"
                 >
                   <div className="flex items-start justify-between gap-2 mb-1.5">
@@ -426,15 +448,25 @@ function AbandonedCartsModal({ onClose }) {
                   <p className="text-xs text-slate-500">
                     {cart.items.map((i) => `${i.name} ×${i.quantity}`).join(", ")}
                   </p>
-                  <p className="text-[11px] text-slate-400 mt-1">
-                    Abandoned since{" "}
-                    {new Date(cart.abandonedSince).toLocaleString("en-IN", {
-                      day: "numeric",
-                      month: "short",
-                      hour: "numeric",
-                      minute: "2-digit",
-                    })}
-                  </p>
+                  <div className="flex items-center justify-between mt-1">
+                    <p className="text-[11px] text-slate-400">
+                      Abandoned since{" "}
+                      {new Date(cart.abandonedSince).toLocaleString("en-IN", {
+                        day: "numeric",
+                        month: "short",
+                        hour: "numeric",
+                        minute: "2-digit",
+                      })}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(cart)}
+                      disabled={deletingId === cart._id}
+                      className="text-[11px] font-medium text-red-600 hover:underline disabled:opacity-50 disabled:no-underline shrink-0 ml-2"
+                    >
+                      {deletingId === cart._id ? "Removing..." : "Remove"}
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
