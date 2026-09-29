@@ -244,7 +244,10 @@ export const getAllReturnRequestsAdmin = async (req, res) => {
   try {
     const filter = {};
 
-    if (req.query.status) filter.status = req.query.status;
+    // typeof guard, not just truthiness -- an object-shaped query param
+    // (e.g. ?status[$ne]=x) would otherwise flow straight into this
+    // Mongo filter as a raw operator object instead of a literal value.
+    if (typeof req.query.status === "string") filter.status = req.query.status;
 
     const returns = await ReturnRequest.find(filter)
       .populate("user", "name email")
