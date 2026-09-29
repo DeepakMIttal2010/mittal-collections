@@ -20,20 +20,26 @@ import { rewrite, next } from "@vercel/edge";
 // mechanisms (a rewrite `has` condition can't match on an exact-file
 // path like "/", which is exactly why this middleware exists instead).
 const BOT_USER_AGENT =
-  /([bB]ot|facebookexternalhit|WhatsApp|Pinterest|embedly|Quora Link Preview|Slurp|ia_archiver|Discordbot|TelegramBot|redirectionio)/;
+  /([bB]ot|Google|facebookexternalhit|WhatsApp|Pinterest|embedly|Quora Link Preview|Slurp|ia_archiver|Discordbot|TelegramBot|redirectionio)/;
 
-// The two real frontend hosts — must stay in sync with server/app.js's
-// ALLOWED_ORIGINS, which is what actually enforces this for API calls.
-// Every Vercel project also gets a permanent *.vercel.app domain that
-// serves the exact same site alongside these, with no redirect of its
-// own — a visitor who lands there (an old shared link, a search engine
-// that indexed it, anyone typing it directly) gets a fully broken page:
-// every API fetch fails "Not allowed by CORS" since that domain was
-// never in the allowlist (confirmed live via a real Sentry production
-// error, 12 events over 12 days, 2026-09-16). Force any other host onto
-// the canonical one before that can happen, rather than trying to widen
-// the CORS allowlist to match every domain Vercel might ever hand out.
-const FRONTEND_HOSTS = ["www.mittalcollections.com", "mittalcollections.com"];
+// The canonical frontend host — every <link rel="canonical">, sitemap
+// entry and JSON-LD @id across the site already uses SITE_URL
+// (https://www.mittalcollections.com), so this is the only host that
+// should ever serve a 200. Every Vercel project also gets a permanent
+// *.vercel.app domain that serves the exact same site alongside this,
+// with no redirect of its own — a visitor who lands there (an old shared
+// link, a search engine that indexed it, anyone typing it directly) gets
+// a fully broken page: every API fetch fails "Not allowed by CORS" since
+// that domain was never in the allowlist (confirmed live via a real
+// Sentry production error, 12 events over 12 days, 2026-09-16). The bare
+// apex (mittalcollections.com, no www) has the same problem for SEO
+// specifically even though CORS allows it (server/app.js's
+// ALLOWED_ORIGINS lists it too, for any lingering direct API callers) —
+// left un-redirected, it's a second fully crawlable host serving
+// identical content, splitting crawl budget/link signal instead of
+// being a hard 301 onto the one canonical URL every page already claims.
+// Redirect any host that isn't the canonical one, apex included, rather
+// than trying to special-case every domain Vercel might ever hand out.
 const CANONICAL_HOST = "www.mittalcollections.com";
 
 export const config = {
@@ -44,7 +50,7 @@ export default function middleware(request) {
   const url = new URL(request.url);
 
   if (
-    !FRONTEND_HOSTS.includes(url.hostname) &&
+    url.hostname !== CANONICAL_HOST &&
     !url.hostname.startsWith("localhost")
   ) {
     url.hostname = CANONICAL_HOST;

@@ -151,7 +151,7 @@ function Compare() {
 
                       <Link to={productUrl(product)}>
                         <img
-                          src={imgUrl(product.image)}
+                          src={imgUrl(product.image, "w_300,q_auto,f_auto")}
                           alt={product.name}
                           className="w-full aspect-square object-cover rounded-lg border border-slate-200 mb-2"
                         />

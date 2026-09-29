@@ -46,6 +46,79 @@ const escapeHtml = (value) =>
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
 
+// Mirrors client/src/components/Seo.jsx's safeJsonLdStringify exactly —
+// see that file's comment for why plain JSON.stringify is unsafe here:
+// a review's content (productJsonLd.review[].reviewBody, sourced from
+// live customer reviews) can contain a literal "</script><script>"
+// sequence that closes this tag early and opens a real one, regardless
+// of JSON quoting. This is the bot-facing prerender path (Googlebot,
+// WhatsApp/Facebook crawlers) so it needs its own copy, not just the
+// client-side one.
+const safeJsonLdStringify = (block) =>
+  JSON.stringify(block).replace(/</g, "\\u003c");
+
+// A slow/cold Render backend previously had no way to fail fast here —
+// a plain `fetch()` with no timeout just hangs until Vercel's own
+// function-duration limit kills it, wasting the whole budget instead of
+// hitting the "fail open to plain shell" catch in the handler below
+// quickly. 6s leaves headroom under Vercel's default limits while still
+// being generous for a Render free/starter-tier cold start.
+const fetchJson = async (url) => {
+  const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
+  return res.json();
+};
+
+// Mirrors client/src/utils/stripHtml.js's intent (plain text for a meta
+// description / JSON-LD description, not markup) but can't reuse that
+// file as-is -- it goes through DOMPurify and a real `document`, neither
+// of which exist in this serverless function's Node runtime. Loops the
+// tag-strip to convergence rather than a single regex pass, for the same
+// reason stripHtml.js avoids a single-pass regex (CodeQL: "incomplete
+// multi-character sanitization" -- e.g. "<scr<script>ipt>" would
+// otherwise reform "<script>" after only one pass).
+const stripHtml = (html) => {
+  let text = String(html || "")
+    .replace(/<\/(p|li|div|h[1-6])>/gi, "</$1> ")
+    .replace(/<br\s*\/?>/gi, " ");
+
+  let previous;
+  do {
+    previous = text;
+    text = text.replace(/<[^>]*>/g, "");
+  } while (text !== previous);
+
+  // &amp; must decode LAST -- decoding it first would double-unescape a
+  // literal "&amp;lt;" (an escaped ampersand followed by literal "lt;")
+  // into an actual "<" instead of leaving it as the text "&lt;" (CodeQL:
+  // "double escaping or unescaping").
+  return text
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/&amp;/gi, "&")
+    .replace(/\s+/g, " ")
+    .trim();
+};
+
+// Mirrors client/src/utils/shipping.js — duplicated for the same reason
+// DELIVERY_AREAS above is (this file avoids importing anything from
+// src/). Keep both copies in sync.
+const calculateDeliveryFee = (subtotal, settings) => {
+  const threshold = settings?.freeShippingThreshold ?? 499;
+
+  if (subtotal >= threshold) return 0;
+
+  const tiers = [...(settings?.shippingTiers || [])].sort(
+    (a, b) => a.maxOrderValue - b.maxOrderValue,
+  );
+
+  const matchedTier = tiers.find((tier) => subtotal < tier.maxOrderValue);
+
+  return matchedTier ? matchedTier.fee : (settings?.deliveryFee ?? 49);
+};
+
 const imgUrl = (path) => {
   if (!path) return path;
   return path.startsWith("http") ? path : `${API_BASE}${path}`;
@@ -64,10 +137,15 @@ const imgUrl = (path) => {
 // page's own.
 const STATIC_PAGES = {
   "/about": {
-    title:
-      "About Mittal Collections — Home Furnishing Store",
+    // Kept in sync with About.jsx's <Seo> call by hand (see this file's
+    // header comment) -- this entry previously still held the ORIGINAL
+    // generic copy from before a past round replaced it client-side
+    // after Search Console showed 0% CTR at a decent position despite
+    // real impressions. Bots never saw the fix because they're routed
+    // here, never to the real React app.
+    title: "About Us — Why Mittal Collections | Home Furnishing",
     description:
-      "Mittal Collections is a home furnishing store offering premium bedsheets, towels, curtains, cushions and doormats with pan-India delivery — quality materials, fast 24-hour delivery in Ghaziabad, and easy returns.",
+      "Mittal Collections: a focused range of bedsheets, towels, curtains and cushions chosen for real material quality, not sheer catalog size. Pan-India delivery, easy returns, 24-hour delivery in Ghaziabad.",
     breadcrumb: "About",
   },
   "/contact": {
@@ -75,6 +153,12 @@ const STATIC_PAGES = {
     description:
       "Get in touch with Mittal Collections for order support, returns, bulk orders or general questions about our home furnishing products.",
     breadcrumb: "Contact Us",
+  },
+  "/ghaziabad-home-furnishing-store": {
+    title: "Home Furnishing Store in Ghaziabad — Mittal Collections",
+    description:
+      "Mittal Collections is a home furnishing store in Sector-3, Vasundhara, Ghaziabad, near Vanasthali Public School — bedsheets, curtains, towels & more with 24-hour local delivery across Vasundhara, Vaishali, Indirapuram and nearby areas.",
+    breadcrumb: "Home Furnishing Store in Ghaziabad",
   },
   "/rewards": {
     title: "Rewards Program — Earn While You Shop",
@@ -107,9 +191,13 @@ const STATIC_PAGES = {
     breadcrumb: "Gifting",
   },
   "/curtain-size-calculator": {
-    title: "Curtain Size & Rod Length Calculator (in Inches)",
+    // Kept in sync with CurtainSizeCalculator.jsx's <Seo> -- see that
+    // file's comment (a real "calculate curtain size" Search Console
+    // query landing this page at position 83 despite solid on-page
+    // content, 2026-09-25).
+    title: "Calculate Curtain Size & Rod Length",
     description:
-      "Free curtain size calculator — enter your window measurements and instantly get the rod length, fabric width and curtain length to buy, plus a size chart.",
+      "Calculate your curtain size, rod length and fabric width free — enter your window measurements and get the exact size to buy, plus a size chart.",
     breadcrumb: "Curtain Size Calculator",
   },
   "/articles": {
@@ -154,21 +242,33 @@ const buildMeta = async (path) => {
     // /client/middleware.js is what actually routes a bot's "/" request
     // here now, since Edge Middleware runs ahead of that static-file
     // lookup — this branch is what it lands on.
-    const settingsData = await fetch(`${API_BASE}/api/settings`).then((r) =>
-      r.json(),
-    );
+    const settingsData = await fetchJson(`${API_BASE}/api/settings`);
     const settings = settingsData.settings || {};
 
-    // Unconditional, same reasoning as Home.jsx's organizationJsonLd —
-    // never depends on settings.address, so a bot never sees zero
-    // structured data on the homepage just because that admin field is
-    // unset.
+    // Base fields unconditional, same reasoning as Home.jsx's
+    // baseOrganizationJsonLd — never depends on settings.address, so a
+    // bot never sees zero structured data on the homepage just because
+    // that admin field is unset. sameAs added once settings resolve,
+    // matching Home.jsx's organizationJsonLd exactly.
+    const socialSameAs = [
+      settings.facebook,
+      settings.instagram,
+      settings.twitter,
+    ].filter(Boolean);
     const organizationJsonLd = {
       "@context": "https://schema.org",
       "@type": "Organization",
       "@id": `${SITE_URL}/#organization`,
       name: SITE_NAME,
       url: `${SITE_URL}/`,
+      // Mirrors Home.jsx's baseOrganizationJsonLd -- icon-512.png is the
+      // site's only real brand mark (a gold circular "M" monogram used
+      // as the PWA icon).
+      logo: {
+        "@type": "ImageObject",
+        url: `${SITE_URL}/icon-512.png`,
+      },
+      ...(socialSameAs.length > 0 && { sameAs: socialSameAs }),
     };
     const websiteJsonLd = {
       "@context": "https://schema.org",
@@ -176,6 +276,18 @@ const buildMeta = async (path) => {
       "@id": `${SITE_URL}/#website`,
       name: SITE_NAME,
       url: `${SITE_URL}/`,
+      // Mirrors Home.jsx's websiteJsonLd — this was previously only
+      // added client-side, so Googlebot (routed here for every request,
+      // never reaching the real React app) never saw the Sitelinks
+      // Searchbox markup at all.
+      potentialAction: {
+        "@type": "SearchAction",
+        target: {
+          "@type": "EntryPoint",
+          urlTemplate: `${SITE_URL}/search?q={search_term_string}`,
+        },
+        "query-input": "required name=search_term_string",
+      },
     };
 
     const localBusinessJsonLd = settings.address
@@ -208,7 +320,13 @@ const buildMeta = async (path) => {
       : null;
 
     return {
-      title: `Buy Bedsheets, Curtains & Towels — Pan-India Delivery | ${SITE_NAME}`,
+      // Kept in sync with Home.jsx's <Seo title> — this is the version
+      // Googlebot actually sees (it's always routed here, never to the
+      // real React app), so a length mismatch here is the real SEO bug,
+      // not the client-side one. Bare title must stay short enough that
+      // appending " | SITE_NAME" doesn't push the final <title> past
+      // Google's ~60-char truncation point.
+      title: `Bedsheets, Curtains & Towels Online | ${SITE_NAME}`,
       description:
         "Shop premium cotton bedsheets, curtains, towels, cushions & doormats online with pan-India delivery — fast 24-hour delivery in Ghaziabad. Easy returns.",
       image: DEFAULT_IMAGE,
@@ -219,19 +337,36 @@ const buildMeta = async (path) => {
   }
 
   if (parts[0] === "product" && parts[1]) {
-    const data = await fetch(`${API_BASE}/api/products/${parts[1]}`).then(
-      (r) => r.json(),
-    );
+    // Fetched together — none depend on each other, and ProductDetails.jsx
+    // loads all four independently too (reviews/questions/settings never
+    // block the product itself from rendering).
+    const [data, settingsData, reviewsData, questionsData] = await Promise.all([
+      fetchJson(`${API_BASE}/api/products/${parts[1]}`),
+      fetchJson(`${API_BASE}/api/settings`),
+      fetchJson(`${API_BASE}/api/reviews/product/${parts[1]}`),
+      fetchJson(`${API_BASE}/api/questions/product/${parts[1]}`),
+    ]);
 
     if (!data.success) return null;
 
     const p = data.product;
-    // Same "pan-India delivery" lead-in ProductDetails.jsx's <Seo> uses —
-    // this bot-facing copy had drifted from that client-side convention.
+    const settings = settingsData.settings || {};
+    const plainDescription = stripHtml(p.description);
+    // Same shorter "pan-India delivery" lead-in ProductDetails.jsx's <Seo>
+    // uses — the old 53-char "Buy online, pan-India delivery (24hr in
+    // Ghaziabad) - " prefix ate a third of the 160-char budget on every
+    // product before any product-specific content got a chance to show.
     const description = p.description
-      ? `Buy online, pan-India delivery (24hr in Ghaziabad) - ${p.description}`.slice(0, 160)
+      ? `Pan-India delivery, 24hr in Ghaziabad. ${plainDescription}`.slice(0, 160)
       : `Buy ${p.name} online with pan-India delivery - fast 24-hour delivery in Ghaziabad`.slice(0, 160);
-    const image = imgUrl(p.image) || DEFAULT_IMAGE;
+    // Google's Product rich-result guidance wants multiple angles when
+    // they exist, not just the main photo — mirrors ProductDetails.jsx's
+    // productImages fallback (full gallery, or the single main image when
+    // no gallery array is set).
+    const galleryImages = (p.images?.length ? p.images : [p.image])
+      .filter(Boolean)
+      .map(imgUrl);
+    const image = galleryImages[0] || DEFAULT_IMAGE;
     // Self-heal to the product's *current* slug rather than echoing back
     // whatever slug the request happened to use — otherwise a renamed
     // product's stale URL (still reachable, since only the id is looked
@@ -245,17 +380,165 @@ const buildMeta = async (path) => {
       : `/product/${p._id}`;
     const url = `${SITE_URL}${canonicalPath}`;
 
+    // Mirrors ProductDetails.jsx's breadcrumbItemsForSeo — a subcategory
+    // segment used to be dropped here, giving bots a shorter breadcrumb
+    // than the one the site itself defines for the same product.
     const breadcrumbItems = [
       { name: "Home", path: "/" },
       ...(p.category
         ? [{ name: p.category.name, path: `/category/${p.category.slug}` }]
         : []),
+      ...(p.subcategories?.[0] && p.category
+        ? [
+            {
+              name: p.subcategories[0].name,
+              path: `/category/${p.category.slug}/${p.subcategories[0].slug}`,
+            },
+          ]
+        : []),
       { name: p.name },
     ];
 
-    // Mirrors ProductDetails.jsx's seoTitle — search queries for this
-    // category routinely include the exact dimension.
-    const seoTitle = p.size ? `${p.name} — ${p.size}` : p.name;
+    // Mirrors ProductDetails.jsx's seoTitle — p.name already carries the
+    // exact dimension by convention, so appending p.size duplicated it.
+    const seoTitle = p.name;
+
+    // Mirrors ProductDetails.jsx's displayPrice/displayStock — a
+    // variant product's flat p.price only mirrors variants[0], but flat
+    // p.stock is the SUM of every variant (see Product.js). Bots see
+    // the same default-selected variant a visitor would on first load
+    // (variants[0]), so the offer must reflect THAT variant's own
+    // price/stock, not the misleading summed stock -- otherwise a
+    // sold-out default variant with stock left in another size still
+    // reports InStock here while the page itself would show Out of
+    // Stock, a real Merchant Center suspension risk.
+    const defaultVariant = p.variants?.[0];
+    const offerPrice = defaultVariant ? defaultVariant.price : p.price;
+    const offerStock = defaultVariant ? defaultVariant.stock : p.stock;
+
+    // Mirrors ProductDetails.jsx's effectiveReturnDaysForSeo/shippingFeeForSeo
+    // — these unlock the enhanced free-listing treatment in Google
+    // Shopping/Search (shipping cost + delivery time, return window shown
+    // directly on the listing), built from the same settings/return-policy
+    // data the checkout page already uses.
+    const effectiveReturnDays = p.returnPeriodDays || settings.defaultReturnPeriodDays;
+    const shippingFee = calculateDeliveryFee(p.price, settings);
+
+    const reviews = reviewsData.success ? reviewsData.reviews || [] : [];
+    const totalReviews = reviewsData.success ? reviewsData.totalReviews || 0 : 0;
+    const averageRating = reviewsData.success ? reviewsData.averageRating || 0 : 0;
+    const questions = questionsData.success ? questionsData.questions || [] : [];
+
+    const productJsonLd = {
+      "@context": "https://schema.org",
+      "@type": "Product",
+      name: p.name,
+      description: plainDescription,
+      image: galleryImages,
+      brand: { "@type": "Brand", name: SITE_NAME },
+      offers: {
+        "@type": "Offer",
+        priceCurrency: "INR",
+        price: offerPrice,
+        availability:
+          offerStock > 0
+            ? "https://schema.org/InStock"
+            : "https://schema.org/OutOfStock",
+        url,
+        shippingDetails: {
+          "@type": "OfferShippingDetails",
+          shippingRate: {
+            "@type": "MonetaryAmount",
+            value: shippingFee,
+            currency: "INR",
+          },
+          shippingDestination: {
+            "@type": "DefinedRegion",
+            addressCountry: "IN",
+          },
+          // Matches the "Usually delivered in 3-7 business days" promise
+          // shown elsewhere on the site (Footer, delivery-info banners) —
+          // same-day Ghaziabad express delivery is a separate Google
+          // Merchant Center delivery policy, not this one.
+          deliveryTime: {
+            "@type": "ShippingDeliveryTime",
+            handlingTime: {
+              "@type": "QuantitativeValue",
+              minValue: 0,
+              maxValue: 0,
+              unitCode: "DAY",
+            },
+            transitTime: {
+              "@type": "QuantitativeValue",
+              minValue: 3,
+              maxValue: 7,
+              unitCode: "DAY",
+            },
+          },
+        },
+        hasMerchantReturnPolicy: p.isReturnable
+          ? {
+              "@type": "MerchantReturnPolicy",
+              applicableCountry: "IN",
+              returnPolicyCategory: "https://schema.org/MerchantReturnFiniteReturnWindow",
+              merchantReturnDays: effectiveReturnDays,
+              returnFees: "https://schema.org/FreeReturn",
+            }
+          : {
+              "@type": "MerchantReturnPolicy",
+              applicableCountry: "IN",
+              returnPolicyCategory: "https://schema.org/MerchantReturnNotPermitted",
+            },
+      },
+      ...(totalReviews > 0 && {
+        aggregateRating: {
+          "@type": "AggregateRating",
+          ratingValue: averageRating.toFixed(1),
+          reviewCount: totalReviews,
+        },
+      }),
+      ...(reviews.length > 0 && {
+        review: reviews.slice(0, 10).map((r) => ({
+          "@type": "Review",
+          author: { "@type": "Person", name: r.user?.name || "Customer" },
+          reviewRating: {
+            "@type": "Rating",
+            ratingValue: r.rating,
+            bestRating: 5,
+            worstRating: 1,
+          },
+          reviewBody: r.content,
+          datePublished: r.createdAt,
+          ...(r.images?.length > 0 && { image: r.images }),
+        })),
+      }),
+    };
+
+    // Standalone VideoObject, not nested in productJsonLd — `video` isn't
+    // a valid schema.org property on Product (see ProductDetails.jsx's
+    // own comment on this, a self-caught bug from an earlier round).
+    const videoJsonLd = (p.videos || []).map((videoUrl) => ({
+      "@context": "https://schema.org",
+      "@type": "VideoObject",
+      name: p.name,
+      description: plainDescription,
+      thumbnailUrl: imgUrl(p.image),
+      contentUrl: videoUrl,
+      uploadDate: p.createdAt,
+    }));
+
+    const faqJsonLd = questions.length > 0 && {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      mainEntity: questions.map((q) => ({
+        "@type": "Question",
+        name: q.question,
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: q.answer,
+        },
+      })),
+    };
 
     return {
       title: `${seoTitle} | ${SITE_NAME}`,
@@ -264,33 +547,16 @@ const buildMeta = async (path) => {
       url,
       ogType: "product",
       jsonLd: [
-        {
-          "@context": "https://schema.org",
-          "@type": "Product",
-          name: p.name,
-          description: p.description,
-          image,
-          brand: { "@type": "Brand", name: SITE_NAME },
-          offers: {
-            "@type": "Offer",
-            priceCurrency: "INR",
-            price: p.price,
-            availability:
-              p.stock > 0
-                ? "https://schema.org/InStock"
-                : "https://schema.org/OutOfStock",
-            url,
-          },
-        },
+        productJsonLd,
         buildBreadcrumbJsonLd(breadcrumbItems),
-      ],
+        faqJsonLd,
+        ...videoJsonLd,
+      ].filter(Boolean),
     };
   }
 
   if (parts[0] === "category" && parts[1]) {
-    const data = await fetch(`${API_BASE}/api/categories`).then((r) =>
-      r.json(),
-    );
+    const data = await fetchJson(`${API_BASE}/api/categories`);
 
     if (!data.success) return null;
 
@@ -313,9 +579,7 @@ const buildMeta = async (path) => {
     // CategoryPage.jsx does client-side and fold its name into both.
     let subcategory = null;
     if (parts[2]) {
-      const subRes = await fetch(`${API_BASE}/api/subcategories`).then((r) =>
-        r.json(),
-      );
+      const subRes = await fetchJson(`${API_BASE}/api/subcategories`);
       subcategory = subRes.subcategories?.find(
         (s) => s.category?._id === category._id && s.slug === parts[2],
       );
@@ -332,17 +596,47 @@ const buildMeta = async (path) => {
       { name: subcategory ? subcategory.name : category.name },
     ];
 
-    // Same "pan-India delivery" lead-in CategoryPage.jsx's <Seo> uses,
-    // extended with the subcategory's own name so it isn't just the
-    // parent category's copy repeated verbatim.
+    // Same lead-in CategoryPage.jsx's <Seo> uses, extended with the
+    // subcategory's own name so it isn't just the parent category's copy
+    // repeated verbatim. Shorter wrapper (mirrors the client-side fix)
+    // leaves real budget for the actual differentiator -- a subcategory's
+    // own subtitle when it has one (more specific than the parent
+    // category's description, matching CategoryPage.jsx's own priority),
+    // falling back to the category description otherwise.
     const title = subcategory
       ? `${subcategory.name} | ${category.name} | ${SITE_NAME}`
       : `${category.name} | ${SITE_NAME}`;
-    const description = subcategory
-      ? `Buy ${subcategory.name} (${category.name}) online with pan-India delivery at ${SITE_NAME} - fast 24-hour delivery in Ghaziabad.`
-      : `Buy ${category.name} online with pan-India delivery at ${SITE_NAME} - fast 24-hour delivery in Ghaziabad. ${category.description || ""}`
-          .trim()
-          .slice(0, 160);
+    const pageTitle = subcategory
+      ? `${subcategory.name} - ${category.name}`
+      : category.name;
+    const bodyText = subcategory
+      ? subcategory.subtitle || ""
+      : category.description || "";
+    const description = `${pageTitle}: pan-India delivery, 24hr in Ghaziabad. ${bodyText}`
+      .trim()
+      .slice(0, 160);
+
+    // Mirrors CategoryPage.jsx's itemListJsonLd -- same endpoints/params
+    // it uses (getProductsByCategory / getProductsBySubcategory), capped
+    // the same way. A carousel rich result only needs a representative
+    // sample, not the full catalog.
+    const productsQuery = subcategory
+      ? `subcategory=${encodeURIComponent(subcategory._id)}`
+      : `category=${encodeURIComponent(category._id)}`;
+    const productsData = await fetchJson(`${API_BASE}/api/products?${productsQuery}`);
+    const categoryProducts = productsData.success ? productsData.products || [] : [];
+    const itemListJsonLd = categoryProducts.length > 0 && {
+      "@context": "https://schema.org",
+      "@type": "ItemList",
+      itemListElement: categoryProducts.slice(0, 50).map((p, i) => {
+        const productSlug = p.slug || "";
+        return {
+          "@type": "ListItem",
+          position: i + 1,
+          url: `${SITE_URL}${productSlug ? `/product/${p._id}/${productSlug}` : `/product/${p._id}`}`,
+        };
+      }),
+    };
 
     return {
       title,
@@ -350,14 +644,12 @@ const buildMeta = async (path) => {
       image: imgUrl(category.image) || DEFAULT_IMAGE,
       url,
       ogType: "website",
-      jsonLd: buildBreadcrumbJsonLd(breadcrumbItems),
+      jsonLd: [buildBreadcrumbJsonLd(breadcrumbItems), itemListJsonLd].filter(Boolean),
     };
   }
 
   if (parts[0] === "policies" && parts[1]) {
-    const data = await fetch(`${API_BASE}/api/pages/${parts[1]}`).then((r) =>
-      r.json(),
-    );
+    const data = await fetchJson(`${API_BASE}/api/pages/${parts[1]}`);
 
     if (!data.success || !data.page) return null;
 
@@ -374,6 +666,103 @@ const buildMeta = async (path) => {
         { name: "Home", path: "/" },
         { name: page.title },
       ]),
+    };
+  }
+
+  if (path === "/contact") {
+    // Contact.jsx's client-side render carries a HomeGoodsStore/@id
+    // sameAs-homepage JSON-LD block (added after an earlier audit found
+    // this page's own address/phone data was fetched and displayed but
+    // never structured) -- this STATIC_PAGES entry never got that same
+    // treatment, so a bot hitting /contact (routed here, never to the
+    // real React app) saw only a breadcrumb, no business schema at all.
+    // Mirrors Contact.jsx's exact shape, not Home.jsx's (no priceRange/
+    // areaServed there -- those are homepage-specific, not per Contact.jsx).
+    const staticPage = STATIC_PAGES["/contact"];
+    const settingsData = await fetchJson(`${API_BASE}/api/settings`);
+    const settings = settingsData.settings || {};
+
+    const localBusinessJsonLd = settings.address
+      ? {
+          "@context": "https://schema.org",
+          "@type": "HomeGoodsStore",
+          "@id": `${SITE_URL}/#business`,
+          name: SITE_NAME,
+          url: `${SITE_URL}/`,
+          telephone: settings.phone || undefined,
+          email: settings.email || undefined,
+          address: {
+            "@type": "PostalAddress",
+            streetAddress: settings.address,
+            addressLocality: "Ghaziabad",
+            addressRegion: "Uttar Pradesh",
+            addressCountry: "IN",
+          },
+          sameAs: [settings.facebook, settings.instagram, settings.twitter].filter(
+            Boolean,
+          ),
+        }
+      : null;
+
+    return {
+      title: staticPage.title,
+      description: staticPage.description,
+      image: DEFAULT_IMAGE,
+      url: `${SITE_URL}${path}`,
+      ogType: "website",
+      jsonLd: [
+        buildBreadcrumbJsonLd([{ name: "Home", path: "/" }, { name: staticPage.breadcrumb }]),
+        localBusinessJsonLd,
+      ].filter(Boolean),
+    };
+  }
+
+  if (path === "/ghaziabad-home-furnishing-store") {
+    // Mirrors GhaziabadStore.jsx's localBusinessJsonLd exactly -- a
+    // dedicated local-SEO landing page, unconditional (not gated on
+    // settings.address like Home.jsx/Contact.jsx's blocks) since the
+    // landmark-based address here is hardcoded content, not admin data.
+    const staticPage = STATIC_PAGES["/ghaziabad-home-furnishing-store"];
+    const settingsData = await fetchJson(`${API_BASE}/api/settings`);
+    const settings = settingsData.settings || {};
+
+    const localBusinessJsonLd = {
+      "@context": "https://schema.org",
+      "@type": "HomeGoodsStore",
+      "@id": `${SITE_URL}/#business`,
+      name: SITE_NAME,
+      url: `${SITE_URL}/`,
+      telephone: settings.phone || undefined,
+      address: {
+        "@type": "PostalAddress",
+        streetAddress: "Near Vanasthali Public School, Sector-3, Vasundhara",
+        addressLocality: "Ghaziabad",
+        addressRegion: "Uttar Pradesh",
+        postalCode: "201012",
+        addressCountry: "IN",
+      },
+      areaServed: [
+        ...DELIVERY_AREAS.map((area) => ({
+          "@type": "Place",
+          name: `${area}, Ghaziabad`,
+        })),
+        { "@type": "City", name: "Ghaziabad" },
+      ],
+      sameAs: [settings.facebook, settings.instagram, settings.twitter].filter(
+        Boolean,
+      ),
+    };
+
+    return {
+      title: staticPage.title,
+      description: staticPage.description,
+      image: DEFAULT_IMAGE,
+      url: `${SITE_URL}${path}`,
+      ogType: "website",
+      jsonLd: [
+        localBusinessJsonLd,
+        buildBreadcrumbJsonLd([{ name: "Home", path: "/" }, { name: staticPage.breadcrumb }]),
+      ],
     };
   }
 
@@ -395,9 +784,7 @@ const buildMeta = async (path) => {
   }
 
   if (parts[0] === "articles" && parts[1]) {
-    const data = await fetch(`${API_BASE}/api/articles/slug/${parts[1]}`).then(
-      (r) => r.json(),
-    );
+    const data = await fetchJson(`${API_BASE}/api/articles/slug/${parts[1]}`);
 
     if (!data.success) return null;
 
@@ -440,7 +827,15 @@ const buildMeta = async (path) => {
           dateModified: article.updatedAt,
           inLanguage: "en",
           author: { "@type": "Organization", name: SITE_NAME },
-          publisher: { "@type": "Organization", name: SITE_NAME },
+          // Mirrors ArticleDetail.jsx's publisher.logo requirement.
+          publisher: {
+            "@type": "Organization",
+            name: SITE_NAME,
+            logo: {
+              "@type": "ImageObject",
+              url: `${SITE_URL}/icon-512.png`,
+            },
+          },
         },
         buildBreadcrumbJsonLd(breadcrumbItems),
       ],
@@ -448,9 +843,7 @@ const buildMeta = async (path) => {
   }
 
   if (parts[0] === "hi" && parts[1] === "articles" && parts[2]) {
-    const data = await fetch(`${API_BASE}/api/articles/slug/${parts[2]}`).then(
-      (r) => r.json(),
-    );
+    const data = await fetchJson(`${API_BASE}/api/articles/slug/${parts[2]}`);
 
     if (!data.success) return null;
 
@@ -498,7 +891,15 @@ const buildMeta = async (path) => {
           dateModified: article.updatedAt,
           inLanguage: "hi",
           author: { "@type": "Organization", name: SITE_NAME },
-          publisher: { "@type": "Organization", name: SITE_NAME },
+          // Mirrors ArticleDetail.jsx's publisher.logo requirement.
+          publisher: {
+            "@type": "Organization",
+            name: SITE_NAME,
+            logo: {
+              "@type": "ImageObject",
+              url: `${SITE_URL}/icon-512.png`,
+            },
+          },
         },
         buildBreadcrumbJsonLd(breadcrumbItems),
       ],
@@ -533,7 +934,7 @@ const injectMeta = (html, meta) => {
     <meta name="twitter:title" content="${escapeHtml(meta.title)}" />
     <meta name="twitter:description" content="${escapeHtml(meta.description)}" />
     <meta name="twitter:image" content="${escapeHtml(meta.image)}" />
-    ${meta.jsonLd ? `<script type="application/ld+json">${JSON.stringify(meta.jsonLd)}</script>` : ""}
+    ${meta.jsonLd ? `<script type="application/ld+json">${safeJsonLdStringify(meta.jsonLd)}</script>` : ""}
   `;
 
   let result = html

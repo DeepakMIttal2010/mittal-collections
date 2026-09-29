@@ -6,7 +6,6 @@ import ProductGridSkeleton from "../components/ProductGrid/ProductGridSkeleton";
 import Seo from "../components/Seo";
 import { useLanguage } from "../context/LanguageContext";
 import { useInfiniteProducts } from "../hooks/useInfiniteProducts";
-import { SITE_URL } from "../utils/siteUrl";
 
 function PriceRangePage() {
   const { maxPrice } = useParams();
@@ -26,11 +25,12 @@ function PriceRangePage() {
           user-selected canonical" despite each self-canonicalizing.
           Already excluded from the sitemap for the same reason; still
           internally linked from PriceShowcase, so leaving them crawlable
-          -but-unlisted was a halfway state, not an intentional one. */}
+          -but-unlisted was a halfway state, not an intentional one. No
+          `url` prop (canonical) — a noindexed page has nothing for a
+          canonical tag to consolidate signal toward. */}
       <Seo
         title={`Products Under ₹${maxPrice}`}
         description={`Shop home furnishing products under ₹${maxPrice} at Mittal Collections - bedsheets, towels, curtains and more.`}
-        url={`${SITE_URL}/price/${maxPrice}`}
         noindex
       />
       <h1 className="text-3xl font-bold text-slate-900 mb-2">

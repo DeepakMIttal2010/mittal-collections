@@ -40,7 +40,15 @@ function MainLayout() {
       </ErrorBoundary>
       <Navbar />
 
-      <main>
+      {/* pb-20 on mobile reserves the same footprint BackToTopButton/
+          WhatsAppButton float in (bottom-20, w-11 h-11) so a page whose
+          own content happens to end right there -- Cart's totals/Checkout
+          button, Login's "Forgot password?" link, the last row of a
+          product grid -- never renders underneath them. Confirmed live
+          (mobile audit, 2026-09-27): without this, both buttons covered
+          real text/controls on Cart, Category, Search and Login at
+          360-412px, on Cart even overlapping the Checkout button itself. */}
+      <main className="pb-20 md:pb-0">
         <Outlet />
       </main>
 

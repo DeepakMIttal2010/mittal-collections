@@ -51,6 +51,12 @@ export const addToPosCart = (product, variant = null) => {
         image: product.image,
         size,
         unitPrice: variant ? variant.price : product.price,
+        // Kept separate from unitPrice (which handlePriceChange below
+        // freely overwrites) so the UI can tell whether the current
+        // price is still the real catalog price or a manual override —
+        // see updatePosCartPrice/AdminPOS.jsx's reason-prompt UI.
+        originalPrice: variant ? variant.price : product.price,
+        priceOverrideReason: "",
         quantity: 1,
         maxStock,
       },
@@ -76,7 +82,30 @@ export const updatePosCartQuantity = (productId, size, quantity) => {
 export const updatePosCartPrice = (productId, size, unitPrice) => {
   const key = lineKey(productId, size);
   const items = getPosCart().map((item) =>
-    lineKey(item.productId, item.size) === key ? { ...item, unitPrice } : item,
+    lineKey(item.productId, item.size) === key
+      ? {
+          ...item,
+          unitPrice,
+          // Clears any reason typed for a previous override the moment
+          // the price is edited again — a stale reason silently
+          // surviving a further price change would misrepresent why
+          // the NEW price differs from catalog.
+          priceOverrideReason:
+            unitPrice === item.originalPrice ? "" : item.priceOverrideReason,
+        }
+      : item,
+  );
+
+  savePosCart(items);
+  return items;
+};
+
+export const updatePosCartPriceReason = (productId, size, priceOverrideReason) => {
+  const key = lineKey(productId, size);
+  const items = getPosCart().map((item) =>
+    lineKey(item.productId, item.size) === key
+      ? { ...item, priceOverrideReason }
+      : item,
   );
 
   savePosCart(items);

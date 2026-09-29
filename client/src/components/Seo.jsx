@@ -43,7 +43,14 @@ function Seo({
   alternateLangs,
   ogType = "website",
 }) {
-  const fullTitle = title ? `${title} | ${SITE_NAME}` : SITE_NAME;
+  // A few pages (About.jsx, GhaziabadStore.jsx) already spell out
+  // "Mittal Collections" in their own title for a specific reason (e.g.
+  // "Why Mittal Collections") -- appending the suffix unconditionally
+  // there produced titles with the brand name twice ("...Mittal
+  // Collections | Home Furnishing | Mittal Collections"), well past
+  // Google's ~60-char truncation point (Deep SEO Round 7).
+  const fullTitle =
+    title && !title.includes(SITE_NAME) ? `${title} | ${SITE_NAME}` : title || SITE_NAME;
   // Most pages don't pass `lang` explicitly (their content is a single
   // English document regardless of the UI toggle — see CategoryPage.jsx's
   // comment on why), which used to leave <html lang> stuck on whatever

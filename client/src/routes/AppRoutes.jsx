@@ -41,6 +41,7 @@ function lazyWithReload(importer) {
 
 const About = lazyWithReload(() => import("../pages/About"));
 const Contact = lazyWithReload(() => import("../pages/Contact"));
+const GhaziabadStore = lazyWithReload(() => import("../pages/GhaziabadStore"));
 const Cart = lazyWithReload(() => import("../pages/Cart"));
 const Wishlist = lazyWithReload(() => import("../pages/Wishlist"));
 const Login = lazyWithReload(() => import("../pages/Login"));
@@ -143,6 +144,7 @@ const AdminTicketDetail = lazyWithReload(
 );
 const AdminReturns = lazyWithReload(() => import("../pages/admin/AdminReturns"));
 const AdminPOS = lazyWithReload(() => import("../pages/admin/AdminPOS"));
+const AdminPOSSales = lazyWithReload(() => import("../pages/admin/AdminPOSSales"));
 const AdminWalkthrough = lazyWithReload(() => import("../pages/admin/AdminWalkthrough"));
 const PrintLabels = lazyWithReload(() => import("../pages/admin/PrintLabels"));
 const ProductQRLabel = lazyWithReload(() => import("../pages/admin/ProductQRLabel"));
@@ -177,11 +179,11 @@ function AppRoutes() {
           />
           <Route
             path="/pillows"
-            element={<Navigate to="/category/pillows" replace />}
+            element={<Navigate to="/category/cushions" replace />}
           />
           <Route
             path="/blankets"
-            element={<Navigate to="/category/blankets" replace />}
+            element={<Navigate to="/category/dohars" replace />}
           />
           <Route
             path="/offers"
@@ -189,6 +191,10 @@ function AppRoutes() {
           />
           <Route path="/about" element={<About />} />
           <Route path="/contact" element={<Contact />} />
+          <Route
+            path="/ghaziabad-home-furnishing-store"
+            element={<GhaziabadStore />}
+          />
           <Route path="/cart" element={<Cart />} />
           <Route path="/wishlist" element={<Wishlist />} />
           <Route path="/compare" element={<Compare />} />
@@ -304,6 +310,7 @@ function AppRoutes() {
           <Route path="returns" element={<AdminReturns />} />
           <Route path="pos" element={<AdminPOS />} />
           <Route path="pos/:id" element={<AdminPOS />} />
+          <Route path="pos/sales" element={<AdminPOSSales />} />
           <Route path="walkthrough" element={<AdminWalkthrough />} />
           <Route path="print-labels" element={<PrintLabels />} />
           <Route path="products/:id/qr" element={<ProductQRLabel />} />
