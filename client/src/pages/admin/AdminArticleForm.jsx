@@ -10,6 +10,7 @@ import {
   getArticleByIdAdmin,
   uploadArticleImage,
 } from "../../services/adminArticleService";
+import { getCategories } from "../../services/categoryService";
 
 const TOOLBAR_CONFIG = {
   container: [
@@ -39,7 +40,18 @@ function AdminArticleForm() {
   const [excerptHi, setExcerptHi] = useState("");
   const [contentHi, setContentHi] = useState("");
   const [coverImage, setCoverImage] = useState("");
+  const [category, setCategory] = useState("");
+  const [categories, setCategories] = useState([]);
   const [isActive, setIsActive] = useState(true);
+
+  useEffect(() => {
+    const loadCategories = async () => {
+      const response = await getCategories();
+      if (response.success) setCategories(response.categories);
+    };
+
+    loadCategories();
+  }, []);
 
   useEffect(() => {
     if (!isEditing) return;
@@ -55,6 +67,7 @@ function AdminArticleForm() {
         setExcerptHi(response.article.excerptHi || "");
         setContentHi(response.article.contentHi || "");
         setCoverImage(response.article.coverImage || "");
+        setCategory(response.article.category || "");
         setIsActive(response.article.isActive);
       } else {
         alert(response.message || "Unable to load article");
@@ -163,6 +176,7 @@ function AdminArticleForm() {
       excerptHi,
       contentHi,
       coverImage,
+      category,
       isActive,
     };
     const response = isEditing
@@ -239,6 +253,29 @@ function AdminArticleForm() {
           {coverUploading && (
             <p className="text-xs text-slate-500 mt-1">Uploading...</p>
           )}
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">
+            Related Category (optional)
+          </label>
+          <p className="text-xs text-slate-500 mb-1">
+            Shows a &quot;Shop {"{category}"}&quot; link on the article
+            page — lets a reader go straight from the guide to the
+            products it's about.
+          </p>
+          <select
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">No related category</option>
+            {categories.map((c) => (
+              <option key={c._id} value={c._id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div>

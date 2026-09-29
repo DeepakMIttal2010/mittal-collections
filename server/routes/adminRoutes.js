@@ -12,6 +12,7 @@ import {
   getProductViewUsers,
   getEngagementDetails,
   getAbandonedCartDetails,
+  deleteAbandonedCart,
 } from "../controllers/adminController.js";
 import { getGoogleReportsData } from "../controllers/googleReportsController.js";
 import authMiddleware from "../middleware/authMiddleware.js";
@@ -100,6 +101,14 @@ router.get(
   adminMiddleware,
   reportsPerm,
   getAbandonedCartDetails,
+);
+
+router.delete(
+  "/abandoned-carts/:id",
+  authMiddleware,
+  adminMiddleware,
+  reportsPerm,
+  deleteAbandonedCart,
 );
 
 export default router;

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import Seo from "../components/Seo";
+import LazyMount from "../components/LazyMount";
 import Hero from "../components/Hero/Hero";
 import CategoryQuickLinks from "../components/CategoryQuickLinks/CategoryQuickLinks";
 import TrustBar from "../components/TrustBar/TrustBar";
@@ -25,20 +26,48 @@ import { SITE_URL } from "../utils/siteUrl";
 // (which needs an admin-configured address to be meaningful), this is
 // always valid and should never depend on any async data being loaded,
 // so the homepage is never left with zero structured data at all.
-const organizationJsonLd = {
+// sameAs is added inside the component once settings load (see
+// organizationJsonLd below) rather than here, since it needs
+// settings.facebook/instagram/twitter — the base object here is what
+// renders before that data arrives.
+const baseOrganizationJsonLd = {
   "@context": "https://schema.org",
   "@type": "Organization",
   "@id": `${SITE_URL}/#organization`,
   name: "Mittal Collections",
   url: `${SITE_URL}/`,
+  // icon-512.png is the site's only real brand mark (a gold circular
+  // "M" monogram used as the PWA icon) — reused here rather than adding
+  // a separate logo asset. Unconditional, same reasoning as everything
+  // else in this base object.
+  logo: {
+    "@type": "ImageObject",
+    url: `${SITE_URL}/icon-512.png`,
+  },
 };
 
+// potentialAction doesn't depend on any runtime data — SearchResults.jsx
+// already reads its query from a plain `?q=` param, so this is exactly
+// the URL shape Google's sitelinks-searchbox feature needs, just never
+// declared.
 const websiteJsonLd = {
   "@context": "https://schema.org",
   "@type": "WebSite",
   "@id": `${SITE_URL}/#website`,
   name: "Mittal Collections",
   url: `${SITE_URL}/`,
+  potentialAction: {
+    "@type": "SearchAction",
+    // schema.org's Action.target expects an EntryPoint, not a bare
+    // string — Google's parser tolerates the flat-string form today,
+    // but EntryPoint/urlTemplate is what the spec and Google's current
+    // Sitelinks Searchbox docs actually show.
+    target: {
+      "@type": "EntryPoint",
+      urlTemplate: `${SITE_URL}/search?q={search_term_string}`,
+    },
+    "query-input": "required name=search_term_string",
+  },
 };
 
 function Home() {
@@ -53,6 +82,23 @@ function Home() {
 
     loadSettings();
   }, []);
+
+  // Base fields always present (see baseOrganizationJsonLd's comment);
+  // sameAs only gets added once settings load, same social links
+  // localBusinessJsonLd/Contact.jsx already use for the same purpose —
+  // this was previously the one JSON-LD block guaranteed to always
+  // render that DIDN'T carry it, while the conditional block below
+  // duplicated it.
+  const socialSameAs = [
+    settings.facebook,
+    settings.instagram,
+    settings.twitter,
+  ].filter(Boolean);
+
+  const organizationJsonLd = {
+    ...baseOrganizationJsonLd,
+    ...(socialSameAs.length > 0 && { sameAs: socialSameAs }),
+  };
 
   const localBusinessJsonLd = settings.address
     ? {
@@ -88,7 +134,7 @@ function Home() {
   return (
     <>
       <Seo
-        title="Buy Bedsheets, Curtains & Towels — Pan-India Delivery"
+        title="Bedsheets, Curtains & Towels Online"
         description="Shop premium cotton bedsheets, curtains, towels, cushions & doormats online with pan-India delivery — fast 24-hour delivery in Ghaziabad. Easy returns."
         url={`${SITE_URL}/`}
         jsonLd={[organizationJsonLd, websiteJsonLd, localBusinessJsonLd]}
@@ -104,11 +150,29 @@ function Home() {
       <SizeShowcase />
       <PriceShowcase />
       <CategoryNewArrivals />
-      <WhyChooseUs />
-      <Testimonials />
-      <CustomerGallery />
+      {/* Below-the-fold from here on every real viewport (16 sections
+          total on this page) — deferring these specifically cut ~1s of
+          main-thread blocking time in a throttled Lighthouse trace, see
+          LazyMount's own comment for the full reasoning.
+          Faq is deliberately NOT deferred here, unlike its neighbours —
+          it carries real FAQPage JSON-LD tied to its visible questions
+          (already confirmed picked up by Rich Results Test), and
+          IntersectionObserver-gated content isn't guaranteed to be seen
+          the same way by a crawler that doesn't scroll the way a real
+          visitor does. Not worth risking that for a CWV gain. */}
+      <LazyMount>
+        <WhyChooseUs />
+      </LazyMount>
+      <LazyMount>
+        <Testimonials />
+      </LazyMount>
+      <LazyMount>
+        <CustomerGallery />
+      </LazyMount>
       <Faq />
-      <Newsletter />
+      <LazyMount>
+        <Newsletter />
+      </LazyMount>
     </>
   );
 }

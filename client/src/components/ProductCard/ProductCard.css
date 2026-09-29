@@ -75,31 +75,92 @@
   background: linear-gradient(135deg, #b8860b, #8a5f28);
 }
 
+/* 44px hit area (Google's tap-target guidance) around a smaller 34px
+   visible circle, so the always-on heart doesn't cover much photo. */
+.wishlist-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.wishlist-btn-circle {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: white;
+  color: #555;
+  font-size: 16px;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: 0.2s;
+}
+
+.wishlist-btn:hover .wishlist-btn-circle,
+.wishlist-btn.active .wishlist-btn-circle {
+  color: #dc2626;
+}
+
+/* Quick view + compare: desktop-only, revealed on hover (or keyboard
+   focus). Below the heart so the two never overlap. */
 .product-icons {
   position: absolute;
-  top: 15px;
-  right: 15px;
+  /* Heart's visible circle spans 13px-47px from the top (34px circle
+     centred in a 44px button at top: 8px); same right edge and an 8px
+     gap keep all three in one evenly spaced column. */
+  top: 55px;
+  right: 13px;
 
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 
   opacity: 0;
   transition: 0.3s;
 }
 
-.product-card:hover .product-icons {
+.product-card:hover .product-icons,
+.product-card:focus-within .product-icons {
   opacity: 1;
 }
 
+/* Touch devices have no real :hover, so these were previously forced
+   always-visible there -- which is what buried the photo under three
+   buttons. Hidden instead: compare lives on the product page too, and
+   quick view is a desktop convenience (tapping the card already opens
+   the full product page). */
+@media (hover: none) {
+  .product-icons {
+    display: none;
+  }
+}
+
+/* Same 34px circle, icon size and shadow as .wishlist-btn-circle so the
+   three read as one set (desktop-only, so no tap-target concern). */
 .product-icons button {
-  width: 40px;
-  height: 40px;
+  width: 34px;
+  height: 34px;
   border: none;
   border-radius: 50%;
   background: white;
+  color: #555;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.15);
   transition: 0.3s;
 }
 

@@ -122,6 +122,20 @@
   min-width: 0;
   text-align: center;
   color: #292018;
+  /* Reserves roughly the space a typical slide's title+description+
+     buttons need (measured against the FALLBACK_SLIDE's own real
+     rendered height, Hero.jsx's baseline content). Without this, every
+     slide swap -- the fallback-to-real swap on first load, or the
+     6s auto-rotate between banners with different text lengths -- can
+     resize this column and shift every section below it. A live
+     Lighthouse desktop audit (2026-09-25) isolated exactly this: 0.104
+     of the page's 0.142 CLS traced to section.hero specifically, not
+     any other component (the welcome popup, checked and ruled out --
+     it's `position: fixed`, which can't push page content). An
+     unusually long banner can still exceed this and shift slightly;
+     this covers the common case, not every possible admin-entered
+     banner text. */
+  min-height: 320px;
 }
 
 .hero-split-eyebrow-row {
@@ -280,6 +294,13 @@
   .hero-split-image {
     aspect-ratio: 4 / 3;
     border-radius: 14px;
+  }
+
+  .hero-split-content {
+    /* Smaller reservation to match this breakpoint's smaller title/
+       description font sizes below — see the base rule's comment for
+       why this exists at all. */
+    min-height: 230px;
   }
 
   .hero-split-title {

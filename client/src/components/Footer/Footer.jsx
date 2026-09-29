@@ -234,6 +234,15 @@ function Footer() {
                 </p>
               </>
             )}
+            <Link
+              to="/ghaziabad-home-furnishing-store"
+              className="inline-block text-sm text-amber-500 hover:underline mt-3"
+            >
+              {t(
+                "View our Ghaziabad store details →",
+                "हमारे ग़ाज़ियाबाद स्टोर की जानकारी देखें →",
+              )}
+            </Link>
           </div>
 
           <hr className="border-slate-700 my-10" />

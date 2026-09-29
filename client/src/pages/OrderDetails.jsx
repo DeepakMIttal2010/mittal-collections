@@ -163,7 +163,7 @@ function OrderDetails() {
                 >
                   {item.image && (
                     <img
-                      src={imgUrl(item.image)}
+                      src={imgUrl(item.image, "w_150,q_auto,f_auto")}
                       alt={item.name}
                       className="w-16 h-16 object-cover rounded-lg shrink-0"
                     />

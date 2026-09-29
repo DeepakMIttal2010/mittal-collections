@@ -34,25 +34,36 @@ export const getAllCustomers = async (req, res) => {
       .select("-password")
       .sort({ [sortBy]: sortOrder });
 
-    // Har customer ke liye order count aur total spent nikalo
-    const customersWithStats = await Promise.all(
-      customers.map(async (customer) => {
-        const orders = await Order.find({ user: customer._id });
-
-        const totalOrders = orders.length;
-
-        const totalSpent = orders.reduce(
-          (sum, order) => sum + (order.totalPrice || 0),
-          0,
-        );
-
-        return {
-          ...customer.toObject(),
-          totalOrders,
-          totalSpent,
-        };
-      }),
+    // One aggregate query for every customer's stats instead of a
+    // per-customer Order.find() inside Promise.all -- that was a real
+    // N+1 firing on every admin Customers page load (fetching every
+    // FULL order document per customer just to sum totalPrice), found
+    // in the 2026-09-26 Server/Infra audit. $group here computes the
+    // same totalOrders/totalSpent server-side, in one round trip,
+    // without ever pulling a full Order document into Node at all.
+    const statsByUserId = new Map(
+      (
+        await Order.aggregate([
+          {
+            $group: {
+              _id: "$user",
+              totalOrders: { $sum: 1 },
+              totalSpent: { $sum: { $ifNull: ["$totalPrice", 0] } },
+            },
+          },
+        ])
+      ).map((row) => [String(row._id), row]),
     );
+
+    const customersWithStats = customers.map((customer) => {
+      const stats = statsByUserId.get(String(customer._id));
+
+      return {
+        ...customer.toObject(),
+        totalOrders: stats?.totalOrders || 0,
+        totalSpent: stats?.totalSpent || 0,
+      };
+    });
 
     res.status(200).json({
       success: true,

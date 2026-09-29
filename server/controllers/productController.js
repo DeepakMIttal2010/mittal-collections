@@ -21,12 +21,17 @@ import { deleteCloudinaryAssetsByUrl } from "../utils/cloudinaryCleanup.js";
 import { sanitizeProductDescription } from "../utils/sanitizeProductDescription.js";
 import { escapeRegex } from "../utils/escapeRegex.js";
 
-// Never sent by a public route — cost data is admin-only. The nested
-// variants.purchasePrice needs its own dotted exclusion; a bare
-// "-purchasePrice" only strips the top-level field, not the same-named
-// field inside each variants[] subdocument.
+// Never sent by a public route — cost data and adminRemarks are both
+// admin-only (see Product.js's own comment on adminRemarks: "never shown
+// to customers"). The nested variants.purchasePrice needs its own
+// dotted exclusion; a bare "-purchasePrice" only strips the top-level
+// field, not the same-named field inside each variants[] subdocument.
+// Security audit (2026-09-29) found adminRemarks was missing from this
+// list despite its own documented intent -- live-confirmed 51 products'
+// internal sourcing/pricing notes were readable via the public product
+// endpoints before this fix.
 const COST_FIELDS =
-  "-purchasePrice -miscExpenses -purchaseDate -variants.purchasePrice";
+  "-purchasePrice -miscExpenses -purchaseDate -variants.purchasePrice -adminRemarks -adminRemarksUpdatedAt";
 
 // getProducts' page size when a caller opts into pagination (`page` sent)
 // without also specifying `limit` — Amazon/Flipkart-style listing density,
