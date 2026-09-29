@@ -13,7 +13,7 @@
   "type": "commonjs",
   "devDependencies": {
     "@playwright/test": "^1.63.0",
-    "mongoose": "^9.10.0"
+    "mongoose": "^9.10.1"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3"

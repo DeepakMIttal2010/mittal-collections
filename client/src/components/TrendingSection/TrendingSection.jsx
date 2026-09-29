@@ -7,6 +7,7 @@ import { getTrendingProductsByCategory } from "../../services/productService";
 import Skeleton from "../Skeleton";
 import { productUrl } from "../../utils/productUrl";
 import { useLanguage } from "../../context/LanguageContext";
+import { handleImageError } from "../../utils/imageFallback";
 
 const timeAgo = (dateString, t) => {
   const seconds = Math.floor((Date.now() - new Date(dateString)) / 1000);
@@ -78,6 +79,7 @@ function TrendingCategoryRow({ category, products, t, isFirst }) {
                 sizes="(min-width: 640px) 240px, 192px"
                 alt={t(product.name, product.nameHi)}
                 loading="lazy"
+                onError={handleImageError}
                 className="w-full h-full object-cover"
               />
 

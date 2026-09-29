@@ -99,11 +99,11 @@ function SearchResults() {
         noindex
       />
 
-      <h2 className="text-xl font-semibold text-slate-800 mb-6">
+      <h1 className="text-xl font-semibold text-slate-800 mb-6">
         {hasQuery
           ? t(`Search results for "${query}"`, `"${query}" के लिए खोज परिणाम`)
           : t("Search", "खोजें")}
-      </h2>
+      </h1>
 
       {!hasQuery ? (
         <p className="text-slate-500">{t("Type something in the search box above.", "ऊपर सर्च बॉक्स में कुछ टाइप करें।")}</p>

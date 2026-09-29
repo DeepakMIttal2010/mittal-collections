@@ -78,7 +78,7 @@ function Returns() {
             >
               {ret.productImage && (
                 <img
-                  src={imgUrl(ret.productImage)}
+                  src={imgUrl(ret.productImage, "w_150,q_auto,f_auto")}
                   alt={ret.productName}
                   className="w-14 h-14 object-cover rounded-lg shrink-0 border border-slate-100"
                 />

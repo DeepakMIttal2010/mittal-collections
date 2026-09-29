@@ -6,9 +6,15 @@ import { getCategories } from "../services/categoryService";
 import { useLanguage } from "../context/LanguageContext";
 import { SITE_URL } from "../utils/siteUrl";
 
+const FOUNDING_YEAR = 2021;
+
 function About() {
   const [categories, setCategories] = useState([]);
   const { t } = useLanguage();
+  // Computed, not hardcoded, so this doesn't quietly go stale a year
+  // from now — the one concrete trust-signal fact this page has
+  // (business running since September 2021).
+  const yearsInBusiness = new Date().getFullYear() - FOUNDING_YEAR;
 
   useEffect(() => {
     const loadCategories = async () => {
@@ -38,10 +44,17 @@ function About() {
         {t("About Mittal Collections", "मित्तल कलेक्शंस के बारे में")}
       </h1>
 
+      <p className="text-amber-700 font-semibold mb-4">
+        {t(
+          `In business since ${FOUNDING_YEAR} — ${yearsInBusiness}+ years serving Ghaziabad and beyond`,
+          `${FOUNDING_YEAR} से व्यवसाय में — ${yearsInBusiness}+ साल से ग़ाज़ियाबाद और आसपास सेवा दे रहे हैं`,
+        )}
+      </p>
+
       <p className="text-slate-600 leading-relaxed mb-6">
         {t(
-          "Mittal Collections is a home furnishing store built around a simple idea: everyday essentials for your home should feel premium without being complicated to shop for. We put together a focused range of bedsheets, towels, curtains, pillows, cushions and blankets, chosen for their materials and finish rather than sheer volume.",
-          "मित्तल कलेक्शंस एक होम फर्निशिंग स्टोर है जो एक सरल विचार पर बना है: आपके घर की रोज़मर्रा की ज़रूरी चीज़ें प्रीमियम लगनी चाहिए, बिना खरीदारी को मुश्किल बनाए। हमने बेडशीट, तौलिए, पर्दे, तकिए, कुशन और कंबल की एक चुनी हुई रेंज तैयार की है, जिसे मात्रा की बजाय उनकी सामग्री और फिनिश के आधार पर चुना गया है।",
+          `Mittal Collections is a home furnishing store built around a simple idea: everyday essentials for your home should feel premium without being complicated to shop for. Since ${FOUNDING_YEAR}, we've put together a focused range of bedsheets, towels, curtains, pillows, cushions and blankets, chosen for their materials and finish rather than sheer volume.`,
+          `मित्तल कलेक्शंस एक होम फर्निशिंग स्टोर है जो एक सरल विचार पर बना है: आपके घर की रोज़मर्रा की ज़रूरी चीज़ें प्रीमियम लगनी चाहिए, बिना खरीदारी को मुश्किल बनाए। ${FOUNDING_YEAR} से, हमने बेडशीट, तौलिए, पर्दे, तकिए, कुशन और कंबल की एक चुनी हुई रेंज तैयार की है, जिसे मात्रा की बजाय उनकी सामग्री और फिनिश के आधार पर चुना गया है।`,
         )}
       </p>
 

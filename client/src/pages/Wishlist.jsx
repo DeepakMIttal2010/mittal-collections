@@ -83,7 +83,7 @@ function Wishlist() {
                 className="border border-slate-200 rounded-xl bg-white overflow-hidden"
               >
                 <img
-                  src={`${imgUrl(item.image)}`}
+                  src={`${imgUrl(item.image, "w_400,q_auto,f_auto")}`}
                   alt={item.name}
                   className="w-full h-48 object-cover"
                 />

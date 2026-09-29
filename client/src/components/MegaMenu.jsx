@@ -123,33 +123,46 @@ function DropdownPortal({ rect, onMouseEnter, onMouseLeave, children }) {
   );
 }
 
-function SubmenuPanel({ category, groups }) {
+// Shared by SubmenuPanel and MoreCategoriesMenu's own panel — a single
+// place to style a group of subcategory links so the two dropdowns never
+// drift into two different looks again (they used to duplicate this
+// markup verbatim). The amber accent bar + tinted hover pill replace the
+// previous plain grey-text-on-white treatment, which read as flat/dead
+// against the rest of the site's warm amber/orange branding.
+function SubmenuGroups({ groups, hrefFor }) {
   const { t } = useLanguage();
 
-  return (
-    <div className="bg-white border border-slate-200 shadow-lg rounded-b-lg p-5 flex gap-6 max-w-[90vw] overflow-x-auto">
-      {Object.entries(groups).map(([groupLabel, items]) => (
-        <div key={groupLabel} className="min-w-[130px] shrink-0">
-          <h4 className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2 border-b border-slate-100 pb-1 whitespace-nowrap">
-            {groupLabel}
-          </h4>
+  return Object.entries(groups).map(([groupLabel, items]) => (
+    <div key={groupLabel} className="min-w-[140px] shrink-0">
+      <h4 className="text-[11px] font-bold text-amber-600 uppercase tracking-wide mb-2 pb-1.5 border-b-2 border-amber-200 whitespace-nowrap">
+        {groupLabel}
+      </h4>
 
-          <ul className="space-y-1.5">
-            {items
-              .sort((a, b) => a.displayOrder - b.displayOrder)
-              .map((item) => (
-                <li key={item._id}>
-                  <NavLink
-                    to={`/category/${category.slug}/${item.slug}`}
-                    className="text-xs text-slate-600 hover:text-amber-600 transition-colors block whitespace-nowrap"
-                  >
-                    {t(item.name, item.nameHi)}
-                  </NavLink>
-                </li>
-              ))}
-          </ul>
-        </div>
-      ))}
+      <ul className="space-y-0.5">
+        {items
+          .sort((a, b) => a.displayOrder - b.displayOrder)
+          .map((item) => (
+            <li key={item._id}>
+              <NavLink
+                to={hrefFor(item)}
+                className="text-sm text-slate-600 hover:text-amber-700 hover:bg-amber-50 transition-colors block -mx-2 px-2 py-1.5 rounded-md whitespace-nowrap"
+              >
+                {t(item.name, item.nameHi)}
+              </NavLink>
+            </li>
+          ))}
+      </ul>
+    </div>
+  ));
+}
+
+function SubmenuPanel({ category, groups }) {
+  return (
+    <div className="bg-white border border-slate-200 border-t-4 border-t-amber-500 shadow-xl rounded-b-xl p-5 flex gap-7 max-w-[90vw] overflow-x-auto">
+      <SubmenuGroups
+        groups={groups}
+        hrefFor={(item) => `/category/${category.slug}/${item.slug}`}
+      />
     </div>
   );
 }
@@ -225,17 +238,17 @@ function MoreCategoriesMenu({ categories, getGroupedSubcategories, linkClassName
 
       {isOpen && (
         <DropdownPortal rect={rect} onMouseEnter={open} onMouseLeave={close}>
-          <div className="bg-white border border-slate-200 shadow-lg rounded-b-lg flex max-w-[90vw]">
-            <div className="w-40 border-r border-slate-100 py-2 shrink-0">
+          <div className="bg-white border border-slate-200 border-t-4 border-t-amber-500 shadow-xl rounded-b-xl flex max-w-[90vw]">
+            <div className="w-44 border-r border-slate-100 py-2 shrink-0">
               {categories.map((category) => (
                 <NavLink
                   key={category._id}
                   to={`/category/${category.slug}`}
                   onMouseEnter={() => setActiveCategoryId(category._id)}
-                  className={`block px-4 py-2 text-sm transition-colors whitespace-nowrap ${
+                  className={`block mx-2 px-3 py-2 rounded-md text-sm transition-colors whitespace-nowrap ${
                     category._id === activeCategoryId
-                      ? "bg-amber-50 text-amber-700 font-medium"
-                      : "text-slate-700 hover:bg-slate-50"
+                      ? "bg-amber-100 text-amber-800 font-semibold"
+                      : "text-slate-700 hover:bg-amber-50 hover:text-amber-700"
                   }`}
                 >
                   {t(category.name, category.nameHi)}
@@ -243,30 +256,12 @@ function MoreCategoriesMenu({ categories, getGroupedSubcategories, linkClassName
               ))}
             </div>
 
-            <div className="flex-1 p-5 flex gap-6 overflow-x-auto">
+            <div className="flex-1 p-5 flex gap-7 overflow-x-auto">
               {hasSubmenu ? (
-                Object.entries(groups).map(([groupLabel, items]) => (
-                  <div key={groupLabel} className="min-w-[130px] shrink-0">
-                    <h4 className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2 border-b border-slate-100 pb-1 whitespace-nowrap">
-                      {groupLabel}
-                    </h4>
-
-                    <ul className="space-y-1.5">
-                      {items
-                        .sort((a, b) => a.displayOrder - b.displayOrder)
-                        .map((item) => (
-                          <li key={item._id}>
-                            <NavLink
-                              to={`/category/${activeCategory.slug}/${item.slug}`}
-                              className="text-xs text-slate-600 hover:text-amber-600 transition-colors block whitespace-nowrap"
-                            >
-                              {t(item.name, item.nameHi)}
-                            </NavLink>
-                          </li>
-                        ))}
-                    </ul>
-                  </div>
-                ))
+                <SubmenuGroups
+                  groups={groups}
+                  hrefFor={(item) => `/category/${activeCategory.slug}/${item.slug}`}
+                />
               ) : (
                 <NavLink
                   to={`/category/${activeCategory?.slug}`}

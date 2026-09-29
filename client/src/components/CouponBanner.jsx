@@ -5,11 +5,31 @@ import { getBannerCoupon } from "../services/couponService";
 import { useLanguage } from "../context/LanguageContext";
 
 const DISMISS_KEY = "mc_banner_dismissed_code";
+// Caches the last-seen coupon so the banner can render WITH content on
+// the very first paint instead of null-then-pop-in once getBannerCoupon()
+// resolves — that pop-in sits above Header/Navbar/Hero (see MainLayout),
+// so it was pushing all of them down after first paint, a real CLS hit.
+// The active coupon rarely changes between visits, so this is right most
+// of the time; the effect below still re-fetches and self-corrects
+// (including clearing the cache) if it's stale.
+const CACHE_KEY = "mc_banner_coupon_cache";
+
+const getCachedCoupon = () => {
+  try {
+    const cached = localStorage.getItem(CACHE_KEY);
+    return cached ? JSON.parse(cached) : null;
+  } catch {
+    return null;
+  }
+};
 
 function CouponBanner() {
   const { t } = useLanguage();
-  const [coupon, setCoupon] = useState(null);
-  const [dismissed, setDismissed] = useState(false);
+  const [coupon, setCoupon] = useState(getCachedCoupon);
+  const [dismissed, setDismissed] = useState(() => {
+    const cached = getCachedCoupon();
+    return cached ? sessionStorage.getItem(DISMISS_KEY) === cached.code : false;
+  });
 
   useEffect(() => {
     const load = async () => {
@@ -17,9 +37,19 @@ function CouponBanner() {
 
       if (response.success && response.coupon) {
         setCoupon(response.coupon);
+        try {
+          localStorage.setItem(CACHE_KEY, JSON.stringify(response.coupon));
+        } catch {
+          /* private-mode/quota — cache is a best-effort optimization only */
+        }
 
-        if (sessionStorage.getItem(DISMISS_KEY) === response.coupon.code) {
-          setDismissed(true);
+        setDismissed(sessionStorage.getItem(DISMISS_KEY) === response.coupon.code);
+      } else {
+        setCoupon(null);
+        try {
+          localStorage.removeItem(CACHE_KEY);
+        } catch {
+          /* private-mode/quota — cache is a best-effort optimization only */
         }
       }
     };
