@@ -7,6 +7,7 @@ import User from "../models/User.js";
 import { sendEmail } from "../config/mailer.js";
 import { generateUniqueReferralCode } from "../utils/referral.js";
 import { createAndSendOtp, verifyOtp } from "../utils/otp.js";
+import { escapeHtml } from "../utils/escapeHtml.js";
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_OAUTH_CLIENT_ID);
 
@@ -181,7 +182,7 @@ export const verifyRegisterOtp = async (req, res) => {
         bcc: process.env.ADMIN_NOTIFICATION_EMAIL,
         subject: "Welcome to Mittal Collections!",
         html: `
-          <p>Hi ${user.name},</p>
+          <p>Hi ${escapeHtml(user.name)},</p>
           <p>Welcome to Mittal Collections! Your account has been created successfully.</p>
           <p>Explore premium bedsheets, towels, curtains, pillows and more at
           <a href="${process.env.CLIENT_URL}">mittalcollections.com</a>.</p>
@@ -376,7 +377,7 @@ export const googleAuth = async (req, res) => {
             bcc: process.env.ADMIN_NOTIFICATION_EMAIL,
             subject: "Welcome to Mittal Collections!",
             html: `
-              <p>Hi ${user.name},</p>
+              <p>Hi ${escapeHtml(user.name)},</p>
               <p>Welcome to Mittal Collections! Your account has been created successfully.</p>
               <p>Explore premium bedsheets, towels, curtains, pillows and more at
               <a href="${process.env.CLIENT_URL}">mittalcollections.com</a>.</p>
@@ -573,7 +574,7 @@ export const forgotPassword = async (req, res) => {
           to: user.email,
           subject: "Reset your Mittal Collections password",
           html: `
-            <p>Hi ${user.name || "there"},</p>
+            <p>Hi ${escapeHtml(user.name || "there")},</p>
             <p>We received a request to reset your password. This link expires in 30 minutes.</p>
             <p><a href="${resetUrl}">Reset your password</a></p>
             <p>If you didn't request this, you can safely ignore this email.</p>

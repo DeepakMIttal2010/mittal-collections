@@ -5,6 +5,7 @@ import Product from "../models/Product.js";
 import { sendEmail } from "../config/mailer.js";
 import { notifyUser } from "../utils/notify.js";
 import { isValidVisitorId } from "../utils/isValidVisitorId.js";
+import { escapeHtml } from "../utils/escapeHtml.js";
 
 // Keeps a single account/guest from growing an unbounded wishlist
 // (accidental or scripted) — well above any real shopper's use, just a
@@ -412,7 +413,7 @@ export const sendPriceDropAlerts = async (req, res) => {
           to: user.email,
           subject: `Price drop: ${product.name} is now ₹${product.price}`,
           html: `
-            <p>Hi ${user.name || "there"},</p>
+            <p>Hi ${escapeHtml(user.name || "there")},</p>
             <p>Good news — an item on your wishlist just got cheaper:</p>
             <p><strong>${product.name}</strong><br/>
             Now ₹${product.price} (was ₹${alertBaseline})</p>
