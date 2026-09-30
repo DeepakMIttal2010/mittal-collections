@@ -153,8 +153,19 @@ const productSchema = new mongoose.Schema(
     // Set when the exact same product ships in a few different colours
     // (admin picks whichever is in stock) — shown as a highlighted notice
     // on the product page so a customer wanting one specific colour knows
-    // to confirm via Contact Us before ordering, instead of assuming.
+    // to confirm via Contact Us before ordering, instead of assuming. Also
+    // reused for the AI-generated/catalog-image disclosure on products
+    // sourced from a supplier catalog rather than our own photography
+    // (Table Covers, Table Runners, some Mattress Covers) — same "this
+    // photo may not be exactly what arrives" meaning, same UI slot.
     colorVariesNote: { type: String, default: "", trim: true },
+    // Optional Hindi translation, same fallback-to-English convention as
+    // nameHi/descriptionHi — added because this field used to render as a
+    // raw string with no t() wrapper at all, so a product whose note had
+    // Hindi hand-mixed into the English string (see the AI-disclosure
+    // rewrite this field comment references) always showed both
+    // languages at once regardless of the site's language toggle.
+    colorVariesNoteHi: { type: String, default: "", trim: true },
 
     // Set for bulky/oversized items (large cushions, mattress covers,
     // etc.) where standard pan-India shipping cost is uneconomical —
