@@ -89,6 +89,7 @@ function AddProduct() {
     countryOfOrigin: "",
     whatsIncluded: "",
     colorVariesNote: "",
+    colorVariesNoteHi: "",
     localDeliveryOnly: false,
     adminRemarks: "",
     isReturnable: true,
@@ -338,6 +339,7 @@ function AddProduct() {
     data.append("countryOfOrigin", formData.countryOfOrigin);
     data.append("whatsIncluded", formData.whatsIncluded);
     data.append("colorVariesNote", formData.colorVariesNote);
+    data.append("colorVariesNoteHi", formData.colorVariesNoteHi);
     data.append("localDeliveryOnly", formData.localDeliveryOnly);
     data.append("adminRemarks", formData.adminRemarks);
     data.append("isReturnable", formData.isReturnable);
@@ -755,6 +757,18 @@ function AddProduct() {
             name="colorVariesNote"
             placeholder="e.g. Available in multiple colours - same quality. We'll send any available colour unless you confirm a specific one via Contact Us."
             value={formData.colorVariesNote}
+            onChange={handleChange}
+          />
+        </div>
+
+        <div className="form-group">
+          <label>Colour Variation Notice (Hindi, optional)</label>
+
+          <input
+            type="text"
+            name="colorVariesNoteHi"
+            placeholder="हिंदी में नोटिस — खाली छोड़ने पर अंग्रेज़ी वाला ही दिखेगा"
+            value={formData.colorVariesNoteHi}
             onChange={handleChange}
           />
         </div>
