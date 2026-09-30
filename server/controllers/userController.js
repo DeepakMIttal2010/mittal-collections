@@ -13,6 +13,7 @@ import ReturnRequest from "../models/ReturnRequest.js";
 import { applyLoyaltyPointsChange } from "../utils/loyaltyPoints.js";
 import { notifyUser } from "../utils/notify.js";
 import { sendEmail } from "../config/mailer.js";
+import { escapeHtml } from "../utils/escapeHtml.js";
 
 // How many of a customer's most recent page visits to show on their admin
 // details page — enough to see a real browsing session, not their entire
@@ -259,7 +260,7 @@ export const toggleBlockCustomer = async (req, res) => {
         bcc: process.env.ADMIN_NOTIFICATION_EMAIL,
         subject: statusMessage.subject,
         html: `
-          <p>Hi ${customer.name || "there"},</p>
+          <p>Hi ${escapeHtml(customer.name || "there")},</p>
           <p>${statusMessage.body}</p>
         `,
       });

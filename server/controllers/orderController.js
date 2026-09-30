@@ -27,6 +27,7 @@ import { sendEmail } from "../config/mailer.js";
 import { notifyUser } from "../utils/notify.js";
 import { hasAdminPermission } from "../utils/adminAccess.js";
 import { REVIEW_BONUS_POINTS } from "./reviewController.js";
+import { escapeHtml } from "../utils/escapeHtml.js";
 
 // Lazily constructed so a missing/blank key in dev doesn't crash the
 // whole server at import time — only Razorpay-paid checkouts need it.
@@ -153,7 +154,7 @@ const sendOrderStatusNotification = (order, status) => {
         bcc: process.env.ADMIN_NOTIFICATION_EMAIL,
         subject: statusMessage.subject,
         html: `
-          <p>Hi ${customer.name || "there"},</p>
+          <p>Hi ${escapeHtml(customer.name || "there")},</p>
           <p>${statusMessage.body}</p>
           <p>Order ID: ${order._id}</p>
           <p><a href="${process.env.CLIENT_URL}/my-orders/${order._id}">View your order</a></p>
@@ -677,7 +678,7 @@ export const createOrder = async (req, res) => {
         bcc: process.env.ADMIN_NOTIFICATION_EMAIL,
         subject: "Your Mittal Collections order is confirmed",
         html: `
-          <p>Hi ${req.user.name || "there"},</p>
+          <p>Hi ${escapeHtml(req.user.name || "there")},</p>
           <p>Thanks for your order! Here's a quick summary:</p>
           <p>Order ID: ${order._id}</p>
           <ul>
@@ -1433,7 +1434,7 @@ export const sendReviewRequestEmails = async (req, res) => {
           bcc: process.env.ADMIN_NOTIFICATION_EMAIL,
           subject: "How was your order? Leave a review",
           html: `
-            <p>Hi ${order.user.name || "there"},</p>
+            <p>Hi ${escapeHtml(order.user.name || "there")},</p>
             <p>Hope you're enjoying your order from Mittal Collections! Got a
             minute to share what you think? It really helps other shoppers.</p>
             <div style="background:#fffbeb;border:1px solid #f59e0b;border-radius:8px;padding:16px;margin:16px 0;">

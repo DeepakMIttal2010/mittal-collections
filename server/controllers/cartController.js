@@ -1,6 +1,7 @@
 import CartSnapshot from "../models/CartSnapshot.js";
 import { sendEmail } from "../config/mailer.js";
 import { isValidVisitorId } from "../utils/isValidVisitorId.js";
+import { escapeHtml } from "../utils/escapeHtml.js";
 
 const REMINDER_DELAY_HOURS = 3;
 
@@ -153,7 +154,7 @@ export const sendAbandonedCartReminders = async (req, res) => {
           to: cart.user.email,
           subject: "You left something in your cart",
           html: `
-            <p>Hi ${cart.user.name || "there"},</p>
+            <p>Hi ${escapeHtml(cart.user.name || "there")},</p>
             <p>You still have items waiting in your cart at Mittal Collections:</p>
             <ul>${itemsHtml}</ul>
             <p><a href="${process.env.CLIENT_URL}/cart">Complete your order</a></p>

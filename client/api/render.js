@@ -563,12 +563,6 @@ const buildMeta = async (path) => {
     const category = data.categories?.find((c) => c.slug === parts[1]);
     if (!category) return null;
 
-    // `path` is already trailing-slash-normalized by the caller, so this
-    // stays clean instead of picking up the stray "/" that vercel.json's
-    // "/category/:slug/:subslug*" rewrite destination leaves behind when
-    // there's no subcategory segment.
-    const url = `${SITE_URL}${path}`;
-
     // A subcategory segment (e.g. /category/bedsheets/fitted-bedsheet)
     // used to be silently dropped here — every subcategory page under a
     // given category rendered the exact same title/description as the
@@ -578,15 +572,39 @@ const buildMeta = async (path) => {
     // title and description). Look the subcategory up the same way
     // CategoryPage.jsx does client-side and fold its name into both.
     let subcategory = null;
+    let subcategoryIsOnlyGroupOption = false;
     if (parts[2]) {
       const subRes = await fetchJson(`${API_BASE}/api/subcategories`);
-      subcategory = subRes.subcategories?.find(
-        (s) => s.category?._id === category._id && s.slug === parts[2],
+      const categorySubcategories = (subRes.subcategories || []).filter(
+        (s) => s.category?._id === category._id,
       );
+      subcategory = categorySubcategories.find((s) => s.slug === parts[2]);
       // A subcategory slug that doesn't resolve is the same "genuinely
       // doesn't exist" case product/article already 404 on below.
       if (!subcategory) return null;
+
+      // Mirrors CategoryPage.jsx's activeSubcategoryIsOnlyGroupOption: a
+      // subcategory that's the sole member of its own group renders the
+      // exact same product grid as the parent category — this is what
+      // was still missing here even after the duplicate-content fix
+      // above, since Googlebot/WhatsApp/etc. are served THIS render path
+      // (see vercel.json's bot user-agent rewrite to /api/render), not
+      // the client-side React one, and it kept emitting a self-canonical
+      // for every thin subcategory instead of consolidating to the
+      // parent — confirmed live on all 4 of Comforters' subcategories.
+      const ownGroupCount = categorySubcategories.filter(
+        (s) => s.groupLabel === subcategory.groupLabel,
+      ).length;
+      subcategoryIsOnlyGroupOption = ownGroupCount === 1;
     }
+
+    // `path` is already trailing-slash-normalized by the caller, so this
+    // stays clean instead of picking up the stray "/" that vercel.json's
+    // "/category/:slug/:subslug*" rewrite destination leaves behind when
+    // there's no subcategory segment.
+    const url = subcategoryIsOnlyGroupOption
+      ? `${SITE_URL}/category/${category.slug}`
+      : `${SITE_URL}${path}`;
 
     const breadcrumbItems = [
       { name: "Home", path: "/" },

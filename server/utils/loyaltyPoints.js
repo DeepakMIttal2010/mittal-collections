@@ -8,6 +8,7 @@ import LoyaltySettings from "../models/LoyaltySettings.js";
 import LoyaltyTransaction from "../models/LoyaltyTransaction.js";
 import { sendEmail } from "../config/mailer.js";
 import { notifyUser } from "./notify.js";
+import { escapeHtml } from "./escapeHtml.js";
 
 const DEFAULTS = {
   earnRate: 20,
@@ -145,7 +146,7 @@ export const expireInactivePoints = async () => {
             to: user.email,
             subject: "Your loyalty points have expired",
             html: `
-              <p>Hi ${user.name || "there"},</p>
+              <p>Hi ${escapeHtml(user.name || "there")},</p>
               <p>${pointsToExpire} loyalty points on your Mittal Collections account expired due to
               ${settings.expiryMonths} months of inactivity. Shop again to start earning fresh points!</p>
             `,

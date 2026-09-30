@@ -90,6 +90,11 @@ function useHoverDropdown() {
 function DropdownPortal({ rect, onMouseEnter, onMouseLeave, children }) {
   const panelRef = useRef(null);
   const [left, setLeft] = useState(rect ? rect.left : 0);
+  // Tracks the narrowest `left` computed so far for the CURRENT open
+  // session (keyed to `rect`'s identity, which only changes when the
+  // dropdown is freshly re-opened via open() — see minLeftRef.rect
+  // below). Never reset by a mere width change within the same session.
+  const minLeftRef = useRef({ rect: null, value: null });
 
   // Clamps the panel's left offset so it never spills past the right edge
   // of the viewport (it otherwise always opened flush with the trigger's
@@ -105,12 +110,30 @@ function DropdownPortal({ rect, onMouseEnter, onMouseLeave, children }) {
   // switching from a narrower category (e.g. Dohars, 3 groups) to a wider
   // one (e.g. Comforters, 4 groups) left the last column clipped off the
   // right edge of the screen instead of the panel re-centering itself.
+  //
+  // Only ever moves `left` FURTHER left (smaller value), never back right,
+  // for as long as `rect` stays the same open session. Moving right when
+  // switching to a narrower category (e.g. Mattress Covers -> Table
+  // Covers) slid the whole panel out from under a stationary mouse,
+  // firing a real `mouseleave` on the portal div and snapping the entire
+  // "More" menu shut mid-browse — a real regression this same re-centering
+  // fix introduced. Only ever shrinking leftward means the panel can end
+  // up wider than the current content strictly needs, but it never moves
+  // out from under the cursor while already open.
   useLayoutEffect(() => {
     if (!rect || !panelRef.current) return;
     const margin = 12;
     const panelWidth = panelRef.current.offsetWidth;
     const maxLeft = window.innerWidth - panelWidth - margin;
-    setLeft(Math.max(margin, Math.min(rect.left, maxLeft)));
+    const desiredLeft = Math.max(margin, Math.min(rect.left, maxLeft));
+
+    if (minLeftRef.current.rect !== rect) {
+      minLeftRef.current = { rect, value: desiredLeft };
+      setLeft(desiredLeft);
+    } else if (desiredLeft < minLeftRef.current.value) {
+      minLeftRef.current.value = desiredLeft;
+      setLeft(desiredLeft);
+    }
   }, [rect, children]);
 
   if (!rect) return null;
