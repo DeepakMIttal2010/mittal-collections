@@ -554,22 +554,29 @@ function CategoryPage() {
   const sizeHelpLinks = getSizeHelpLinks(t);
   const sortOptions = getSortOptions(t);
 
-  // A category with exactly one primary-group subcategory (verified live:
-  // Cushion Covers, Dohars, Hotel Linen) renders the same product grid at
-  // both /category/x and /category/x/only-sub — a genuine duplicate-content
-  // pair, not a hypothetical one. Rather than remove the subcategory page
-  // (it's still a real, valid URL someone could land on or share),
-  // canonicalize it back to the parent category so Google consolidates
-  // ranking signal onto one URL instead of splitting/flagging it as a
-  // duplicate. A subcategory in a facet group (Material/Size on a
-  // multi-subcategory category) is unaffected — only the sole member of
-  // an otherwise-empty primary group triggers this.
-  const activeSubcategoryIsOnlyPrimaryOption =
-    activeSubcategory &&
-    !activeSubcategoryIsFacet &&
-    primaryGroup?.items.length === 1;
+  // A category with exactly one subcategory in some group (verified live:
+  // Cushion Covers, Dohars, Hotel Linen for the primary group; a brand-new
+  // category like Comforters can trivially have this on EVERY facet group
+  // too — Size/Material/Bed Size each with a single value until real
+  // variety is added) renders the same product grid at both /category/x
+  // and /category/x/only-sub — a genuine duplicate-content pair, not a
+  // hypothetical one. Rather than remove the subcategory page (it's still
+  // a real, valid URL someone could land on or share), canonicalize it
+  // back to the parent category so Google consolidates ranking signal onto
+  // one URL instead of splitting/flagging it as a duplicate. This used to
+  // only fire for the primary group (checked via !activeSubcategoryIsFacet)
+  // — a facet subcategory that happens to be its group's only member is
+  // just as much a duplicate page, so it's checked directly against the
+  // active subcategory's own group instead of assuming only the primary
+  // group can ever be that thin.
+  const activeSubcategoryOwnGroup = activeSubcategory
+    ? subcategoryGroups.find((g) => g.label === activeSubcategory.groupLabel)
+    : null;
 
-  const canonicalCategoryUrl = activeSubcategoryIsOnlyPrimaryOption
+  const activeSubcategoryIsOnlyGroupOption =
+    activeSubcategory && activeSubcategoryOwnGroup?.items.length === 1;
+
+  const canonicalCategoryUrl = activeSubcategoryIsOnlyGroupOption
     ? `${SITE_URL}/category/${categorySlug}`
     : `${SITE_URL}/category/${categorySlug}${subcategorySlug ? `/${subcategorySlug}` : ""}`;
 
