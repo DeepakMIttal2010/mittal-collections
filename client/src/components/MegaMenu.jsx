@@ -95,13 +95,23 @@ function DropdownPortal({ rect, onMouseEnter, onMouseLeave, children }) {
   // of the viewport (it otherwise always opened flush with the trigger's
   // left edge, which pushed wider panels — e.g. 3+ subcategory groups —
   // off-screen). Runs before paint, so there's no visible jump.
+  //
+  // Also depends on `children`, not just `rect` — MoreCategoriesMenu swaps
+  // which category's (differently-wide) subcategory groups render here
+  // purely via internal hover (setActiveCategoryId on a row inside this
+  // already-open panel), which never re-fires the trigger's onMouseEnter
+  // and so never recomputes `rect`. Without this, the panel's left offset
+  // stayed pinned to whatever the FIRST hovered category needed, so
+  // switching from a narrower category (e.g. Dohars, 3 groups) to a wider
+  // one (e.g. Comforters, 4 groups) left the last column clipped off the
+  // right edge of the screen instead of the panel re-centering itself.
   useLayoutEffect(() => {
     if (!rect || !panelRef.current) return;
     const margin = 12;
     const panelWidth = panelRef.current.offsetWidth;
     const maxLeft = window.innerWidth - panelWidth - margin;
     setLeft(Math.max(margin, Math.min(rect.left, maxLeft)));
-  }, [rect]);
+  }, [rect, children]);
 
   if (!rect) return null;
 
