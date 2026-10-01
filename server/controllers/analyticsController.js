@@ -3,6 +3,7 @@ import { isIP } from "net";
 import geoip from "geoip-lite";
 
 import PageVisit from "../models/PageVisit.js";
+import { isDatacenterIp } from "../utils/isDatacenterIp.js";
 
 const getDeviceType = (userAgent = "") => {
   const ua = userAgent.toLowerCase();
@@ -315,8 +316,19 @@ export const recordVisit = async (req, res) => {
       return res.status(201).json({ success: true });
     }
 
+    const clientIp = getClientIpForGeo(req);
+
+    // Second line, for exactly the traffic the UA check above can't see:
+    // a real Chrome/Playwright browser with a normal UA string, running
+    // on a rented cloud box rather than someone's own device. See
+    // isDatacenterIp.js for why this is IP-range-based instead of another
+    // UA pattern.
+    if (isDatacenterIp(clientIp)) {
+      return res.status(201).json({ success: true });
+    }
+
     const device = getDeviceType(req.headers["user-agent"]);
-    const { country, region, city } = getLocation(getClientIpForGeo(req));
+    const { country, region, city } = getLocation(clientIp);
 
     // userId comes straight from the request body, not decoded from a
     // token — this endpoint stays public/unauthenticated (every visitor,
