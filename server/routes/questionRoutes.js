@@ -1,4 +1,5 @@
 import express from "express";
+import validateObjectId from "../middleware/validateObjectId.js";
 
 import {
   getProductQuestions,
@@ -13,6 +14,9 @@ import adminMiddleware from "../middleware/adminMiddleware.js";
 import requirePermission from "../middleware/requirePermission.js";
 
 const router = express.Router();
+
+router.param("id", validateObjectId);
+router.param("productId", validateObjectId);
 const perm = requirePermission("questions");
 
 router.get("/product/:productId", getProductQuestions);

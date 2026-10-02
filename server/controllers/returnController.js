@@ -249,10 +249,14 @@ export const getAllReturnRequestsAdmin = async (req, res) => {
     // Mongo filter as a raw operator object instead of a literal value.
     if (typeof req.query.status === "string") filter.status = req.query.status;
 
+    // Safety ceiling, not real pagination — see getAllOrders' own
+    // comment (orderController.js) for why this pattern was chosen here
+    // over a full pagination rework.
     const returns = await ReturnRequest.find(filter)
       .populate("user", "name email")
       .populate("order", "totalPrice")
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .limit(2000);
 
     res.status(200).json({
       success: true,

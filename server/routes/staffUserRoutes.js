@@ -1,4 +1,5 @@
 import express from "express";
+import validateObjectId from "../middleware/validateObjectId.js";
 
 import {
   getStaffUsers,
@@ -12,6 +13,8 @@ import adminMiddleware from "../middleware/adminMiddleware.js";
 import requirePermission from "../middleware/requirePermission.js";
 
 const router = express.Router();
+
+router.param("id", validateObjectId);
 
 router.get("/", authMiddleware, adminMiddleware, requirePermission("staff-users"), getStaffUsers);
 router.post("/", authMiddleware, adminMiddleware, requirePermission("staff-users"), addStaffUser);

@@ -31,9 +31,13 @@ export const getAllCustomers = async (req, res) => {
       : "createdAt";
     const sortOrder = req.query.sortOrder === "asc" ? 1 : -1;
 
+    // Safety ceiling, not real pagination — see orderController.js's
+    // getAllOrders for why this pattern was chosen here over a full
+    // pagination rework.
     const customers = await User.find({ role: "user" })
       .select("-password")
-      .sort({ [sortBy]: sortOrder });
+      .sort({ [sortBy]: sortOrder })
+      .limit(2000);
 
     // One aggregate query for every customer's stats instead of a
     // per-customer Order.find() inside Promise.all -- that was a real

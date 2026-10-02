@@ -1,4 +1,5 @@
 import express from "express";
+import validateObjectId from "../middleware/validateObjectId.js";
 
 import {
   submitMessage,
@@ -13,6 +14,8 @@ import requirePermission from "../middleware/requirePermission.js";
 import { emailTriggerLimiter } from "../middleware/emailTriggerLimiter.js";
 
 const router = express.Router();
+
+router.param("id", validateObjectId);
 const perm = requirePermission("messages");
 
 // Public

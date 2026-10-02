@@ -48,7 +48,7 @@ async function fetchRanges() {
   const nextBlocks = [];
 
   try {
-    const res = await fetch(AWS_RANGES_URL);
+    const res = await fetch(AWS_RANGES_URL, { signal: AbortSignal.timeout(8000) });
     const data = await res.json();
     // Scoped to the EC2 service specifically (actual compute instances —
     // what a scraping/automation box runs on) rather than AWS's full
@@ -69,7 +69,7 @@ async function fetchRanges() {
   }
 
   try {
-    const res = await fetch(GCP_RANGES_URL);
+    const res = await fetch(GCP_RANGES_URL, { signal: AbortSignal.timeout(8000) });
     const data = await res.json();
     for (const p of data.prefixes || []) {
       const cidr = p.ipv4Prefix;
@@ -86,7 +86,7 @@ async function fetchRanges() {
   }
 
   try {
-    const res = await fetch(DIGITALOCEAN_RANGES_URL);
+    const res = await fetch(DIGITALOCEAN_RANGES_URL, { signal: AbortSignal.timeout(8000) });
     const text = await res.text();
     // Plain CSV, no header row: "ip_prefix,country,region,city,postal".
     // Only the first column matters here.
@@ -105,7 +105,7 @@ async function fetchRanges() {
   }
 
   try {
-    const res = await fetch(ORACLE_RANGES_URL);
+    const res = await fetch(ORACLE_RANGES_URL, { signal: AbortSignal.timeout(8000) });
     const data = await res.json();
     for (const region of data.regions || []) {
       for (const c of region.cidrs || []) {

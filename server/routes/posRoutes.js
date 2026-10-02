@@ -1,4 +1,5 @@
 import express from "express";
+import validateObjectId from "../middleware/validateObjectId.js";
 
 import {
   getProductForPOS,
@@ -16,6 +17,8 @@ import imageOptimizer from "../middleware/imageOptimizer.js";
 import requirePermission from "../middleware/requirePermission.js";
 
 const router = express.Router();
+
+router.param("id", validateObjectId);
 const perm = requirePermission("pos");
 
 router.get(

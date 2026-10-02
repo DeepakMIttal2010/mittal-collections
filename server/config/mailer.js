@@ -7,6 +7,12 @@ export const sendEmail = async ({ to, subject, html, bcc }) => {
     Boolean,
   );
 
+  // Without this, a stalled Brevo API hung the whole request indefinitely
+  // -- several callers (OTP signup, checkout) await sendEmail() directly
+  // in the request path, not fire-and-forget, so a slow third party
+  // became a slow/frozen page for the customer. 10s is generous for a
+  // single transactional email send, well under Vercel/Render's own
+  // request-duration limits.
   const response = await fetch(BREVO_ENDPOINT, {
     method: "POST",
     headers: {
@@ -14,6 +20,7 @@ export const sendEmail = async ({ to, subject, html, bcc }) => {
       Accept: "application/json",
       "api-key": process.env.BREVO_API_KEY,
     },
+    signal: AbortSignal.timeout(10000),
     body: JSON.stringify({
       sender: {
         name: process.env.MAIL_FROM_NAME,

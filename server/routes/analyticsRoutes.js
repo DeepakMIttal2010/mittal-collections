@@ -1,4 +1,5 @@
 import express from "express";
+import validateObjectId from "../middleware/validateObjectId.js";
 
 import {
   recordVisit,
@@ -11,6 +12,8 @@ import adminMiddleware from "../middleware/adminMiddleware.js";
 import requirePermission from "../middleware/requirePermission.js";
 
 const router = express.Router();
+
+router.param("id", validateObjectId);
 const reportsPerm = requirePermission("reports");
 
 router.post("/visit", recordVisit);

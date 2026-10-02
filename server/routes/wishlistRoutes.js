@@ -1,4 +1,5 @@
 import express from "express";
+import validateObjectId from "../middleware/validateObjectId.js";
 
 import {
   getWishlist,
@@ -17,6 +18,8 @@ import authMiddleware from "../middleware/authMiddleware.js";
 import requireCronSecret from "../middleware/requireCronSecret.js";
 
 const router = express.Router();
+
+router.param("productId", validateObjectId);
 
 // GET as well as POST — most external cron pingers (cron-job.org
 // included) default to GET and don't reliably offer a way to change it,

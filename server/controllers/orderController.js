@@ -927,9 +927,18 @@ export const getAllOrders = async (req, res) => {
   try {
     const sortOrder = req.query.sortOrder === "asc" ? 1 : -1;
 
+    // Safety ceiling, not real pagination — this endpoint has always
+    // returned every order at once (the admin UI does its own client-
+    // side search/filter over the full list), which is fine while the
+    // order count is small. 2000 is far above anything this site has
+    // today; it exists so the collection can't grow completely unbounded
+    // into this response. Revisit with real page/limit params (matching
+    // productController.js's pattern) once order volume actually
+    // approaches this.
     const orders = await Order.find()
       .populate("user", "name email mobile")
-      .sort({ createdAt: sortOrder });
+      .sort({ createdAt: sortOrder })
+      .limit(2000);
 
     res.status(200).json({
       success: true,
