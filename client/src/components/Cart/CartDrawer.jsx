@@ -8,6 +8,7 @@ import { useAuth } from "../../context/AuthContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { getPublicRewardsInfo } from "../../services/rewardsService";
 import { getSiteSettings } from "../../services/settingsService";
+import { handleImageError } from "../../utils/imageFallback";
 
 function CartDrawer() {
   const navigate = useNavigate();
@@ -130,6 +131,7 @@ function CartDrawer() {
                     src={imgUrl(item.image, "w_200,q_auto,f_auto")}
                     alt={item.name}
                     className="w-20 h-20 object-cover rounded-lg shrink-0"
+                    onError={handleImageError}
                   />
 
                   <div className="flex-1 min-w-0">

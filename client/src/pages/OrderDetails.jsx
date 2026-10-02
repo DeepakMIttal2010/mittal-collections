@@ -8,6 +8,7 @@ import { resumeOrderPayment } from "../utils/razorpay";
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
 import OrderStatusTimeline from "../components/OrderStatusTimeline";
+import { handleImageError } from "../utils/imageFallback";
 
 const STATUS_COLORS = {
   Pending: "bg-slate-100 text-slate-700",
@@ -166,6 +167,7 @@ function OrderDetails() {
                       src={imgUrl(item.image, "w_150,q_auto,f_auto")}
                       alt={item.name}
                       className="w-16 h-16 object-cover rounded-lg shrink-0"
+                      onError={handleImageError}
                     />
                   )}
                   <div className="min-w-0 flex-1">

@@ -124,6 +124,49 @@ const imgUrl = (path) => {
   return path.startsWith("http") ? path : `${API_BASE}${path}`;
 };
 
+// Real, visible HTML for a product page's <body> — same reasoning as
+// buildCategoryBodyHtml below (added first, for category pages, after a
+// confirmed live Soft 404 on table-covers; extended here to product
+// pages since those matter even more for long-tail search — most of the
+// 1,000+ products this catalog is working toward are reached through a
+// product page, not a category page). Specs list only includes fields
+// that are actually set, since most products don't use every one
+// (variant products have no flat size/color, for instance).
+const buildProductBodyHtml = (product, plainDescription, offerPrice, offerStock, breadcrumbItems, galleryImages) => {
+  const breadcrumbHtml = breadcrumbItems
+    .map((item) =>
+      item.path
+        ? `<a href="${SITE_URL}${item.path}">${escapeHtml(item.name)}</a>`
+        : `<span>${escapeHtml(item.name)}</span>`,
+    )
+    .join(" &gt; ");
+
+  const specs = [
+    ["Brand", product.brand],
+    ["Fabric", product.fabric],
+    ["Color", product.color],
+    ["Pattern", product.pattern],
+    ["Size", product.size],
+  ].filter(([, value]) => value);
+
+  const specsHtml = specs
+    .map(([label, value]) => `<li>${escapeHtml(label)}: ${escapeHtml(value)}</li>`)
+    .join("\n");
+
+  const imagesHtml = galleryImages
+    .map((url) => `<img src="${escapeHtml(url)}" alt="${escapeHtml(product.name)}" />`)
+    .join("\n");
+
+  return `
+    <nav aria-label="breadcrumb">${breadcrumbHtml}</nav>
+    <h1>${escapeHtml(product.name)}</h1>
+    ${imagesHtml}
+    <p>₹${escapeHtml(offerPrice)} — ${offerStock > 0 ? "In Stock" : "Out of Stock"}</p>
+    ${specs.length > 0 ? `<ul>${specsHtml}</ul>` : ""}
+    ${plainDescription ? `<p>${escapeHtml(plainDescription)}</p>` : ""}
+  `;
+};
+
 // Real, visible HTML for the page <body> — not just the <head> meta tags
 // and JSON-LD injectMeta() below already handles. Confirmed live
 // (2026-10-02): every bot-served page's body was a bare
@@ -598,6 +641,14 @@ const buildMeta = async (path) => {
         faqJsonLd,
         ...videoJsonLd,
       ].filter(Boolean),
+      bodyHtml: buildProductBodyHtml(
+        p,
+        plainDescription,
+        offerPrice,
+        offerStock,
+        breadcrumbItems,
+        galleryImages,
+      ),
     };
   }
 
