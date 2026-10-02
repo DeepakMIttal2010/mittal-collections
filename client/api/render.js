@@ -124,6 +124,52 @@ const imgUrl = (path) => {
   return path.startsWith("http") ? path : `${API_BASE}${path}`;
 };
 
+// Real, visible HTML for the page <body> — not just the <head> meta tags
+// and JSON-LD injectMeta() below already handles. Confirmed live
+// (2026-10-02): every bot-served page's body was a bare
+// `<div id="root"></div>` (the real product grid only ever renders
+// client-side, which this prerender path deliberately bypasses for
+// bots) — and /category/table-covers came back from Search Console's
+// URL Inspection as "Soft 404" despite having 26 real products and full
+// JSON-LD, because a body with no distinguishing text is indistinguishable
+// from a genuinely-empty/removed page to that classifier. This gives
+// Googlebot's first-pass (non-JS) crawl the same product list a real
+// visitor's browser renders, not just a head-only shell.
+const buildCategoryBodyHtml = (heading, bodyText, breadcrumbItems, products) => {
+  const breadcrumbHtml = breadcrumbItems
+    .map((item) =>
+      item.path
+        ? `<a href="${SITE_URL}${item.path}">${escapeHtml(item.name)}</a>`
+        : `<span>${escapeHtml(item.name)}</span>`,
+    )
+    .join(" &gt; ");
+
+  const productsHtml = products
+    .map((p) => {
+      const slug = p.slug || "";
+      const href = `${SITE_URL}${slug ? `/product/${p._id}/${slug}` : `/product/${p._id}`}`;
+      const img = imgUrl(p.image);
+
+      return `<li>
+        <a href="${escapeHtml(href)}">
+          ${img ? `<img src="${escapeHtml(img)}" alt="${escapeHtml(p.name)}" />` : ""}
+          <span>${escapeHtml(p.name)}</span>
+          <span>₹${escapeHtml(p.price)}</span>
+        </a>
+      </li>`;
+    })
+    .join("\n");
+
+  return `
+    <nav aria-label="breadcrumb">${breadcrumbHtml}</nav>
+    <h1>${escapeHtml(heading)}</h1>
+    ${bodyText ? `<p>${escapeHtml(bodyText)}</p>` : ""}
+    <ul>
+      ${productsHtml}
+    </ul>
+  `;
+};
+
 // Static pages whose title/description never depend on data — a plain
 // copy of each page's own <Seo title=... description=... /> call (see
 // About.jsx, Contact.jsx, Rewards.jsx, etc.), kept in sync by hand since
@@ -663,6 +709,13 @@ const buildMeta = async (path) => {
       url,
       ogType: "website",
       jsonLd: [buildBreadcrumbJsonLd(breadcrumbItems), itemListJsonLd].filter(Boolean),
+      // Full list, not the JSON-LD block's 50-item cap above — this is
+      // meant to mirror what a real visitor's browser actually renders
+      // (Google's guidelines on dynamic rendering expect bots and real
+      // users to see materially the same content, not an artificially
+      // trimmed version), and no category here has anywhere near enough
+      // products yet for 50 to matter in practice.
+      bodyHtml: buildCategoryBodyHtml(pageTitle, bodyText, breadcrumbItems, categoryProducts),
     };
   }
 
@@ -959,6 +1012,15 @@ const injectMeta = (html, meta) => {
     .replace(/<title>.*?<\/title>/i, "")
     .replace(/<meta name="description"[^>]*>/i, "")
     .replace("</head>", `${tags}\n  </head>`);
+
+  // Only set for category pages so far (see buildCategoryBodyHtml) — every
+  // other branch keeps the empty shell it always has, unchanged.
+  if (meta.bodyHtml) {
+    result = result.replace(
+      '<div id="root"></div>',
+      `<div id="root">${meta.bodyHtml}</div>`,
+    );
+  }
 
   if (meta.lang) {
     result = result.replace(/<html([^>]*)>/i, (fullMatch, attrs) => {
