@@ -878,6 +878,10 @@ export const verifyRazorpayPayment = async (req, res) => {
       message: wasCancelled
         ? "Payment received. This order was already cancelled — our team will confirm with you shortly."
         : "Payment verified successfully",
+      // Lets the client fire a GA4 `purchase` event from the order's own
+      // confirmed line items — needed specifically by the "Pay Now" resume
+      // flow (razorpay.js), which has no live cart to build one from.
+      order,
     });
   } catch (error) {
     console.error("Verify Razorpay Payment Error:", error);

@@ -323,7 +323,7 @@ export const recordVisit = async (req, res) => {
     // on a rented cloud box rather than someone's own device. See
     // isDatacenterIp.js for why this is IP-range-based instead of another
     // UA pattern.
-    if (isDatacenterIp(clientIp)) {
+    if (await isDatacenterIp(clientIp)) {
       return res.status(201).json({ success: true });
     }
 

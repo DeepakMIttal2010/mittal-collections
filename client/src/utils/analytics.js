@@ -70,7 +70,15 @@ export const trackBeginCheckout = (cartItems, value) => {
   });
 };
 
-export const trackPurchase = (order, cartItems) => {
+// Built from `order.orderItems` (the server-confirmed line items), not a
+// `cartItems` param, so every path that ends in a real payment can call
+// this the same way regardless of what's in the live cart at that
+// moment — in particular the "Pay Now" resume flow (razorpay.js), which
+// re-verifies a payment for an order placed in an earlier session and has
+// no live cart to read from at all. Before this, that path verified the
+// payment successfully but never fired `purchase`, silently undercounting
+// real revenue in GA4.
+export const trackPurchase = (order) => {
   trackEvent("purchase", {
     // Server-generated ObjectId, unique per order -- GA4 uses this to
     // de-duplicate a purchase event that somehow fires twice for the
@@ -79,6 +87,56 @@ export const trackPurchase = (order, cartItems) => {
     currency: "INR",
     value: order.totalPrice,
     shipping: order.deliveryFee || 0,
-    items: cartItems.map((item) => toGa4Item(item, item.quantity)),
+    items: (order.orderItems || []).map((item) => ({
+      item_id: item.product?._id || item.product,
+      item_name: item.name,
+      item_variant: item.size || undefined,
+      price: item.price,
+      quantity: item.quantity,
+    })),
   });
+};
+
+// Fired when a search is actually submitted (typed Enter/Go, or a voice
+// search result) — not on every keystroke, which would flood GA4 with
+// partial queries instead of one event per real search intent.
+export const trackSearch = (searchTerm) => {
+  trackEvent("search", { search_term: searchTerm });
+};
+
+// Fired when a customer picks a specific product out of a list — a
+// product grid, the header's search-suggestions dropdown, etc. `listName`
+// identifies which surface the click came from, since the same product
+// can be reached from several different listings.
+export const trackSelectItem = (product, listName = "product_list") => {
+  trackEvent("select_item", {
+    item_list_name: listName,
+    items: [
+      {
+        item_id: product._id,
+        item_name: product.name,
+        item_category: product.category?.name || undefined,
+        price: product.price,
+      },
+    ],
+  });
+};
+
+// Fired once a payment method is actually selected on the checkout page
+// (not a GA4-standard-named event otherwise, but "add_payment_info" is
+// the real recommended GA4 e-commerce event name for this step).
+export const trackAddPaymentInfo = (paymentMethod, value) => {
+  trackEvent("add_payment_info", {
+    currency: "INR",
+    value,
+    payment_type: paymentMethod,
+  });
+};
+
+// Fired when a category/subcategory facet filter is actually applied
+// (the mobile bottom-sheet's "Apply" button, or the desktop sidebar's
+// instant-apply toggle) — not on every intermediate draft checkbox click,
+// same "real intent, not every keystroke" reasoning as trackSearch above.
+export const trackFilter = (filterName, filterValue) => {
+  trackEvent("filter", { filter_name: filterName, filter_value: filterValue });
 };

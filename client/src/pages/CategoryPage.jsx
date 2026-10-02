@@ -17,6 +17,7 @@ import { SITE_URL } from "../utils/siteUrl";
 import { productUrl } from "../utils/productUrl";
 import { useLanguage } from "../context/LanguageContext";
 import { FaGift, FaFilter, FaTimes } from "react-icons/fa";
+import { trackFilter } from "../utils/analytics";
 
 // Sizing/buying help callouts shown on the matching category's product
 // listing — curtains gets the interactive calculator (real measurement
@@ -400,6 +401,18 @@ function CategoryPage() {
     setSelectedFacetIds(new Set(draftFacetIds));
     setMinRating(draftMinRating);
     setIsFilterOpen(false);
+
+    const draftItemNames = facetGroups
+      .flatMap((g) => g.items)
+      .filter((i) => draftFacetIds.has(i._id))
+      .map((i) => i.name);
+    if (draftItemNames.length > 0) {
+      trackFilter("facets", draftItemNames.join(", "));
+    }
+    if (draftMinRating) trackFilter("min_rating", String(draftMinRating));
+    if (draftPriceRange) {
+      trackFilter("price_range", `${draftPriceRange[0]}-${draftPriceRange[1]}`);
+    }
   };
 
   const clearAllFilters = () => {
@@ -453,8 +466,15 @@ function CategoryPage() {
 
     setSelectedFacetIds((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+        const item = facetGroups
+          .flatMap((g) => g.items)
+          .find((i) => i._id === id);
+        if (item) trackFilter(item.groupLabel, item.name);
+      }
 
       return next;
     });

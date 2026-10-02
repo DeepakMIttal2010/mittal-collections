@@ -22,6 +22,7 @@ import {
 import { imgUrl } from "../../services/api";
 import { productUrl } from "../../utils/productUrl";
 import { notifyDefaultAddressChanged } from "../../utils/addressEvents";
+import { trackSearch, trackSelectItem } from "../../utils/analytics";
 
 function Header() {
   const { totalItems, openCart } = useCart();
@@ -222,6 +223,8 @@ function Header() {
         return;
       }
 
+      trackSearch(trimmed);
+
       const params = new URLSearchParams({ q: trimmed });
       if (categoryId) params.set("category", categoryId);
 
@@ -259,6 +262,7 @@ function Header() {
   const handleSuggestionClick = (product) => {
     setShowSuggestions(false);
     setQuery("");
+    trackSelectItem(product, "search_suggestions");
     navigate(productUrl(product));
   };
 
