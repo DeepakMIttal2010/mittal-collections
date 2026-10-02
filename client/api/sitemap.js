@@ -42,6 +42,17 @@ const fetchJson = async (url) => {
   return res.json();
 };
 
+// XML (unlike HTML) requires every one of these escaped in text content --
+// a raw "&" or "<" in a product name (e.g. "Dev D'Decor Bedsheet - Grey &
+// Blue") would otherwise produce invalid XML, not just a display glitch.
+const escapeXml = (text) =>
+  String(text ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+
 const slugify = (text) =>
   text
     .toLowerCase()
@@ -89,7 +100,7 @@ const fetchAllProducts = async () => {
 // only) adds Google's sitemap Image extension — a second, dedicated
 // discovery path for Google Images alongside on-page <img> alt text,
 // entirely missing before this.
-const urlEntry = (loc, alternates, lastmod, images) => {
+const urlEntry = (loc, alternates, lastmod, images, imageTitle) => {
   const altLinks = alternates
     ? alternates
         .map(
@@ -99,8 +110,16 @@ const urlEntry = (loc, alternates, lastmod, images) => {
         .join("")
     : "";
   const lastmodTag = lastmod ? `<lastmod>${lastmod.slice(0, 10)}</lastmod>` : "";
+  // <image:title> is optional per Google's Image sitemap spec but gives
+  // Google Images a caption signal beyond just the URL -- every image in
+  // a product's gallery shares the product's own name since there's no
+  // separate per-photo caption in the data (angle 1 vs angle 2 of the
+  // same product don't have distinct descriptions).
+  const titleTag = imageTitle ? `<image:title>${escapeXml(imageTitle)}</image:title>` : "";
   const imageTags = images
-    ? images.map((url) => `<image:image><image:loc>${url}</image:loc></image:image>`).join("")
+    ? images
+        .map((url) => `<image:image><image:loc>${url}</image:loc>${titleTag}</image:image>`)
+        .join("")
     : "";
 
   return `  <url><loc>${SITE_URL}${loc}</loc>${lastmodTag}${altLinks}${imageTags}</url>`;
@@ -151,7 +170,7 @@ export default async function handler(req, res) {
       }
     });
     products.forEach((p) =>
-      urls.push(urlEntry(productUrl(p), undefined, p.updatedAt, p.images)),
+      urls.push(urlEntry(productUrl(p), undefined, p.updatedAt, p.images, p.name)),
     );
 
     // A Hindi version is only advertised (and only gets its own sitemap

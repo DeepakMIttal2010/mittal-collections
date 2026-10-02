@@ -6,6 +6,7 @@ import { imgUrl } from "../services/api";
 import { productUrl } from "../utils/productUrl";
 import { useCart } from "../context/CartContext";
 import { useLanguage } from "../context/LanguageContext";
+import { handleImageError } from "../utils/imageFallback";
 
 function getSpecRows(t) {
   return [
@@ -91,6 +92,7 @@ function AutoCompareTable({ mainProduct, similarProducts }) {
                         alt={product.name}
                         loading="lazy"
                         className="w-full aspect-square object-cover rounded-lg border border-slate-200 mb-2"
+                        onError={handleImageError}
                       />
                       <p className="text-sm font-semibold text-slate-800 line-clamp-2">
                         {product.name}

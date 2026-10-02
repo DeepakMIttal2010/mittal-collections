@@ -9,6 +9,7 @@ import { imgUrl } from "../services/api";
 import { productUrl } from "../utils/productUrl";
 import { getStockStatus } from "../utils/stock";
 import { stripHtml } from "../utils/stripHtml";
+import { handleImageError } from "../utils/imageFallback";
 import Seo from "../components/Seo";
 
 function getRows(t) {
@@ -154,6 +155,7 @@ function Compare() {
                           src={imgUrl(product.image, "w_300,q_auto,f_auto")}
                           alt={product.name}
                           className="w-full aspect-square object-cover rounded-lg border border-slate-200 mb-2"
+                          onError={handleImageError}
                         />
                         <p className="text-sm font-semibold text-slate-800 line-clamp-2">
                           {product.name}

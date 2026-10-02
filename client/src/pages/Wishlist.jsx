@@ -8,6 +8,7 @@ import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
 import { productUrl } from "../utils/productUrl";
+import { handleImageError } from "../utils/imageFallback";
 import Seo from "../components/Seo";
 
 function Wishlist() {
@@ -86,6 +87,7 @@ function Wishlist() {
                   src={`${imgUrl(item.image, "w_400,q_auto,f_auto")}`}
                   alt={item.name}
                   className="w-full h-48 object-cover"
+                  onError={handleImageError}
                 />
 
                 <div className="p-4">

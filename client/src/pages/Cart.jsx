@@ -11,6 +11,7 @@ import { getPublicRewardsInfo } from "../services/rewardsService";
 import { getSiteSettings } from "../services/settingsService";
 import { getProductById } from "../services/productService";
 import { calculateDeliveryFee } from "../utils/shipping";
+import { handleImageError } from "../utils/imageFallback";
 import Seo from "../components/Seo";
 import "./Cart.css";
 
@@ -209,6 +210,7 @@ function Cart() {
                 <img
                   src={imgUrl(item.image, "w_200,q_auto,f_auto")}
                   alt={item.name}
+                  onError={handleImageError}
                 />
 
                 <div className="cart-info">

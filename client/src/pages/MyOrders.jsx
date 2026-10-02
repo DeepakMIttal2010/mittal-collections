@@ -9,6 +9,7 @@ import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
 import ReturnRequestModal from "../components/ReturnRequestModal";
+import { handleImageError } from "../utils/imageFallback";
 
 function getTabs(t) {
   return [
@@ -151,6 +152,7 @@ function OrderCard({ order, onBuyAgain, onPayNow, payingId }) {
                     src={imgUrl(item.image, "w_150,q_auto,f_auto")}
                     alt={item.name}
                     className="w-14 h-14 object-cover rounded-lg shrink-0 border border-slate-100"
+                    onError={handleImageError}
                   />
                 )}
                 <div className="min-w-0">
@@ -468,6 +470,7 @@ function MyOrders() {
                           src={`${imgUrl(item.image, "w_150,q_auto,f_auto")}`}
                           alt={item.name}
                           className="w-14 h-14 object-cover rounded-lg shrink-0"
+                          onError={handleImageError}
                         />
                       )}
                       <div className="min-w-0">
