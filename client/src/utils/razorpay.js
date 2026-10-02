@@ -1,4 +1,5 @@
 import { resumeRazorpayPayment, verifyRazorpayPayment } from "../services/orderService";
+import { trackPurchase } from "./analytics";
 
 // Loaded on-demand rather than globally in index.html, so pages that
 // never reach payment don't pay for it. Shared by Checkout (creating a
@@ -67,6 +68,14 @@ export const resumeOrderPayment = async ({
       });
 
       if (verifyResponse.success) {
+        // This is a genuinely completed sale — same as the first-time
+        // Checkout.jsx flow, just reached via a retried/resumed payment
+        // instead. verifyResponse.order (the server's confirmed order,
+        // with its real line items) is what makes this possible here:
+        // there's no live cart to build a purchase event from on this
+        // page. See trackPurchase's own comment for why this path used
+        // to silently undercount GA4 revenue.
+        trackPurchase(verifyResponse.order);
         onSuccess();
       } else {
         onFailure(

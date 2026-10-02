@@ -19,6 +19,7 @@ import { LOW_STOCK_THRESHOLD, getStockStatus } from "../../utils/stock";
 import { productUrl } from "../../utils/productUrl";
 import { handleImageError } from "../../utils/imageFallback";
 import { getEarnRate } from "../../services/rewardsService";
+import { trackSelectItem } from "../../utils/analytics";
 import { useLanguage } from "../../context/LanguageContext";
 
 // Lazy-loaded, not a static import: QuickViewModal (and the DOMPurify it
@@ -58,7 +59,11 @@ function ProductCard({ product }) {
 
   return (
     <div className="product-card">
-      <Link to={productUrl(product)} className="product-link">
+      <Link
+        to={productUrl(product)}
+        className="product-link"
+        onClick={() => trackSelectItem(product)}
+      >
         <div className="product-image">
           <img
             src={`${imgUrl(product.image, "w_400,q_auto,f_auto")}`}

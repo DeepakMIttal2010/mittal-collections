@@ -21,7 +21,7 @@ import { getPublicRewardsInfo } from "../services/rewardsService";
 import { checkPincodeDelivery } from "../services/deliveryService";
 import { calculateDeliveryFee } from "../utils/shipping";
 import { loadRazorpayScript } from "../utils/razorpay";
-import { trackBeginCheckout, trackPurchase } from "../utils/analytics";
+import { trackBeginCheckout, trackPurchase, trackAddPaymentInfo } from "../utils/analytics";
 import Seo from "../components/Seo";
 
 function Checkout() {
@@ -36,6 +36,10 @@ function Checkout() {
   const [selectedAddressId, setSelectedAddressId] = useState("");
   const [showAddressPicker, setShowAddressPicker] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("Razorpay");
+  const handlePaymentMethodChange = (method) => {
+    setPaymentMethod(method);
+    trackAddPaymentInfo(method, orderTotal);
+  };
   const [placing, setPlacing] = useState(false);
   // A genuinely completed order (COD placed, or Razorpay payment
   // verified) — set instead of navigating straight to /my-orders, so
@@ -347,7 +351,7 @@ function Checkout() {
 
     if (paymentMethod !== "Razorpay") {
       setPlacing(false);
-      trackPurchase(response.order, cartItems);
+      trackPurchase(response.order);
       clearCart();
       setOrderConfirmation(response.order);
       return;
@@ -405,7 +409,7 @@ function Checkout() {
         // actual completed sale, so neither should count as a GA4
         // purchase or get the confirmation screen.
         if (verifyResponse.success) {
-          trackPurchase(response.order, cartItems);
+          trackPurchase(response.order);
           setPlacing(false);
           clearCart();
           setOrderConfirmation(response.order);
@@ -638,7 +642,7 @@ function Checkout() {
                   name="paymentMethod"
                   value="COD"
                   checked={paymentMethod === "COD"}
-                  onChange={(e) => setPaymentMethod(e.target.value)}
+                  onChange={(e) => handlePaymentMethodChange(e.target.value)}
                   className="accent-blue-900"
                 />
                 <span className="text-sm text-slate-700">
@@ -658,7 +662,7 @@ function Checkout() {
                   name="paymentMethod"
                   value="Razorpay"
                   checked={paymentMethod === "Razorpay"}
-                  onChange={(e) => setPaymentMethod(e.target.value)}
+                  onChange={(e) => handlePaymentMethodChange(e.target.value)}
                   className="accent-blue-900"
                 />
                 <span className="text-sm text-slate-700">
