@@ -1,4 +1,5 @@
 import express from "express";
+import validateObjectId from "../middleware/validateObjectId.js";
 import {
   getCategories,
   getAllCategoriesAdmin,
@@ -18,6 +19,8 @@ import requirePermission from "../middleware/requirePermission.js";
 import requireWriteAccess from "../middleware/requireWriteAccess.js";
 
 const router = express.Router();
+
+router.param("id", validateObjectId);
 const perm = requirePermission("categories");
 const canCreate = requireWriteAccess("categories", "new");
 const canModify = requireWriteAccess("categories", "modified");

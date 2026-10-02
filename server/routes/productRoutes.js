@@ -1,4 +1,5 @@
 import express from "express";
+import validateObjectId from "../middleware/validateObjectId.js";
 import { uploadProductMedia } from "../middleware/uploadMiddleware.js";
 import imageOptimizer from "../middleware/imageOptimizer.js";
 import authMiddleware from "../middleware/authMiddleware.js";
@@ -30,6 +31,8 @@ import {
 } from "../controllers/productController.js";
 
 const router = express.Router();
+
+router.param("id", validateObjectId);
 const perm = requirePermission("products");
 const canCreate = requireWriteAccess("products", "new");
 const canModify = requireWriteAccess("products", "modified");

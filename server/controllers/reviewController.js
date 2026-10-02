@@ -223,10 +223,14 @@ export const getAllReviewsAdmin = async (req, res) => {
   try {
     const sortOrder = req.query.sortOrder === "asc" ? 1 : -1;
 
+    // Safety ceiling, not real pagination — see getAllOrders' own
+    // comment (orderController.js) for why this pattern was chosen here
+    // over a full pagination rework.
     const reviews = await Review.find()
       .populate("user", "name email")
       .populate("product", "name image")
-      .sort({ createdAt: sortOrder });
+      .sort({ createdAt: sortOrder })
+      .limit(2000);
 
     res.status(200).json({
       success: true,

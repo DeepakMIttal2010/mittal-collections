@@ -1,4 +1,5 @@
 import express from "express";
+import validateObjectId from "../middleware/validateObjectId.js";
 
 import {
   getProductReviews,
@@ -17,6 +18,9 @@ import requirePermission from "../middleware/requirePermission.js";
 import { uploadLimiter } from "../middleware/uploadLimiter.js";
 
 const router = express.Router();
+
+router.param("id", validateObjectId);
+router.param("productId", validateObjectId);
 const perm = requirePermission("reviews");
 
 router.get("/showcase", getShowcaseReviews);
