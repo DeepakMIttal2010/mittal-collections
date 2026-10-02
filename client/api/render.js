@@ -124,6 +124,19 @@ const imgUrl = (path) => {
   return path.startsWith("http") ? path : `${API_BASE}${path}`;
 };
 
+// Shared by every buildXBodyHtml helper below — a real <nav> a crawler's
+// non-JS first pass can read, not just the JSON-LD BreadcrumbList
+// (buildBreadcrumbJsonLd) which only ever lived in <head> as structured
+// data, never as visible text.
+const buildBreadcrumbHtml = (breadcrumbItems) =>
+  breadcrumbItems
+    .map((item) =>
+      item.path
+        ? `<a href="${SITE_URL}${item.path}">${escapeHtml(item.name)}</a>`
+        : `<span>${escapeHtml(item.name)}</span>`,
+    )
+    .join(" &gt; ");
+
 // Real, visible HTML for a product page's <body> — same reasoning as
 // buildCategoryBodyHtml below (added first, for category pages, after a
 // confirmed live Soft 404 on table-covers; extended here to product
@@ -133,13 +146,7 @@ const imgUrl = (path) => {
 // that are actually set, since most products don't use every one
 // (variant products have no flat size/color, for instance).
 const buildProductBodyHtml = (product, plainDescription, offerPrice, offerStock, breadcrumbItems, galleryImages) => {
-  const breadcrumbHtml = breadcrumbItems
-    .map((item) =>
-      item.path
-        ? `<a href="${SITE_URL}${item.path}">${escapeHtml(item.name)}</a>`
-        : `<span>${escapeHtml(item.name)}</span>`,
-    )
-    .join(" &gt; ");
+  const breadcrumbHtml = buildBreadcrumbHtml(breadcrumbItems);
 
   const specs = [
     ["Brand", product.brand],
@@ -179,13 +186,7 @@ const buildProductBodyHtml = (product, plainDescription, offerPrice, offerStock,
 // Googlebot's first-pass (non-JS) crawl the same product list a real
 // visitor's browser renders, not just a head-only shell.
 const buildCategoryBodyHtml = (heading, bodyText, breadcrumbItems, products) => {
-  const breadcrumbHtml = breadcrumbItems
-    .map((item) =>
-      item.path
-        ? `<a href="${SITE_URL}${item.path}">${escapeHtml(item.name)}</a>`
-        : `<span>${escapeHtml(item.name)}</span>`,
-    )
-    .join(" &gt; ");
+  const breadcrumbHtml = buildBreadcrumbHtml(breadcrumbItems);
 
   const productsHtml = products
     .map((p) => {
@@ -212,6 +213,30 @@ const buildCategoryBodyHtml = (heading, bodyText, breadcrumbItems, products) => 
     </ul>
   `;
 };
+
+// Articles and policy pages (privacy/returns/shipping/terms) both already
+// store their body as real, admin-authored HTML (`<p>`/`<h2>`/etc, the
+// same shape ArticleDetail.jsx / the policies page render client-side) —
+// trusted content, not raw user input, so it's embedded as-is rather than
+// escaped (escaping it would show literal "<p>" tags as text instead of
+// rendering them).
+const buildRichContentBodyHtml = (breadcrumbItems, heading, contentHtml) => `
+    <nav aria-label="breadcrumb">${buildBreadcrumbHtml(breadcrumbItems)}</nav>
+    <h1>${escapeHtml(heading)}</h1>
+    ${contentHtml || ""}
+  `;
+
+// For the handful of pages with no richer content than their own
+// title/description (STATIC_PAGES, /contact, /ghaziabad-home-furnishing-
+// store, the homepage) — still real visible text instead of an empty
+// body, just a single paragraph rather than a full article/product/
+// category's worth of content, since there's nothing more specific to
+// give a crawler for these.
+const buildSimpleBodyHtml = (breadcrumbItems, heading, description) => `
+    <nav aria-label="breadcrumb">${buildBreadcrumbHtml(breadcrumbItems)}</nav>
+    <h1>${escapeHtml(heading)}</h1>
+    ${description ? `<p>${escapeHtml(description)}</p>` : ""}
+  `;
 
 // Static pages whose title/description never depend on data — a plain
 // copy of each page's own <Seo title=... description=... /> call (see
@@ -422,6 +447,11 @@ const buildMeta = async (path) => {
       url: `${SITE_URL}/`,
       ogType: "website",
       jsonLd: [organizationJsonLd, websiteJsonLd, localBusinessJsonLd].filter(Boolean),
+      bodyHtml: buildSimpleBodyHtml(
+        [{ name: "Home" }],
+        "Bedsheets, Curtains & Towels Online",
+        "Shop premium cotton bedsheets, curtains, towels, cushions & doormats online with pan-India delivery — fast 24-hour delivery in Ghaziabad. Easy returns.",
+      ),
     };
   }
 
@@ -777,17 +807,20 @@ const buildMeta = async (path) => {
 
     const page = data.page;
     const url = `${SITE_URL}/policies/${parts[1]}`;
+    const breadcrumbItems = [{ name: "Home", path: "/" }, { name: page.title }];
 
     return {
       title: page.title,
-      description: (page.content || page.title).slice(0, 160),
+      // Was slicing the raw, unstripped HTML (page.content) straight into
+      // the meta description -- a policy page starting with so much as a
+      // leading <p> showed a literal "<p>" in the search snippet. Found
+      // while adding real body content below (2026-10-02).
+      description: (stripHtml(page.content) || page.title).slice(0, 160),
       image: DEFAULT_IMAGE,
       url,
       ogType: "website",
-      jsonLd: buildBreadcrumbJsonLd([
-        { name: "Home", path: "/" },
-        { name: page.title },
-      ]),
+      jsonLd: buildBreadcrumbJsonLd(breadcrumbItems),
+      bodyHtml: buildRichContentBodyHtml(breadcrumbItems, page.title, page.content),
     };
   }
 
@@ -826,6 +859,20 @@ const buildMeta = async (path) => {
         }
       : null;
 
+    const contactBreadcrumbItems = [{ name: "Home", path: "/" }, { name: staticPage.breadcrumb }];
+    // A bit richer than buildSimpleBodyHtml's single paragraph -- the
+    // real address/phone are genuinely useful local-SEO content, not
+    // just filler, and settings.address is already fetched for the
+    // JSON-LD above anyway.
+    const contactBodyHtml = `
+      <nav aria-label="breadcrumb">${buildBreadcrumbHtml(contactBreadcrumbItems)}</nav>
+      <h1>${escapeHtml(staticPage.title)}</h1>
+      <p>${escapeHtml(staticPage.description)}</p>
+      ${settings.address ? `<p>${escapeHtml(settings.address)}</p>` : ""}
+      ${settings.phone ? `<p>Phone: ${escapeHtml(settings.phone)}</p>` : ""}
+      ${settings.email ? `<p>Email: ${escapeHtml(settings.email)}</p>` : ""}
+    `;
+
     return {
       title: staticPage.title,
       description: staticPage.description,
@@ -833,9 +880,10 @@ const buildMeta = async (path) => {
       url: `${SITE_URL}${path}`,
       ogType: "website",
       jsonLd: [
-        buildBreadcrumbJsonLd([{ name: "Home", path: "/" }, { name: staticPage.breadcrumb }]),
+        buildBreadcrumbJsonLd(contactBreadcrumbItems),
         localBusinessJsonLd,
       ].filter(Boolean),
+      bodyHtml: contactBodyHtml,
     };
   }
 
@@ -875,21 +923,37 @@ const buildMeta = async (path) => {
       ),
     };
 
+    const ghaziabadBreadcrumbItems = [{ name: "Home", path: "/" }, { name: staticPage.breadcrumb }];
+    // Richest page to give real local-SEO body content to -- it's
+    // specifically a local-intent landing page (see
+    // [[seo_visibility_diagnostic_2026-10-01]] on local-intent terms
+    // being the site's actual working opportunity), so the delivery-area
+    // list is genuine, relevant content here, not filler.
+    const ghaziabadBodyHtml = `
+      <nav aria-label="breadcrumb">${buildBreadcrumbHtml(ghaziabadBreadcrumbItems)}</nav>
+      <h1>${escapeHtml(staticPage.title)}</h1>
+      <p>${escapeHtml(staticPage.description)}</p>
+      <p>Near Vanasthali Public School, Sector-3, Vasundhara, Ghaziabad, Uttar Pradesh 201012</p>
+      <p>24-hour delivery available in:</p>
+      <ul>
+        ${DELIVERY_AREAS.map((area) => `<li>${escapeHtml(area)}, Ghaziabad</li>`).join("\n")}
+      </ul>
+    `;
+
     return {
       title: staticPage.title,
       description: staticPage.description,
       image: DEFAULT_IMAGE,
       url: `${SITE_URL}${path}`,
       ogType: "website",
-      jsonLd: [
-        localBusinessJsonLd,
-        buildBreadcrumbJsonLd([{ name: "Home", path: "/" }, { name: staticPage.breadcrumb }]),
-      ],
+      jsonLd: [localBusinessJsonLd, buildBreadcrumbJsonLd(ghaziabadBreadcrumbItems)],
+      bodyHtml: ghaziabadBodyHtml,
     };
   }
 
   if (STATIC_PAGES[path]) {
     const staticPage = STATIC_PAGES[path];
+    const staticBreadcrumbItems = [{ name: "Home", path: "/" }, { name: staticPage.breadcrumb }];
 
     return {
       title: staticPage.title,
@@ -898,10 +962,8 @@ const buildMeta = async (path) => {
       url: `${SITE_URL}${path}`,
       ogType: "website",
       lang: staticPage.lang,
-      jsonLd: buildBreadcrumbJsonLd([
-        { name: "Home", path: "/" },
-        { name: staticPage.breadcrumb },
-      ]),
+      jsonLd: buildBreadcrumbJsonLd(staticBreadcrumbItems),
+      bodyHtml: buildSimpleBodyHtml(staticBreadcrumbItems, staticPage.title, staticPage.description),
     };
   }
 
@@ -961,6 +1023,7 @@ const buildMeta = async (path) => {
         },
         buildBreadcrumbJsonLd(breadcrumbItems),
       ],
+      bodyHtml: buildRichContentBodyHtml(breadcrumbItems, article.title, article.content),
     };
   }
 
@@ -1025,6 +1088,15 @@ const buildMeta = async (path) => {
         },
         buildBreadcrumbJsonLd(breadcrumbItems),
       ],
+      // Falls back to the English content if contentHi was never filled
+      // in (titleHi/excerptHi existing doesn't guarantee the full body
+      // was translated too) -- better than an empty body under a Hindi
+      // URL.
+      bodyHtml: buildRichContentBodyHtml(
+        breadcrumbItems,
+        article.titleHi,
+        article.contentHi || article.content,
+      ),
     };
   }
 
