@@ -11,6 +11,7 @@ import Categories from "../components/Categories/Categories";
 import TrendingSection from "../components/TrendingSection/TrendingSection";
 import ClearanceSale from "../components/ClearanceSale/ClearanceSale";
 import SizeShowcase from "../components/SubcategoryShowcase/SizeShowcase";
+import ShopByNeed from "../components/ShopByNeed/ShopByNeed";
 import PriceShowcase from "../components/PriceShowcase/PriceShowcase";
 import WhyChooseUs from "../components/WhyChooseUs/WhyChooseUs";
 import Testimonials from "../components/Testimonials/Testimonials";
@@ -148,6 +149,7 @@ function Home() {
       <TrendingSection />
       <ClearanceSale />
       <SizeShowcase />
+      <ShopByNeed />
       <PriceShowcase />
       <CategoryNewArrivals />
       {/* Below-the-fold from here on every real viewport (16 sections
