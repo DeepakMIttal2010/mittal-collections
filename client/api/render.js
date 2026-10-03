@@ -682,6 +682,14 @@ const buildMeta = async (path) => {
       name: p.name,
       description: plainDescription,
       image: galleryImages,
+      // The product's own Mongo _id -- already the unique identifier used
+      // everywhere else (product URLs, the Merchant Center/Meta feed's
+      // <g:id> in feedController.js) -- NOT generateProductNumber
+      // (costCipher.js), which deliberately encodes purchase price and
+      // purchase date for the admin's own shelf-label decode tool. Using
+      // that here would have published every product's cost price in
+      // Google's own structured data.
+      sku: p._id,
       brand: { "@type": "Brand", name: SITE_NAME },
       offers: {
         "@type": "Offer",
