@@ -238,6 +238,57 @@ const buildSimpleBodyHtml = (breadcrumbItems, heading, description) => `
     ${description ? `<p>${escapeHtml(description)}</p>` : ""}
   `;
 
+// The homepage is the single most-crawled, highest-authority page on
+// the site -- real links to a category here pass that straight through
+// to pages Google has otherwise been slow to prioritize crawling (see
+// [[crawl_indexation_audit_2026-09-28]]: Table Covers/Table Runners
+// sitting at "URL is unknown to Google" despite being in the sitemap).
+// Mirrors the client-side homepage's CategoryQuickLinks + ShopByNeed
+// sections -- every category, plus the "By Material"/"By Type"
+// subcategory links -- as real crawlable <a> tags, not just the single
+// generic paragraph this body used to be.
+const buildHomeBodyHtml = (heading, description, categories, subcategories) => {
+  const categoryLinksHtml = categories
+    .map(
+      (c) =>
+        `<li><a href="${SITE_URL}/category/${c.slug}">${escapeHtml(c.name)}</a></li>`,
+    )
+    .join("\n");
+
+  const categoryMap = new Map(categories.map((c) => [c._id, c]));
+  const relevant = subcategories.filter(
+    (s) => s.groupLabel === "By Material" || s.groupLabel === "By Type",
+  );
+  const shopByNeedHtml = relevant
+    .map((s) => {
+      const category = categoryMap.get(s.category?._id);
+      if (!category) return "";
+      return `<li><a href="${SITE_URL}/category/${category.slug}/${s.slug}">${escapeHtml(s.name)}</a></li>`;
+    })
+    .join("\n");
+
+  return `
+    <h1>${escapeHtml(heading)}</h1>
+    <p>${escapeHtml(description)}</p>
+    <nav aria-label="Shop by category">
+      <h2>Shop by Category</h2>
+      <ul>
+        ${categoryLinksHtml}
+      </ul>
+    </nav>
+    ${
+      shopByNeedHtml
+        ? `<nav aria-label="Shop by need">
+      <h2>Shop by Need</h2>
+      <ul>
+        ${shopByNeedHtml}
+      </ul>
+    </nav>`
+        : ""
+    }
+  `;
+};
+
 // Static pages whose title/description never depend on data — a plain
 // copy of each page's own <Seo title=... description=... /> call (see
 // About.jsx, Contact.jsx, Rewards.jsx, etc.), kept in sync by hand since
@@ -356,8 +407,82 @@ const buildMeta = async (path) => {
     // /client/middleware.js is what actually routes a bot's "/" request
     // here now, since Edge Middleware runs ahead of that static-file
     // lookup — this branch is what it lands on.
-    const settingsData = await fetchJson(`${API_BASE}/api/settings`);
+    const [settingsData, categoriesData, subcategoriesData, rewardsData] = await Promise.all([
+      fetchJson(`${API_BASE}/api/settings`),
+      fetchJson(`${API_BASE}/api/categories`),
+      fetchJson(`${API_BASE}/api/subcategories`),
+      fetchJson(`${API_BASE}/api/rewards/public`),
+    ]);
     const settings = settingsData.settings || {};
+    const homeCategories = categoriesData.success ? categoriesData.categories || [] : [];
+    const homeSubcategories = subcategoriesData.success
+      ? subcategoriesData.subcategories || []
+      : [];
+    const freeShippingThreshold = settings.freeShippingThreshold ?? 499;
+    const earnRate = rewardsData.success ? rewardsData.loyalty?.earnRate ?? 20 : 20;
+
+    // Mirrors Faq.jsx's faqs array + faqJsonLd exactly (same questions,
+    // same two dynamic values) -- that component's FAQPage schema was
+    // never reaching Googlebot at all, since it only ever renders
+    // client-side and bots are always routed here instead. English
+    // only (no Hindi variant) -- same single-language choice every
+    // other piece of this file's structured data already makes, there's
+    // no reliable "which language" signal for a bot-served response the
+    // way there is for a real visitor's own language setting.
+    const faqJsonLd = {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      mainEntity: [
+        {
+          "@type": "Question",
+          name: "Do you offer free shipping?",
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: `Yes! Orders above ₹${freeShippingThreshold} get free shipping. Below that, the delivery fee is small and gets lower the closer your order is to ₹${freeShippingThreshold}.`,
+          },
+        },
+        {
+          "@type": "Question",
+          name: "Is Cash on Delivery (COD) available?",
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: "Yes, Cash on Delivery is available on all orders across India, in addition to online payment.",
+          },
+        },
+        {
+          "@type": "Question",
+          name: "What is your return policy?",
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: "You can return an unused product in its original packaging within 7 days of delivery. Once we receive and inspect it, your refund is processed within 5-7 business days.",
+          },
+        },
+        {
+          "@type": "Question",
+          name: "How long does delivery take?",
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: "Orders are dispatched within 1-2 business days and typically delivered in 3-7 business days depending on your location.",
+          },
+        },
+        {
+          "@type": "Question",
+          name: "Do I earn rewards on my purchase?",
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: `Yes! You earn 1 loyalty point for every ₹${earnRate} you spend, which you can redeem for a discount on a future order.`,
+          },
+        },
+        {
+          "@type": "Question",
+          name: "How can I get help before ordering?",
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: "Chat with us anytime on WhatsApp using the button at the bottom-left of the screen, or reach out from our Contact page.",
+          },
+        },
+      ],
+    };
 
     // Base fields unconditional, same reasoning as Home.jsx's
     // baseOrganizationJsonLd — never depends on settings.address, so a
@@ -446,11 +571,14 @@ const buildMeta = async (path) => {
       image: DEFAULT_IMAGE,
       url: `${SITE_URL}/`,
       ogType: "website",
-      jsonLd: [organizationJsonLd, websiteJsonLd, localBusinessJsonLd].filter(Boolean),
-      bodyHtml: buildSimpleBodyHtml(
-        [{ name: "Home" }],
+      jsonLd: [organizationJsonLd, websiteJsonLd, localBusinessJsonLd, faqJsonLd].filter(
+        Boolean,
+      ),
+      bodyHtml: buildHomeBodyHtml(
         "Bedsheets, Curtains & Towels Online",
         "Shop premium cotton bedsheets, curtains, towels, cushions & doormats online with pan-India delivery — fast 24-hour delivery in Ghaziabad. Easy returns.",
+        homeCategories,
+        homeSubcategories,
       ),
     };
   }
