@@ -11,7 +11,6 @@ import Categories from "../components/Categories/Categories";
 import TrendingSection from "../components/TrendingSection/TrendingSection";
 import ClearanceSale from "../components/ClearanceSale/ClearanceSale";
 import SizeShowcase from "../components/SubcategoryShowcase/SizeShowcase";
-import ShopByNeed from "../components/ShopByNeed/ShopByNeed";
 import PriceShowcase from "../components/PriceShowcase/PriceShowcase";
 import WhyChooseUs from "../components/WhyChooseUs/WhyChooseUs";
 import Testimonials from "../components/Testimonials/Testimonials";
@@ -142,26 +141,15 @@ function Home() {
       />
       <Hero />
       <CategoryQuickLinks />
-      {/* Discovery/navigation sections clustered right after the hero —
-          "where can I go" before any promotional content, matching the
-          "Product Discovery website" direction this homepage is moving
-          toward, and the standard ordering on Amazon/Flipkart/Myntra
-          homepages (category navigation before deals/trending). */}
-      <SizeShowcase />
-      <ShopByNeed />
       <TrustBar />
-      {/* Real products next -- Discover -> find category/size -> SEE
-          PRODUCTS, before any trust/loyalty pitch (RewardsStrip) or the
-          bigger browse-everything grid (Categories) -- a first-time
-          visitor's next want after "where do I go" is "ok show me
-          something", not another round of navigation. */}
-      <TrendingSection />
-      <CategoryNewArrivals />
       <RewardsStrip />
       <RecentlyViewed />
       <Categories />
-      <PriceShowcase />
+      <TrendingSection />
       <ClearanceSale />
+      <SizeShowcase />
+      <PriceShowcase />
+      <CategoryNewArrivals />
       {/* Below-the-fold from here on every real viewport (16 sections
           total on this page) — deferring these specifically cut ~1s of
           main-thread blocking time in a throttled Lighthouse trace, see
