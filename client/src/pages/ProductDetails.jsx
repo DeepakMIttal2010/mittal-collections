@@ -587,6 +587,12 @@ function ProductDetails() {
             // Confirmed against the live Returns policy page text
             // ("Return pickup is completely free") rather than assumed.
             returnFees: "https://schema.org/FreeReturn",
+            // Flagged by Search Console (2026-10-03, "Merchant listings
+            // structured data issues") as a missing recommended field.
+            // ReturnByMail matches how a return actually happens here --
+            // a courier pickup/return shipment, not a customer walking
+            // into the Ghaziabad shop with the item.
+            returnMethod: "https://schema.org/ReturnByMail",
           }
         : {
             "@type": "MerchantReturnPolicy",
