@@ -134,8 +134,8 @@ function Home() {
   return (
     <>
       <Seo
-        title="Bedsheets, Curtains & Towels Online"
-        description="Shop premium cotton bedsheets, curtains, towels, cushions & doormats online with pan-India delivery — fast 24-hour delivery in Ghaziabad. Easy returns."
+        title="Bedsheets, Curtains, Home Decor Online"
+        description="Shop bedsheets, comforters, curtains, towels, cushions & doormats online — pan-India delivery, fast 24-hr Ghaziabad delivery, easy returns."
         url={`${SITE_URL}/`}
         jsonLd={[organizationJsonLd, websiteJsonLd, localBusinessJsonLd]}
       />
