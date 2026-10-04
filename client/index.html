@@ -96,6 +96,33 @@
           script.src = "https://www.googletagmanager.com/gtag/js?id=G-1HP8PP1ZDM";
           document.head.appendChild(script);
         });
+
+        // Meta (Facebook) Pixel — same gating and lazy-load timing as the
+        // gtag block above, for the same reasons (keep dev/admin usage out
+        // of ad-platform data, don't compete with the app's own JS for the
+        // initial render/interactive budget). The fbq queue stub is set up
+        // synchronously so any fbq() call made before fbevents.js finishes
+        // loading still queues correctly instead of being dropped.
+        !(function (f, b, e, v, n, t, s) {
+          if (f.fbq) return;
+          n = f.fbq = function () {
+            n.callMethod ? n.callMethod.apply(n, arguments) : n.queue.push(arguments);
+          };
+          f._fbq || (f._fbq = n);
+          n.push = n;
+          n.loaded = !0;
+          n.version = "2.0";
+          n.queue = [];
+        })(window, document, "script");
+        fbq("init", "1309398947938801");
+        fbq("track", "PageView");
+
+        window.addEventListener("load", () => {
+          const script = document.createElement("script");
+          script.async = true;
+          script.src = "https://connect.facebook.net/en_US/fbevents.js";
+          document.head.appendChild(script);
+        });
       }
     </script>
   </head>

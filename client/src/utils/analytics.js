@@ -17,6 +17,18 @@ const trackEvent = (eventName, params = {}) => {
   }
 };
 
+// Meta Pixel's standard e-commerce events — fired alongside the matching
+// GA4 call at the same four funnel steps (view/cart/checkout/purchase) so
+// a future retargeting/conversion campaign has a real "viewed but didn't
+// buy" audience to build from. Same `typeof window.fbq === "function"`
+// no-op guard as trackEvent above, for the same reason: index.html's fbq
+// stub is skipped on localhost/admin, so this is a no-op there too.
+const trackMetaEvent = (eventName, params = {}) => {
+  if (typeof window.fbq === "function") {
+    window.fbq("track", eventName, params);
+  }
+};
+
 // A cart line item's shape (CartContext.jsx) and a raw Product doc
 // (ProductDetails.jsx) differ slightly (price vs product.price, no
 // `category` populated the same way everywhere) -- this normalizes
@@ -44,6 +56,13 @@ export const trackViewItem = (product) => {
       },
     ],
   });
+  trackMetaEvent("ViewContent", {
+    content_ids: [product._id],
+    content_type: "product",
+    content_name: product.name,
+    currency: "INR",
+    value: product.price,
+  });
 };
 
 export const trackAddToCart = (item, quantity) => {
@@ -51,6 +70,13 @@ export const trackAddToCart = (item, quantity) => {
     currency: "INR",
     value: item.price * quantity,
     items: [toGa4Item(item, quantity)],
+  });
+  trackMetaEvent("AddToCart", {
+    content_ids: [item.productId || item._id],
+    content_type: "product",
+    content_name: item.name,
+    currency: "INR",
+    value: item.price * quantity,
   });
 };
 
@@ -67,6 +93,13 @@ export const trackBeginCheckout = (cartItems, value) => {
     currency: "INR",
     value,
     items: cartItems.map((item) => toGa4Item(item, item.quantity)),
+  });
+  trackMetaEvent("InitiateCheckout", {
+    content_ids: cartItems.map((item) => item.productId || item._id),
+    content_type: "product",
+    currency: "INR",
+    value,
+    num_items: cartItems.reduce((sum, item) => sum + item.quantity, 0),
   });
 };
 
@@ -94,6 +127,13 @@ export const trackPurchase = (order) => {
       price: item.price,
       quantity: item.quantity,
     })),
+  });
+  trackMetaEvent("Purchase", {
+    content_ids: (order.orderItems || []).map((item) => item.product?._id || item.product),
+    content_type: "product",
+    currency: "INR",
+    value: order.totalPrice,
+    num_items: (order.orderItems || []).reduce((sum, item) => sum + item.quantity, 0),
   });
 };
 

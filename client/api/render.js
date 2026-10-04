@@ -565,9 +565,9 @@ const buildMeta = async (path) => {
       // not the client-side one. Bare title must stay short enough that
       // appending " | SITE_NAME" doesn't push the final <title> past
       // Google's ~60-char truncation point.
-      title: `Bedsheets, Curtains & Towels Online | ${SITE_NAME}`,
+      title: `Bedsheets, Curtains, Home Decor Online | ${SITE_NAME}`,
       description:
-        "Shop premium cotton bedsheets, curtains, towels, cushions & doormats online with pan-India delivery — fast 24-hour delivery in Ghaziabad. Easy returns.",
+        "Shop bedsheets, comforters, curtains, towels, cushions & doormats online — pan-India delivery, fast 24-hr Ghaziabad delivery, easy returns.",
       image: DEFAULT_IMAGE,
       url: `${SITE_URL}/`,
       ogType: "website",
@@ -575,8 +575,8 @@ const buildMeta = async (path) => {
         Boolean,
       ),
       bodyHtml: buildHomeBodyHtml(
-        "Bedsheets, Curtains & Towels Online",
-        "Shop premium cotton bedsheets, curtains, towels, cushions & doormats online with pan-India delivery — fast 24-hour delivery in Ghaziabad. Easy returns.",
+        "Bedsheets, Curtains, Home Decor Online",
+        "Shop bedsheets, comforters, curtains, towels, cushions & doormats online — pan-India delivery, fast 24-hr Ghaziabad delivery, easy returns.",
         homeCategories,
         homeSubcategories,
       ),
