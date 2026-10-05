@@ -583,10 +583,20 @@ function Header() {
             className="hidden md:block relative"
             onMouseEnter={openAccountMenu}
             onMouseLeave={scheduleCloseAccountMenu}
+            onFocus={openAccountMenu}
+            onBlur={scheduleCloseAccountMenu}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") {
+                setAccountOpen(false);
+                e.currentTarget.querySelector("button, a")?.focus();
+              }
+            }}
           >
             {isLoggedIn ? (
               <button
                 type="button"
+                aria-haspopup="true"
+                aria-expanded={accountOpen}
                 className="flex items-center gap-1.5 text-slate-600 hover:text-blue-700 transition-colors"
               >
                 <span className="w-7 h-7 rounded-full bg-amber-600 text-white text-sm font-semibold flex items-center justify-center shrink-0">

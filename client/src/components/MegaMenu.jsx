@@ -38,6 +38,23 @@ function useGroupedSubcategories(subcategories) {
   };
 }
 
+// Moves focus to the next/previous focusable link or button inside
+// `container` relative to whichever one is currently focused, wrapping
+// at either end. Used by the submenu panels' own ArrowDown/ArrowUp
+// handling — see the comment on DropdownPortal for why this exists
+// instead of relying on Tab to wander into/through a portalled panel.
+function focusAdjacent(container, direction) {
+  if (!container) return;
+  const focusables = [...container.querySelectorAll("a, button")];
+  if (focusables.length === 0) return;
+  const currentIndex = focusables.indexOf(document.activeElement);
+  const nextIndex =
+    currentIndex === -1
+      ? 0
+      : (currentIndex + direction + focusables.length) % focusables.length;
+  focusables[nextIndex].focus();
+}
+
 // Shared by every dropdown below — hover state is driven by both the
 // trigger and the panel itself, since portalling the panel to <body>
 // makes it a DOM sibling rather than a descendant of the trigger. Closing
@@ -80,14 +97,35 @@ function useHoverDropdown() {
   return { triggerRef, isOpen, rect, open, close };
 }
 
-// Portalled to <body> — rendered inline, this nav row's own overflow-x
-// handling (needed so an overlong row scrolls instead of wrapping mid
-// item or silently clipping off-screen items) would otherwise clip any
-// absolutely-positioned dropdown, regardless of which element is its
-// actual CSS containing block. Positioned via a live getBoundingClientRect
-// of the trigger rather than CSS top/left, same fix already used for
+// Portalled to `target` (a node Navbar.jsx places as a sibling right
+// after <nav>, falling back to document.body before that ref is ready)
+// — rendered inline, this nav row's own overflow-x handling (needed so
+// an overlong row scrolls instead of wrapping mid item or silently
+// clipping off-screen items) would otherwise clip any absolutely-
+// positioned dropdown, regardless of which element is its actual CSS
+// containing block. Positioned via a live getBoundingClientRect of the
+// trigger rather than CSS top/left, same fix already used for
 // QuickViewModal's own "escape the containing block" problem.
-function DropdownPortal({ rect, onMouseEnter, onMouseLeave, children }) {
+//
+// `target` (a node Navbar.jsx places right after <nav>) replaces the
+// previous document.body target as of a 2026-10-05 a11y pass, but that
+// alone does NOT fix keyboard reachability the way an earlier version of
+// this comment assumed: every top-level trigger lives inside the same
+// <nav>, so Tab from an early trigger (e.g. Bedsheets) still reaches every
+// LATER trigger (Comforters, Curtains, ...) before it could ever reach
+// anything positioned after the whole nav — confirmed live with a
+// Playwright keyboard-only pass, not just reasoned about. Real fix is
+// ArrowDown/ArrowUp navigation driven by CategoryNavItem/MoreCategoriesMenu
+// (see their onKeyDown handlers) using `panelRef` below to move focus
+// programmatically into and within the open panel, rather than relying on
+// sequential Tab to wander in on its own — the standard pattern for
+// disclosure/menu widgets (W3C ARIA Authoring Practices), not specific to
+// this codebase. onFocus/onBlur ARE still wired on the trigger (not
+// re-copied here) purely to make the panel visually appear/disappear as
+// focus arrives/leaves — React bubbles focus/blur along the component
+// tree even across a portal boundary, so those trigger-level handlers see
+// focus events from inside the portalled panel too.
+function DropdownPortal({ rect, target, panelRef: externalPanelRef, onMouseEnter, onMouseLeave, onKeyDown, children }) {
   const panelRef = useRef(null);
   const [left, setLeft] = useState(rect ? rect.left : 0);
   // Tracks the narrowest `left` computed so far for the CURRENT open
@@ -140,9 +178,13 @@ function DropdownPortal({ rect, onMouseEnter, onMouseLeave, children }) {
 
   return createPortal(
     <div
-      ref={panelRef}
+      ref={(el) => {
+        panelRef.current = el;
+        if (externalPanelRef) externalPanelRef.current = el;
+      }}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
+      onKeyDown={onKeyDown}
       style={{
         position: "fixed",
         top: rect.bottom,
@@ -152,7 +194,7 @@ function DropdownPortal({ rect, onMouseEnter, onMouseLeave, children }) {
     >
       {children}
     </div>,
-    document.body,
+    target || document.body,
   );
 }
 
@@ -200,10 +242,17 @@ function SubmenuPanel({ category, groups }) {
   );
 }
 
-function CategoryNavItem({ category, groups, linkClassName }) {
+function CategoryNavItem({ category, groups, linkClassName, portalTarget }) {
   const { t } = useLanguage();
+  const triggerLinkRef = useRef(null);
+  const panelRef = useRef(null);
   const hasSubmenu = Object.keys(groups).length > 0;
   const { triggerRef, isOpen, rect, open, close } = useHoverDropdown();
+
+  const closeAndReturnFocus = () => {
+    close();
+    triggerLinkRef.current?.focus();
+  };
 
   return (
     <div
@@ -211,9 +260,33 @@ function CategoryNavItem({ category, groups, linkClassName }) {
       className="inline-block"
       onMouseEnter={hasSubmenu ? open : undefined}
       onMouseLeave={hasSubmenu ? close : undefined}
+      onFocus={hasSubmenu ? open : undefined}
+      onBlur={hasSubmenu ? close : undefined}
+      onKeyDown={
+        hasSubmenu
+          ? (e) => {
+              if (e.key === "Escape") {
+                closeAndReturnFocus();
+              } else if (e.key === "ArrowDown" && document.activeElement === triggerLinkRef.current) {
+                // Tab can't reliably reach a portalled panel's own links
+                // (see DropdownPortal's comment) — ArrowDown moves focus
+                // into it directly instead, the standard pattern for
+                // disclosure menus. Only handled when focus is still ON
+                // the trigger itself, so it doesn't fight the panel's own
+                // ArrowDown handling once focus has moved inside.
+                e.preventDefault();
+                open();
+                requestAnimationFrame(() => focusAdjacent(panelRef.current, 1));
+              }
+            }
+          : undefined
+      }
     >
       <NavLink
+        ref={triggerLinkRef}
         to={`/category/${category.slug}`}
+        aria-haspopup={hasSubmenu ? "true" : undefined}
+        aria-expanded={hasSubmenu ? isOpen : undefined}
         className={
           linkClassName ||
           "text-sm font-medium px-4 py-3 text-slate-700 hover:text-amber-600"
@@ -223,7 +296,24 @@ function CategoryNavItem({ category, groups, linkClassName }) {
       </NavLink>
 
       {isOpen && hasSubmenu && (
-        <DropdownPortal rect={rect} onMouseEnter={open} onMouseLeave={close}>
+        <DropdownPortal
+          rect={rect}
+          target={portalTarget}
+          panelRef={panelRef}
+          onMouseEnter={open}
+          onMouseLeave={close}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") {
+              closeAndReturnFocus();
+            } else if (e.key === "ArrowDown") {
+              e.preventDefault();
+              focusAdjacent(panelRef.current, 1);
+            } else if (e.key === "ArrowUp") {
+              e.preventDefault();
+              focusAdjacent(panelRef.current, -1);
+            }
+          }}
+        >
           <SubmenuPanel category={category} groups={groups} />
         </DropdownPortal>
       )}
@@ -231,8 +321,10 @@ function CategoryNavItem({ category, groups, linkClassName }) {
   );
 }
 
-function MoreCategoriesMenu({ categories, getGroupedSubcategories, linkClassName }) {
+function MoreCategoriesMenu({ categories, getGroupedSubcategories, linkClassName, portalTarget }) {
   const { t } = useLanguage();
+  const triggerButtonRef = useRef(null);
+  const panelRef = useRef(null);
   const { triggerRef, isOpen, rect, open, close } = useHoverDropdown();
   const [activeCategoryId, setActiveCategoryId] = useState(null);
 
@@ -250,15 +342,37 @@ function MoreCategoriesMenu({ categories, getGroupedSubcategories, linkClassName
 
   if (categories.length === 0) return null;
 
+  const closeAndReturnFocus = () => {
+    close();
+    triggerButtonRef.current?.focus();
+  };
+
   return (
     <div
       ref={triggerRef}
       className="inline-block"
       onMouseEnter={open}
       onMouseLeave={close}
+      onFocus={open}
+      onBlur={close}
+      onKeyDown={(e) => {
+        if (e.key === "Escape") {
+          closeAndReturnFocus();
+        } else if (e.key === "ArrowDown" && document.activeElement === triggerButtonRef.current) {
+          // Same reasoning as CategoryNavItem's own ArrowDown handler —
+          // see DropdownPortal's comment on why Tab alone can't reach a
+          // portalled panel's links.
+          e.preventDefault();
+          open();
+          requestAnimationFrame(() => focusAdjacent(panelRef.current, 1));
+        }
+      }}
     >
       <button
         type="button"
+        ref={triggerButtonRef}
+        aria-haspopup="true"
+        aria-expanded={isOpen}
         className={
           linkClassName
             ? `flex items-center gap-1.5 ${linkClassName({ isActive: false })}`
@@ -270,7 +384,24 @@ function MoreCategoriesMenu({ categories, getGroupedSubcategories, linkClassName
       </button>
 
       {isOpen && (
-        <DropdownPortal rect={rect} onMouseEnter={open} onMouseLeave={close}>
+        <DropdownPortal
+          rect={rect}
+          target={portalTarget}
+          panelRef={panelRef}
+          onMouseEnter={open}
+          onMouseLeave={close}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") {
+              closeAndReturnFocus();
+            } else if (e.key === "ArrowDown") {
+              e.preventDefault();
+              focusAdjacent(panelRef.current, 1);
+            } else if (e.key === "ArrowUp") {
+              e.preventDefault();
+              focusAdjacent(panelRef.current, -1);
+            }
+          }}
+        >
           <div className="bg-white border border-slate-200 border-t-4 border-t-amber-500 shadow-xl rounded-b-xl flex max-w-[90vw]">
             <div className="w-44 border-r border-slate-100 py-2 shrink-0">
               {categories.map((category) => (
@@ -278,6 +409,7 @@ function MoreCategoriesMenu({ categories, getGroupedSubcategories, linkClassName
                   key={category._id}
                   to={`/category/${category.slug}`}
                   onMouseEnter={() => setActiveCategoryId(category._id)}
+                  onFocus={() => setActiveCategoryId(category._id)}
                   className={`block mx-2 px-3 py-2 rounded-md text-sm transition-colors whitespace-nowrap ${
                     category._id === activeCategoryId
                       ? "bg-amber-100 text-amber-800 font-semibold"
@@ -314,7 +446,7 @@ function MoreCategoriesMenu({ categories, getGroupedSubcategories, linkClassName
   );
 }
 
-function MegaMenu({ linkClassName }) {
+function MegaMenu({ linkClassName, portalTarget }) {
   const [categories, setCategories] = useState([]);
   const [subcategories, setSubcategories] = useState([]);
 
@@ -345,6 +477,7 @@ function MegaMenu({ linkClassName }) {
           category={category}
           groups={getGroupedSubcategories(category._id)}
           linkClassName={linkClassName}
+          portalTarget={portalTarget}
         />
       ))}
 
@@ -352,6 +485,7 @@ function MegaMenu({ linkClassName }) {
         categories={overflowCategories}
         getGroupedSubcategories={getGroupedSubcategories}
         linkClassName={linkClassName}
+        portalTarget={portalTarget}
       />
     </>
   );

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { NavLink } from "react-router-dom";
 import { FaBell, FaFire, FaGift, FaTag } from "react-icons/fa";
 import MegaMenu from "../MegaMenu";
@@ -8,6 +9,19 @@ import { useLanguage } from "../../context/LanguageContext";
 // bottom bar instead of a one-off "☰ Menu" link buried in the navbar.
 function Navbar() {
   const { language, t } = useLanguage();
+  // MegaMenu's dropdown panels portal to this node (a sibling right after
+  // <nav>, outside its own overflow-x-auto scroller) instead of
+  // document.body. Portalling straight to body made a keyboard-accessible
+  // fix structurally impossible: a browser's natural Tab order follows DOM
+  // position, and body-appended content sits after everything else on the
+  // page, so even with focus/blur handlers wired up a keyboard user tabbing
+  // past a category link would jump to the next header item (or further),
+  // never into the open panel's own links. A target positioned immediately
+  // after the trigger row keeps Tab order sane. useState (not a plain ref)
+  // because the portal target needs to exist and trigger a re-render before
+  // MegaMenu's first createPortal call, which a ref's .current wouldn't
+  // guarantee in time.
+  const [portalRoot, setPortalRoot] = useState(null);
 
   const linkClass = ({ isActive }) =>
     `text-sm font-medium px-4 py-3 whitespace-nowrap transition-colors ${
@@ -20,6 +34,7 @@ function Navbar() {
   const guidesPath = language === "hi" ? "/hi/articles" : "/articles";
 
   return (
+    <>
     <nav className="hidden md:block bg-white border-b border-slate-200">
       {/* overflow-x-auto is safe here — the category dropdown panels
           (MegaMenu.jsx) are portalled straight to <body> precisely so
@@ -39,7 +54,7 @@ function Navbar() {
           </NavLink>
 
           {/* Dynamic categories + subcategories mega menu */}
-          <MegaMenu linkClassName={linkClass} />
+          <MegaMenu linkClassName={linkClass} portalTarget={portalRoot} />
 
           {/* Deal-driven items lead (highest conversion urgency), informational
               content (Guides) trails — standard e-commerce nav ordering. */}
@@ -89,6 +104,8 @@ function Navbar() {
         </div>
       </div>
     </nav>
+    <div ref={setPortalRoot} />
+    </>
   );
 }
 
