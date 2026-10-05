@@ -299,8 +299,17 @@
   .hero-split-content {
     /* Smaller reservation to match this breakpoint's smaller title/
        description font sizes below — see the base rule's comment for
-       why this exists at all. */
-    min-height: 230px;
+       why this exists at all. Bumped 230px -> 290px (2026-10-05): a live
+       mobile PageSpeed audit measured 0.260 of the page's 0.353 CLS on
+       this exact element — the "GIFT-READY COLLECTION" banner (a 2-line
+       title + its 125-char description, the longest real banner copy at
+       the time) overflowed the old 230px reservation on mobile's stacked
+       layout, shifting TrustBar and everything below it down once that
+       slide rendered. 290px adds real headroom above that longest
+       current banner rather than exactly matching it, same reasoning as
+       the base rule: still not a guarantee against an even longer future
+       banner, just covers today's real content with margin. */
+    min-height: 290px;
   }
 
   .hero-split-title {
