@@ -23,7 +23,17 @@
 
 .product-image img {
   width: 100%;
-  height: 280px;
+  /* Was a fixed 280px height regardless of card width — fine around
+     1024px+ where a 4-column card is ~286px wide (near-square against
+     280px), but ProductGrid.css drops to 2 columns below 768px, where a
+     card is only ~139-164px wide at common phone widths (320-375px).
+     object-fit: cover then crops into a ~0.5 aspect-ratio sliver of each
+     product photo instead of scaling it — a severe, site-wide zoom/crop
+     on exactly the narrowest, most common viewport (2026-10-05 mobile
+     audit). aspect-ratio keeps the same near-square look at every column
+     count instead of fighting a fixed pixel height against a responsive
+     width. */
+  aspect-ratio: 1 / 1;
   object-fit: cover;
   transition: 0.4s;
 }

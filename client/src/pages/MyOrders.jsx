@@ -314,6 +314,7 @@ function MyOrders() {
     resumeOrderPayment({
       orderId: order._id,
       user,
+      t,
       onSuccess: () => {
         toast.success(
           t("Payment successful — order placed 🎉", "पेमेंट सफल — ऑर्डर हो गया 🎉"),

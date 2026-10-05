@@ -305,11 +305,22 @@
        title + its 125-char description, the longest real banner copy at
        the time) overflowed the old 230px reservation on mobile's stacked
        layout, shifting TrustBar and everything below it down once that
-       slide rendered. 290px adds real headroom above that longest
-       current banner rather than exactly matching it, same reasoning as
-       the base rule: still not a guarantee against an even longer future
-       banner, just covers today's real content with margin. */
-    min-height: 290px;
+       slide rendered.
+       Bumped again 290px -> 310px same day: that first pass was measured
+       against English copy only. Checking every banner's Hindi pair
+       (heroBannersSnapshot.json) found character counts close to or
+       occasionally above the English string for the same slide, and
+       Devanagari text needs more vertical room per line than Latin text
+       at the same font-size/line-height even at similar character counts
+       (taller glyphs, matras, conjuncts) — so a Hindi-mode visitor on
+       this banner could still hit the same CLS the English-only pass
+       just fixed. The extra 20px is headroom for that script-rendering
+       difference, not a specific measurement (no Hindi-mode Lighthouse
+       run available to measure against directly). Still not a guarantee
+       against an even longer future banner in either language — same
+       "covers today's real content with margin" reasoning as the base
+       rule above. */
+    min-height: 310px;
   }
 
   .hero-split-title {

@@ -142,10 +142,15 @@ export const sendAbandonedCartReminders = async (req, res) => {
     for (const cart of abandoned) {
       if (!cart.user?.email || cart.items.length === 0) continue;
 
+      // item.name comes straight from CartSnapshot.items, which syncCart
+      // persists from req.body with no server-side re-derivation (unlike
+      // order placement, which re-verifies every item against the DB) —
+      // so it's fully attacker-controlled free text and must be escaped
+      // the same as cart.user.name below.
       const itemsHtml = cart.items
         .map(
           (item) =>
-            `<li>${item.name} × ${item.quantity} — ₹${item.price * item.quantity}</li>`,
+            `<li>${escapeHtml(item.name)} × ${item.quantity} — ₹${item.price * item.quantity}</li>`,
         )
         .join("");
 

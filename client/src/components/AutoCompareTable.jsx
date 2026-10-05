@@ -89,13 +89,13 @@ function AutoCompareTable({ mainProduct, similarProducts }) {
                     <Link to={productUrl(product)}>
                       <img
                         src={imgUrl(product.image, "w_300,q_auto,f_auto")}
-                        alt={product.name}
+                        alt={t(product.name, product.nameHi)}
                         loading="lazy"
                         className="w-full aspect-square object-cover rounded-lg border border-slate-200 mb-2"
                         onError={handleImageError}
                       />
                       <p className="text-sm font-semibold text-slate-800 line-clamp-2">
-                        {product.name}
+                        {t(product.name, product.nameHi)}
                       </p>
                     </Link>
                   </div>

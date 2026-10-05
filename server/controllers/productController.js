@@ -13,6 +13,7 @@ import Question from "../models/Question.js";
 import { rankProducts } from "../utils/fuzzySearch.js";
 import { sendEmail } from "../config/mailer.js";
 import { notifyUser } from "../utils/notify.js";
+import { escapeHtml } from "../utils/escapeHtml.js";
 import {
   generateProductNumber,
   decodeProductNumber,
@@ -131,7 +132,7 @@ export const notifyStockAlertSubscribers = async (product) => {
         to: alert.email,
         subject: `${product.name} is back in stock!`,
         html: `
-          <p>Good news — <strong>${product.name}</strong> is back in stock at Mittal Collections.</p>
+          <p>Good news — <strong>${escapeHtml(product.name)}</strong> is back in stock at Mittal Collections.</p>
           <p><a href="${productLink}">Shop it now</a> before it sells out again.</p>
         `,
       });

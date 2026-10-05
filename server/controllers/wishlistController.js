@@ -415,7 +415,7 @@ export const sendPriceDropAlerts = async (req, res) => {
           html: `
             <p>Hi ${escapeHtml(user.name || "there")},</p>
             <p>Good news — an item on your wishlist just got cheaper:</p>
-            <p><strong>${product.name}</strong><br/>
+            <p><strong>${escapeHtml(product.name)}</strong><br/>
             Now ₹${product.price} (was ₹${alertBaseline})</p>
             <p><a href="${url}">View product</a></p>
           `,
