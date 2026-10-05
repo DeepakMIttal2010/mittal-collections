@@ -41,7 +41,11 @@ function getRows(t) {
       render: (p) => p.countryOfOrigin || "—",
       spec: "countryOfOrigin",
     },
-    { label: t("Category", "श्रेणी"), render: (p) => p.category?.name || "—", spec: null },
+    {
+      label: t("Category", "श्रेणी"),
+      render: (p) => t(p.category?.name, p.category?.nameHi) || "—",
+      spec: null,
+    },
     {
       label: t("Availability", "उपलब्धता"),
       render: (p) => (
@@ -54,7 +58,9 @@ function getRows(t) {
     {
       label: t("Description", "विवरण"),
       render: (p) => (
-        <span className="line-clamp-4 text-left">{stripHtml(p.description)}</span>
+        <span className="line-clamp-4 text-left">
+          {stripHtml(t(p.description, p.descriptionHi))}
+        </span>
       ),
       spec: null,
     },
@@ -138,13 +144,15 @@ function Compare() {
             <thead>
               <tr>
                 <th className="w-32" />
-                {compareItems.map((product) => (
+                {compareItems.map((product) => {
+                  const productName = t(product.name, product.nameHi);
+                  return (
                   <th key={product._id} className="p-3 align-top text-left">
                     <div className="relative w-full max-w-[180px]">
                       <button
                         type="button"
                         onClick={() => removeFromCompare(product._id)}
-                        aria-label={t(`Remove ${product.name}`, `${product.name} हटाएं`)}
+                        aria-label={t(`Remove ${product.name}`, `${productName} हटाएं`)}
                         className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-white shadow border border-slate-200 flex items-center justify-center text-slate-500 hover:text-red-600"
                       >
                         <FaTimes className="text-xs" />
@@ -153,12 +161,12 @@ function Compare() {
                       <Link to={productUrl(product)}>
                         <img
                           src={imgUrl(product.image, "w_300,q_auto,f_auto")}
-                          alt={product.name}
+                          alt={productName}
                           className="w-full aspect-square object-cover rounded-lg border border-slate-200 mb-2"
                           onError={handleImageError}
                         />
                         <p className="text-sm font-semibold text-slate-800 line-clamp-2">
-                          {product.name}
+                          {productName}
                         </p>
                       </Link>
 
@@ -173,7 +181,8 @@ function Compare() {
                       </button>
                     </div>
                   </th>
-                ))}
+                  );
+                })}
               </tr>
             </thead>
 

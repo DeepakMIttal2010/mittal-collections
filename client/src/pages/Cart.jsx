@@ -209,15 +209,15 @@ function Cart() {
               <div key={item._id} className="cart-item">
                 <img
                   src={imgUrl(item.image, "w_200,q_auto,f_auto")}
-                  alt={item.name}
+                  alt={t(item.name, item.nameHi)}
                   onError={handleImageError}
                 />
 
                 <div className="cart-info">
-                  <h3>{item.name}</h3>
+                  <h3>{t(item.name, item.nameHi)}</h3>
 
                   <p>
-                    {item.category?.name}
+                    {t(item.category?.name, item.category?.nameHi)}
                     {item.selectedSize
                       ? ` · ${t("Size", "साइज़")}: ${item.selectedSize}`
                       : ""}

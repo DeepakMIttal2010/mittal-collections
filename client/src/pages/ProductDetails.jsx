@@ -821,7 +821,7 @@ function ProductDetails() {
 
               {discount > 0 && (
                 <span className="absolute top-3 left-3 bg-red-600 text-white text-xs font-semibold px-2.5 py-1 rounded-full">
-                  {discount}% OFF
+                  {t(`${discount}% OFF`, `${discount}% छूट`)}
                 </span>
               )}
             </div>

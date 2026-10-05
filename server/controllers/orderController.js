@@ -685,7 +685,7 @@ export const createOrder = async (req, res) => {
             ${verifiedItems
               .map(
                 (item) =>
-                  `<li>${item.name}${item.size ? ` (Size: ${item.size})` : ""} × ${item.quantity} — ₹${item.price * item.quantity}</li>`,
+                  `<li>${escapeHtml(item.name)}${item.size ? ` (Size: ${escapeHtml(item.size)})` : ""} × ${item.quantity} — ₹${item.price * item.quantity}</li>`,
               )
               .join("")}
           </ul>
@@ -1428,7 +1428,7 @@ export const sendReviewRequestEmails = async (req, res) => {
           const isPopulated = product && typeof product === "object";
           const productId = isPopulated ? product._id : product;
 
-          if (!productId) return `<li>${item.name}</li>`;
+          if (!productId) return `<li>${escapeHtml(item.name)}</li>`;
 
           // #reviews scrolls straight to (and auto-opens) the review form
           // — see ProductReviews.jsx — instead of leaving the customer to
@@ -1437,7 +1437,7 @@ export const sendReviewRequestEmails = async (req, res) => {
             isPopulated && product.slug ? `/${product.slug}` : ""
           }#reviews`;
 
-          return `<li>${item.name} — <a href="${url}">Leave a review</a></li>`;
+          return `<li>${escapeHtml(item.name)} — <a href="${url}">Leave a review</a></li>`;
         })
         .join("");
 

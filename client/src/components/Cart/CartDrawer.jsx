@@ -129,14 +129,14 @@ function CartDrawer() {
                 <div key={item._id} className="flex gap-4 py-4">
                   <img
                     src={imgUrl(item.image, "w_200,q_auto,f_auto")}
-                    alt={item.name}
+                    alt={t(item.name, item.nameHi)}
                     className="w-20 h-20 object-cover rounded-lg shrink-0"
                     onError={handleImageError}
                   />
 
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-slate-800 line-clamp-2">
-                      {item.name}
+                      {t(item.name, item.nameHi)}
                     </p>
                     {item.selectedSize && (
                       <p className="text-xs text-slate-400">
