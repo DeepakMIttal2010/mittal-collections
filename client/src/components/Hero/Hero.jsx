@@ -7,6 +7,7 @@ import "./Hero.css";
 import heroBanner from "../../assets/images/hero-banner.webp";
 import { getBanners } from "../../services/bannerService";
 import { useLanguage } from "../../context/LanguageContext";
+import heroBannersSnapshot from "../../data/heroBannersSnapshot.json";
 
 const AUTO_ROTATE_MS = 6000;
 // Caches the last-fetched banner slides so Hero can render a REAL
@@ -21,6 +22,19 @@ const AUTO_ROTATE_MS = 6000;
 // banners rarely change between visits, and the effect below still
 // re-fetches and self-corrects (including clearing a stale cache) if
 // they have.
+//
+// The cache above only ever has data for a RETURNING visitor, though —
+// every first-time visitor (and every Lighthouse/PageSpeed run, which
+// always simulates one) still hit the full empty-fallback-then-fetch
+// delay, which a live mobile audit confirmed is why LCP stayed at 5-8s
+// even after the cache shipped (2026-10-05). heroBannersSnapshot.json is
+// the fix for that case specifically: `scripts/fetch-hero-banners.mjs`
+// bakes the live banner list into this file as part of every
+// `npm run build`, so even a visitor with zero prior history gets a
+// real image URL on the very first render. It only needs to be "close
+// enough", not live-accurate -- same self-correcting re-fetch below
+// updates it (and the cache) if an admin changed banners more recently
+// than the last deploy.
 const CACHE_KEY = "mc_hero_banners_cache";
 
 const getCachedSlides = () => {
@@ -82,7 +96,9 @@ function HeroButton({ label, link, variant }) {
 
 function Hero() {
   const [slides, setSlides] = useState(
-    () => getCachedSlides() || [FALLBACK_SLIDE],
+    () =>
+      getCachedSlides() ||
+      (heroBannersSnapshot.length > 0 ? heroBannersSnapshot : [FALLBACK_SLIDE]),
   );
   const [activeIndex, setActiveIndex] = useState(0);
   const { t } = useLanguage();
