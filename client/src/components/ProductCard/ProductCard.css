@@ -1,4 +1,5 @@
 .product-card {
+  position: relative;
   background: #fff;
   border-radius: 6px;
   overflow: hidden;

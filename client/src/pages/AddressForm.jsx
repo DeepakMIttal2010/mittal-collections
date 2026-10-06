@@ -142,10 +142,11 @@ function AddressForm() {
 
       <form onSubmit={handleSubmit} className="max-w-md space-y-4">
         <div>
-          <label className="block text-sm font-semibold text-slate-800 mb-1">
+          <label htmlFor="fullName" className="block text-sm font-semibold text-slate-800 mb-1">
             {t("Full name (First and Last name)", "पूरा नाम (पहला और अंतिम नाम)")}
           </label>
           <input
+            id="fullName"
             type="text"
             name="fullName"
             value={formData.fullName}
@@ -156,10 +157,11 @@ function AddressForm() {
         </div>
 
         <div>
-          <label className="block text-sm font-semibold text-slate-800 mb-1">
+          <label htmlFor="mobile" className="block text-sm font-semibold text-slate-800 mb-1">
             {t("Phone number", "फ़ोन नंबर")}
           </label>
           <input
+            id="mobile"
             type="tel"
             name="mobile"
             value={formData.mobile}
@@ -172,10 +174,11 @@ function AddressForm() {
         </div>
 
         <div>
-          <label className="block text-sm font-semibold text-slate-800 mb-1">
+          <label htmlFor="address" className="block text-sm font-semibold text-slate-800 mb-1">
             {t("Street address", "स्ट्रीट एड्रेस")}
           </label>
           <input
+            id="address"
             type="text"
             name="address"
             placeholder={t("Street address or P.O. Box", "स्ट्रीट एड्रेस या पी.ओ. बॉक्स")}
@@ -187,10 +190,11 @@ function AddressForm() {
         </div>
 
         <div>
-          <label className="block text-sm font-semibold text-slate-800 mb-1">
+          <label htmlFor="unit" className="block text-sm font-semibold text-slate-800 mb-1">
             {t("Unit or suite number", "यूनिट या सुइट नंबर")}
           </label>
           <input
+            id="unit"
             type="text"
             name="unit"
             placeholder={t("Apt, suite, unit, building, floor, etc.", "अपार्टमेंट, सुइट, यूनिट, बिल्डिंग, फ्लोर आदि")}
@@ -202,10 +206,11 @@ function AddressForm() {
 
         <div className="grid grid-cols-3 gap-3">
           <div>
-            <label className="block text-sm font-semibold text-slate-800 mb-1">
+            <label htmlFor="city" className="block text-sm font-semibold text-slate-800 mb-1">
               {t("City", "शहर")}
             </label>
             <input
+              id="city"
               type="text"
               name="city"
               value={formData.city}
@@ -216,10 +221,11 @@ function AddressForm() {
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-slate-800 mb-1">
+            <label htmlFor="state" className="block text-sm font-semibold text-slate-800 mb-1">
               {t("State", "राज्य")}
             </label>
             <select
+              id="state"
               name="state"
               value={formData.state}
               onChange={handleChange}
@@ -236,10 +242,11 @@ function AddressForm() {
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-slate-800 mb-1">
+            <label htmlFor="pincode" className="block text-sm font-semibold text-slate-800 mb-1">
               {t("ZIP Code", "ज़िप कोड")}
             </label>
             <input
+              id="pincode"
               type="text"
               name="pincode"
               value={formData.pincode}

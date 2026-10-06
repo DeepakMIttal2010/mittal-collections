@@ -94,54 +94,6 @@ function ProductCard({ product }) {
             )
           )}
 
-          {/* Only the heart stays on the photo at all times (the Flipkart/
-              Myntra pattern) -- three always-visible 44px buttons were
-              covering a real chunk of the product photo on touch devices,
-              and real photos are this site's main selling point. */}
-          <button
-            type="button"
-            className={`wishlist-btn ${isWishlisted ? "active" : ""}`}
-            aria-label={
-              isWishlisted
-                ? t("Remove from wishlist", "विशलिस्ट से हटाएं")
-                : t("Add to wishlist", "विशलिस्ट में डालें")
-            }
-            aria-pressed={isWishlisted}
-            onClick={(e) => {
-              e.preventDefault();
-              if (isWishlisted) removeFromWishlist(product._id);
-              else addToWishlist(product);
-            }}
-          >
-            <span className="wishlist-btn-circle">
-              {isWishlisted ? <FaHeart /> : <FaRegHeart />}
-            </span>
-          </button>
-
-          <div className="product-icons">
-            <button
-              type="button"
-              aria-label={t("Quick view", "क्विक व्यू")}
-              onClick={(e) => {
-                e.preventDefault();
-                setShowQuickView(true);
-              }}
-            >
-              <FaEye />
-            </button>
-
-            <button
-              type="button"
-              aria-label={t("Toggle compare", "तुलना टॉगल करें")}
-              className={inCompare ? "active" : ""}
-              onClick={(e) => {
-                e.preventDefault();
-                toggleCompare(product);
-              }}
-            >
-              <FaExchangeAlt />
-            </button>
-          </div>
         </div>
 
         <div className="product-info">
@@ -176,6 +128,60 @@ function ProductCard({ product }) {
           )}
         </div>
       </Link>
+
+      {/* Siblings of the Link, not descendants (2026-10-06 a11y fix) —
+          these used to be nested inside it with onClick's e.preventDefault()
+          stopping the Link's own navigation on a mouse click. That worked
+          for mouse users, but <button> inside <a> is invalid per the
+          HTML5 content model, and VoiceOver/TalkBack are documented to
+          collapse nested interactive controls into the outer link, making
+          these unreachable or producing unpredictable activation order
+          for screen-reader users. .product-card now carries the
+          position: relative these were anchored to (previously
+          .product-image, inside the Link) — same visual position, since
+          .product-image was always the Link's first child flush against
+          .product-card's own top-left corner.
+          Only the heart stays on the photo at all times (the Flipkart/
+          Myntra pattern) -- three always-visible 44px buttons were
+          covering a real chunk of the product photo on touch devices,
+          and real photos are this site's main selling point. */}
+      <button
+        type="button"
+        className={`wishlist-btn ${isWishlisted ? "active" : ""}`}
+        aria-label={
+          isWishlisted
+            ? t("Remove from wishlist", "विशलिस्ट से हटाएं")
+            : t("Add to wishlist", "विशलिस्ट में डालें")
+        }
+        aria-pressed={isWishlisted}
+        onClick={() => {
+          if (isWishlisted) removeFromWishlist(product._id);
+          else addToWishlist(product);
+        }}
+      >
+        <span className="wishlist-btn-circle">
+          {isWishlisted ? <FaHeart /> : <FaRegHeart />}
+        </span>
+      </button>
+
+      <div className="product-icons">
+        <button
+          type="button"
+          aria-label={t("Quick view", "क्विक व्यू")}
+          onClick={() => setShowQuickView(true)}
+        >
+          <FaEye />
+        </button>
+
+        <button
+          type="button"
+          aria-label={t("Toggle compare", "तुलना टॉगल करें")}
+          className={inCompare ? "active" : ""}
+          onClick={() => toggleCompare(product)}
+        >
+          <FaExchangeAlt />
+        </button>
+      </div>
 
       <div className="product-action">
         <button
