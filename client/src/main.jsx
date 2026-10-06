@@ -8,8 +8,10 @@ import { HelmetProvider } from "react-helmet-async";
 import App from "./App";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { installAuthFetchGuard } from "./utils/authFetchGuard";
+import { reportWebVitals } from "./utils/webVitals";
 
 installAuthFetchGuard();
+reportWebVitals();
 
 import { CartProvider } from "./context/CartContext";
 import { WishlistProvider } from "./context/WishlistContext";
