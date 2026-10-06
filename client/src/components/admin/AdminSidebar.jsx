@@ -155,10 +155,19 @@ function AdminSidebar() {
   // Persisted so it stays collapsed/expanded across page loads, not just
   // for this one session — an admin who prefers the icon-only view
   // (more room for tables/reports) shouldn't have to re-collapse it
-  // every time they navigate.
-  const [collapsed, setCollapsed] = useState(
-    () => localStorage.getItem("adminSidebarCollapsed") === "true",
-  );
+  // every time they navigate. This sidebar had zero responsive
+  // breakpoints — the full 260px width was the default on every screen
+  // size, leaving a 375px phone/small-tablet admin view with only
+  // ~115px for actual page content until someone manually hit collapse.
+  // First-ever visit (no stored preference yet) now defaults to
+  // collapsed on a narrow viewport instead; an explicit prior choice —
+  // stored once a person has ever toggled it, on any device — always
+  // wins over this guess.
+  const [collapsed, setCollapsed] = useState(() => {
+    const stored = localStorage.getItem("adminSidebarCollapsed");
+    if (stored !== null) return stored === "true";
+    return window.innerWidth < 768;
+  });
 
   const toggleCollapsed = () => {
     setCollapsed((prev) => {
