@@ -20,7 +20,7 @@ import { rewrite, next } from "@vercel/edge";
 // mechanisms (a rewrite `has` condition can't match on an exact-file
 // path like "/", which is exactly why this middleware exists instead).
 const BOT_USER_AGENT =
-  /([bB]ot|Google|facebookexternalhit|WhatsApp|Pinterest|embedly|Quora Link Preview|Slurp|ia_archiver|Discordbot|TelegramBot|redirectionio)/;
+  /([bB]ot|Google|facebookexternalhit|WhatsApp|Pinterest|embedly|Quora Link Preview|Slurp|ia_archiver|Discordbot|TelegramBot|redirectionio|ChatGPT-User|Perplexity-User|meta-externalagent|Bytespider|anthropic-ai)/;
 
 // The canonical frontend host — every <link rel="canonical">, sitemap
 // entry and JSON-LD @id across the site already uses SITE_URL
