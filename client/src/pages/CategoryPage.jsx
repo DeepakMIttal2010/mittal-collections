@@ -74,6 +74,36 @@ function getSizeHelpLinks(t) {
         shortLabel: t("Fill Guide", "फिल गाइड"),
       },
     ],
+    // These 4 categories each already have a real, correctly-categorized
+    // guide article (confirmed via the admin Articles API) that links
+    // BACK to this category from the article itself — the reverse
+    // direction (category page -> article) was the only piece missing,
+    // the same gap the other 6 entries above were originally added to
+    // close.
+    "mattress-covers": [
+      {
+        to: "/articles/mattress-cover-guide-pvc-waterproof-vs-cotton-which-one-do-you-need",
+        shortLabel: t("Buying Guide", "खरीद गाइड"),
+      },
+    ],
+    "table-covers": [
+      {
+        to: "/articles/table-cover-guide-pvc-lace-vs-clear-vinyl-vs-cotton-which-one-fits-your-table",
+        shortLabel: t("Buying Guide", "खरीद गाइड"),
+      },
+    ],
+    "table-runners": [
+      {
+        to: "/articles/table-runner-guide-cotton-velvet-jacquard-lace-which-one-for-which-occasion",
+        shortLabel: t("Buying Guide", "खरीद गाइड"),
+      },
+    ],
+    "hotel-linen": [
+      {
+        to: "/articles/hotel-bedsheet-buying-guide-gsm-fabric-what-hotels-should-look-for",
+        shortLabel: t("Buying Guide", "खरीद गाइड"),
+      },
+    ],
   };
 }
 
@@ -627,7 +657,10 @@ function CategoryPage() {
         // starts) — that left barely any budget for the one thing that
         // actually differs page to page, making every category's meta
         // description read as near-identical boilerplate.
-        description={`${pageTitle}: pan-India delivery, 24hr in Ghaziabad. ${category.description || ""}`.trim().slice(0, 160)}
+        // A subcategory's own subtitle (same priority as the body text
+        // below) is more specific than the parent category's description
+        // — used it here too, which this previously missed entirely.
+        description={`${pageTitle}: pan-India delivery, 24hr in Ghaziabad. ${activeSubcategory?.subtitle || category.description || ""}`.trim().slice(0, 160)}
         url={canonicalCategoryUrl}
         jsonLd={[buildBreadcrumbJsonLd(breadcrumbItemsForSeo), itemListJsonLd]}
       />

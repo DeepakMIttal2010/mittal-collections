@@ -19,8 +19,8 @@ import Newsletter from "../components/Newsletter/Newsletter";
 import CategoryNewArrivals from "../components/NewArrivals/CategoryNewArrivals";
 import Faq from "../components/Faq/Faq";
 import { getSiteSettings } from "../services/settingsService";
-import { DELIVERY_AREAS } from "../utils/deliveryAreas";
 import { SITE_URL } from "../utils/siteUrl";
+import { buildLocalBusinessJsonLd } from "../utils/localBusinessJsonLd";
 
 // Unconditional — unlike the HomeGoodsStore/LocalBusiness block below
 // (which needs an admin-configured address to be meaningful), this is
@@ -100,36 +100,9 @@ function Home() {
     ...(socialSameAs.length > 0 && { sameAs: socialSameAs }),
   };
 
-  const localBusinessJsonLd = settings.address
-    ? {
-        "@context": "https://schema.org",
-        "@type": "HomeGoodsStore",
-        "@id": `${SITE_URL}/#business`,
-        name: "Mittal Collections",
-        url: `${SITE_URL}/`,
-        telephone: settings.phone || undefined,
-        priceRange: "₹₹",
-        address: {
-          "@type": "PostalAddress",
-          streetAddress: settings.address,
-          addressLocality: "Ghaziabad",
-          addressRegion: "Uttar Pradesh",
-          addressCountry: "IN",
-        },
-        areaServed: [
-          ...DELIVERY_AREAS.map((area) => ({
-            "@type": "Place",
-            name: `${area}, Ghaziabad`,
-          })),
-          { "@type": "City", name: "Ghaziabad" },
-        ],
-        sameAs: [
-          settings.facebook,
-          settings.instagram,
-          settings.twitter,
-        ].filter(Boolean),
-      }
-    : null;
+  const localBusinessJsonLd = buildLocalBusinessJsonLd(settings, {
+    includeAreaServed: true,
+  });
 
   return (
     <>
