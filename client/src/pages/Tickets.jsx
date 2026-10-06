@@ -7,6 +7,7 @@ import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
 import { getMyTickets, createTicket } from "../services/ticketService";
 import { getMyOrders } from "../services/orderService";
+import { dateLocale } from "../utils/dateLocale";
 
 const STATUS_COLORS = {
   Open: "bg-blue-100 text-blue-700",
@@ -26,7 +27,7 @@ function getStatusLabel(t, status) {
 
 function Tickets() {
   const { isLoggedIn } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const preselectedOrder = searchParams.get("order") || "";
@@ -211,7 +212,7 @@ function Tickets() {
               </div>
               <p className="text-xs text-slate-400">
                 {t("Last updated ", "आखिरी बार अपडेट हुआ ")}
-                {new Date(ticket.lastMessageAt).toLocaleString("en-IN", {
+                {new Date(ticket.lastMessageAt).toLocaleString(dateLocale(language), {
                   day: "numeric",
                   month: "short",
                   hour: "numeric",

@@ -8,6 +8,7 @@ import {
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
 import Seo from "../components/Seo";
+import { dateLocale } from "../utils/dateLocale";
 
 function getTypeLabels(t) {
   return {
@@ -23,7 +24,7 @@ function getTypeLabels(t) {
 
 function LoyaltyHistory() {
   const { isLoggedIn } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const navigate = useNavigate();
 
   const [transactions, setTransactions] = useState([]);
@@ -108,7 +109,7 @@ function LoyaltyHistory() {
               {transactions.map((tx) => (
                 <tr key={tx._id}>
                   <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
-                    {new Date(tx.createdAt).toLocaleDateString("en-IN", {
+                    {new Date(tx.createdAt).toLocaleDateString(dateLocale(language), {
                       day: "2-digit",
                       month: "short",
                       year: "numeric",

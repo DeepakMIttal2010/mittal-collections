@@ -6,6 +6,7 @@ import { FaPaperPlane } from "react-icons/fa";
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
 import { getTicketById, addTicketMessage } from "../services/ticketService";
+import { dateLocale } from "../utils/dateLocale";
 
 const STATUS_COLORS = {
   Open: "bg-blue-100 text-blue-700",
@@ -27,7 +28,7 @@ function TicketDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { isLoggedIn } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   const [ticket, setTicket] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -149,7 +150,7 @@ function TicketDetail() {
               </p>
               <p className="text-sm whitespace-pre-wrap">{msg.message}</p>
               <p className="text-[11px] mt-1.5 opacity-60">
-                {new Date(msg.createdAt).toLocaleString("en-IN", {
+                {new Date(msg.createdAt).toLocaleString(dateLocale(language), {
                   day: "numeric",
                   month: "short",
                   hour: "numeric",

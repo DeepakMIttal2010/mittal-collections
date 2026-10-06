@@ -10,6 +10,7 @@ import {
   markNotificationRead,
   markAllNotificationsRead,
 } from "../services/notificationService";
+import { dateLocale } from "../utils/dateLocale";
 
 function getTypeLabels(t) {
   return {
@@ -26,7 +27,7 @@ function getTypeLabels(t) {
 
 function Notifications() {
   const { isLoggedIn } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const navigate = useNavigate();
 
   const [notifications, setNotifications] = useState([]);
@@ -118,7 +119,7 @@ function Notifications() {
                   {typeLabels[item.type] || t("Notification", "सूचना")}
                 </span>
                 <span className="text-xs text-slate-400 shrink-0">
-                  {new Date(item.createdAt).toLocaleString("en-IN", {
+                  {new Date(item.createdAt).toLocaleString(dateLocale(language), {
                     day: "numeric",
                     month: "short",
                     hour: "numeric",
