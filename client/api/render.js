@@ -661,13 +661,6 @@ const buildMeta = async (path) => {
     const p = data.product;
     const settings = settingsData.settings || {};
     const plainDescription = stripHtml(p.description);
-    // Same shorter "pan-India delivery" lead-in ProductDetails.jsx's <Seo>
-    // uses — the old 53-char "Buy online, pan-India delivery (24hr in
-    // Ghaziabad) - " prefix ate a third of the 160-char budget on every
-    // product before any product-specific content got a chance to show.
-    const description = p.description
-      ? `Pan-India delivery, 24hr in Ghaziabad. ${plainDescription}`.slice(0, 160)
-      : `Buy ${p.name} online with pan-India delivery - fast 24-hour delivery in Ghaziabad`.slice(0, 160);
     // Google's Product rich-result guidance wants multiple angles when
     // they exist, not just the main photo — mirrors ProductDetails.jsx's
     // productImages fallback (full gallery, or the single main image when
@@ -724,6 +717,18 @@ const buildMeta = async (path) => {
     const defaultVariant = p.variants?.[0];
     const offerPrice = defaultVariant ? defaultVariant.price : p.price;
     const offerStock = defaultVariant ? defaultVariant.stock : p.stock;
+
+    // Mirrors ProductDetails.jsx's <Seo description> — shorter lead-in
+    // than the old "Buy online, pan-India delivery (24hr in Ghaziabad)
+    // - " (53 chars, ate a third of the 160-char budget before any
+    // product-specific content got a chance to show). Price leads the
+    // snippet now, not buried after it — live GSC data on this
+    // catalog's lower-priced products (₹80-230 towels ranking well,
+    // 0% CTR) pointed at price-sensitive shoppers not getting enough of
+    // a hook to click.
+    const description = p.description
+      ? `₹${offerPrice}. Pan-India delivery, 24hr in Ghaziabad. ${plainDescription}`.slice(0, 160)
+      : `₹${offerPrice} — ${p.name}, pan-India delivery, fast 24-hour delivery in Ghaziabad`.slice(0, 160);
 
     // Mirrors ProductDetails.jsx's effectiveReturnDaysForSeo/shippingFeeForSeo
     // — these unlock the enhanced free-listing treatment in Google
