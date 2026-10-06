@@ -9,6 +9,7 @@ import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
 import OrderStatusTimeline from "../components/OrderStatusTimeline";
 import { handleImageError } from "../utils/imageFallback";
+import { dateLocale } from "../utils/dateLocale";
 
 const STATUS_COLORS = {
   Pending: "bg-slate-100 text-slate-700",
@@ -32,7 +33,7 @@ function OrderDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { isLoggedIn, user } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -129,7 +130,7 @@ function OrderDetails() {
           </h1>
           <p className="text-sm text-slate-500">
             {t("Placed on ", "दिनांक ")}
-            {new Date(order.createdAt).toLocaleDateString("en-IN", {
+            {new Date(order.createdAt).toLocaleDateString(dateLocale(language), {
               day: "numeric",
               month: "long",
               year: "numeric",

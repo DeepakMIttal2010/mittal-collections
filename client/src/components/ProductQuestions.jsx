@@ -8,10 +8,11 @@ import {
   getProductQuestions,
   submitQuestion,
 } from "../services/questionService";
+import { dateLocale } from "../utils/dateLocale";
 
 function ProductQuestions({ productId }) {
   const { isLoggedIn } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   const [questions, setQuestions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -135,7 +136,7 @@ function ProductQuestions({ productId }) {
               <p className="text-sm text-slate-600 pl-6">{q.answer}</p>
               <p className="text-xs text-slate-400 pl-6 mt-1">
                 {q.user?.name || t("Anonymous", "अज्ञात")} ·{" "}
-                {new Date(q.createdAt).toLocaleDateString("en-IN", {
+                {new Date(q.createdAt).toLocaleDateString(dateLocale(language), {
                   day: "numeric",
                   month: "short",
                   year: "numeric",
