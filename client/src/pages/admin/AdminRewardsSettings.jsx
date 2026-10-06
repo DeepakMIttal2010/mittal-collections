@@ -105,10 +105,11 @@ function AdminRewardsSettings() {
           <h3 className="font-semibold text-slate-800">Loyalty Points</h3>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label htmlFor="loyaltyEarnRate" className="block text-sm font-medium text-slate-700 mb-1">
               ₹ spent per point earned
             </label>
             <input
+              id="loyaltyEarnRate"
               type="number"
               min={1}
               value={loyalty.earnRate}
@@ -123,10 +124,11 @@ function AdminRewardsSettings() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label htmlFor="loyaltyRedeemValue" className="block text-sm font-medium text-slate-700 mb-1">
               ₹ discount per point redeemed
             </label>
             <input
+              id="loyaltyRedeemValue"
               type="number"
               min={1}
               value={loyalty.redeemValue}
@@ -138,10 +140,11 @@ function AdminRewardsSettings() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label htmlFor="loyaltyMaxRedeemPercent" className="block text-sm font-medium text-slate-700 mb-1">
               Max redeemable (% of order subtotal)
             </label>
             <input
+              id="loyaltyMaxRedeemPercent"
               type="number"
               min={0}
               max={1}
@@ -161,10 +164,11 @@ function AdminRewardsSettings() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label htmlFor="loyaltyMinRedeemPoints" className="block text-sm font-medium text-slate-700 mb-1">
               Minimum points required to redeem
             </label>
             <input
+              id="loyaltyMinRedeemPoints"
               type="number"
               min={0}
               value={loyalty.minRedeemPoints}
@@ -179,10 +183,11 @@ function AdminRewardsSettings() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label htmlFor="loyaltyExpiryMonths" className="block text-sm font-medium text-slate-700 mb-1">
               Points expire after (months of inactivity)
             </label>
             <input
+              id="loyaltyExpiryMonths"
               type="number"
               min={1}
               value={loyalty.expiryMonths}
@@ -220,10 +225,11 @@ function AdminRewardsSettings() {
           </p>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label htmlFor="referrerPoints" className="block text-sm font-medium text-slate-700 mb-1">
               Points for the referrer (existing customer)
             </label>
             <input
+              id="referrerPoints"
               type="number"
               min={0}
               value={referral.referrerPoints}
@@ -238,10 +244,11 @@ function AdminRewardsSettings() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label htmlFor="referredPoints" className="block text-sm font-medium text-slate-700 mb-1">
               Points for the referred friend (new customer)
             </label>
             <input
+              id="referredPoints"
               type="number"
               min={0}
               value={referral.referredPoints}

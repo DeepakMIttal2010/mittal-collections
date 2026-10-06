@@ -224,10 +224,11 @@ function AdminBanners() {
         >
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
+              <label htmlFor="bannerSubtitle" className="block text-sm font-medium text-slate-700 mb-1">
                 Subtitle
               </label>
               <input
+                id="bannerSubtitle"
                 type="text"
                 name="subtitle"
                 placeholder="PREMIUM HOME FURNISHING"
@@ -238,10 +239,11 @@ function AdminBanners() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
+              <label htmlFor="bannerSubtitleHi" className="block text-sm font-medium text-slate-700 mb-1">
                 Subtitle (Hindi, optional)
               </label>
               <input
+                id="bannerSubtitleHi"
                 type="text"
                 name="subtitleHi"
                 placeholder="प्रीमियम होम फर्निशिंग"
@@ -254,10 +256,11 @@ function AdminBanners() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
+              <label htmlFor="bannerDisplayOrder" className="block text-sm font-medium text-slate-700 mb-1">
                 Order (Priority)
               </label>
               <input
+                id="bannerDisplayOrder"
                 type="number"
                 name="displayOrder"
                 value={formData.displayOrder}
@@ -269,10 +272,11 @@ function AdminBanners() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
+              <label htmlFor="bannerTitle" className="block text-sm font-medium text-slate-700 mb-1">
                 Title
               </label>
               <textarea
+                id="bannerTitle"
                 name="title"
                 rows={2}
                 placeholder="Transform Every Corner&#10;of Your Home"
@@ -287,10 +291,11 @@ function AdminBanners() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
+              <label htmlFor="bannerTitleHi" className="block text-sm font-medium text-slate-700 mb-1">
                 Title (Hindi, optional)
               </label>
               <textarea
+                id="bannerTitleHi"
                 name="titleHi"
                 rows={2}
                 placeholder="अपने घर के हर कोने को&#10;संवारें"
@@ -303,10 +308,11 @@ function AdminBanners() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
+              <label htmlFor="bannerDescription" className="block text-sm font-medium text-slate-700 mb-1">
                 Description
               </label>
               <textarea
+                id="bannerDescription"
                 name="description"
                 rows={2}
                 value={formData.description}
@@ -316,10 +322,11 @@ function AdminBanners() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
+              <label htmlFor="bannerDescriptionHi" className="block text-sm font-medium text-slate-700 mb-1">
                 Description (Hindi, optional)
               </label>
               <textarea
+                id="bannerDescriptionHi"
                 name="descriptionHi"
                 rows={2}
                 value={formData.descriptionHi}
@@ -331,10 +338,11 @@ function AdminBanners() {
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
+              <label htmlFor="bannerButton1Label" className="block text-sm font-medium text-slate-700 mb-1">
                 Button 1 Label
               </label>
               <input
+                id="bannerButton1Label"
                 type="text"
                 name="button1Label"
                 placeholder="Shop Now"
@@ -344,10 +352,11 @@ function AdminBanners() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
+              <label htmlFor="bannerButton1LabelHi" className="block text-sm font-medium text-slate-700 mb-1">
                 Button 1 Label (Hindi, optional)
               </label>
               <input
+                id="bannerButton1LabelHi"
                 type="text"
                 name="button1LabelHi"
                 placeholder="अभी खरीदें"
@@ -357,10 +366,11 @@ function AdminBanners() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
+              <label htmlFor="bannerButton1Link" className="block text-sm font-medium text-slate-700 mb-1">
                 Button 1 Link
               </label>
               <input
+                id="bannerButton1Link"
                 type="text"
                 name="button1Link"
                 placeholder="/category/bedsheets"
@@ -373,10 +383,11 @@ function AdminBanners() {
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
+              <label htmlFor="bannerButton2Label" className="block text-sm font-medium text-slate-700 mb-1">
                 Button 2 Label
               </label>
               <input
+                id="bannerButton2Label"
                 type="text"
                 name="button2Label"
                 placeholder="Explore Collection"
@@ -386,10 +397,11 @@ function AdminBanners() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
+              <label htmlFor="bannerButton2LabelHi" className="block text-sm font-medium text-slate-700 mb-1">
                 Button 2 Label (Hindi, optional)
               </label>
               <input
+                id="bannerButton2LabelHi"
                 type="text"
                 name="button2LabelHi"
                 placeholder="कलेक्शन देखें"
@@ -399,10 +411,11 @@ function AdminBanners() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
+              <label htmlFor="bannerButton2Link" className="block text-sm font-medium text-slate-700 mb-1">
                 Button 2 Link
               </label>
               <input
+                id="bannerButton2Link"
                 type="text"
                 name="button2Link"
                 placeholder="#shop-categories"
@@ -414,10 +427,11 @@ function AdminBanners() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label htmlFor="bannerImage" className="block text-sm font-medium text-slate-700 mb-1">
               Banner Image
             </label>
             <input
+              id="bannerImage"
               type="file"
               accept="image/*"
               onChange={handleImage}
