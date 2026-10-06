@@ -15,6 +15,7 @@ import { getSiteSettings } from "../services/settingsService";
 import Seo from "../components/Seo";
 import { SITE_URL } from "../utils/siteUrl";
 import { useLanguage } from "../context/LanguageContext";
+import { buildLocalBusinessJsonLd } from "../utils/localBusinessJsonLd";
 
 const SUBJECT_OPTIONS = [
   { value: "General Inquiry", labelHi: "सामान्य पूछताछ" },
@@ -84,32 +85,10 @@ function Contact() {
   const inputClass =
     "w-full bg-slate-100 rounded-lg px-5 py-4 outline-none text-sm text-slate-800 placeholder:text-slate-500";
 
-  // Same @id as Home.jsx's HomeGoodsStore block, and only emitted once
-  // that same settings.address gate is met — this tells Google it's the
-  // SAME business entity referenced from the homepage, not a second one,
-  // while finally giving the Contact page itself the phone/address/social
-  // data it already fetches and displays but never structured.
-  const localBusinessJsonLd = settings.address
-    ? {
-        "@context": "https://schema.org",
-        "@type": "HomeGoodsStore",
-        "@id": `${SITE_URL}/#business`,
-        name: "Mittal Collections",
-        url: `${SITE_URL}/`,
-        telephone: settings.phone || undefined,
-        email: settings.email || undefined,
-        address: {
-          "@type": "PostalAddress",
-          streetAddress: settings.address,
-          addressLocality: "Ghaziabad",
-          addressRegion: "Uttar Pradesh",
-          addressCountry: "IN",
-        },
-        sameAs: [settings.facebook, settings.instagram, settings.twitter].filter(
-          Boolean,
-        ),
-      }
-    : null;
+  // Same @id as Home.jsx's HomeGoodsStore block (buildLocalBusinessJsonLd
+  // emits it identically everywhere) — tells Google it's the SAME
+  // business entity referenced from the homepage, not a second one.
+  const localBusinessJsonLd = buildLocalBusinessJsonLd(settings);
 
   return (
     <div className="max-w-6xl mx-auto px-4 pt-16 pb-20">
