@@ -2,6 +2,19 @@
   padding: 70px 0;
 }
 
+/* Deliberately global, not scoped to ProductGrid -- Hero.jsx,
+   WhyChooseUs.jsx, TrustBar.css and RewardsStrip.css all use the bare
+   "container" class name too, expecting this exact width/centering. It
+   lived here because this was the first component that needed it, not
+   because it's conceptually a ProductGrid-only rule. A second, dead,
+   conflicting `.container` definition in App.css (text-align:center,
+   padding:100px -- unused Vite-boilerplate CSS that was never actually
+   imported anywhere) was removed in the same pass as this comment was
+   added, 2026-10-06, after a mobile-CSS audit flagged it as a latent
+   landmine (a future import-order change could have silently resolved
+   `.container` to the wrong rule site-wide) -- turned out App.css was
+   never loaded at all, so there was no live conflict today, but the
+   dead file was still confusing/risky to leave around. */
 .container {
   width: 90%;
   max-width: 1200px;

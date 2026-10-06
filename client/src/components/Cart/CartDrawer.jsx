@@ -167,10 +167,16 @@ function CartDrawer() {
                   </div>
 
                   <div className="flex flex-col items-center gap-1 border border-slate-200 rounded-lg h-fit px-1.5 py-1">
+                    {/* w-9 h-9 (36px) explicit touch target -- was p-1
+                        around a text-xs icon (~20x20px), well under the
+                        ~32px floor, on the core mobile purchase flow
+                        (2026-10-05 mobile CSS audit). Explicit width/
+                        height is more reliable here than padding math
+                        against the icon's own font metrics. */}
                     <button
                       type="button"
                       onClick={() => increaseQty(item._id)}
-                      className="text-xs text-slate-600 hover:text-slate-900 p-1"
+                      className="w-9 h-9 flex items-center justify-center text-xs text-slate-600 hover:text-slate-900"
                     >
                       <FaPlus />
                     </button>
@@ -180,7 +186,7 @@ function CartDrawer() {
                     <button
                       type="button"
                       onClick={() => decreaseQty(item._id)}
-                      className="text-xs text-slate-600 hover:text-slate-900 p-1"
+                      className="w-9 h-9 flex items-center justify-center text-xs text-slate-600 hover:text-slate-900"
                     >
                       <FaMinus />
                     </button>
