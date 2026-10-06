@@ -38,6 +38,93 @@ const DELIVERY_AREAS = [
   "Brij Vihar",
 ];
 
+// Mirrors client/src/utils/localBusinessJsonLd.js exactly (same
+// duplication reasoning as DELIVERY_AREAS above) — the homepage,
+// /contact and /ghaziabad-home-furnishing-store STATIC_PAGES branches
+// below each used to build their own one-off HomeGoodsStore object,
+// which had drifted into three different, non-overlapping property
+// sets (priceRange only on the homepage's, email only on /contact's,
+// postalCode only on the Ghaziabad one) for what Google reads as ONE
+// business entity (same "@id" on all three). Keep both copies of this
+// function in sync.
+const SUPPORT_HOURS_DAY_MAP = {
+  mon: "Monday",
+  tue: "Tuesday",
+  wed: "Wednesday",
+  thu: "Thursday",
+  fri: "Friday",
+  sat: "Saturday",
+  sun: "Sunday",
+};
+
+const parseSupportHours = (supportHours) => {
+  if (!supportHours) return undefined;
+
+  const match = supportHours
+    .trim()
+    .match(
+      /^(\w{3})\s*-\s*(\w{3}):\s*(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})$/i,
+    );
+
+  if (!match) return undefined;
+
+  const [, fromDay, toDay, opens, closes] = match;
+  const dayKeys = Object.keys(SUPPORT_HOURS_DAY_MAP);
+  const fromIndex = dayKeys.indexOf(fromDay.toLowerCase());
+  const toIndex = dayKeys.indexOf(toDay.toLowerCase());
+
+  if (fromIndex === -1 || toIndex === -1 || toIndex < fromIndex) return undefined;
+
+  const dayOfWeek = Object.values(SUPPORT_HOURS_DAY_MAP).slice(
+    fromIndex,
+    toIndex + 1,
+  );
+
+  return { "@type": "OpeningHoursSpecification", dayOfWeek, opens, closes };
+};
+
+const buildLocalBusinessJsonLd = (
+  settings,
+  { streetAddress, postalCode, includeAreaServed = false } = {},
+) => {
+  const address = streetAddress || settings.address;
+  if (!address) return null;
+
+  const openingHoursSpecification = parseSupportHours(settings.supportHours);
+
+  return {
+    "@context": "https://schema.org",
+    "@type": "HomeGoodsStore",
+    "@id": `${SITE_URL}/#business`,
+    name: SITE_NAME,
+    url: `${SITE_URL}/`,
+    telephone: settings.phone || undefined,
+    email: settings.email || undefined,
+    priceRange: "₹₹",
+    ...(openingHoursSpecification && { openingHoursSpecification }),
+    address: {
+      "@type": "PostalAddress",
+      streetAddress: address,
+      addressLocality: "Ghaziabad",
+      addressRegion: "Uttar Pradesh",
+      addressCountry: "IN",
+      ...(postalCode && { postalCode }),
+    },
+    ...(includeAreaServed && {
+      areaServed: [
+        ...DELIVERY_AREAS.map((area) => ({
+          "@type": "Place",
+          name: `${area}, Ghaziabad`,
+        })),
+        { "@type": "City", name: "Ghaziabad" },
+      ],
+    }),
+    sameAs: [settings.facebook, settings.instagram, settings.twitter].filter(
+      Boolean,
+    ),
+  };
+};
+
 const escapeHtml = (value) =>
   String(value ?? "")
     .replace(/&/g, "&amp;")
@@ -529,34 +616,9 @@ const buildMeta = async (path) => {
       },
     };
 
-    const localBusinessJsonLd = settings.address
-      ? {
-          "@context": "https://schema.org",
-          "@type": "HomeGoodsStore",
-          "@id": `${SITE_URL}/#business`,
-          name: SITE_NAME,
-          url: `${SITE_URL}/`,
-          telephone: settings.phone || undefined,
-          priceRange: "₹₹",
-          address: {
-            "@type": "PostalAddress",
-            streetAddress: settings.address,
-            addressLocality: "Ghaziabad",
-            addressRegion: "Uttar Pradesh",
-            addressCountry: "IN",
-          },
-          areaServed: [
-            ...DELIVERY_AREAS.map((area) => ({
-              "@type": "Place",
-              name: `${area}, Ghaziabad`,
-            })),
-            { "@type": "City", name: "Ghaziabad" },
-          ],
-          sameAs: [settings.facebook, settings.instagram, settings.twitter].filter(
-            Boolean,
-          ),
-        }
-      : null;
+    const localBusinessJsonLd = buildLocalBusinessJsonLd(settings, {
+      includeAreaServed: true,
+    });
 
     return {
       // Kept in sync with Home.jsx's <Seo title> — this is the version
@@ -973,33 +1035,11 @@ const buildMeta = async (path) => {
     // never structured) -- this STATIC_PAGES entry never got that same
     // treatment, so a bot hitting /contact (routed here, never to the
     // real React app) saw only a breadcrumb, no business schema at all.
-    // Mirrors Contact.jsx's exact shape, not Home.jsx's (no priceRange/
-    // areaServed there -- those are homepage-specific, not per Contact.jsx).
     const staticPage = STATIC_PAGES["/contact"];
     const settingsData = await fetchJson(`${API_BASE}/api/settings`);
     const settings = settingsData.settings || {};
 
-    const localBusinessJsonLd = settings.address
-      ? {
-          "@context": "https://schema.org",
-          "@type": "HomeGoodsStore",
-          "@id": `${SITE_URL}/#business`,
-          name: SITE_NAME,
-          url: `${SITE_URL}/`,
-          telephone: settings.phone || undefined,
-          email: settings.email || undefined,
-          address: {
-            "@type": "PostalAddress",
-            streetAddress: settings.address,
-            addressLocality: "Ghaziabad",
-            addressRegion: "Uttar Pradesh",
-            addressCountry: "IN",
-          },
-          sameAs: [settings.facebook, settings.instagram, settings.twitter].filter(
-            Boolean,
-          ),
-        }
-      : null;
+    const localBusinessJsonLd = buildLocalBusinessJsonLd(settings);
 
     const contactBreadcrumbItems = [{ name: "Home", path: "/" }, { name: staticPage.breadcrumb }];
     // A bit richer than buildSimpleBodyHtml's single paragraph -- the
@@ -1038,32 +1078,11 @@ const buildMeta = async (path) => {
     const settingsData = await fetchJson(`${API_BASE}/api/settings`);
     const settings = settingsData.settings || {};
 
-    const localBusinessJsonLd = {
-      "@context": "https://schema.org",
-      "@type": "HomeGoodsStore",
-      "@id": `${SITE_URL}/#business`,
-      name: SITE_NAME,
-      url: `${SITE_URL}/`,
-      telephone: settings.phone || undefined,
-      address: {
-        "@type": "PostalAddress",
-        streetAddress: "Near Vanasthali Public School, Sector-3, Vasundhara",
-        addressLocality: "Ghaziabad",
-        addressRegion: "Uttar Pradesh",
-        postalCode: "201012",
-        addressCountry: "IN",
-      },
-      areaServed: [
-        ...DELIVERY_AREAS.map((area) => ({
-          "@type": "Place",
-          name: `${area}, Ghaziabad`,
-        })),
-        { "@type": "City", name: "Ghaziabad" },
-      ],
-      sameAs: [settings.facebook, settings.instagram, settings.twitter].filter(
-        Boolean,
-      ),
-    };
+    const localBusinessJsonLd = buildLocalBusinessJsonLd(settings, {
+      streetAddress: "Near Vanasthali Public School, Sector-3, Vasundhara",
+      postalCode: "201012",
+      includeAreaServed: true,
+    });
 
     const ghaziabadBreadcrumbItems = [{ name: "Home", path: "/" }, { name: staticPage.breadcrumb }];
     // Richest page to give real local-SEO body content to -- it's
@@ -1097,6 +1116,27 @@ const buildMeta = async (path) => {
     const staticPage = STATIC_PAGES[path];
     const staticBreadcrumbItems = [{ name: "Home", path: "/" }, { name: staticPage.breadcrumb }];
 
+    // "/articles" and "/hi/articles" are the one real URL pair among
+    // STATIC_PAGES (every other entry here has no Hindi counterpart at
+    // all) -- individual article pages already declare this correctly
+    // (see parts[0] === "articles" below); the listing pages never did,
+    // so bots saw zero declared relationship between the two despite
+    // the per-article pages getting it right.
+    const articleListingAlternates =
+      path === "/articles"
+        ? [
+            { lang: "en", url: `${SITE_URL}/articles` },
+            { lang: "hi", url: `${SITE_URL}/hi/articles` },
+            { lang: "x-default", url: `${SITE_URL}/articles` },
+          ]
+        : path === "/hi/articles"
+          ? [
+              { lang: "en", url: `${SITE_URL}/articles` },
+              { lang: "hi", url: `${SITE_URL}/hi/articles` },
+              { lang: "x-default", url: `${SITE_URL}/articles` },
+            ]
+          : undefined;
+
     return {
       title: staticPage.title,
       description: staticPage.description,
@@ -1104,6 +1144,7 @@ const buildMeta = async (path) => {
       url: `${SITE_URL}${path}`,
       ogType: "website",
       lang: staticPage.lang,
+      alternateLangs: articleListingAlternates,
       jsonLd: buildBreadcrumbJsonLd(staticBreadcrumbItems),
       bodyHtml: buildSimpleBodyHtml(staticBreadcrumbItems, staticPage.title, staticPage.description),
     };
