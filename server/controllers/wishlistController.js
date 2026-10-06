@@ -345,15 +345,25 @@ export const mergeGuestWishlist = async (req, res) => {
     }
 
     const guestItems = await Wishlist.find({ visitorId });
+
+    // One batched lookup instead of a per-item findOne — this login-flow
+    // path only ever runs once per guest-with-wishlist-items login, so
+    // the per-call cost was modest, but it's still an N+1 against a
+    // frequently-hit auth path for no reason (the batched form is no
+    // more complex).
+    const ownedProductIds = new Set(
+      (
+        await Wishlist.find({
+          user: req.user._id,
+          product: { $in: guestItems.map((item) => item.product) },
+        }).select("product")
+      ).map((item) => item.product.toString()),
+    );
+
     let merged = 0;
 
     for (const item of guestItems) {
-      const alreadyOwned = await Wishlist.findOne({
-        user: req.user._id,
-        product: item.product,
-      });
-
-      if (alreadyOwned) {
+      if (ownedProductIds.has(item.product.toString())) {
         await item.deleteOne();
         continue;
       }

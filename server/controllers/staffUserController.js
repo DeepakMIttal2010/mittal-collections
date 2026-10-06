@@ -22,9 +22,39 @@ export const getStaffUsers = async (req, res) => {
       .populate("adminRole")
       .sort({ createdAt: -1 });
 
+    // Same reasoning as getRoles (roleController.js) — a restricted
+    // caller could otherwise see the exact permission/writeAccess grid
+    // of a colleague whose role is broader than their own ceiling. The
+    // role's name itself ("who's a Full Admin") isn't sensitive; the
+    // detailed grid is. Full admins (req.user.adminRole is null) see
+    // everything unchanged.
+    const visibleStaffUsers = req.user.adminRole
+      ? staffUsers.map((staffUser) => {
+          if (!staffUser.adminRole) return staffUser;
+
+          const withinCeiling = isSubsetOfCallerAccess(req.user, {
+            permissions: staffUser.adminRole.permissions,
+            writeAccess: staffUser.adminRole.writeAccess,
+          });
+
+          if (withinCeiling) return staffUser;
+
+          const redactedStaffUser = staffUser.toObject();
+          redactedStaffUser.adminRole = {
+            _id: staffUser.adminRole._id,
+            name: staffUser.adminRole.name,
+            description: staffUser.adminRole.description,
+            permissions: [],
+            writeAccess: [],
+            redacted: true,
+          };
+          return redactedStaffUser;
+        })
+      : staffUsers;
+
     res.status(200).json({
       success: true,
-      staffUsers,
+      staffUsers: visibleStaffUsers,
     });
   } catch (error) {
     console.error("Get Staff Users Error:", error);
