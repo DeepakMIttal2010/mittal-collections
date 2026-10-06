@@ -769,9 +769,15 @@ function ProductDetails() {
               // third of the 160-char budget on every single product
               // before any product-specific content (material, size,
               // features — what actually differentiates one product's
-              // snippet from another's) got a chance to show.
-              `Pan-India delivery, 24hr in Ghaziabad. ${stripHtml(product.description)}`.slice(0, 160)
-            : `Buy ${product.name} online with pan-India delivery - fast 24-hour delivery in Ghaziabad`.slice(0, 160)
+              // snippet from another's) got a chance to show. Price
+              // leads the snippet (not buried after it) — live GSC data
+              // on this catalog's lower-priced products (₹80-230 towels
+              // ranking well, 0% CTR) pointed at price-sensitive
+              // shoppers not getting enough of a hook to click; showing
+              // the price pre-qualifies the snippet the same way it
+              // would on a marketplace listing.
+              `₹${displayPrice}. Pan-India delivery, 24hr in Ghaziabad. ${stripHtml(product.description)}`.slice(0, 160)
+            : `₹${displayPrice} — ${product.name}, pan-India delivery, fast 24-hour delivery in Ghaziabad`.slice(0, 160)
         }
         image={imgUrl(product.image)}
         url={canonicalUrl}
