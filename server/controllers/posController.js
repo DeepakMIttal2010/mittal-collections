@@ -509,18 +509,39 @@ export const getOfflineSales = async (req, res) => {
 // entirely.
 export const updateOfflineSale = async (req, res) => {
   try {
-    const sale = await OfflineSale.findById(req.params.id);
+    // Atomic claim, same mechanism voidOfflineSale already uses for its
+    // own concurrent-void race — but this also closes the race BETWEEN
+    // the two: a void landing after a plain findById+if-check here would
+    // let both this function and voidOfflineSale restore the same
+    // items' stock and claw back the same loyalty points. Borrowing the
+    // `voided` field itself as a short-lived mutex (true for the
+    // duration of this edit, flipped back to false on every exit path)
+    // means a concurrent void's own atomic claim (`{voided:false}` ->
+    // `{voided:true}`) simply fails while an edit is in flight, instead
+    // of both operations silently double-applying their stock/loyalty
+    // reversal.
+    const claimed = await OfflineSale.findOneAndUpdate(
+      { _id: req.params.id, voided: false },
+      { $set: { voided: true } },
+    );
 
-    if (!sale) {
-      return res.status(404).json({ success: false, message: "Sale not found" });
-    }
-
-    if (sale.voided) {
+    if (!claimed) {
+      const exists = await OfflineSale.exists({ _id: req.params.id });
+      if (!exists) {
+        return res.status(404).json({ success: false, message: "Sale not found" });
+      }
       return res.status(400).json({
         success: false,
         message: "A voided sale can't be edited — delete it instead if it needs to go away.",
       });
     }
+
+    const sale = claimed;
+    // Releases the claim on every exit path below (including thrown
+    // errors, via the existing outer catch) so a validation failure or
+    // unexpected error never leaves a perfectly good sale stuck looking
+    // "voided".
+    const releaseClaim = () => OfflineSale.updateOne({ _id: sale._id }, { $set: { voided: false } });
 
     const { paymentMethod, customerMobile, customerName } = req.body;
 
@@ -528,6 +549,7 @@ export const updateOfflineSale = async (req, res) => {
     // would otherwise flow straight into the User.findOne query below as
     // a query operator instead of a literal mobile number.
     if (customerMobile !== undefined && typeof customerMobile !== "string") {
+      await releaseClaim();
       return res.status(400).json({
         success: false,
         message: "Invalid customer mobile number",
@@ -537,10 +559,12 @@ export const updateOfflineSale = async (req, res) => {
     const { safeItems, error: itemsError } = parseSafeItems(req.body.items);
 
     if (itemsError) {
+      await releaseClaim();
       return res.status(400).json({ success: false, message: itemsError });
     }
 
     if (!["Cash", "UPI", "Card"].includes(paymentMethod)) {
+      await releaseClaim();
       return res.status(400).json({
         success: false,
         message: "Select a valid payment method",
@@ -575,6 +599,7 @@ export const updateOfflineSale = async (req, res) => {
         message = `Only ${failedProduct.stock} of "${failedProduct.name}" in stock`;
       }
 
+      await releaseClaim();
       return res.status(400).json({ success: false, message });
     }
 
@@ -589,6 +614,7 @@ export const updateOfflineSale = async (req, res) => {
       // into "reserved" state so stock ends up exactly where it started.
       await restoreStockForItems(safeItems);
       await reserveStockForItems(originalStockItems);
+      await releaseClaim();
       return res.status(400).json({ success: false, message: priceError });
     }
 
@@ -655,6 +681,10 @@ export const updateOfflineSale = async (req, res) => {
     sale.lastEditedBy = req.user._id;
     sale.editReason =
       typeof req.body.editReason === "string" ? req.body.editReason.trim() : "";
+    // Releases the claim from the top of this function — the sale was
+    // never really voided, `voided: true` was only ever a short-lived
+    // mutex against a concurrent void racing this edit.
+    sale.voided = false;
 
     await sale.save();
 
@@ -665,6 +695,19 @@ export const updateOfflineSale = async (req, res) => {
     });
   } catch (error) {
     console.error("Update Offline Sale Error:", error);
+
+    // Best-effort release so an unexpected error mid-edit doesn't leave
+    // the sale stuck looking voided — if this update itself fails too,
+    // there's nothing further to safely retry from inside an error
+    // handler, same as every other catch block in this file.
+    try {
+      await OfflineSale.updateOne(
+        { _id: req.params.id },
+        { $set: { voided: false } },
+      );
+    } catch {
+      /* already logged the primary error below; this is a best-effort cleanup */
+    }
 
     res.status(500).json({ success: false, message: "Server Error" });
   }

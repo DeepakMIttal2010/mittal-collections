@@ -429,7 +429,30 @@ export const createOrder = async (req, res) => {
       0,
     );
 
-    const settings = (await SiteSettings.findOne()) || {};
+    // 5 independent reads — none depends on another's result, so this
+    // collapses what was up to 5 sequential round trips (every checkout,
+    // the single hottest money-handling path in the app, on a Render
+    // free-tier box talking to Atlas where each round trip has real
+    // latency) into 1. The two conditional ones (coupon, currentUser)
+    // resolve to null when their trigger isn't present, same as the old
+    // code simply never running them.
+    const [settingsDoc, bundleResult, loyaltySettings, coupon, currentUser] =
+      await Promise.all([
+        SiteSettings.findOne(),
+        calculateBundleDiscount(verifiedItems),
+        getLoyaltySettings(),
+        couponCode
+          ? Coupon.findOne({
+              code: couponCode.trim().toUpperCase(),
+              isActive: true,
+            })
+          : Promise.resolve(null),
+        redeemPoints && Number(redeemPoints) > 0
+          ? User.findById(req.user._id).select("loyaltyPoints")
+          : Promise.resolve(null),
+      ]);
+
+    const settings = settingsDoc || {};
     const deliveryFee = calculateDeliveryFee(subtotal, settings);
     // Pass-through COD handling fee — never applied to Razorpay orders.
     const codCharge =
@@ -439,39 +462,27 @@ export const createOrder = async (req, res) => {
     let appliedCouponCode = null;
     let appliedFirstOrderCoupon = false;
 
-    if (couponCode) {
-      const coupon = await Coupon.findOne({
-        code: couponCode.trim().toUpperCase(),
-        isActive: true,
-      });
+    if (coupon) {
+      const eligible = coupon.firstOrderOnly
+        ? await isEligibleForFirstOrderCoupon(req.user._id)
+        : true;
 
-      if (coupon) {
-        const eligible = coupon.firstOrderOnly
-          ? await isEligibleForFirstOrderCoupon(req.user._id)
-          : true;
-
-        if (eligible) {
-          discountAmount = calculateDiscount(coupon, subtotal);
-          appliedCouponCode = coupon.code;
-          appliedFirstOrderCoupon = coupon.firstOrderOnly;
-        }
+      if (eligible) {
+        discountAmount = calculateDiscount(coupon, subtotal);
+        appliedCouponCode = coupon.code;
+        appliedFirstOrderCoupon = coupon.firstOrderOnly;
       }
     }
 
-    const bundleResult = await calculateBundleDiscount(verifiedItems);
     const bundleDiscountAmount = bundleResult.discountAmount;
 
     // Loyalty points redemption — capped to what the user actually holds
     // and to half the subtotal, so points can never fully zero an order.
     let pointsRedeemed = 0;
     let pointsDiscount = 0;
-    const loyaltySettings = await getLoyaltySettings();
 
     if (redeemPoints && Number(redeemPoints) > 0) {
       const requestedPoints = Math.floor(Number(redeemPoints));
-      const currentUser = await User.findById(req.user._id).select(
-        "loyaltyPoints",
-      );
       const allowed = maxRedeemablePoints(
         subtotal,
         currentUser?.loyaltyPoints || 0,
