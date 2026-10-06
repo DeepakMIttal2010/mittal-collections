@@ -9,6 +9,7 @@ import { buildBreadcrumbJsonLd } from "../utils/breadcrumbJsonLd";
 import { DELIVERY_AREAS } from "../utils/deliveryAreas";
 import { SITE_URL } from "../utils/siteUrl";
 import { useLanguage } from "../context/LanguageContext";
+import { buildLocalBusinessJsonLd } from "../utils/localBusinessJsonLd";
 
 // A dedicated local-SEO landing page, separate from the product-focused
 // category pages and the transactional Contact page -- targets searches
@@ -35,32 +36,11 @@ function GhaziabadStore() {
   // streetAddress since that's the one concrete, specific detail this
   // page exists to surface (the admin-configured settings.address is a
   // plainer "Sector 3, Vasundhara..." with no landmark).
-  const localBusinessJsonLd = {
-    "@context": "https://schema.org",
-    "@type": "HomeGoodsStore",
-    "@id": `${SITE_URL}/#business`,
-    name: "Mittal Collections",
-    url: `${SITE_URL}/`,
-    telephone: settings.phone || undefined,
-    address: {
-      "@type": "PostalAddress",
-      streetAddress: "Near Vanasthali Public School, Sector-3, Vasundhara",
-      addressLocality: "Ghaziabad",
-      addressRegion: "Uttar Pradesh",
-      postalCode: "201012",
-      addressCountry: "IN",
-    },
-    areaServed: [
-      ...DELIVERY_AREAS.map((area) => ({
-        "@type": "Place",
-        name: `${area}, Ghaziabad`,
-      })),
-      { "@type": "City", name: "Ghaziabad" },
-    ],
-    sameAs: [settings.facebook, settings.instagram, settings.twitter].filter(
-      Boolean,
-    ),
-  };
+  const localBusinessJsonLd = buildLocalBusinessJsonLd(settings, {
+    streetAddress: "Near Vanasthali Public School, Sector-3, Vasundhara",
+    postalCode: "201012",
+    includeAreaServed: true,
+  });
 
   const breadcrumbItems = [
     { name: "Home", path: "/" },

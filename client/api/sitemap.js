@@ -125,8 +125,30 @@ const urlEntry = (loc, alternates, lastmod, images, imageTitle) => {
   return `  <url><loc>${SITE_URL}${loc}</loc>${lastmodTag}${altLinks}${imageTags}</url>`;
 };
 
+// "/articles" and "/hi/articles" are the one real URL pair among
+// STATIC_ROUTES (every other static route has no Hindi counterpart at
+// all) -- every per-article pair below already gets its alternates
+// wired up correctly, but these two LISTING pages were being built via
+// the plain `urlEntry(loc)` call just below with no alternates arg, so
+// Google saw zero declared relationship between them despite the
+// per-article pages getting it right.
+const ARTICLES_LISTING_ALTERNATES = [
+  { lang: "en", href: "/articles" },
+  { lang: "hi", href: "/hi/articles" },
+  { lang: "x-default", href: "/articles" },
+];
+
 export default async function handler(req, res) {
-  const urls = [...STATIC_ROUTES.map((loc) => urlEntry(loc))];
+  const urls = [
+    ...STATIC_ROUTES.map((loc) =>
+      urlEntry(
+        loc,
+        loc === "/articles" || loc === "/hi/articles"
+          ? ARTICLES_LISTING_ALTERNATES
+          : undefined,
+      ),
+    ),
+  ];
   let degraded = false;
 
   try {
