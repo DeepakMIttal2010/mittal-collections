@@ -546,6 +546,17 @@ function ProductDetails() {
     // excludes videos (see mediaItems above) and falls back to the
     // single product.image when no gallery array is set.
     image: productImages.map((url) => imgUrl(url)),
+    // The product's own Mongo _id — already the unique identifier used
+    // everywhere else (product URLs, the Merchant Center/Meta feed's
+    // <g:id>), matching render.js's bot-prerendered version of this same
+    // JSON-LD block exactly. Deliberately NOT generateProductNumber
+    // (costCipher.js), which encodes purchase price/date for the admin's
+    // shelf-label tool — that would publish cost price in public structured
+    // data. Without this, a bot that executes JS (hydrating past the
+    // server-prerendered markup) would see a Product entity missing `sku`
+    // where the pre-hydration one had it — a conflicting-data signal for
+    // the same URL rather than a clean duplicate.
+    sku: product._id,
     brand: {
       "@type": "Brand",
       name: "Mittal Collections",

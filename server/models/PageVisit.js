@@ -59,6 +59,17 @@ pageVisitSchema.index(
   { expireAfterSeconds: 365 * 24 * 60 * 60 },
 );
 
+// `path` had no index at all despite being the filter in
+// getProductViewCount's `distinct("visitorId", {path, createdAt})`
+// (analyticsController.js) — the product-page view-count badge, hit on
+// every single public product-page load, the hottest page type on the
+// site. The same unindexed-path cost also hits several admin dashboard
+// aggregations that $match on path. Compound with createdAt (not a
+// separate single-field index) since every real query here filters on
+// both together, and a compound index already serves a path-only query
+// too (Mongo can use a leading-prefix subset of a compound index).
+pageVisitSchema.index({ path: 1, createdAt: 1 });
+
 const PageVisit = mongoose.model("PageVisit", pageVisitSchema);
 
 export default PageVisit;

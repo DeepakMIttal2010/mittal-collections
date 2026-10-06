@@ -126,6 +126,17 @@ export const notifyStockAlertSubscribers = async (product) => {
   const slug = product.slug || slugify(product.name);
   const productLink = `${process.env.CLIENT_URL}/product/${product._id}/${slug}`;
 
+  // One batched lookup instead of a per-alert findOne — email is already
+  // indexed (User.js, unique) so each individual lookup was cheap, but a
+  // popular item with many "notify me" sign-ups could still mean dozens
+  // of avoidable round trips on a single restock.
+  const subscribers = await User.find({
+    email: { $in: alerts.map((alert) => alert.email) },
+  }).select("_id email");
+  const subscriberIdByEmail = new Map(
+    subscribers.map((user) => [user.email, user._id]),
+  );
+
   for (const alert of alerts) {
     try {
       await sendEmail({
@@ -148,10 +159,10 @@ export const notifyStockAlertSubscribers = async (product) => {
     // reply, return status all fire notifyUser() regardless of whether
     // the accompanying email succeeds), so a bounced email doesn't
     // silently also cost the customer the bell notification.
-    const subscriber = await User.findOne({ email: alert.email }).select("_id");
-    if (subscriber) {
+    const subscriberId = subscriberIdByEmail.get(alert.email);
+    if (subscriberId) {
       notifyUser({
-        userId: subscriber._id,
+        userId: subscriberId,
         type: "back_in_stock",
         title: `${product.name} is back in stock!`,
         link: `/product/${product._id}/${slug}`,

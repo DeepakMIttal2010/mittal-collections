@@ -237,9 +237,11 @@ export const getProductViewCount = async (req, res) => {
     // id is compiled straight into a RegExp below — without this check, an
     // arbitrary string (this route is public/unauthenticated) could inject
     // regex metacharacters, including a pathological pattern MongoDB's
-    // regex engine would then evaluate against every PageVisit document
-    // (path has no index) — a real ReDoS surface, not just a malformed
-    // query.
+    // regex engine would then evaluate against every PageVisit document —
+    // a real ReDoS surface, not just a malformed query. (path now has a
+    // compound {path,createdAt} index, see PageVisit.js — that speeds up
+    // the legitimate anchored-prefix case below, it doesn't defang a
+    // pathological pattern, so this validation still matters just as much.)
     if (!/^[0-9a-fA-F]{24}$/.test(id)) {
       return res.status(400).json({
         success: false,
