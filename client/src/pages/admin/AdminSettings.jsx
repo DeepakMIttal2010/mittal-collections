@@ -236,10 +236,11 @@ function AdminSettings() {
         </p>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">
+          <label htmlFor="settingsAddress" className="block text-sm font-medium text-slate-700 mb-1">
             Address
           </label>
           <textarea
+            id="settingsAddress"
             name="address"
             rows={2}
             placeholder="M-67, Mahesh Colony, Near JP Phatak Underpass, Jaipur-302015"
@@ -250,10 +251,11 @@ function AdminSettings() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">
+          <label htmlFor="settingsEmail" className="block text-sm font-medium text-slate-700 mb-1">
             Support Email
           </label>
           <input
+            id="settingsEmail"
             type="email"
             name="email"
             placeholder="info@mittalcollections.com"
@@ -264,10 +266,11 @@ function AdminSettings() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">
+          <label htmlFor="settingsPhone" className="block text-sm font-medium text-slate-700 mb-1">
             Support Phone
           </label>
           <input
+            id="settingsPhone"
             type="tel"
             name="phone"
             placeholder="+91-9711208074"
@@ -278,10 +281,11 @@ function AdminSettings() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">
+          <label htmlFor="settingsSupportHours" className="block text-sm font-medium text-slate-700 mb-1">
             Support Hours
           </label>
           <input
+            id="settingsSupportHours"
             type="text"
             name="supportHours"
             placeholder="Mon - Sat: 11:00 - 18:00"
@@ -301,10 +305,11 @@ function AdminSettings() {
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label htmlFor="settingsDeliveryFee" className="block text-sm font-medium text-slate-700 mb-1">
               Default Delivery Fee (₹)
             </label>
             <input
+              id="settingsDeliveryFee"
               type="number"
               name="deliveryFee"
               min="0"
@@ -318,10 +323,11 @@ function AdminSettings() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label htmlFor="settingsFreeShippingThreshold" className="block text-sm font-medium text-slate-700 mb-1">
               Free Shipping Above (₹)
             </label>
             <input
+              id="settingsFreeShippingThreshold"
               type="number"
               name="freeShippingThreshold"
               min="0"
@@ -333,10 +339,11 @@ function AdminSettings() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">
+          <label htmlFor="settingsCodCharge" className="block text-sm font-medium text-slate-700 mb-1">
             COD Charge (₹)
           </label>
           <input
+            id="settingsCodCharge"
             type="number"
             name="codCharge"
             min="0"
@@ -714,10 +721,11 @@ function AdminSettings() {
         </p>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">
+          <label htmlFor="settingsDefaultReturnPeriodDays" className="block text-sm font-medium text-slate-700 mb-1">
             Default Return Period (days)
           </label>
           <input
+            id="settingsDefaultReturnPeriodDays"
             type="number"
             name="defaultReturnPeriodDays"
             min="1"
@@ -735,10 +743,11 @@ function AdminSettings() {
         </p>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">
+          <label htmlFor="settingsFacebook" className="block text-sm font-medium text-slate-700 mb-1">
             Facebook URL
           </label>
           <input
+            id="settingsFacebook"
             type="url"
             name="facebook"
             placeholder="https://facebook.com/yourpage"
@@ -749,10 +758,11 @@ function AdminSettings() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">
+          <label htmlFor="settingsInstagram" className="block text-sm font-medium text-slate-700 mb-1">
             Instagram URL
           </label>
           <input
+            id="settingsInstagram"
             type="url"
             name="instagram"
             placeholder="https://instagram.com/yourpage"
@@ -763,10 +773,11 @@ function AdminSettings() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">
+          <label htmlFor="settingsTwitter" className="block text-sm font-medium text-slate-700 mb-1">
             Twitter / X URL
           </label>
           <input
+            id="settingsTwitter"
             type="url"
             name="twitter"
             placeholder="https://x.com/yourpage"
@@ -777,10 +788,11 @@ function AdminSettings() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">
+          <label htmlFor="settingsLinkedin" className="block text-sm font-medium text-slate-700 mb-1">
             LinkedIn URL
           </label>
           <input
+            id="settingsLinkedin"
             type="url"
             name="linkedin"
             placeholder="https://linkedin.com/company/yourpage"

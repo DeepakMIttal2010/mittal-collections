@@ -161,10 +161,11 @@ function AdminPriceRanges() {
         className="bg-white border border-slate-200 rounded-xl p-6 mb-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 items-end"
       >
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">
+          <label htmlFor="priceRangeLabel" className="block text-sm font-medium text-slate-700 mb-1">
             Label
           </label>
           <input
+            id="priceRangeLabel"
             type="text"
             name="label"
             placeholder="Under ₹599"
@@ -176,10 +177,11 @@ function AdminPriceRanges() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">
+          <label htmlFor="priceRangeMaxPrice" className="block text-sm font-medium text-slate-700 mb-1">
             Max Price (₹)
           </label>
           <input
+            id="priceRangeMaxPrice"
             type="number"
             name="maxPrice"
             min="0"
@@ -191,10 +193,11 @@ function AdminPriceRanges() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">
+          <label htmlFor="priceRangeDisplayOrder" className="block text-sm font-medium text-slate-700 mb-1">
             Order (Priority)
           </label>
           <input
+            id="priceRangeDisplayOrder"
             type="number"
             name="displayOrder"
             value={formData.displayOrder}

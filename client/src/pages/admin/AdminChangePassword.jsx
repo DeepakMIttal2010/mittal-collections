@@ -59,10 +59,11 @@ function AdminChangePassword() {
       <div className="bg-white border border-slate-200 rounded-xl p-6">
         <form onSubmit={handlePasswordSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label htmlFor="currentPassword" className="block text-sm font-medium text-slate-700 mb-1">
               Current Password
             </label>
             <input
+              id="currentPassword"
               type="password"
               name="currentPassword"
               value={passwordData.currentPassword}
@@ -73,10 +74,11 @@ function AdminChangePassword() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label htmlFor="newPassword" className="block text-sm font-medium text-slate-700 mb-1">
               New Password
             </label>
             <input
+              id="newPassword"
               type="password"
               name="newPassword"
               value={passwordData.newPassword}
@@ -88,10 +90,11 @@ function AdminChangePassword() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label htmlFor="confirmPassword" className="block text-sm font-medium text-slate-700 mb-1">
               Confirm New Password
             </label>
             <input
+              id="confirmPassword"
               type="password"
               name="confirmPassword"
               value={passwordData.confirmPassword}

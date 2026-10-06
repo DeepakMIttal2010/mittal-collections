@@ -129,10 +129,11 @@ function EditCategory() {
         className="bg-white border border-slate-200 rounded-xl p-6 space-y-5"
       >
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">
+          <label htmlFor="name" className="block text-sm font-medium text-slate-700 mb-1">
             Category Name
           </label>
           <input
+            id="name"
             type="text"
             name="name"
             value={formData.name}
@@ -143,10 +144,11 @@ function EditCategory() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">
+          <label htmlFor="nameHi" className="block text-sm font-medium text-slate-700 mb-1">
             Category Name (Hindi, optional)
           </label>
           <input
+            id="nameHi"
             type="text"
             name="nameHi"
             value={formData.nameHi}
@@ -157,10 +159,11 @@ function EditCategory() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">
+          <label htmlFor="description" className="block text-sm font-medium text-slate-700 mb-1">
             Description
           </label>
           <textarea
+            id="description"
             rows="4"
             name="description"
             value={formData.description}
@@ -170,10 +173,11 @@ function EditCategory() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">
+          <label htmlFor="displayOrder" className="block text-sm font-medium text-slate-700 mb-1">
             Display Order
           </label>
           <input
+            id="displayOrder"
             type="number"
             name="displayOrder"
             value={formData.displayOrder}
@@ -188,10 +192,11 @@ function EditCategory() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">
+          <label htmlFor="categoryImage" className="block text-sm font-medium text-slate-700 mb-1">
             Category Image
           </label>
           <input
+            id="categoryImage"
             type="file"
             accept="image/*"
             onChange={handleImage}

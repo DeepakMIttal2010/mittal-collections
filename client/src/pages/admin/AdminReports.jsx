@@ -1490,10 +1490,11 @@ function AdminReports() {
           {showCustomPicker && (
             <div className="absolute right-0 top-full mt-2 z-10 bg-white border border-slate-200 rounded-lg shadow-lg p-4 flex items-end gap-3">
               <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">
+                <label htmlFor="reportsRangeFrom" className="block text-xs font-medium text-slate-500 mb-1">
                   From
                 </label>
                 <input
+                  id="reportsRangeFrom"
                   type="date"
                   value={draftStart}
                   max={draftEnd}
@@ -1502,10 +1503,11 @@ function AdminReports() {
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">
+                <label htmlFor="reportsRangeTo" className="block text-xs font-medium text-slate-500 mb-1">
                   To
                 </label>
                 <input
+                  id="reportsRangeTo"
                   type="date"
                   value={draftEnd}
                   max={todayISO()}
@@ -2006,10 +2008,11 @@ function AdminReports() {
             {showEngagementPicker && (
               <div className="absolute right-0 top-full mt-2 z-10 bg-white border border-slate-200 rounded-lg shadow-lg p-4 flex items-end gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-slate-500 mb-1">
+                  <label htmlFor="engagementRangeFrom" className="block text-xs font-medium text-slate-500 mb-1">
                     From
                   </label>
                   <input
+                    id="engagementRangeFrom"
                     type="date"
                     value={engagementDraftStart}
                     max={engagementDraftEnd}
@@ -2018,10 +2021,11 @@ function AdminReports() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-500 mb-1">
+                  <label htmlFor="engagementRangeTo" className="block text-xs font-medium text-slate-500 mb-1">
                     To
                   </label>
                   <input
+                    id="engagementRangeTo"
                     type="date"
                     value={engagementDraftEnd}
                     max={todayISO()}

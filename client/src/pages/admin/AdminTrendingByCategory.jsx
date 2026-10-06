@@ -177,10 +177,11 @@ function AdminTrendingByCategory() {
         className="bg-white border border-slate-200 rounded-xl p-6 mb-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end"
       >
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">
+          <label htmlFor="trendingCategory" className="block text-sm font-medium text-slate-700 mb-1">
             Category
           </label>
           <select
+            id="trendingCategory"
             name="category"
             value={formData.category}
             onChange={handleChange}
@@ -197,10 +198,11 @@ function AdminTrendingByCategory() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">
+          <label htmlFor="trendingDisplayOrder" className="block text-sm font-medium text-slate-700 mb-1">
             Order (Priority)
           </label>
           <input
+            id="trendingDisplayOrder"
             type="number"
             name="displayOrder"
             value={formData.displayOrder}

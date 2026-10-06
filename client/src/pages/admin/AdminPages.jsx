@@ -190,10 +190,11 @@ function AdminPages() {
           className="bg-white border border-slate-200 rounded-xl p-6 mb-8 space-y-4"
         >
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label htmlFor="pageTitle" className="block text-sm font-medium text-slate-700 mb-1">
               Title
             </label>
             <input
+              id="pageTitle"
               type="text"
               name="title"
               value={formData.title}
@@ -209,10 +210,11 @@ function AdminPages() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label htmlFor="pageContent" className="block text-sm font-medium text-slate-700 mb-1">
               Content
             </label>
             <textarea
+              id="pageContent"
               name="content"
               rows={10}
               value={formData.content}
@@ -226,11 +228,12 @@ function AdminPages() {
           </div>
 
           <div className="border-t border-slate-200 pt-4">
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label htmlFor="pageTitleHi" className="block text-sm font-medium text-slate-700 mb-1">
               Title (Hindi)
               <span className="text-slate-400 font-normal"> — optional</span>
             </label>
             <input
+              id="pageTitleHi"
               type="text"
               name="titleHi"
               value={formData.titleHi}
@@ -240,11 +243,12 @@ function AdminPages() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label htmlFor="pageContentHi" className="block text-sm font-medium text-slate-700 mb-1">
               Content (Hindi)
               <span className="text-slate-400 font-normal"> — optional</span>
             </label>
             <textarea
+              id="pageContentHi"
               name="contentHi"
               rows={10}
               value={formData.contentHi}

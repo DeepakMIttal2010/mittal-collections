@@ -566,10 +566,11 @@ function AdminPOS() {
           className="bg-white border border-slate-200 rounded-xl p-5 space-y-4"
         >
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label htmlFor="posPaymentMethod" className="block text-sm font-medium text-slate-700 mb-1">
               Payment Method
             </label>
             <select
+              id="posPaymentMethod"
               value={paymentMethod}
               onChange={(e) => setPaymentMethod(e.target.value)}
               className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -583,10 +584,11 @@ function AdminPOS() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label htmlFor="posDiscountAmount" className="block text-sm font-medium text-slate-700 mb-1">
               Discount Amount (optional)
             </label>
             <input
+              id="posDiscountAmount"
               type="number"
               min="0"
               max={cartTotal}
@@ -599,10 +601,11 @@ function AdminPOS() {
 
           {paymentMethod !== "Cash" && (
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
+              <label htmlFor="posPaymentProof" className="block text-sm font-medium text-slate-700 mb-1">
                 Payment Proof (optional)
               </label>
               <input
+                id="posPaymentProof"
                 type="file"
                 accept="image/*"
                 onChange={handlePaymentProofChange}
@@ -619,10 +622,11 @@ function AdminPOS() {
           )}
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label htmlFor="posCustomerMobile" className="block text-sm font-medium text-slate-700 mb-1">
               Customer Mobile (optional)
             </label>
             <input
+              id="posCustomerMobile"
               type="tel"
               maxLength={10}
               value={customerMobile}
@@ -645,10 +649,11 @@ function AdminPOS() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label htmlFor="posCustomerName" className="block text-sm font-medium text-slate-700 mb-1">
               Customer Name (optional)
             </label>
             <input
+              id="posCustomerName"
               type="text"
               value={customerName}
               onChange={(e) => setCustomerName(e.target.value)}
