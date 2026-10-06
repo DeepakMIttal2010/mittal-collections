@@ -2049,8 +2049,7 @@ function AdminReports() {
         <p className="text-xs text-slate-400 mb-4">
           {engagementRange
             ? `Views are for ${engagementRangeLabel}; wishlist/cart counts are how many people have it right now, not a historical total.`
-            : "Views are all-time; wishlist/cart counts are how many people have it right now, not a historical total."}{" "}
-          Cart count only covers logged-in customers.
+            : "Views are all-time; wishlist/cart counts are how many people have it right now, not a historical total."}
         </p>
         <ProductEngagementTable
           items={engagement}
