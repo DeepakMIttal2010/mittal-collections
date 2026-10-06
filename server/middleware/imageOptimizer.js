@@ -74,6 +74,38 @@ const assertValidImage = async (file) => {
   await sharp(file.buffer).metadata();
 };
 
+// Same spirit as assertValidImage above, but videos have no equivalent
+// "decode it and see" library already in this dependency tree (adding
+// one, e.g. ffmpeg, is a real infra change, not a validation tweak) — so
+// this checks the file's actual container signature instead of trusting
+// file.mimetype (multer's fileFilter only checks the client-supplied
+// Content-Type header, which any caller fully controls). Every video
+// upload reaches this with zero content check today, via
+// POST /api/reviews (uploadReviewMedia + this middleware — no admin
+// gate, reachable by any authenticated customer) as well as admin
+// product-media uploads — an attacker could otherwise host an arbitrary
+// file on this site's Cloudinary account mislabeled as video/mp4.
+// mp4/mov (QuickTime) share the ISO base media file format container,
+// identified by an "ftyp" box at byte offset 4; webm is Matroska-based,
+// identified by its EBML header magic bytes.
+const assertValidVideo = (file) => {
+  const buffer = file.buffer;
+
+  const isIsoBmff =
+    buffer.length >= 8 && buffer.toString("ascii", 4, 8) === "ftyp";
+
+  const isWebm =
+    buffer.length >= 4 &&
+    buffer[0] === 0x1a &&
+    buffer[1] === 0x45 &&
+    buffer[2] === 0xdf &&
+    buffer[3] === 0xa3;
+
+  if (!isIsoBmff && !isWebm) {
+    throw new Error("File is not a valid MP4, MOV or WEBM video");
+  }
+};
+
 const uploadBufferToCloudinary = (buffer, resourceType, publicId) =>
   new Promise((resolve, reject) => {
     const options = {
@@ -98,6 +130,8 @@ const uploadBufferToCloudinary = (buffer, resourceType, publicId) =>
 
 const processFile = async (file, shouldOptimize, publicId) => {
   if (isVideo(file.mimetype)) {
+    assertValidVideo(file);
+
     const result = await uploadBufferToCloudinary(file.buffer, "video", publicId);
     file.path = result.secure_url;
     // Exposed so callers can validate/act on Cloudinary-reported metadata

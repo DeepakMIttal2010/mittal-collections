@@ -1,10 +1,14 @@
 import express from "express";
+import validateObjectId from "../middleware/validateObjectId.js";
 
 import {
   getProductForPOS,
   lookupCustomerByMobile,
   recordOfflineSale,
   getOfflineSales,
+  updateOfflineSale,
+  deleteOfflineSale,
+  voidOfflineSale,
 } from "../controllers/posController.js";
 import authMiddleware from "../middleware/authMiddleware.js";
 import adminMiddleware from "../middleware/adminMiddleware.js";
@@ -13,6 +17,8 @@ import imageOptimizer from "../middleware/imageOptimizer.js";
 import requirePermission from "../middleware/requirePermission.js";
 
 const router = express.Router();
+
+router.param("id", validateObjectId);
 const perm = requirePermission("pos");
 
 router.get(
@@ -33,5 +39,28 @@ router.post(
   recordOfflineSale,
 );
 router.get("/sales", authMiddleware, adminMiddleware, perm, getOfflineSales);
+router.put(
+  "/sales/:id",
+  authMiddleware,
+  adminMiddleware,
+  perm,
+  upload.single("paymentProof"),
+  imageOptimizer,
+  updateOfflineSale,
+);
+router.delete(
+  "/sales/:id",
+  authMiddleware,
+  adminMiddleware,
+  perm,
+  deleteOfflineSale,
+);
+router.post(
+  "/sales/:id/void",
+  authMiddleware,
+  adminMiddleware,
+  perm,
+  voidOfflineSale,
+);
 
 export default router;

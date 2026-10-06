@@ -116,12 +116,19 @@ export const getAllTicketsAdmin = async (req, res) => {
   try {
     const filter = {};
 
-    if (req.query.status) filter.status = req.query.status;
+    // typeof guard, not just truthiness -- an object-shaped query param
+    // (e.g. ?status[$ne]=x) would otherwise flow straight into this
+    // Mongo filter as a raw operator object instead of a literal value.
+    if (typeof req.query.status === "string") filter.status = req.query.status;
 
+    // Safety ceiling, not real pagination — see orderController.js's
+    // getAllOrders for why this pattern was chosen here over a full
+    // pagination rework.
     const tickets = await Ticket.find(filter)
       .select("-messages")
       .populate("user", "name email")
-      .sort({ lastMessageAt: -1 });
+      .sort({ lastMessageAt: -1 })
+      .limit(2000);
 
     res.status(200).json({
       success: true,

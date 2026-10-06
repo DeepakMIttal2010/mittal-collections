@@ -90,7 +90,15 @@ export const uploadCampaignImage = async (req, res) => {
 // ============================
 export const getSubscribers = async (req, res) => {
   try {
-    const subscribers = await Subscriber.find({}).sort({ createdAt: -1 });
+    // Safety ceiling, not real pagination — see orderController.js's
+    // getAllOrders for why this pattern was chosen here over a full
+    // pagination rework. sendCampaign below deliberately does NOT get
+    // this same cap — a newsletter send has to reach every subscriber,
+    // not just the first 2000, so silently truncating that list would be
+    // a real (and much worse) bug, not a safety improvement.
+    const subscribers = await Subscriber.find({})
+      .sort({ createdAt: -1 })
+      .limit(2000);
 
     res.status(200).json({
       success: true,

@@ -4,6 +4,7 @@ import { toast } from "react-toastify";
 import { FaArrowLeft } from "react-icons/fa";
 import { resetPassword } from "../services/authService";
 import { useLanguage } from "../context/LanguageContext";
+import Seo from "../components/Seo";
 
 function ResetPassword() {
   const { token } = useParams();
@@ -36,6 +37,11 @@ function ResetPassword() {
 
   return (
     <div className="min-h-[70vh] flex items-center justify-center py-16 px-4">
+      {/* This URL carries a live, single-use reset token — critically
+          needs noindex, not just a robots.txt disallow (disallow blocks
+          crawling, not indexing a URL discovered via an external/shared
+          link, same reasoning already documented in SearchResults.jsx). */}
+      <Seo title="Reset Password" noindex />
       <div className="w-full max-w-md">
         <h1 className="text-5xl font-bold text-center text-slate-900 mb-3">
           {t("Reset password", "पासवर्ड रीसेट करें")}

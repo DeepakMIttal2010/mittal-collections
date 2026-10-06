@@ -1,10 +1,14 @@
 import { Navigate, useLocation } from "react-router-dom";
 
+import { readJsonFromStorage } from "../utils/safeLocalStorage";
+
 function AdminProtectedRoute({ children }) {
   const location = useLocation();
   const token = localStorage.getItem("adminToken");
-  const userStr = localStorage.getItem("adminUser");
-  const user = userStr ? JSON.parse(userStr) : null;
+  // A corrupted adminUser value (partial write, devtools tinkering)
+  // used to throw here on a bare JSON.parse — crashing this route
+  // guard blank instead of just treating it as "not logged in".
+  const user = readJsonFromStorage("adminUser", null);
 
   // e.g. scanning a product's QR code before ever logging in — send them
   // back to that exact page (not just the dashboard) once they log in.

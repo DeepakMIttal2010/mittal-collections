@@ -7,6 +7,7 @@ import User from "../models/User.js";
 import { sendEmail } from "../config/mailer.js";
 import { generateUniqueReferralCode } from "../utils/referral.js";
 import { createAndSendOtp, verifyOtp } from "../utils/otp.js";
+import { escapeHtml } from "../utils/escapeHtml.js";
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_OAUTH_CLIENT_ID);
 
@@ -181,7 +182,7 @@ export const verifyRegisterOtp = async (req, res) => {
         bcc: process.env.ADMIN_NOTIFICATION_EMAIL,
         subject: "Welcome to Mittal Collections!",
         html: `
-          <p>Hi ${user.name},</p>
+          <p>Hi ${escapeHtml(user.name)},</p>
           <p>Welcome to Mittal Collections! Your account has been created successfully.</p>
           <p>Explore premium bedsheets, towels, curtains, pillows and more at
           <a href="${process.env.CLIENT_URL}">mittalcollections.com</a>.</p>
@@ -376,7 +377,7 @@ export const googleAuth = async (req, res) => {
             bcc: process.env.ADMIN_NOTIFICATION_EMAIL,
             subject: "Welcome to Mittal Collections!",
             html: `
-              <p>Hi ${user.name},</p>
+              <p>Hi ${escapeHtml(user.name)},</p>
               <p>Welcome to Mittal Collections! Your account has been created successfully.</p>
               <p>Explore premium bedsheets, towels, curtains, pillows and more at
               <a href="${process.env.CLIENT_URL}">mittalcollections.com</a>.</p>
@@ -561,16 +562,27 @@ export const forgotPassword = async (req, res) => {
 
       const resetUrl = `${process.env.CLIENT_URL}/reset-password/${rawToken}`;
 
-      await sendEmail({
-        to: user.email,
-        subject: "Reset your Mittal Collections password",
-        html: `
-          <p>Hi ${user.name || "there"},</p>
-          <p>We received a request to reset your password. This link expires in 30 minutes.</p>
-          <p><a href="${resetUrl}">Reset your password</a></p>
-          <p>If you didn't request this, you can safely ignore this email.</p>
-        `,
-      });
+      // Unlike every other sendEmail call site in this file, this one
+      // must never let a transient send failure (Brevo blip, bad key)
+      // propagate up to the outer catch — that would return a 500 only
+      // when the account genuinely exists (a 200 either means no
+      // account or a successful email), turning the response code
+      // itself into exactly the enumeration side-channel the uniform
+      // response below is meant to prevent.
+      try {
+        await sendEmail({
+          to: user.email,
+          subject: "Reset your Mittal Collections password",
+          html: `
+            <p>Hi ${escapeHtml(user.name || "there")},</p>
+            <p>We received a request to reset your password. This link expires in 30 minutes.</p>
+            <p><a href="${resetUrl}">Reset your password</a></p>
+            <p>If you didn't request this, you can safely ignore this email.</p>
+          `,
+        });
+      } catch (error) {
+        console.error("Forgot Password Email Error:", error);
+      }
     }
 
     res.status(200).json({
@@ -628,6 +640,29 @@ export const resetPassword = async (req, res) => {
 
     await user.save();
 
+    // Standard security-notification pattern this flow was missing
+    // (block/unblock, order status, ticket replies all notify the
+    // user on every other sensitive action) — if an attacker who's
+    // gained some access resets the password, the real account owner
+    // gets no alert otherwise. Best-effort: the password change itself
+    // already succeeded by this point, so a transient email failure
+    // shouldn't turn into a 500 for something that genuinely worked.
+    if (user.email) {
+      try {
+        await sendEmail({
+          to: user.email,
+          subject: "Your Mittal Collections password was reset",
+          html: `
+            <p>Hi ${escapeHtml(user.name || "there")},</p>
+            <p>Your password was just reset using the "Forgot Password" link.</p>
+            <p>If this was you, no action is needed. If you didn't do this, please contact support immediately — someone else may have access to your account.</p>
+          `,
+        });
+      } catch (error) {
+        console.error("Reset Password Notification Email Error:", error);
+      }
+    }
+
     res.status(200).json({
       success: true,
       message: "Password reset successfully",
@@ -684,6 +719,26 @@ export const changePassword = async (req, res) => {
     user.password = await bcrypt.hash(newPassword, 10);
 
     await user.save();
+
+    // Same security-notification pattern as resetPassword — the account's
+    // already-known owner here (currentPassword was verified above), so
+    // there's no enumeration concern, just a best-effort alert that
+    // shouldn't block the (already-successful) password change.
+    if (user.email) {
+      try {
+        await sendEmail({
+          to: user.email,
+          subject: "Your Mittal Collections password was changed",
+          html: `
+            <p>Hi ${escapeHtml(user.name || "there")},</p>
+            <p>Your account password was just changed.</p>
+            <p>If this was you, no action is needed. If you didn't do this, please contact support immediately — someone else may have access to your account.</p>
+          `,
+        });
+      } catch (error) {
+        console.error("Change Password Notification Email Error:", error);
+      }
+    }
 
     res.status(200).json({
       success: true,

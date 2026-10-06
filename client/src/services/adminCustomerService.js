@@ -26,7 +26,7 @@ export const getAllCustomers = async ({
     const data = await response.json();
 
     return {
-      success: true,
+      success: data.success,
       customers: data.customers || [],
     };
   } catch (error) {

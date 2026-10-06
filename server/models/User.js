@@ -135,6 +135,14 @@ userSchema.index(
   },
 );
 
+// getAllCustomers (userController.js) filters on `role` and sorts on
+// name/email/createdAt; getAllStaffUsers (staffUserController.js) filters
+// on `role` too — neither had any index on it before (2026-10-02 DB/API
+// audit), meaning every admin Customers/Staff Users page load was a full
+// collection scan. Low-impact today given the small user count, but
+// grows into a real one as the user base does.
+userSchema.index({ role: 1, createdAt: -1 });
+
 const User = mongoose.model("User", userSchema);
 
 export default User;

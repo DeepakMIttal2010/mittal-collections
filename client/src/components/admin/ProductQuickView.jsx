@@ -2,9 +2,11 @@ import { imgUrl } from "../../services/api";
 import { Link } from "react-router-dom";
 import { FaTimes } from "react-icons/fa";
 import { stripHtml } from "../../utils/stripHtml";
+import { useModalA11y } from "../../hooks/useModalA11y";
 
 function ProductQuickView({ product, onClose }) {
   const images = product.images?.length ? product.images : [product.image];
+  const panelRef = useModalA11y(true, onClose);
 
   return (
     <div
@@ -12,6 +14,11 @@ function ProductQuickView({ product, onClose }) {
       className="fixed inset-0 bg-black/50 z-[1000] flex items-center justify-center p-4"
     >
       <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={product.name}
+        tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
         className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden relative grid grid-cols-1 sm:grid-cols-2 grid-rows-[minmax(0,1fr)]"
       >

@@ -166,10 +166,11 @@ function AdminCoupons() {
         className="bg-white border border-slate-200 rounded-xl p-6 mb-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end"
       >
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">
+          <label htmlFor="couponCode" className="block text-sm font-medium text-slate-700 mb-1">
             Coupon Code
           </label>
           <input
+            id="couponCode"
             type="text"
             name="code"
             placeholder="WELCOME10"
@@ -182,10 +183,11 @@ function AdminCoupons() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">
+          <label htmlFor="discountType" className="block text-sm font-medium text-slate-700 mb-1">
             Discount Type
           </label>
           <select
+            id="discountType"
             name="discountType"
             value={formData.discountType}
             onChange={handleChange}
@@ -197,13 +199,15 @@ function AdminCoupons() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">
+          <label htmlFor="discountValue" className="block text-sm font-medium text-slate-700 mb-1">
             Discount Value
           </label>
           <input
+            id="discountValue"
             type="number"
             name="discountValue"
             min="0"
+            max={formData.discountType === "percentage" ? 100 : undefined}
             value={formData.discountValue}
             onChange={handleChange}
             required
@@ -212,10 +216,11 @@ function AdminCoupons() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">
+          <label htmlFor="maxDiscount" className="block text-sm font-medium text-slate-700 mb-1">
             Max Discount (₹, optional)
           </label>
           <input
+            id="maxDiscount"
             type="number"
             name="maxDiscount"
             min="0"
@@ -227,10 +232,11 @@ function AdminCoupons() {
         </div>
 
         <div className="sm:col-span-2 lg:col-span-2">
-          <label className="block text-sm font-medium text-slate-700 mb-1">
+          <label htmlFor="couponDescription" className="block text-sm font-medium text-slate-700 mb-1">
             Description
           </label>
           <input
+            id="couponDescription"
             type="text"
             name="description"
             placeholder="10% off your first order, up to ₹1000"

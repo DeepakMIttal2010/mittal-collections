@@ -4,6 +4,7 @@ import { toast } from "react-toastify";
 import { FaArrowLeft } from "react-icons/fa";
 import { forgotPassword } from "../services/authService";
 import { useLanguage } from "../context/LanguageContext";
+import Seo from "../components/Seo";
 
 function ForgotPassword() {
   const { t } = useLanguage();
@@ -36,6 +37,7 @@ function ForgotPassword() {
 
   return (
     <div className="min-h-[70vh] flex items-center justify-center py-16 px-4">
+      <Seo title="Forgot Password" noindex />
       <div className="w-full max-w-md">
         <h1 className="text-5xl font-bold text-center text-slate-900 mb-3">
           {t("Reset password", "पासवर्ड रीसेट करें")}

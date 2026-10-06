@@ -8,6 +8,21 @@ const orderSchema = new mongoose.Schema(
       required: true,
     },
 
+    // A UUID Checkout.jsx generates once per checkout attempt and
+    // resends unchanged on any retry of that same submission (a flaky
+    // network auto-retry, or the same click landing twice) — the
+    // partial unique index below (scoped per user, only when this is
+    // actually set) is what stops that from creating two real orders
+    // for one checkout action. Every other race in createOrder
+    // (stock, loyalty points, first-order coupon) is already claimed
+    // atomically per-item/per-resource, but nothing previously stopped
+    // two fully-valid, independently-successful requests from both
+    // reaching Order.create() for the same checkout.
+    clientRequestId: {
+      type: String,
+      default: null,
+    },
+
     orderItems: [
       {
         product: {
@@ -264,6 +279,10 @@ orderSchema.index({ "orderItems.product": 1 });
 // unseen-orders query both sort by createdAt without a user filter.
 orderSchema.index({ createdAt: -1 });
 orderSchema.index({ isSeenByAdmin: 1, createdAt: -1 });
+orderSchema.index(
+  { user: 1, clientRequestId: 1 },
+  { unique: true, partialFilterExpression: { clientRequestId: { $type: "string" } } },
+);
 
 const Order = mongoose.model("Order", orderSchema);
 

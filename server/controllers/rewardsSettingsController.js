@@ -232,9 +232,6 @@ export const getPublicRewardsInfo = async (req, res) => {
 // ============================
 export const runPointsExpiry = async (req, res) => {
   try {
-    if (req.query.secret !== process.env.CRON_SECRET) {
-      return res.status(401).json({ success: false, message: "Unauthorized" });
-    }
 
     const expiredCount = await expireInactivePoints();
 

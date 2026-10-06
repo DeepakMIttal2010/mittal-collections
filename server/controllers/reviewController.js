@@ -58,6 +58,16 @@ export const getProductReviews = async (req, res) => {
 // SUBMIT REVIEW (Logged-in user)
 // ============================
 export const submitReview = async (req, res) => {
+  // uploadReviewMedia + imageOptimizer run before this controller, so by
+  // the time we get here any images/video are already live Cloudinary
+  // assets — every early-return/error path below must clean these up
+  // (same leak class already fixed for bannerController.js's addBanner),
+  // or a rejected/failed submission leaves orphaned uploads behind.
+  const uploadedUrls = [
+    ...(req.files?.images || []).map((file) => file.path),
+    ...(req.files?.video ? [req.files.video[0].path] : []),
+  ];
+
   try {
     const { productId, rating, title, content } = req.body;
 
@@ -75,6 +85,8 @@ export const submitReview = async (req, res) => {
       !rating ||
       !content
     ) {
+      await deleteCloudinaryAssetsByUrl(uploadedUrls);
+
       return res.status(400).json({
         success: false,
         message: "Product, rating and content are required",
@@ -92,6 +104,8 @@ export const submitReview = async (req, res) => {
     });
 
     if (existing) {
+      await deleteCloudinaryAssetsByUrl(uploadedUrls);
+
       return res.status(400).json({
         success: false,
         message: "You have already reviewed this product",
@@ -107,6 +121,9 @@ export const submitReview = async (req, res) => {
         await cloudinary.uploader.destroy(videoFile.cloudinaryResult.public_id, {
           resource_type: "video",
         });
+        await deleteCloudinaryAssetsByUrl(
+          (req.files?.images || []).map((file) => file.path),
+        );
 
         return res.status(400).json({
           success: false,
@@ -151,6 +168,8 @@ export const submitReview = async (req, res) => {
     // findOne check above can't fully close that race. Surface the
     // loser's duplicate-key error as the same message the check above
     // gives, not a generic 500.
+    await deleteCloudinaryAssetsByUrl(uploadedUrls);
+
     if (error.code === 11000) {
       return res.status(400).json({
         success: false,
@@ -204,10 +223,14 @@ export const getAllReviewsAdmin = async (req, res) => {
   try {
     const sortOrder = req.query.sortOrder === "asc" ? 1 : -1;
 
+    // Safety ceiling, not real pagination — see getAllOrders' own
+    // comment (orderController.js) for why this pattern was chosen here
+    // over a full pagination rework.
     const reviews = await Review.find()
       .populate("user", "name email")
       .populate("product", "name image")
-      .sort({ createdAt: sortOrder });
+      .sort({ createdAt: sortOrder })
+      .limit(2000);
 
     res.status(200).json({
       success: true,

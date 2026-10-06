@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { loginUser, saveAdminLogin } from "../../services/authService";
 import { PERMISSION_GROUPS, permissionForPath } from "../../config/adminPermissions";
@@ -8,6 +8,16 @@ function AdminLogin() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const redirectTo = searchParams.get("redirect") || "/admin";
+
+  // authFetchGuard.js redirects here with this flag the moment any
+  // request comes back 401 for a stale token — without this, that
+  // bounce to /admin/login reads as an unexplained, silent logout.
+  useEffect(() => {
+    if (searchParams.get("expired") === "true") {
+      alert("Your session has expired. Please log in again.");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const [formData, setFormData] = useState({
     email: "",

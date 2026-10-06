@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { FaTag, FaTimes, FaGift, FaTags } from "react-icons/fa";
@@ -21,6 +21,7 @@ import { getPublicRewardsInfo } from "../services/rewardsService";
 import { checkPincodeDelivery } from "../services/deliveryService";
 import { calculateDeliveryFee } from "../utils/shipping";
 import { loadRazorpayScript } from "../utils/razorpay";
+import { trackBeginCheckout, trackPurchase, trackAddPaymentInfo } from "../utils/analytics";
 import Seo from "../components/Seo";
 
 function Checkout() {
@@ -35,7 +36,29 @@ function Checkout() {
   const [selectedAddressId, setSelectedAddressId] = useState("");
   const [showAddressPicker, setShowAddressPicker] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("Razorpay");
+  const handlePaymentMethodChange = (method) => {
+    setPaymentMethod(method);
+    trackAddPaymentInfo(method, orderTotal);
+  };
   const [placing, setPlacing] = useState(false);
+  // A genuinely completed order (COD placed, or Razorpay payment
+  // verified) — set instead of navigating straight to /my-orders, so
+  // there's an actual "Order #X confirmed" moment instead of a toast
+  // that vanishes into a list of every past order (see the Conversion
+  // UX finding this addresses). The two "order exists but payment
+  // wasn't collected" paths below deliberately don't set this — those
+  // aren't a completed purchase worth a confirmation screen for.
+  const [orderConfirmation, setOrderConfirmation] = useState(null);
+
+  // Generated once per visit to this page (not per click) so a network
+  // auto-retry of the same submission, or a double-tap that somehow
+  // fires handlePlaceOrder twice before `placing` blocks the button,
+  // both carry the identical id — the server's unique index on
+  // {user, clientRequestId} is what actually decides a single winner
+  // and hands the loser back the same order instead of creating a
+  // second one. Reloading/renavigating to Checkout is a genuinely new
+  // attempt, so it correctly gets a fresh id.
+  const [clientRequestId] = useState(() => crypto.randomUUID());
 
   const [firstOrderOffer, setFirstOrderOffer] = useState(null);
   const [couponInput, setCouponInput] = useState("");
@@ -67,6 +90,22 @@ function Checkout() {
       navigate("/login?redirect=/checkout");
     }
   }, [isLoggedIn, navigate]);
+
+  // Fired once per real visit to this page with a non-empty cart, using
+  // the cart's own subtotal — not the final orderTotal below, which
+  // keeps changing as the customer picks an address/applies a coupon/
+  // redeems points through the rest of this flow. beginCheckoutFiredRef
+  // (not an effect dependency array) is what actually prevents a
+  // second fire on every one of those later re-renders.
+  const beginCheckoutFiredRef = useRef(false);
+
+  useEffect(() => {
+    if (beginCheckoutFiredRef.current || cartItems.length === 0) return;
+
+    beginCheckoutFiredRef.current = true;
+    trackBeginCheckout(cartItems, totalPrice);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cartItems.length]);
 
   useEffect(() => {
     const loadShippingSettings = async () => {
@@ -283,6 +322,7 @@ function Checkout() {
       paymentMethod,
       couponCode: appliedCoupon?.code || undefined,
       redeemPoints: usePoints ? redeemPoints : undefined,
+      clientRequestId,
     });
 
     if (!response.success) {
@@ -291,11 +331,29 @@ function Checkout() {
       return;
     }
 
+    // The server always recomputes the authoritative total (a coupon,
+    // bundle rule, or pricing rule can change between this page loading
+    // and the customer submitting) — the client's own orderTotal above is
+    // never what's actually charged. If they differ, say so now instead
+    // of letting the customer discover a different amount later on My
+    // Orders with no explanation.
+    if (
+      response.order?.totalPrice !== undefined &&
+      Math.abs(response.order.totalPrice - orderTotal) >= 1
+    ) {
+      toast.info(
+        t(
+          `Note: prices updated since you loaded this page — your final total is ₹${response.order.totalPrice}.`,
+          `ध्यान दें: इस पेज को लोड करने के बाद कीमतें बदल गईं — आपका अंतिम total ₹${response.order.totalPrice} है।`,
+        ),
+      );
+    }
+
     if (paymentMethod !== "Razorpay") {
       setPlacing(false);
-      toast.success(t("Order placed successfully 🎉", "ऑर्डर सफलतापूर्वक हो गया 🎉"));
+      trackPurchase(response.order);
       clearCart();
-      navigate("/my-orders");
+      setOrderConfirmation(response.order);
       return;
     }
 
@@ -345,14 +403,25 @@ function Checkout() {
           razorpay_signature: razorpayResponse.razorpay_signature,
         });
 
+        // Only a verified payment is a completed transaction — the
+        // script-load-failure and modal.ondismiss paths below both leave
+        // a real order behind too (Pending, unpaid), but neither is an
+        // actual completed sale, so neither should count as a GA4
+        // purchase or get the confirmation screen.
+        if (verifyResponse.success) {
+          trackPurchase(response.order);
+          setPlacing(false);
+          clearCart();
+          setOrderConfirmation(response.order);
+          return;
+        }
+
         finishRazorpayFlow(
-          verifyResponse.success
-            ? t("Payment successful — order placed 🎉", "पेमेंट सफल — ऑर्डर हो गया 🎉")
-            : t(
-                "Order placed, but payment verification failed. Please contact support.",
-                "ऑर्डर हो गया, लेकिन पेमेंट verify नहीं हो पाया। कृपया सपोर्ट से संपर्क करें।",
-              ),
-          verifyResponse.success,
+          t(
+            "Order placed, but payment verification failed. Please contact support.",
+            "ऑर्डर हो गया, लेकिन पेमेंट verify नहीं हो पाया। कृपया सपोर्ट से संपर्क करें।",
+          ),
+          false,
         );
       },
       modal: {
@@ -381,9 +450,66 @@ function Checkout() {
       );
     });
 
-    setPlacing(false);
+    // Deliberately NOT setPlacing(false) here — the button stays disabled
+    // until the Razorpay flow actually resolves (finishRazorpayFlow,
+    // fired by handler/ondismiss above). Re-enabling it right as the
+    // modal opens let a fast second click re-run this whole function and
+    // spawn a SECOND Razorpay modal on top of the first while the first
+    // was still mounting — harmless server-side (clientRequestId makes
+    // createOrder idempotent, so no duplicate order/charge), but
+    // confusing UX.
     razorpay.open();
   };
+
+  // Checked before the empty-cart branch below -- clearCart() already ran
+  // by the time this is set, so cartItems.length === 0 would otherwise
+  // intercept first and show the generic "cart is empty" state instead
+  // of the actual confirmation.
+  if (orderConfirmation) {
+    return (
+      <div className="max-w-lg mx-auto px-4 py-16 text-center">
+        <Seo title="Order Confirmed" noindex />
+
+        <div className="w-16 h-16 mx-auto mb-5 rounded-full bg-green-100 text-green-600 flex items-center justify-center text-3xl">
+          ✓
+        </div>
+
+        <h1 className="text-2xl font-bold text-slate-900 mb-2">
+          {t("Order Confirmed!", "ऑर्डर कन्फर्म हो गया!")}
+        </h1>
+
+        <p className="text-slate-500 mb-1">
+          {t(
+            "Thank you — we've received your order.",
+            "धन्यवाद — हमें आपका ऑर्डर मिल गया है।",
+          )}
+        </p>
+
+        <p className="text-slate-800 font-semibold mb-8">
+          {t(
+            `Order #${orderConfirmation._id.slice(-8).toUpperCase()}`,
+            `ऑर्डर #${orderConfirmation._id.slice(-8).toUpperCase()}`,
+          )}
+          {" · "}₹{orderConfirmation.totalPrice}
+        </p>
+
+        <div className="flex flex-col gap-3">
+          <Link
+            to="/my-orders"
+            className="bg-blue-900 hover:bg-blue-950 text-white font-semibold rounded-full px-6 py-3 transition-colors"
+          >
+            {t("View Order", "ऑर्डर देखें")}
+          </Link>
+          <Link
+            to="/"
+            className="text-blue-700 hover:underline text-sm"
+          >
+            {t("Continue Shopping", "शॉपिंग जारी रखें")}
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   if (cartItems.length === 0) {
     return (
@@ -516,7 +642,7 @@ function Checkout() {
                   name="paymentMethod"
                   value="COD"
                   checked={paymentMethod === "COD"}
-                  onChange={(e) => setPaymentMethod(e.target.value)}
+                  onChange={(e) => handlePaymentMethodChange(e.target.value)}
                   className="accent-blue-900"
                 />
                 <span className="text-sm text-slate-700">
@@ -536,7 +662,7 @@ function Checkout() {
                   name="paymentMethod"
                   value="Razorpay"
                   checked={paymentMethod === "Razorpay"}
-                  onChange={(e) => setPaymentMethod(e.target.value)}
+                  onChange={(e) => handlePaymentMethodChange(e.target.value)}
                   className="accent-blue-900"
                 />
                 <span className="text-sm text-slate-700">

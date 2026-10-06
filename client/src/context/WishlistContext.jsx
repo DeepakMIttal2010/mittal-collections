@@ -21,9 +21,15 @@ const WishlistContext = createContext();
 
 export function WishlistProvider({ children }) {
   const [wishlistItems, setWishlistItems] = useState([]);
-  const { isLoggedIn } = useAuth();
+  const { isLoggedIn, user } = useAuth();
   const { t } = useLanguage();
 
+  // Keyed on the actual user id, not just isLoggedIn — User A logging in
+  // as User B without an explicit logout first never transitions
+  // isLoggedIn through false, so a plain [isLoggedIn] dependency would
+  // keep showing User A's wishlist to User B until a manual page
+  // refresh (same bug class already fixed for CartContext/
+  // CompareContext on the same shared-device scenario).
   useEffect(() => {
     const loadWishlist = async () => {
       if (isLoggedIn) {
@@ -42,7 +48,7 @@ export function WishlistProvider({ children }) {
     };
 
     loadWishlist();
-  }, [isLoggedIn]);
+  }, [isLoggedIn, user?._id]);
 
   const addToWishlist = async (product) => {
     const exists = wishlistItems.find((item) => item._id === product._id);

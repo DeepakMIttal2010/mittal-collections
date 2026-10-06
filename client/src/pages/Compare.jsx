@@ -1,4 +1,5 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
 import { FaTimes, FaShoppingCart } from "react-icons/fa";
 
 import { useCompare } from "../context/CompareContext";
@@ -8,11 +9,12 @@ import { imgUrl } from "../services/api";
 import { productUrl } from "../utils/productUrl";
 import { getStockStatus } from "../utils/stock";
 import { stripHtml } from "../utils/stripHtml";
+import { handleImageError } from "../utils/imageFallback";
 import Seo from "../components/Seo";
 
 function getRows(t) {
   return [
-    { label: t("Price", "कीमत"), render: (p) => `₹${p.price}` },
+    { label: t("Price", "कीमत"), render: (p) => `₹${p.price}`, spec: null },
     {
       label: t("MRP", "MRP"),
       render: (p) =>
@@ -21,8 +23,29 @@ function getRows(t) {
         ) : (
           "—"
         ),
+      spec: null,
     },
-    { label: t("Category", "श्रेणी"), render: (p) => p.category?.name || "—" },
+    // Same spec fields AutoCompareTable.jsx already shows on the product
+    // page's auto-generated comparison — the dedicated Compare page
+    // customers explicitly navigate to was missing exactly the fields
+    // that actually differentiate similar products (which bedsheet is
+    // thicker/what fabric/what size), showing only Price/MRP/Category/
+    // Availability/Description.
+    { label: t("Fabric", "फैब्रिक"), render: (p) => p.fabric || "—", spec: "fabric" },
+    { label: t("Size", "साइज़"), render: (p) => p.size || "—", spec: "size" },
+    { label: t("GSM", "GSM"), render: (p) => p.gsm || "—", spec: "gsm" },
+    { label: t("Wash Care", "वॉश केयर"), render: (p) => p.washCare || "—", spec: "washCare" },
+    { label: t("Brand", "ब्रांड"), render: (p) => p.brand || "—", spec: "brand" },
+    {
+      label: t("Country of Origin", "मूल देश"),
+      render: (p) => p.countryOfOrigin || "—",
+      spec: "countryOfOrigin",
+    },
+    {
+      label: t("Category", "श्रेणी"),
+      render: (p) => t(p.category?.name, p.category?.nameHi) || "—",
+      spec: null,
+    },
     {
       label: t("Availability", "उपलब्धता"),
       render: (p) => (
@@ -30,12 +53,16 @@ function getRows(t) {
           {getStockStatus(p.stock).label}
         </span>
       ),
+      spec: null,
     },
     {
       label: t("Description", "विवरण"),
       render: (p) => (
-        <span className="line-clamp-4 text-left">{stripHtml(p.description)}</span>
+        <span className="line-clamp-4 text-left">
+          {stripHtml(t(p.description, p.descriptionHi))}
+        </span>
       ),
+      spec: null,
     },
   ];
 }
@@ -44,7 +71,32 @@ function Compare() {
   const { compareItems, removeFromCompare, clearCompare } = useCompare();
   const { addToCart } = useCart();
   const { t } = useLanguage();
-  const rows = getRows(t);
+  const navigate = useNavigate();
+  // Spec rows (fabric, size, GSM, etc.) only show if at least one
+  // compared product actually has a value for that field — matches
+  // AutoCompareTable.jsx's identical getSpecRows/visibleRows filtering,
+  // so a row isn't a wall of "—" for a product type that spec doesn't
+  // apply to.
+  const rows = getRows(t).filter(
+    (row) => !row.spec || compareItems.some((p) => p[row.spec]),
+  );
+
+  // Same guard as Wishlist.jsx's handleAddToCart — a product with size
+  // variants can't be added directly here; CartContext falls back to the
+  // top-level price/stock when no variant is given, which only ever
+  // mirrors the FIRST size, silently charging whatever that size costs
+  // and never reserving stock for the size the customer actually wants.
+  const handleAddToCart = (product) => {
+    if (product.variants?.length > 0) {
+      toast.info(
+        t("Please select a size on the product page", "प्रोडक्ट पेज पर साइज़ चुनें"),
+      );
+      navigate(productUrl(product));
+      return;
+    }
+
+    addToCart(product);
+  };
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-12">
@@ -92,13 +144,15 @@ function Compare() {
             <thead>
               <tr>
                 <th className="w-32" />
-                {compareItems.map((product) => (
+                {compareItems.map((product) => {
+                  const productName = t(product.name, product.nameHi);
+                  return (
                   <th key={product._id} className="p-3 align-top text-left">
                     <div className="relative w-full max-w-[180px]">
                       <button
                         type="button"
                         onClick={() => removeFromCompare(product._id)}
-                        aria-label={t(`Remove ${product.name}`, `${product.name} हटाएं`)}
+                        aria-label={t(`Remove ${product.name}`, `${productName} हटाएं`)}
                         className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-white shadow border border-slate-200 flex items-center justify-center text-slate-500 hover:text-red-600"
                       >
                         <FaTimes className="text-xs" />
@@ -106,18 +160,19 @@ function Compare() {
 
                       <Link to={productUrl(product)}>
                         <img
-                          src={imgUrl(product.image)}
-                          alt={product.name}
+                          src={imgUrl(product.image, "w_300,q_auto,f_auto")}
+                          alt={productName}
                           className="w-full aspect-square object-cover rounded-lg border border-slate-200 mb-2"
+                          onError={handleImageError}
                         />
                         <p className="text-sm font-semibold text-slate-800 line-clamp-2">
-                          {product.name}
+                          {productName}
                         </p>
                       </Link>
 
                       <button
                         type="button"
-                        onClick={() => addToCart(product)}
+                        onClick={() => handleAddToCart(product)}
                         disabled={product.stock <= 0}
                         className="mt-2 w-full flex items-center justify-center gap-1.5 bg-blue-900 hover:bg-blue-950 text-white text-xs font-semibold rounded-full py-2 transition-colors disabled:opacity-50"
                       >
@@ -126,7 +181,8 @@ function Compare() {
                       </button>
                     </div>
                   </th>
-                ))}
+                  );
+                })}
               </tr>
             </thead>
 

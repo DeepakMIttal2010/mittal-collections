@@ -2,8 +2,8 @@ import "./WhyChooseUs.css";
 import {
   FaAward,
   FaTruck,
-  FaTags,
-  FaHeadset,
+  FaCamera,
+  FaWhatsapp,
   FaLock,
   FaUndoAlt,
 } from "react-icons/fa";
@@ -14,32 +14,32 @@ function WhyChooseUs() {
 
   const reasons = [
     {
+      icon: <FaCamera />,
+      title: "Genuine Product Images",
+      titleHi: "असली प्रोडक्ट फोटो",
+      text: "Real photos of every product — no stock images, so what you see is exactly what you get.",
+      textHi: "हर प्रोडक्ट की असली फोटो — कोई स्टॉक इमेज नहीं, जो दिखे वही मिलेगा।",
+    },
+    {
       icon: <FaAward />,
-      title: "Premium Quality",
-      titleHi: "प्रीमियम क्वालिटी",
-      text: "Carefully selected fabrics and materials for lasting comfort.",
-      textHi: "लंबे समय तक आराम के लिए सावधानी से चुने गए फैब्रिक और सामग्री।",
+      title: "Quality Checked Products",
+      titleHi: "क्वालिटी चेक्ड प्रोडक्ट्स",
+      text: "Carefully selected fabrics, checked for quality before they ship to you.",
+      textHi: "सावधानी से चुने गए फैब्रिक, भेजने से पहले क्वालिटी चेक किए जाते हैं।",
     },
     {
       icon: <FaTruck />,
-      title: "Fast Delivery",
-      titleHi: "तेज़ डिलीवरी",
-      text: "Quick and reliable delivery across India.",
-      textHi: "पूरे भारत में तेज़ और भरोसेमंद डिलीवरी।",
+      title: "Pan-India Delivery",
+      titleHi: "पूरे भारत में डिलीवरी",
+      text: "Delivered anywhere in India, with fast 24-hour delivery in Ghaziabad.",
+      textHi: "पूरे भारत में डिलीवरी, ग़ाज़ियाबाद में 24 घंटे में तेज़ डिलीवरी।",
     },
     {
-      icon: <FaTags />,
-      title: "Best Prices",
-      titleHi: "बेहतरीन कीमतें",
-      text: "Premium products at competitive prices.",
-      textHi: "प्रतिस्पर्धी कीमतों पर प्रीमियम प्रोडक्ट्स।",
-    },
-    {
-      icon: <FaHeadset />,
-      title: "Customer Support",
-      titleHi: "ग्राहक सहायता",
-      text: "Friendly support whenever you need assistance.",
-      textHi: "जब भी ज़रूरत हो, मित्रवत सहायता उपलब्ध।",
+      icon: <FaWhatsapp />,
+      title: "WhatsApp Customer Support",
+      titleHi: "व्हाट्सएप कस्टमर सपोर्ट",
+      text: "Reach us directly on WhatsApp for help, before or after your order.",
+      textHi: "ऑर्डर से पहले या बाद में, किसी भी मदद के लिए सीधे व्हाट्सएप पर संपर्क करें।",
     },
     {
       icon: <FaLock />,

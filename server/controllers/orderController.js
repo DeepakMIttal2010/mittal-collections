@@ -27,6 +27,7 @@ import { sendEmail } from "../config/mailer.js";
 import { notifyUser } from "../utils/notify.js";
 import { hasAdminPermission } from "../utils/adminAccess.js";
 import { REVIEW_BONUS_POINTS } from "./reviewController.js";
+import { escapeHtml } from "../utils/escapeHtml.js";
 
 // Lazily constructed so a missing/blank key in dev doesn't crash the
 // whole server at import time — only Razorpay-paid checkouts need it.
@@ -40,6 +41,26 @@ const getRazorpay = () => {
   }
   return razorpayInstance;
 };
+
+// Shared by createOrder's clientRequestId fast-path (a retry that
+// arrives after the original request already finished) and its
+// duplicate-key race handler (two truly concurrent submissions both
+// reaching Order.create() — see the unique index on
+// {user, clientRequestId} in Order.js) — both hand back the order that
+// actually won, shaped the same way a fresh 201 response is.
+const buildOrderResponse = (order) => ({
+  success: true,
+  order,
+  razorpayOrder:
+    order.paymentMethod === "Razorpay" && order.razorpayOrderId
+      ? {
+          id: order.razorpayOrderId,
+          amount: Math.round(order.totalPrice * 100),
+          currency: "INR",
+        }
+      : null,
+  razorpayKeyId: order.paymentMethod === "Razorpay" ? process.env.RAZORPAY_KEY_ID : null,
+});
 
 // Computes per-item return eligibility (whether the product allows
 // returns at all, and whether "deliveredAt + return period" hasn't
@@ -133,7 +154,7 @@ const sendOrderStatusNotification = (order, status) => {
         bcc: process.env.ADMIN_NOTIFICATION_EMAIL,
         subject: statusMessage.subject,
         html: `
-          <p>Hi ${customer.name || "there"},</p>
+          <p>Hi ${escapeHtml(customer.name || "there")},</p>
           <p>${statusMessage.body}</p>
           <p>Order ID: ${order._id}</p>
           <p><a href="${process.env.CLIENT_URL}/my-orders/${order._id}">View your order</a></p>
@@ -330,6 +351,7 @@ export const createOrder = async (req, res) => {
       paymentMethod,
       couponCode,
       redeemPoints,
+      clientRequestId,
     } = req.body;
 
     if (!orderItems || orderItems.length === 0) {
@@ -337,6 +359,38 @@ export const createOrder = async (req, res) => {
         success: false,
         message: "No order items",
       });
+    }
+
+    // Checkout.jsx always sends a crypto.randomUUID() string (36
+    // chars) — anything else is either an old client that never sent
+    // one, or a crafted value. `if (clientRequestId)` alone only checks
+    // truthiness, and an object here (e.g. {"$gt": ""}) would otherwise
+    // flow straight into the Mongo queries below as a query operator
+    // instead of a literal value to match — the same NoSQL-injection
+    // path CodeQL already flagged once in posController.js. Treating
+    // anything non-string-or-oversized as "no id sent" is safe: it just
+    // falls back to the createOrder path's normal (non-retry) behavior.
+    const safeClientRequestId =
+      typeof clientRequestId === "string" && clientRequestId.length <= 100
+        ? clientRequestId
+        : null;
+
+    // A retry of a checkout that already succeeded (network auto-retry,
+    // a double-tap on slow mobile data) — Checkout.jsx resends the same
+    // clientRequestId unchanged on any retry, so if an order with it
+    // already exists, this is that exact same checkout attempt landing
+    // twice, not a new one. Handing back the original instead of
+    // re-running verification/stock/points is both cheaper and what
+    // stops a second, fully-valid order from being created.
+    if (safeClientRequestId) {
+      const existingOrder = await Order.findOne({
+        user: req.user._id,
+        clientRequestId: safeClientRequestId,
+      });
+
+      if (existingOrder) {
+        return res.status(200).json(buildOrderResponse(existingOrder));
+      }
     }
 
     const verifyResult = await verifyOrderItems(orderItems);
@@ -465,10 +519,30 @@ export const createOrder = async (req, res) => {
         bundleDiscountCategories: bundleResult.categoryNames || [],
         pointsRedeemed,
         pointsDiscount,
+        clientRequestId: safeClientRequestId,
         statusHistory: [{ status: "Pending", changedAt: new Date() }],
       });
     } catch (orderError) {
       await restoreStock(verifiedItems);
+
+      // Two truly concurrent submissions of the same checkout (the
+      // fast-path lookup above only catches a retry that arrives after
+      // the first one already finished) can both get past every other
+      // check and both reach here — the unique index on
+      // {user, clientRequestId} is what actually decides a winner. The
+      // loser already reserved stock for nothing (restored above); hand
+      // back whichever order won instead of a generic 500.
+      if (orderError.code === 11000 && safeClientRequestId) {
+        const winningOrder = await Order.findOne({
+          user: req.user._id,
+          clientRequestId: safeClientRequestId,
+        });
+
+        if (winningOrder) {
+          return res.status(200).json(buildOrderResponse(winningOrder));
+        }
+      }
+
       throw orderError;
     }
 
@@ -604,14 +678,14 @@ export const createOrder = async (req, res) => {
         bcc: process.env.ADMIN_NOTIFICATION_EMAIL,
         subject: "Your Mittal Collections order is confirmed",
         html: `
-          <p>Hi ${req.user.name || "there"},</p>
+          <p>Hi ${escapeHtml(req.user.name || "there")},</p>
           <p>Thanks for your order! Here's a quick summary:</p>
           <p>Order ID: ${order._id}</p>
           <ul>
             ${verifiedItems
               .map(
                 (item) =>
-                  `<li>${item.name}${item.size ? ` (Size: ${item.size})` : ""} × ${item.quantity} — ₹${item.price * item.quantity}</li>`,
+                  `<li>${escapeHtml(item.name)}${item.size ? ` (Size: ${escapeHtml(item.size)})` : ""} × ${item.quantity} — ₹${item.price * item.quantity}</li>`,
               )
               .join("")}
           </ul>
@@ -804,6 +878,10 @@ export const verifyRazorpayPayment = async (req, res) => {
       message: wasCancelled
         ? "Payment received. This order was already cancelled — our team will confirm with you shortly."
         : "Payment verified successfully",
+      // Lets the client fire a GA4 `purchase` event from the order's own
+      // confirmed line items — needed specifically by the "Pay Now" resume
+      // flow (razorpay.js), which has no live cart to build one from.
+      order,
     });
   } catch (error) {
     console.error("Verify Razorpay Payment Error:", error);
@@ -849,9 +927,18 @@ export const getAllOrders = async (req, res) => {
   try {
     const sortOrder = req.query.sortOrder === "asc" ? 1 : -1;
 
+    // Safety ceiling, not real pagination — this endpoint has always
+    // returned every order at once (the admin UI does its own client-
+    // side search/filter over the full list), which is fine while the
+    // order count is small. 2000 is far above anything this site has
+    // today; it exists so the collection can't grow completely unbounded
+    // into this response. Revisit with real page/limit params (matching
+    // productController.js's pattern) once order volume actually
+    // approaches this.
     const orders = await Order.find()
       .populate("user", "name email mobile")
-      .sort({ createdAt: sortOrder });
+      .sort({ createdAt: sortOrder })
+      .limit(2000);
 
     res.status(200).json({
       success: true,
@@ -1317,9 +1404,6 @@ export const permanentlyDeleteOrder = async (req, res) => {
 
 export const sendReviewRequestEmails = async (req, res) => {
   try {
-    if (req.query.secret !== process.env.CRON_SECRET) {
-      return res.status(401).json({ success: false, message: "Unauthorized" });
-    }
 
     const cutoff = new Date(
       Date.now() - REVIEW_REQUEST_DELAY_DAYS * 24 * 60 * 60 * 1000,
@@ -1344,7 +1428,7 @@ export const sendReviewRequestEmails = async (req, res) => {
           const isPopulated = product && typeof product === "object";
           const productId = isPopulated ? product._id : product;
 
-          if (!productId) return `<li>${item.name}</li>`;
+          if (!productId) return `<li>${escapeHtml(item.name)}</li>`;
 
           // #reviews scrolls straight to (and auto-opens) the review form
           // — see ProductReviews.jsx — instead of leaving the customer to
@@ -1353,7 +1437,7 @@ export const sendReviewRequestEmails = async (req, res) => {
             isPopulated && product.slug ? `/${product.slug}` : ""
           }#reviews`;
 
-          return `<li>${item.name} — <a href="${url}">Leave a review</a></li>`;
+          return `<li>${escapeHtml(item.name)} — <a href="${url}">Leave a review</a></li>`;
         })
         .join("");
 
@@ -1363,7 +1447,7 @@ export const sendReviewRequestEmails = async (req, res) => {
           bcc: process.env.ADMIN_NOTIFICATION_EMAIL,
           subject: "How was your order? Leave a review",
           html: `
-            <p>Hi ${order.user.name || "there"},</p>
+            <p>Hi ${escapeHtml(order.user.name || "there")},</p>
             <p>Hope you're enjoying your order from Mittal Collections! Got a
             minute to share what you think? It really helps other shoppers.</p>
             <div style="background:#fffbeb;border:1px solid #f59e0b;border-radius:8px;padding:16px;margin:16px 0;">
@@ -1419,9 +1503,6 @@ export const sendReviewRequestEmails = async (req, res) => {
 
 export const cancelStaleRazorpayOrders = async (req, res) => {
   try {
-    if (req.query.secret !== process.env.CRON_SECRET) {
-      return res.status(401).json({ success: false, message: "Unauthorized" });
-    }
 
     const cutoff = new Date(
       Date.now() - STALE_RAZORPAY_ORDER_MINUTES * 60 * 1000,
@@ -1488,36 +1569,50 @@ export const cancelStaleRazorpayOrders = async (req, res) => {
         continue;
       }
 
-      order.orderStatus = "Cancelled";
-      order.statusHistory.push({ status: "Cancelled", changedAt: new Date() });
-      await order.save();
+      // Unlike the Razorpay-check block above (already its own
+      // try/catch), this cancel/restock/refund block had no per-order
+      // guard — one order whose save()/restoreStock() throws (a
+      // transient DB hiccup, a malformed record) used to propagate to
+      // the outer catch and abort the whole run, silently leaving
+      // every remaining stale order in this batch unprocessed with
+      // nothing logged about which ones.
+      try {
+        order.orderStatus = "Cancelled";
+        order.statusHistory.push({ status: "Cancelled", changedAt: new Date() });
+        await order.save();
 
-      await restoreStock(order.orderItems);
+        await restoreStock(order.orderItems);
 
-      if (order.pointsRedeemed > 0) {
-        await applyLoyaltyPointsChange({
-          userId: order.user,
-          type: "refunded",
-          points: order.pointsRedeemed,
-          order: order._id,
-          description: `Refund for abandoned Razorpay order ${order._id}`,
-        });
-      }
+        if (order.pointsRedeemed > 0) {
+          await applyLoyaltyPointsChange({
+            userId: order.user,
+            type: "refunded",
+            points: order.pointsRedeemed,
+            order: order._id,
+            description: `Refund for abandoned Razorpay order ${order._id}`,
+          });
+        }
 
-      if (order.firstOrderCouponApplied) {
-        await User.updateOne(
-          { _id: order.user },
-          { $set: { firstOrderCouponUsed: false } },
+        if (order.firstOrderCouponApplied) {
+          await User.updateOne(
+            { _id: order.user },
+            { $set: { firstOrderCouponUsed: false } },
+          );
+        }
+
+        // Every other order-status change notifies the customer (see
+        // updateOrderStatus above) — this cron-driven path was silently
+        // skipping that, so a customer whose checkout stalled had no way
+        // to know their order had been cancelled out from under them.
+        sendOrderStatusNotification(order, "Cancelled");
+
+        cancelled += 1;
+      } catch (cancelError) {
+        console.error(
+          `Stale Order Cancel Error (order ${order._id}):`,
+          cancelError,
         );
       }
-
-      // Every other order-status change notifies the customer (see
-      // updateOrderStatus above) — this cron-driven path was silently
-      // skipping that, so a customer whose checkout stalled had no way
-      // to know their order had been cancelled out from under them.
-      sendOrderStatusNotification(order, "Cancelled");
-
-      cancelled += 1;
     }
 
     res.status(200).json({

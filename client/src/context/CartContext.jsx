@@ -8,6 +8,7 @@ import { useAuth } from "./AuthContext";
 import { useLanguage } from "./LanguageContext";
 import { getVisitorId } from "../utils/visitorId";
 import { readJsonFromStorage } from "../utils/safeLocalStorage";
+import { trackAddToCart, trackRemoveFromCart } from "../utils/analytics";
 
 const CartContext = createContext();
 
@@ -17,7 +18,7 @@ export function CartProvider({ children }) {
   );
 
   const [isCartOpen, setIsCartOpen] = useState(false);
-  const { isLoggedIn } = useAuth();
+  const { isLoggedIn, user } = useAuth();
   const { t } = useLanguage();
 
   // "Complete the Look" bundle rules — admin-managed. Buying from both
@@ -55,22 +56,30 @@ export function CartProvider({ children }) {
     }
   }, [isLoggedIn]);
 
-  // Clears the cart on an actual logout (isLoggedIn true -> false) — a
-  // shared/kiosk device would otherwise keep whoever-logged-out's cart
-  // sitting in localStorage for the next person to log in and
-  // checkout with. wasLoggedIn starts at the same value as isLoggedIn
-  // so a guest's own cart survives the very first render (there's no
-  // "logout" transition to react to yet). Login is deliberately left
-  // alone — a guest cart carrying over once they log in is the
-  // expected "add to cart, then sign in to check out" flow, not a leak.
-  const wasLoggedIn = useRef(isLoggedIn);
+  // Clears the cart whenever the LOGGED-IN identity actually changes: a
+  // real logout (some user -> guest), or — just as importantly — User A
+  // logging in as User B without an explicit logout first (their token/
+  // user object in localStorage is simply overwritten; isLoggedIn stays
+  // true the whole time, so a plain true/false check never catches this
+  // case, only a real true -> false transition). A shared/kiosk device
+  // would otherwise keep User A's cart items, quantities and prices
+  // sitting there for User B to unknowingly check out with. Tracking the
+  // actual user id (not just the boolean) is what closes both cases.
+  // wasUserId starts at the current id so a guest's own cart survives the
+  // very first render, and guest -> first login is deliberately left
+  // alone — that carry-over is the expected "add to cart, then sign in"
+  // flow, not a leak.
+  const wasUserId = useRef(user?._id ?? null);
 
   useEffect(() => {
-    if (wasLoggedIn.current && !isLoggedIn) {
+    const currentUserId = user?._id ?? null;
+
+    if (wasUserId.current && currentUserId !== wasUserId.current) {
       setCartItems([]);
     }
-    wasLoggedIn.current = isLoggedIn;
-  }, [isLoggedIn]);
+
+    wasUserId.current = currentUserId;
+  }, [user]);
 
   // Mirror the cart to the backend (debounced) — logged-in customers sync
   // by account (also used for the abandoned-cart reminder), guests sync
@@ -125,6 +134,9 @@ export function CartProvider({ children }) {
         ),
       );
 
+      // Actual units added may be less than the requested qty if stock
+      // capped it — track what really got added, not what was asked for.
+      trackAddToCart(existingItem, newQuantity - existingItem.quantity);
       toast.info(t("Product quantity updated", "प्रोडक्ट मात्रा अपडेट हुई"));
     } else {
       if (stock <= 0) {
@@ -132,20 +144,20 @@ export function CartProvider({ children }) {
         return;
       }
 
-      setCartItems([
-        ...cartItems,
-        {
-          ...product,
-          _id: lineId,
-          productId: product._id,
-          price,
-          oldPrice,
-          stock,
-          selectedSize: variant?.size || "",
-          quantity: Math.min(qty, stock),
-        },
-      ]);
+      const newItem = {
+        ...product,
+        _id: lineId,
+        productId: product._id,
+        price,
+        oldPrice,
+        stock,
+        selectedSize: variant?.size || "",
+        quantity: Math.min(qty, stock),
+      };
 
+      setCartItems([...cartItems, newItem]);
+
+      trackAddToCart(newItem, newItem.quantity);
       toast.success(t("Product added to cart 🛒", "प्रोडक्ट कार्ट में जोड़ा गया 🛒"));
     }
 
@@ -153,8 +165,11 @@ export function CartProvider({ children }) {
   };
 
   const removeFromCart = (id) => {
+    const item = cartItems.find((cartItem) => cartItem._id === id);
+
     setCartItems(cartItems.filter((item) => item._id !== id));
 
+    if (item) trackRemoveFromCart(item);
     toast.error(t("Product removed from cart", "प्रोडक्ट कार्ट से हटाया गया"));
   };
 
@@ -176,24 +191,61 @@ export function CartProvider({ children }) {
           : cartItem,
       ),
     );
+
+    if (item) trackAddToCart(item, 1);
   };
 
   const decreaseQty = (id) => {
+    const item = cartItems.find((cartItem) => cartItem._id === id);
+
+    // Silently did nothing at quantity 1 before -- no toast, no disabled
+    // state, unlike increaseQty above which already toasts when capped
+    // by stock. A customer clicking "-" at 1 had no way to tell the
+    // click even registered; "Remove" is the only way to actually drop
+    // an item, and this makes that explicit instead of leaving them to
+    // guess why nothing happened.
+    if (item && item.quantity <= 1) {
+      toast.info(
+        t(
+          "Already at the minimum — use Remove to take this out of your cart",
+          "पहले से न्यूनतम पर है — कार्ट से हटाने के लिए Remove इस्तेमाल करें",
+        ),
+      );
+      return;
+    }
+
     setCartItems(
-      cartItems.map((item) =>
-        item._id === id
+      cartItems.map((cartItem) =>
+        cartItem._id === id
           ? {
-              ...item,
-              quantity: item.quantity > 1 ? item.quantity - 1 : 1,
+              ...cartItem,
+              quantity: cartItem.quantity - 1,
             }
-          : item,
+          : cartItem,
       ),
     );
+
+    // Only a real decrement (already-at-1 is a no-op above) counts as
+    // actually removing a unit from the cart.
+    if (item && item.quantity > 1) trackRemoveFromCart({ ...item, quantity: 1 });
   };
 
   const clearCart = () => {
     setCartItems([]);
     toast.warning(t("Cart cleared", "कार्ट खाली किया गया"));
+  };
+
+  // Patches a single line item's price/oldPrice/stock (and caps its
+  // quantity to the new stock) — used by Cart.jsx to refresh stale
+  // snapshots against live product data on load. addToCart only ever
+  // copies price/stock in at add-time; nothing else revisits it for as
+  // long as the item sits in the cart, so a price change or a stock drop
+  // after adding was otherwise invisible until checkout rejected it with
+  // a confusing error.
+  const reconcileCartItem = (id, updates) => {
+    setCartItems((prev) =>
+      prev.map((item) => (item._id === id ? { ...item, ...updates } : item)),
+    );
   };
 
   const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
@@ -280,6 +332,7 @@ export function CartProvider({ children }) {
         increaseQty,
         decreaseQty,
         clearCart,
+        reconcileCartItem,
         totalItems,
         totalPrice,
         bundleInfo,

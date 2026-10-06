@@ -140,10 +140,11 @@ function AdminFooterLinks() {
         className="bg-white border border-slate-200 rounded-xl p-6 mb-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 items-end"
       >
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">
+          <label htmlFor="footerLinkLabel" className="block text-sm font-medium text-slate-700 mb-1">
             Label
           </label>
           <input
+            id="footerLinkLabel"
             type="text"
             name="label"
             placeholder="e.g. About Us"
@@ -155,10 +156,11 @@ function AdminFooterLinks() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">
+          <label htmlFor="footerLinkLabelHi" className="block text-sm font-medium text-slate-700 mb-1">
             Label (Hindi, optional)
           </label>
           <input
+            id="footerLinkLabelHi"
             type="text"
             name="labelHi"
             placeholder="हिंदी में लेबल"
@@ -169,10 +171,11 @@ function AdminFooterLinks() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">
+          <label htmlFor="footerLinkUrl" className="block text-sm font-medium text-slate-700 mb-1">
             URL
           </label>
           <input
+            id="footerLinkUrl"
             type="text"
             name="url"
             placeholder="/about or https://..."
@@ -184,10 +187,11 @@ function AdminFooterLinks() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">
+          <label htmlFor="footerLinkDisplayOrder" className="block text-sm font-medium text-slate-700 mb-1">
             Order (Priority)
           </label>
           <input
+            id="footerLinkDisplayOrder"
             type="number"
             name="displayOrder"
             value={formData.displayOrder}

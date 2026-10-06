@@ -1,6 +1,7 @@
 import Role from "../models/Role.js";
 import User from "../models/User.js";
 import { PERMISSION_KEYS, GRANULAR_MODULES } from "../config/adminPermissions.js";
+import { isSubsetOfCallerAccess } from "../utils/rbacSubset.js";
 
 const WRITE_ACCESS_KEYS = GRANULAR_MODULES.flatMap((module) =>
   module.actions.map((action) => `${module.key}:${action}`),
@@ -13,9 +14,37 @@ export const getRoles = async (req, res) => {
   try {
     const roles = await Role.find().sort({ name: 1 });
 
+    // A restricted caller (holding just the "roles" permission, not full
+    // admin) could otherwise see the exact permission/writeAccess grid of
+    // a role broader than their own — isSubsetOfCallerAccess already
+    // blocks them from assigning/editing it, but the full grid still
+    // reveals capability info they have no legitimate reason to see. Full
+    // admins (req.user.adminRole is null) see every role unchanged.
+    const visibleRoles = req.user.adminRole
+      ? roles.map((role) => {
+          const withinCeiling = isSubsetOfCallerAccess(req.user, {
+            permissions: role.permissions,
+            writeAccess: role.writeAccess,
+          });
+
+          if (withinCeiling) return role;
+
+          return {
+            _id: role._id,
+            name: role.name,
+            description: role.description,
+            createdAt: role.createdAt,
+            updatedAt: role.updatedAt,
+            permissions: [],
+            writeAccess: [],
+            redacted: true,
+          };
+        })
+      : roles;
+
     res.status(200).json({
       success: true,
-      roles,
+      roles: visibleRoles,
     });
   } catch (error) {
     console.error("Get Roles Error:", error);
@@ -51,11 +80,30 @@ export const addRole = async (req, res) => {
       });
     }
 
+    const cleanedPermissions = cleanPermissions(permissions);
+    const cleanedWriteAccess = cleanWriteAccess(writeAccess);
+
+    // Closes the escalation path a restricted staff account (one
+    // holding just the "roles" permission) would otherwise have: mint
+    // a Role with every permission/writeAccess key, then assign it to
+    // a puppet staff account via addStaffUser — see rbacSubset.js.
+    if (
+      !isSubsetOfCallerAccess(req.user, {
+        permissions: cleanedPermissions,
+        writeAccess: cleanedWriteAccess,
+      })
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: "You can't grant permissions you don't have yourself.",
+      });
+    }
+
     const role = await Role.create({
       name,
       description: description || "",
-      permissions: cleanPermissions(permissions),
-      writeAccess: cleanWriteAccess(writeAccess),
+      permissions: cleanedPermissions,
+      writeAccess: cleanedWriteAccess,
     });
 
     res.status(201).json({
@@ -115,8 +163,30 @@ export const updateRole = async (req, res) => {
 
     if (name) role.name = name;
     if (description !== undefined) role.description = description;
-    if (permissions !== undefined) role.permissions = cleanPermissions(permissions);
-    if (writeAccess !== undefined) role.writeAccess = cleanWriteAccess(writeAccess);
+
+    const nextPermissions =
+      permissions !== undefined ? cleanPermissions(permissions) : role.permissions;
+    const nextWriteAccess =
+      writeAccess !== undefined ? cleanWriteAccess(writeAccess) : role.writeAccess;
+
+    // Same escalation path as addRole, via editing an existing role
+    // (including one already assigned to other staff accounts) instead
+    // of creating a new one — see rbacSubset.js.
+    if (
+      (permissions !== undefined || writeAccess !== undefined) &&
+      !isSubsetOfCallerAccess(req.user, {
+        permissions: nextPermissions,
+        writeAccess: nextWriteAccess,
+      })
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: "You can't grant permissions you don't have yourself.",
+      });
+    }
+
+    role.permissions = nextPermissions;
+    role.writeAccess = nextWriteAccess;
 
     await role.save();
 
@@ -153,6 +223,24 @@ export const deleteRole = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Role not found",
+      });
+    }
+
+    // Same escalation path as addRole/updateRole, via destroying a role
+    // instead of editing one — without this, a staff account holding
+    // just the "roles" permission (but a narrow permissions/writeAccess
+    // set overall) could permanently delete an unassigned role broader
+    // than their own access, even though they could never create or
+    // assign one that broad themselves.
+    if (
+      !isSubsetOfCallerAccess(req.user, {
+        permissions: role.permissions,
+        writeAccess: role.writeAccess,
+      })
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: "You can't delete a role with permissions you don't have yourself.",
       });
     }
 

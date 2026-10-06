@@ -6,6 +6,7 @@ import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
 import { getMyReturnRequests } from "../services/returnService";
 import { imgUrl } from "../services/api";
+import { dateLocale } from "../utils/dateLocale";
 
 const STATUS_COLORS = {
   Requested: "bg-blue-100 text-blue-700",
@@ -27,7 +28,7 @@ function getStatusLabel(t, status) {
 
 function Returns() {
   const { isLoggedIn } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const navigate = useNavigate();
 
   const [returns, setReturns] = useState([]);
@@ -78,7 +79,7 @@ function Returns() {
             >
               {ret.productImage && (
                 <img
-                  src={imgUrl(ret.productImage)}
+                  src={imgUrl(ret.productImage, "w_150,q_auto,f_auto")}
                   alt={ret.productName}
                   className="w-14 h-14 object-cover rounded-lg shrink-0 border border-slate-100"
                 />
@@ -90,7 +91,7 @@ function Returns() {
                 </p>
                 <p className="text-xs text-slate-500">
                   {t(`Qty ${ret.quantity} · Requested `, `मात्रा ${ret.quantity} · अनुरोध `)}
-                  {new Date(ret.createdAt).toLocaleDateString("en-IN", {
+                  {new Date(ret.createdAt).toLocaleDateString(dateLocale(language), {
                     day: "numeric",
                     month: "short",
                   })}

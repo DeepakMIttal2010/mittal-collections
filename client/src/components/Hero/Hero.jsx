@@ -7,8 +7,45 @@ import "./Hero.css";
 import heroBanner from "../../assets/images/hero-banner.webp";
 import { getBanners } from "../../services/bannerService";
 import { useLanguage } from "../../context/LanguageContext";
+import heroBannersSnapshot from "../../data/heroBannersSnapshot.json";
 
 const AUTO_ROTATE_MS = 6000;
+// Caches the last-fetched banner slides so Hero can render a REAL
+// banner (with its real Cloudinary image URL) on the very first paint
+// instead of the bundled FALLBACK_SLIDE while getBanners() is still in
+// flight. This is the page's LCP element, and a live Lighthouse audit
+// (2026-09-25) measured ~4.3s of pure "resource load delay" on it --
+// the browser can't discover/request the real image until AFTER
+// getBanners() resolves and React re-renders, since only then does an
+// <img> with the real src exist in the DOM. Skipping straight to
+// cached real data on first render removes that whole wait; the
+// banners rarely change between visits, and the effect below still
+// re-fetches and self-corrects (including clearing a stale cache) if
+// they have.
+//
+// The cache above only ever has data for a RETURNING visitor, though —
+// every first-time visitor (and every Lighthouse/PageSpeed run, which
+// always simulates one) still hit the full empty-fallback-then-fetch
+// delay, which a live mobile audit confirmed is why LCP stayed at 5-8s
+// even after the cache shipped (2026-10-05). heroBannersSnapshot.json is
+// the fix for that case specifically: `scripts/fetch-hero-banners.mjs`
+// bakes the live banner list into this file as part of every
+// `npm run build`, so even a visitor with zero prior history gets a
+// real image URL on the very first render. It only needs to be "close
+// enough", not live-accurate -- same self-correcting re-fetch below
+// updates it (and the cache) if an admin changed banners more recently
+// than the last deploy.
+const CACHE_KEY = "mc_hero_banners_cache";
+
+const getCachedSlides = () => {
+  try {
+    const cached = localStorage.getItem(CACHE_KEY);
+    const parsed = cached ? JSON.parse(cached) : null;
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed : null;
+  } catch {
+    return null;
+  }
+};
 
 const FALLBACK_SLIDE = {
   _id: "fallback",
@@ -58,7 +95,11 @@ function HeroButton({ label, link, variant }) {
 }
 
 function Hero() {
-  const [slides, setSlides] = useState([FALLBACK_SLIDE]);
+  const [slides, setSlides] = useState(
+    () =>
+      getCachedSlides() ||
+      (heroBannersSnapshot.length > 0 ? heroBannersSnapshot : [FALLBACK_SLIDE]),
+  );
   const [activeIndex, setActiveIndex] = useState(0);
   const { t } = useLanguage();
 
@@ -68,6 +109,17 @@ function Hero() {
 
       if (response.success && response.banners.length > 0) {
         setSlides(response.banners);
+        try {
+          localStorage.setItem(CACHE_KEY, JSON.stringify(response.banners));
+        } catch {
+          /* private-mode/quota -- cache is a best-effort optimization only */
+        }
+      } else {
+        try {
+          localStorage.removeItem(CACHE_KEY);
+        } catch {
+          /* private-mode/quota -- cache is a best-effort optimization only */
+        }
       }
     };
 
@@ -162,6 +214,16 @@ function Hero() {
             alt={imageAlt}
             className="hero-split-image"
             fetchPriority="high"
+            // Falls back to the bundled default banner (guaranteed to
+            // exist, no network round-trip) rather than the generic
+            // site-icon placeholder every other image uses — this is the
+            // page's LCP element, so a visibly broken hero would be worse
+            // than any other spot.
+            onError={(e) => {
+              e.target.onerror = null;
+              e.target.srcset = "";
+              e.target.src = heroBanner;
+            }}
           />
           {arrowsAndDots}
         </div>

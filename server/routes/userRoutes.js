@@ -1,4 +1,5 @@
 import express from "express";
+import validateObjectId from "../middleware/validateObjectId.js";
 
 import authMiddleware from "../middleware/authMiddleware.js";
 import adminMiddleware from "../middleware/adminMiddleware.js";
@@ -13,6 +14,8 @@ import {
 } from "../controllers/userController.js";
 
 const router = express.Router();
+
+router.param("id", validateObjectId);
 const perm = requirePermission("customers");
 
 // Sabhi routes admin-only hain

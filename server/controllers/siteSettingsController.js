@@ -55,6 +55,21 @@ export const updateSiteSettings = async (req, res) => {
       pricingRules,
     } = req.body;
 
+    // These feed straight into sameAs on the site's Organization/
+    // HomeGoodsStore JSON-LD (Home.jsx, Contact.jsx) — schema.org
+    // requires sameAs entries to be full URLs, not bare handles, but
+    // nothing before this point enforced that; only the admin form's
+    // placeholder text ("https://facebook.com/yourpage") guided it.
+    const socialLinkFields = { facebook, instagram, twitter, linkedin };
+    for (const [field, value] of Object.entries(socialLinkFields)) {
+      if (value && !/^https?:\/\//i.test(value)) {
+        return res.status(400).json({
+          success: false,
+          message: `${field} must be a full URL starting with http:// or https://`,
+        });
+      }
+    }
+
     // bundleRules/pricingRules feed straight into real pricing logic
     // (bundleDiscount.js, and the Cost/Price Auto-Fill suggestion
     // AddProduct/EditProduct use to fill purchasePrice -> price) with no
@@ -93,6 +108,41 @@ export const updateSiteSettings = async (req, res) => {
           success: false,
           message:
             "Pricing rule values must be positive, with a discount percent under 100.",
+        });
+      }
+    }
+
+    // These four feed straight into calculateDeliveryFee (shipping.js) on
+    // every single order — unlike bundleRules/pricingRules above, they had
+    // no bounds check at all. A negative/NaN freeShippingThreshold makes
+    // every order either always or never qualify for free shipping, and a
+    // negative deliveryFee/tier fee/codCharge subtracts from the order
+    // total instead of adding to it.
+    if (
+      (freeShippingThreshold !== undefined &&
+        !(Number(freeShippingThreshold) >= 0)) ||
+      (deliveryFee !== undefined && !(Number(deliveryFee) >= 0)) ||
+      (codCharge !== undefined && !(Number(codCharge) >= 0)) ||
+      (defaultReturnPeriodDays !== undefined &&
+        !(Number(defaultReturnPeriodDays) > 0))
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Shipping/return settings must be positive numbers.",
+      });
+    }
+
+    if (Array.isArray(shippingTiers)) {
+      const hasInvalidTier = shippingTiers.some(
+        (tier) =>
+          !(Number(tier.maxOrderValue) > 0) || !(Number(tier.fee) >= 0),
+      );
+
+      if (hasInvalidTier) {
+        return res.status(400).json({
+          success: false,
+          message: "Each shipping tier needs a positive order value and a non-negative fee.",
         });
       }
     }

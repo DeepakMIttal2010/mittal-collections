@@ -143,15 +143,30 @@ function AdminOrders() {
   }, [search, statusFilter, orders]);
 
   const handleStatusChange = async (id, newStatus) => {
+    // Every other destructive action on this page (delete, permanent
+    // delete) is confirm-gated — this inline <select> wasn't, despite
+    // being able to reach "Cancelled" (triggers a real stock restore +
+    // points/coupon/referral clawback server-side) with a single misclick
+    // in a dense summary row.
+    if (
+      newStatus === "Cancelled" &&
+      !window.confirm("Cancel this order? Stock and any points/coupon used will be reversed.")
+    ) {
+      return;
+    }
+
     setUpdatingId(id);
 
     const response = await updateOrderStatus(id, newStatus);
 
     if (response.success) {
+      // Use the server's returned order (statusHistory included) instead
+      // of just patching orderStatus in place — the local cache used to
+      // never gain the new statusHistory entry, so expanding "Order
+      // History" right after a change looked like it hadn't been
+      // recorded, even though it had been server-side.
       setOrders((prev) =>
-        prev.map((order) =>
-          order._id === id ? { ...order, orderStatus: newStatus } : order,
-        ),
+        prev.map((order) => (order._id === id ? response.order : order)),
       );
     } else {
       alert(response.message || "Unable to update order status");
@@ -329,12 +344,24 @@ function AdminOrders() {
                     {order.orderStatus}
                   </span>
 
-                  {order.paidAfterCancellation && (
+                  {/* isPaid only ever gets set by a real captured
+                      Razorpay payment (never for COD, and cancelling
+                      an order never resets it) — so this is true
+                      whenever real money was taken for an order that's
+                      now Cancelled, whether that happened through the
+                      narrow paidAfterCancellation race (the stale-order
+                      cron cancelling before payment was verified) or
+                      simply an admin cancelling an order that had
+                      already been paid. Either way nothing in this
+                      system tracks whether the refund itself was
+                      actually issued, so this stays visible until an
+                      admin has manually confirmed/handled it. */}
+                  {order.isPaid && order.orderStatus === "Cancelled" && (
                     <span
                       className="text-xs font-semibold px-3 py-1 rounded-full w-fit bg-red-600 text-white"
-                      title="Payment was verified after this order was already cancelled — the customer was charged but stock was already released. Confirm fulfillment or refund manually."
+                      title="This order was paid via Razorpay but is now Cancelled — the customer was charged. Confirm a refund has actually been issued (or re-fulfil the order) manually."
                     >
-                      ⚠ Paid after cancel — needs refund/review
+                      ⚠ Paid & cancelled — needs refund/review
                     </span>
                   )}
 

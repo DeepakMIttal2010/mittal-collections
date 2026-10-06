@@ -149,10 +149,11 @@ function AdminRoles() {
       >
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label htmlFor="roleName" className="block text-sm font-medium text-slate-700 mb-1">
               Role name
             </label>
             <input
+              id="roleName"
               type="text"
               name="name"
               placeholder="e.g. Stock Manager"
@@ -164,10 +165,11 @@ function AdminRoles() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label htmlFor="roleDescription" className="block text-sm font-medium text-slate-700 mb-1">
               Description (optional)
             </label>
             <input
+              id="roleDescription"
               type="text"
               name="description"
               placeholder="What this role is for"

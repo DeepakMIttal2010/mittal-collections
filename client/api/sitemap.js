@@ -25,18 +25,33 @@ const STATIC_ROUTES = [
   "/rewards",
   "/about",
   "/contact",
+  "/ghaziabad-home-furnishing-store",
   "/articles",
   "/hi/articles",
   "/curtain-size-calculator",
 ];
 
+// No timeout previously meant a slow/cold Render backend could hang this
+// function rather than failing fast into the catch below. 6s mirrors
+// api/render.js's own fetchJson timeout for the same backend.
 const fetchJson = async (url) => {
-  const res = await fetch(url);
+  const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
 
   if (!res.ok) throw new Error(`Failed to fetch ${url}: ${res.status}`);
 
   return res.json();
 };
+
+// XML (unlike HTML) requires every one of these escaped in text content --
+// a raw "&" or "<" in a product name (e.g. "Dev D'Decor Bedsheet - Grey &
+// Blue") would otherwise produce invalid XML, not just a display glitch.
+const escapeXml = (text) =>
+  String(text ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
 
 const slugify = (text) =>
   text
@@ -85,7 +100,7 @@ const fetchAllProducts = async () => {
 // only) adds Google's sitemap Image extension — a second, dedicated
 // discovery path for Google Images alongside on-page <img> alt text,
 // entirely missing before this.
-const urlEntry = (loc, alternates, lastmod, images) => {
+const urlEntry = (loc, alternates, lastmod, images, imageTitle) => {
   const altLinks = alternates
     ? alternates
         .map(
@@ -95,8 +110,16 @@ const urlEntry = (loc, alternates, lastmod, images) => {
         .join("")
     : "";
   const lastmodTag = lastmod ? `<lastmod>${lastmod.slice(0, 10)}</lastmod>` : "";
+  // <image:title> is optional per Google's Image sitemap spec but gives
+  // Google Images a caption signal beyond just the URL -- every image in
+  // a product's gallery shares the product's own name since there's no
+  // separate per-photo caption in the data (angle 1 vs angle 2 of the
+  // same product don't have distinct descriptions).
+  const titleTag = imageTitle ? `<image:title>${escapeXml(imageTitle)}</image:title>` : "";
   const imageTags = images
-    ? images.map((url) => `<image:image><image:loc>${url}</image:loc></image:image>`).join("")
+    ? images
+        .map((url) => `<image:image><image:loc>${url}</image:loc>${titleTag}</image:image>`)
+        .join("")
     : "";
 
   return `  <url><loc>${SITE_URL}${loc}</loc>${lastmodTag}${altLinks}${imageTags}</url>`;
@@ -104,6 +127,7 @@ const urlEntry = (loc, alternates, lastmod, images) => {
 
 export default async function handler(req, res) {
   const urls = [...STATIC_ROUTES.map((loc) => urlEntry(loc))];
+  let degraded = false;
 
   try {
     const [categoriesRes, subcategoriesRes, products, articlesRes, pagesRes] =
@@ -146,7 +170,7 @@ export default async function handler(req, res) {
       }
     });
     products.forEach((p) =>
-      urls.push(urlEntry(productUrl(p), undefined, p.updatedAt, p.images)),
+      urls.push(urlEntry(productUrl(p), undefined, p.updatedAt, p.images, p.name)),
     );
 
     // A Hindi version is only advertised (and only gets its own sitemap
@@ -173,6 +197,7 @@ export default async function handler(req, res) {
     });
   } catch (error) {
     console.error("Sitemap generation error, serving static routes only:", error);
+    degraded = true;
   }
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -182,9 +207,16 @@ ${urls.join("\n")}
 `;
 
   res.setHeader("Content-Type", "application/xml; charset=utf-8");
+  // A backend hiccup degrades this to only the 12 static routes (see the
+  // catch above) — caching that for up to a day at the edge would hide
+  // the entire catalog from Google's sitemap fetch that whole time.
+  // Cache it for a minute instead so the next crawl attempt self-heals
+  // quickly once the backend recovers.
   res.setHeader(
     "Cache-Control",
-    "public, max-age=300, s-maxage=3600, stale-while-revalidate=86400",
+    degraded
+      ? "public, max-age=60, s-maxage=60"
+      : "public, max-age=300, s-maxage=3600, stale-while-revalidate=86400",
   );
   res.status(200).send(xml);
 }

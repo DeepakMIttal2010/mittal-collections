@@ -65,11 +65,16 @@ export const addBanner = async (req, res) => {
   try {
     const {
       subtitle,
+      subtitleHi,
       title,
+      titleHi,
       description,
+      descriptionHi,
       button1Label,
+      button1LabelHi,
       button1Link,
       button2Label,
+      button2LabelHi,
       button2Link,
       displayOrder,
       isActive,
@@ -99,11 +104,16 @@ export const addBanner = async (req, res) => {
     const banner = await Banner.create({
       image: req.file.path,
       subtitle,
+      subtitleHi,
       title,
+      titleHi,
       description,
+      descriptionHi,
       button1Label,
+      button1LabelHi,
       button1Link,
       button2Label,
+      button2LabelHi,
       button2Link,
       displayOrder: displayOrder || 0,
       isActive: isActive === undefined ? true : isActive === "true",
@@ -148,11 +158,16 @@ export const updateBanner = async (req, res) => {
 
     const {
       subtitle,
+      subtitleHi,
       title,
+      titleHi,
       description,
+      descriptionHi,
       button1Label,
+      button1LabelHi,
       button1Link,
       button2Label,
+      button2LabelHi,
       button2Link,
       displayOrder,
       isActive,
@@ -169,11 +184,16 @@ export const updateBanner = async (req, res) => {
     }
 
     if (title !== undefined) banner.title = title;
+    if (titleHi !== undefined) banner.titleHi = titleHi;
     if (subtitle !== undefined) banner.subtitle = subtitle;
+    if (subtitleHi !== undefined) banner.subtitleHi = subtitleHi;
     if (description !== undefined) banner.description = description;
+    if (descriptionHi !== undefined) banner.descriptionHi = descriptionHi;
     if (button1Label !== undefined) banner.button1Label = button1Label;
+    if (button1LabelHi !== undefined) banner.button1LabelHi = button1LabelHi;
     if (button1Link !== undefined) banner.button1Link = button1Link;
     if (button2Label !== undefined) banner.button2Label = button2Label;
+    if (button2LabelHi !== undefined) banner.button2LabelHi = button2LabelHi;
     if (button2Link !== undefined) banner.button2Link = button2Link;
     if (displayOrder !== undefined) banner.displayOrder = displayOrder;
     if (isActive !== undefined) banner.isActive = isActive === "true";

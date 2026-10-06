@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import Papa from "papaparse";
+import { toast } from "react-toastify";
 import {
   FaRupeeSign,
   FaShoppingCart,
@@ -28,6 +29,8 @@ import {
   getProductViewUsers,
   getEngagementDetails,
   getAbandonedCartDetails,
+  deleteAbandonedCart,
+  getVisitLog,
 } from "../../services/adminService";
 
 const RANGE_OPTIONS = [7, 30, 90];
@@ -70,9 +73,17 @@ function GrowthBadge({ percent }) {
   );
 }
 
-function StatTile({ icon, label, value, growth }) {
+function StatTile({ icon, label, value, growth, subtext, onClick }) {
+  const Wrapper = onClick ? "button" : "div";
+
   return (
-    <div className="bg-white border border-slate-200 rounded-xl p-5 flex items-center gap-4">
+    <Wrapper
+      type={onClick ? "button" : undefined}
+      onClick={onClick}
+      className={`bg-white border border-slate-200 rounded-xl p-5 flex items-center gap-4 text-left w-full ${
+        onClick ? "hover:border-blue-300 hover:shadow-sm transition-all cursor-pointer" : ""
+      }`}
+    >
       <div className="w-11 h-11 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center text-lg shrink-0">
         {icon}
       </div>
@@ -80,14 +91,22 @@ function StatTile({ icon, label, value, growth }) {
         <p className="text-2xl font-bold text-slate-800 leading-tight">
           {value}
         </p>
-        <p className="text-sm text-slate-500">{label}</p>
+        <p className="text-sm text-slate-500">
+          {label}
+          {onClick && (
+            <span className="text-blue-700 font-medium ml-1.5">
+              · View Details
+            </span>
+          )}
+        </p>
+        {subtext && <p className="text-xs text-slate-400 mt-0.5">{subtext}</p>}
         {growth !== undefined && (
           <div className="mt-0.5">
             <GrowthBadge percent={growth} />
           </div>
         )}
       </div>
-    </div>
+    </Wrapper>
   );
 }
 
@@ -247,7 +266,7 @@ function RankedBarList({ items, labelKey, valueKey, formatValue, emptyText }) {
               {item[labelKey]}
             </span>
             <span className="text-slate-500 shrink-0">
-              {formatValue(item[valueKey])}
+              {formatValue(item[valueKey], item)}
             </span>
           </div>
           <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
@@ -299,6 +318,7 @@ const USER_MODAL_CONFIG = {
 function AbandonedCartsModal({ onClose }) {
   const [carts, setCarts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState(null);
 
   useEffect(() => {
     const load = async () => {
@@ -313,6 +333,25 @@ function AbandonedCartsModal({ onClose }) {
 
     load();
   }, []);
+
+  const handleDelete = async (cart) => {
+    if (
+      !window.confirm(
+        `Remove this abandoned-cart entry (${cart.name}, ${formatCurrency(cart.value)})? This only clears the tracking record, not a real customer's cart.`,
+      )
+    )
+      return;
+
+    setDeletingId(cart._id);
+    const response = await deleteAbandonedCart(cart._id);
+    setDeletingId(null);
+
+    if (response.success) {
+      setCarts((prev) => prev.filter((c) => c._id !== cart._id));
+    } else {
+      toast.error(response.message || "Unable to delete this entry.");
+    }
+  };
 
   const exportCartsCSV = () => {
     const csv = Papa.unparse(
@@ -381,9 +420,9 @@ function AbandonedCartsModal({ onClose }) {
             </p>
           ) : (
             <div className="space-y-3">
-              {carts.map((cart, i) => (
+              {carts.map((cart) => (
                 <div
-                  key={i}
+                  key={cart._id}
                   className="border border-slate-200 rounded-lg p-3"
                 >
                   <div className="flex items-start justify-between gap-2 mb-1.5">
@@ -409,20 +448,290 @@ function AbandonedCartsModal({ onClose }) {
                   <p className="text-xs text-slate-500">
                     {cart.items.map((i) => `${i.name} ×${i.quantity}`).join(", ")}
                   </p>
-                  <p className="text-[11px] text-slate-400 mt-1">
-                    Abandoned since{" "}
-                    {new Date(cart.abandonedSince).toLocaleString("en-IN", {
-                      day: "numeric",
-                      month: "short",
-                      hour: "numeric",
-                      minute: "2-digit",
-                    })}
-                  </p>
+                  <div className="flex items-center justify-between mt-1">
+                    <p className="text-[11px] text-slate-400">
+                      Abandoned since{" "}
+                      {new Date(cart.abandonedSince).toLocaleString("en-IN", {
+                        day: "numeric",
+                        month: "short",
+                        hour: "numeric",
+                        minute: "2-digit",
+                      })}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(cart)}
+                      disabled={deletingId === cart._id}
+                      className="text-[11px] font-medium text-red-600 hover:underline disabled:opacity-50 disabled:no-underline shrink-0 ml-2"
+                    >
+                      {deletingId === cart._id ? "Removing..." : "Remove"}
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+const VISIT_LOG_TITLES = {
+  all: "Website Visits",
+  unique: "Unique Visitors",
+  new: "New Visitors",
+  returning: "Returning Visitors",
+};
+
+// Backs every visitor stat tile's "View Details" — the raw PageVisit
+// rows behind whichever number was clicked, so an admin can actually
+// verify it instead of trusting the aggregate (round-tripped through
+// getVisitLog's `view` param, which classifies new/returning/unique
+// identically to how the tile's own number was computed).
+function VisitLogModal({ view, days, customRange, onClose }) {
+  const [visits, setVisits] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [pages, setPages] = useState(1);
+  const [page, setPage] = useState(1);
+  const [q, setQ] = useState("");
+  const [qInput, setQInput] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [exportingVisits, setExportingVisits] = useState(false);
+  const limit = 25;
+
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+
+      const response = await getVisitLog({
+        view,
+        page,
+        limit,
+        q,
+        ...(customRange
+          ? { startDate: customRange.startDate, endDate: customRange.endDate }
+          : { days }),
+      });
+
+      if (response.success) {
+        setVisits(response.visits);
+        setTotal(response.total);
+        setPages(response.pages);
+      }
+
+      setLoading(false);
+    };
+
+    load();
+  }, [view, page, q, days, customRange]);
+
+  const handleSearch = (e) => {
+    e.preventDefault();
+    setPage(1);
+    setQ(qInput.trim());
+  };
+
+  const exportVisitsCSV = async () => {
+    // `visits` is only the current page (25 rows) — exporting that
+    // directly silently produced a CSV missing every other page's rows,
+    // with nothing in the filename or content to warn the admin it was
+    // partial. Fetches every row matching the date range instead, same
+    // "full fresh fetch for export" pattern the other CSV export button
+    // in this file already uses. Deliberately ignores the on-screen
+    // search box (`q`) and `total` (which reflects whatever search is
+    // currently active) — Export CSV always means the complete dataset
+    // for this view/range, not just whatever's currently filtered/typed
+    // into the search box. A fixed large limit avoids a second
+    // round-trip just to learn the true unfiltered count first.
+    setExportingVisits(true);
+
+    const response = await getVisitLog({
+      view,
+      page: 1,
+      limit: 100000,
+      ...(customRange
+        ? { startDate: customRange.startDate, endDate: customRange.endDate }
+        : { days }),
+    });
+
+    setExportingVisits(false);
+
+    if (!response.success) return;
+
+    const csv = Papa.unparse(
+      response.visits.map((v) => ({
+        "Visitor ID": v.visitorId,
+        Path: v.path,
+        Device: v.device || "",
+        Country: v.country || "",
+        City: v.city || "",
+        "Visited At": v.createdAt
+          ? new Date(v.createdAt).toLocaleString("en-IN")
+          : "",
+      })),
+    );
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${view}-visitors.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-[1000] bg-black/50 flex items-center justify-center p-4"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[85vh] overflow-hidden flex flex-col"
+      >
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 shrink-0">
+          <div className="min-w-0">
+            <h3 className="font-bold text-slate-900">
+              {VISIT_LOG_TITLES[view]}
+            </h3>
+            <p className="text-xs text-slate-500">
+              {formatNumber(total)} {view === "unique" || view === "new" || view === "returning" ? "visitor" : "visit"}
+              {total === 1 ? "" : "s"} — every row here is a real recorded
+              page view (admin/staff browsing is excluded)
+            </p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0 ml-3">
+            {visits.length > 0 && (
+              <button
+                type="button"
+                onClick={exportVisitsCSV}
+                disabled={exportingVisits}
+                className="text-xs font-medium text-blue-700 hover:underline whitespace-nowrap disabled:opacity-50 disabled:no-underline"
+              >
+                {exportingVisits ? "Preparing..." : "Export CSV"}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close"
+              className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+
+        <form onSubmit={handleSearch} className="px-5 pt-3 shrink-0 flex gap-2">
+          <input
+            type="text"
+            value={qInput}
+            onChange={(e) => setQInput(e.target.value)}
+            placeholder="Search by page path or visitor ID..."
+            className="flex-1 text-sm border border-slate-300 rounded-lg px-3 py-1.5 outline-none focus:border-blue-400"
+          />
+          <button
+            type="submit"
+            className="text-sm font-medium text-white bg-slate-800 hover:bg-slate-900 rounded-lg px-3 py-1.5"
+          >
+            Search
+          </button>
+          {q && (
+            <button
+              type="button"
+              onClick={() => {
+                setQ("");
+                setQInput("");
+                setPage(1);
+              }}
+              className="text-sm text-slate-500 hover:underline"
+            >
+              Clear
+            </button>
+          )}
+        </form>
+
+        <div className="p-5 overflow-y-auto">
+          {loading ? (
+            <p className="text-sm text-slate-400 text-center py-8">Loading...</p>
+          ) : visits.length === 0 ? (
+            <p className="text-sm text-slate-400 text-center py-8">
+              No visits match this.
+            </p>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-slate-500 border-b border-slate-200">
+                  <th className="py-2 pr-2 font-medium">Page</th>
+                  <th className="py-2 px-2 font-medium">Device</th>
+                  <th className="py-2 px-2 font-medium">Location</th>
+                  <th className="py-2 px-2 font-medium">Visitor</th>
+                  <th className="py-2 pl-2 font-medium">
+                    {view === "unique" ? "Last Seen" : "Visited At"}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {visits.map((v, i) => (
+                  <tr key={i} className="border-b border-slate-100 last:border-b-0">
+                    <td className="py-2 pr-2 text-slate-700 truncate max-w-[160px]" title={v.path}>
+                      {v.path}
+                    </td>
+                    <td className="py-2 px-2 text-slate-600 whitespace-nowrap">
+                      {v.device || "—"}
+                    </td>
+                    <td className="py-2 px-2 text-slate-600 whitespace-nowrap">
+                      {[v.city, v.country].filter(Boolean).join(", ") || "—"}
+                    </td>
+                    <td
+                      className="py-2 px-2 text-slate-400 font-mono text-xs whitespace-nowrap"
+                      title={v.visitorId}
+                    >
+                      {v.visitorId.slice(0, 8)}
+                    </td>
+                    <td className="py-2 pl-2 text-slate-600 whitespace-nowrap">
+                      {v.createdAt
+                        ? new Date(v.createdAt).toLocaleString("en-IN", {
+                            day: "numeric",
+                            month: "short",
+                            hour: "numeric",
+                            minute: "2-digit",
+                          })
+                        : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        {pages > 1 && (
+          <div className="flex items-center justify-between px-5 py-3 border-t border-slate-200 shrink-0 text-sm">
+            <button
+              type="button"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => p - 1)}
+              className="text-blue-700 hover:underline disabled:text-slate-300 disabled:no-underline"
+            >
+              ← Previous
+            </button>
+            <span className="text-slate-500">
+              Page {page} of {pages}
+            </span>
+            <button
+              type="button"
+              disabled={page >= pages}
+              onClick={() => setPage((p) => p + 1)}
+              className="text-blue-700 hover:underline disabled:text-slate-300 disabled:no-underline"
+            >
+              Next →
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -761,6 +1070,7 @@ function AdminReports() {
   const [report, setReport] = useState({
     summary: {
       totalRevenue: 0,
+      posRevenue: 0,
       totalOrders: 0,
       avgOrderValue: 0,
       totalCustomers: 0,
@@ -823,6 +1133,9 @@ function AdminReports() {
   const [engagementDraftEnd, setEngagementDraftEnd] = useState(todayISO());
   const [usersModal, setUsersModal] = useState(null); // { productId, productName, type } | null
   const [showAbandonedCarts, setShowAbandonedCarts] = useState(false);
+  // Which visitor stat tile's "View Details" is open, if any -- "all",
+  // "unique", "new" or "returning" (matches getVisitLog's `view` param).
+  const [visitLogView, setVisitLogView] = useState(null);
 
   // Clicking "7 days" then immediately "90 days" fires two overlapping
   // requests — without a stale-response guard, whichever happens to
@@ -1177,10 +1490,11 @@ function AdminReports() {
           {showCustomPicker && (
             <div className="absolute right-0 top-full mt-2 z-10 bg-white border border-slate-200 rounded-lg shadow-lg p-4 flex items-end gap-3">
               <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">
+                <label htmlFor="reportsRangeFrom" className="block text-xs font-medium text-slate-500 mb-1">
                   From
                 </label>
                 <input
+                  id="reportsRangeFrom"
                   type="date"
                   value={draftStart}
                   max={draftEnd}
@@ -1189,10 +1503,11 @@ function AdminReports() {
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">
+                <label htmlFor="reportsRangeTo" className="block text-xs font-medium text-slate-500 mb-1">
                   To
                 </label>
                 <input
+                  id="reportsRangeTo"
                   type="date"
                   value={draftEnd}
                   max={todayISO()}
@@ -1229,6 +1544,11 @@ function AdminReports() {
           label={`Revenue — ${rangeLabel}`}
           value={formatCurrency(summary.totalRevenue)}
           growth={report.growth?.revenue}
+          subtext={
+            summary.posRevenue > 0
+              ? `Includes ${formatCurrency(summary.posRevenue)} in-store (POS)`
+              : undefined
+          }
         />
         <StatTile
           icon={<FaShoppingCart />}
@@ -1253,21 +1573,25 @@ function AdminReports() {
           icon={<FaEye />}
           label={`Website Visits — ${rangeLabel}`}
           value={formatNumber(summary.totalVisits)}
+          onClick={() => setVisitLogView("all")}
         />
         <StatTile
           icon={<FaUserFriends />}
           label={`Unique Visitors — ${rangeLabel}`}
           value={formatNumber(summary.uniqueVisitors)}
+          onClick={() => setVisitLogView("unique")}
         />
         <StatTile
           icon={<FaUserPlus />}
           label={`New Visitors — ${rangeLabel}`}
           value={formatNumber(summary.newVisitors)}
+          onClick={() => setVisitLogView("new")}
         />
         <StatTile
           icon={<FaUserCheck />}
           label={`Returning Visitors — ${rangeLabel}`}
           value={formatNumber(summary.returningVisitors)}
+          onClick={() => setVisitLogView("returning")}
         />
       </div>
 
@@ -1456,6 +1780,24 @@ function AdminReports() {
                   </p>
                 </div>
                 <div>
+                  <p className="text-xs text-slate-400">
+                    Engaged Sessions
+                  </p>
+                  <p className="text-xl font-bold text-slate-800">
+                    {formatNumber(googleReport.analytics.engagedSessions)}
+                  </p>
+                  {/* GA4 counts a session "engaged" only if it lasted 10s+,
+                      had a conversion, or had 2+ pageviews -- a big gap
+                      from raw Sessions above is low-quality/bot traffic,
+                      not real visitors (see pending_ga4_bot_filtering
+                      memory). */}
+                  <p className="text-[11px] text-slate-400">
+                    {googleReport.analytics.sessions > 0
+                      ? `${((googleReport.analytics.engagedSessions / googleReport.analytics.sessions) * 100).toFixed(0)}% of sessions`
+                      : ""}
+                  </p>
+                </div>
+                <div>
                   <p className="text-xs text-slate-400">Page Views</p>
                   <p className="text-xl font-bold text-slate-800">
                     {formatNumber(googleReport.analytics.pageViews)}
@@ -1477,6 +1819,32 @@ function AdminReports() {
                 valueKey="views"
                 formatValue={(v) => `${formatNumber(v)} views`}
                 emptyText="No page view data yet."
+              />
+
+              <p className="text-xs text-slate-400 mb-2 mt-4">
+                Sessions by Channel
+              </p>
+              <RankedBarList
+                items={googleReport.analytics.byChannel}
+                labelKey="channel"
+                valueKey="sessions"
+                formatValue={(v, item) =>
+                  `${formatNumber(v)} sessions, ${item.engagementRate.toFixed(0)}% engaged`
+                }
+                emptyText="No channel data yet."
+              />
+
+              <p className="text-xs text-slate-400 mb-2 mt-4">
+                Sessions by Device / Browser
+              </p>
+              <RankedBarList
+                items={googleReport.analytics.byDevice}
+                labelKey="label"
+                valueKey="sessions"
+                formatValue={(v, item) =>
+                  `${formatNumber(v)} sessions, ${item.engagementRate.toFixed(0)}% engaged`
+                }
+                emptyText="No device data yet."
               />
             </div>
 
@@ -1640,10 +2008,11 @@ function AdminReports() {
             {showEngagementPicker && (
               <div className="absolute right-0 top-full mt-2 z-10 bg-white border border-slate-200 rounded-lg shadow-lg p-4 flex items-end gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-slate-500 mb-1">
+                  <label htmlFor="engagementRangeFrom" className="block text-xs font-medium text-slate-500 mb-1">
                     From
                   </label>
                   <input
+                    id="engagementRangeFrom"
                     type="date"
                     value={engagementDraftStart}
                     max={engagementDraftEnd}
@@ -1652,10 +2021,11 @@ function AdminReports() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-500 mb-1">
+                  <label htmlFor="engagementRangeTo" className="block text-xs font-medium text-slate-500 mb-1">
                     To
                   </label>
                   <input
+                    id="engagementRangeTo"
                     type="date"
                     value={engagementDraftEnd}
                     max={todayISO()}
@@ -1679,8 +2049,7 @@ function AdminReports() {
         <p className="text-xs text-slate-400 mb-4">
           {engagementRange
             ? `Views are for ${engagementRangeLabel}; wishlist/cart counts are how many people have it right now, not a historical total.`
-            : "Views are all-time; wishlist/cart counts are how many people have it right now, not a historical total."}{" "}
-          Cart count only covers logged-in customers.
+            : "Views are all-time; wishlist/cart counts are how many people have it right now, not a historical total."}
         </p>
         <ProductEngagementTable
           items={engagement}
@@ -1807,6 +2176,15 @@ function AdminReports() {
 
       {showAbandonedCarts && (
         <AbandonedCartsModal onClose={() => setShowAbandonedCarts(false)} />
+      )}
+
+      {visitLogView && (
+        <VisitLogModal
+          view={visitLogView}
+          days={days}
+          customRange={customRange}
+          onClose={() => setVisitLogView(null)}
+        />
       )}
     </div>
   );

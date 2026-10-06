@@ -49,6 +49,18 @@ const cartSnapshotSchema = new mongoose.Schema(
 cartSnapshotSchema.index({ user: 1 }, { unique: true, sparse: true });
 cartSnapshotSchema.index({ visitorId: 1 }, { unique: true, sparse: true });
 
+// Guest (visitorId-keyed) snapshots only ever get deleted when the guest
+// empties their cart (syncGuestCart) or later logs in (mergeGuestCart) —
+// a guest who adds items, never empties the cart, and never logs in
+// leaves a permanent orphaned document with no other cleanup path.
+// Matches the same guest-only partial TTL already applied to
+// Wishlist.js for the identical scenario; logged-in customers' own
+// snapshots (no visitorId) are unaffected regardless of age.
+cartSnapshotSchema.index(
+  { createdAt: 1 },
+  { expireAfterSeconds: 90 * 24 * 60 * 60, partialFilterExpression: { visitorId: { $exists: true } } },
+);
+
 const CartSnapshot = mongoose.model("CartSnapshot", cartSnapshotSchema);
 
 export default CartSnapshot;

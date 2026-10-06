@@ -8,6 +8,7 @@ import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
 import { productUrl } from "../utils/productUrl";
+import { handleImageError } from "../utils/imageFallback";
 import Seo from "../components/Seo";
 
 function Wishlist() {
@@ -83,17 +84,18 @@ function Wishlist() {
                 className="border border-slate-200 rounded-xl bg-white overflow-hidden"
               >
                 <img
-                  src={`${imgUrl(item.image)}`}
-                  alt={item.name}
+                  src={`${imgUrl(item.image, "w_400,q_auto,f_auto")}`}
+                  alt={t(item.name, item.nameHi)}
                   className="w-full h-48 object-cover"
+                  onError={handleImageError}
                 />
 
                 <div className="p-4">
                   <h3 className="font-medium text-slate-800 truncate">
-                    {item.name}
+                    {t(item.name, item.nameHi)}
                   </h3>
                   <p className="text-sm text-slate-500">
-                    {item.category?.name || item.category}
+                    {t(item.category?.name || item.category, item.category?.nameHi)}
                   </p>
                   <p className="text-lg font-semibold text-green-700 mt-1">
                     ₹{item.price}

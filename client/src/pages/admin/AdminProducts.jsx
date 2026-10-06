@@ -542,10 +542,11 @@ function AdminProducts() {
       {/* Category / Subcategory filters */}
       <div className="mb-4 flex flex-wrap items-end gap-3">
         <div className="flex flex-col">
-          <label className="text-xs font-semibold text-slate-500 mb-1">
+          <label htmlFor="productsCategoryFilter" className="text-xs font-semibold text-slate-500 mb-1">
             Category
           </label>
           <select
+            id="productsCategoryFilter"
             value={categoryFilter}
             onChange={handleCategoryFilterChange}
             className="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -560,10 +561,11 @@ function AdminProducts() {
         </div>
 
         <div className="flex flex-col">
-          <label className="text-xs font-semibold text-slate-500 mb-1">
+          <label htmlFor="productsSubcategoryFilter" className="text-xs font-semibold text-slate-500 mb-1">
             Subcategory
           </label>
           <select
+            id="productsSubcategoryFilter"
             value={subcategoryFilter}
             onChange={handleSubcategoryFilterChange}
             disabled={!categoryFilter}

@@ -72,9 +72,19 @@ const __dirname = path.dirname(__filename);
 const ALLOWED_ORIGINS = [
   "https://www.mittalcollections.com",
   "https://mittalcollections.com",
-  "http://localhost:5173",
-  "http://localhost:3000",
 ];
+
+// Vite picks the next free port (5174, 5175, ...) whenever 5173 is
+// already in use by another local dev server — confirmed live in Sentry
+// as recurring "Not allowed by CORS" noise from exactly this (a local
+// `npm run dev` client, whose VITE_API_URL points at this production
+// API, landing on a port other than the one hardcoded port this list
+// used to allow). Matching any localhost port is still safe: CORS only
+// restricts which origins a *browser* will let JS call this API from,
+// and "localhost" only ever resolves to the machine making the request
+// — there's no origin an external attacker could spoof to pass this.
+const isAllowedOrigin = (origin) =>
+  ALLOWED_ORIGINS.includes(origin) || /^http:\/\/localhost:\d+$/.test(origin);
 
 // Middlewares
 app.use(
@@ -91,7 +101,7 @@ app.use(compression());
 app.use(
   cors({
     origin: (origin, callback) => {
-      if (!origin || ALLOWED_ORIGINS.includes(origin)) {
+      if (!origin || isAllowedOrigin(origin)) {
         return callback(null, true);
       }
 

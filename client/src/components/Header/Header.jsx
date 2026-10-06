@@ -22,6 +22,7 @@ import {
 import { imgUrl } from "../../services/api";
 import { productUrl } from "../../utils/productUrl";
 import { notifyDefaultAddressChanged } from "../../utils/addressEvents";
+import { trackSearch, trackSelectItem } from "../../utils/analytics";
 
 function Header() {
   const { totalItems, openCart } = useCart();
@@ -59,6 +60,19 @@ function Header() {
   const [deliverPlace, setDeliverPlace] = useState("");
   const [savedAddresses, setSavedAddresses] = useState([]);
   const [addressOpen, setAddressOpen] = useState(false);
+  const addressCloseTimer = useRef(null);
+
+  // Same zero-gap hover-handoff fix as openAccountMenu/scheduleCloseAccountMenu
+  // above — this panel is likewise absolutely positioned outside its
+  // trigger's layout box, so a bare mouseleave with no delay could dismiss
+  // it before a click on a listed address registers.
+  const openAddressMenu = () => {
+    clearTimeout(addressCloseTimer.current);
+    setAddressOpen(true);
+  };
+  const scheduleCloseAddressMenu = () => {
+    addressCloseTimer.current = setTimeout(() => setAddressOpen(false), 150);
+  };
   const [switchingAddressId, setSwitchingAddressId] = useState(null);
   const recognitionRef = useRef(null);
   const searchFormRef = useRef(null);
@@ -209,6 +223,8 @@ function Header() {
         return;
       }
 
+      trackSearch(trimmed);
+
       const params = new URLSearchParams({ q: trimmed });
       if (categoryId) params.set("category", categoryId);
 
@@ -246,6 +262,7 @@ function Header() {
   const handleSuggestionClick = (product) => {
     setShowSuggestions(false);
     setQuery("");
+    trackSelectItem(product, "search_suggestions");
     navigate(productUrl(product));
   };
 
@@ -320,8 +337,8 @@ function Header() {
           (isLoggedIn && savedAddresses.length > 0 ? (
             <div
               className="relative hidden lg:block shrink-0"
-              onMouseEnter={() => setAddressOpen(true)}
-              onMouseLeave={() => setAddressOpen(false)}
+              onMouseEnter={openAddressMenu}
+              onMouseLeave={scheduleCloseAddressMenu}
             >
               <button
                 type="button"
@@ -517,7 +534,7 @@ function Header() {
                   className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 text-left"
                 >
                   <img
-                    src={imgUrl(product.image)}
+                    src={imgUrl(product.image, "w_100,q_auto,f_auto")}
                     alt={t(product.name, product.nameHi)}
                     className="w-10 h-10 rounded-lg object-cover shrink-0"
                   />
@@ -566,10 +583,20 @@ function Header() {
             className="hidden md:block relative"
             onMouseEnter={openAccountMenu}
             onMouseLeave={scheduleCloseAccountMenu}
+            onFocus={openAccountMenu}
+            onBlur={scheduleCloseAccountMenu}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") {
+                setAccountOpen(false);
+                e.currentTarget.querySelector("button, a")?.focus();
+              }
+            }}
           >
             {isLoggedIn ? (
               <button
                 type="button"
+                aria-haspopup="true"
+                aria-expanded={accountOpen}
                 className="flex items-center gap-1.5 text-slate-600 hover:text-blue-700 transition-colors"
               >
                 <span className="w-7 h-7 rounded-full bg-amber-600 text-white text-sm font-semibold flex items-center justify-center shrink-0">
@@ -726,7 +753,7 @@ function Header() {
                 className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 text-left"
               >
                 <img
-                  src={imgUrl(product.image)}
+                  src={imgUrl(product.image, "w_100,q_auto,f_auto")}
                   alt={t(product.name, product.nameHi)}
                   className="w-10 h-10 rounded-lg object-cover shrink-0"
                 />

@@ -6,12 +6,15 @@ import {
   getProductForPOS,
   lookupCustomerByMobile,
   recordOfflineSale,
+  getOfflineSales,
+  voidOfflineSale,
 } from "../../services/posService";
 import {
   getPosCart,
   addToPosCart,
   updatePosCartQuantity,
   updatePosCartPrice,
+  updatePosCartPriceReason,
   removeFromPosCart,
   clearPosCart,
 } from "../../utils/posCart";
@@ -44,6 +47,33 @@ function AdminPOS() {
   // accuracy (see posCart.js/reserveStockForItems), so it waits here
   // until the staff member picks one.
   const [pendingVariantProduct, setPendingVariantProduct] = useState(null);
+
+  const [recentSales, setRecentSales] = useState([]);
+  const [voidingId, setVoidingId] = useState(null);
+
+  const loadRecentSales = async () => {
+    const response = await getOfflineSales({ page: 1, limit: 10 });
+    if (response.success) setRecentSales(response.sales);
+  };
+
+  const handleVoidSale = async (saleId) => {
+    if (!window.confirm("Void this sale? Stock will be restored and any loyalty points reversed.")) {
+      return;
+    }
+
+    const reason = window.prompt("Reason for voiding (optional):") || "";
+
+    setVoidingId(saleId);
+    const response = await voidOfflineSale(saleId, reason);
+    setVoidingId(null);
+
+    if (response.success) {
+      toast.success("Sale voided — stock restored");
+      loadRecentSales();
+    } else {
+      toast.error(response.message || "Unable to void sale");
+    }
+  };
 
   // Guards against React StrictMode's deliberate double-invoke of
   // effects in development (and any other accidental double-mount) —
@@ -84,6 +114,7 @@ function AdminPOS() {
     };
 
     scanIntoCart();
+    loadRecentSales();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
@@ -93,6 +124,10 @@ function AdminPOS() {
 
   const handlePriceChange = (productId, size, unitPrice) => {
     setCart(updatePosCartPrice(productId, size, unitPrice));
+  };
+
+  const handlePriceReasonChange = (productId, size, reason) => {
+    setCart(updatePosCartPriceReason(productId, size, reason));
   };
 
   const handleRemove = (productId, size) => {
@@ -155,6 +190,22 @@ function AdminPOS() {
       return;
     }
 
+    // Server-enforced too (posController.js's buildSaleItems) — checked
+    // here first so a staff member finds out before the round-trip,
+    // right next to the price field that needs a reason, rather than
+    // from a generic error after tapping "Complete Sale".
+    const missingReason = cart.find(
+      (item) =>
+        Math.abs(item.unitPrice - item.originalPrice) > 0.01 &&
+        !item.priceOverrideReason?.trim(),
+    );
+    if (missingReason) {
+      setError(
+        `Add a reason for "${missingReason.name}"'s changed price before completing the sale`,
+      );
+      return;
+    }
+
     setSubmitting(true);
 
     const response = await recordOfflineSale({
@@ -163,6 +214,7 @@ function AdminPOS() {
         size: item.size || "",
         quantity: item.quantity,
         unitPrice: item.unitPrice,
+        priceOverrideReason: item.priceOverrideReason || "",
       })),
       paymentMethod,
       customerMobile,
@@ -176,6 +228,7 @@ function AdminPOS() {
     if (response.success) {
       clearPosCart();
       setSale(response.sale);
+      loadRecentSales();
     } else {
       setError(response.message || "Unable to record sale");
     }
@@ -376,90 +429,115 @@ function AdminPOS() {
         </div>
       ) : (
         <div className="bg-white border border-slate-200 rounded-xl p-5 mb-5 space-y-4">
-          {cart.map((item) => (
-            <div
-              key={`${item.productId}::${item.size}`}
-              className="flex items-center gap-3 border-b border-slate-100 pb-4 last:border-0 last:pb-0"
-            >
-              <img
-                src={imgUrl(item.image)}
-                alt={item.name}
-                className="w-14 h-14 object-cover rounded-lg shrink-0"
-              />
+          {cart.map((item) => {
+            const priceChanged =
+              Math.abs(item.unitPrice - item.originalPrice) > 0.01;
 
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-slate-800 truncate">
-                  {item.name}
-                  {item.size && (
-                    <span className="text-slate-400 font-normal">
-                      {" "}
-                      — {item.size}
-                    </span>
-                  )}
-                </p>
-
-                <div className="flex items-center gap-2 mt-1">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      handleQuantityChange(
-                        item.productId,
-                        item.size,
-                        item.quantity - 1,
-                      )
-                    }
-                    className="w-6 h-6 rounded bg-slate-100 hover:bg-slate-200 text-slate-700"
-                  >
-                    −
-                  </button>
-                  <span className="w-6 text-center text-sm">
-                    {item.quantity}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      handleQuantityChange(
-                        item.productId,
-                        item.size,
-                        item.quantity + 1,
-                      )
-                    }
-                    className="w-6 h-6 rounded bg-slate-100 hover:bg-slate-200 text-slate-700"
-                  >
-                    +
-                  </button>
-
-                  <span className="text-slate-400 mx-1">×</span>
-                  <input
-                    type="number"
-                    min="0"
-                    value={item.unitPrice}
-                    onChange={(e) =>
-                      handlePriceChange(
-                        item.productId,
-                        item.size,
-                        Number(e.target.value),
-                      )
-                    }
-                    className="w-20 border border-slate-300 rounded px-1.5 py-0.5 text-sm"
+            return (
+              <div
+                key={`${item.productId}::${item.size}`}
+                className="border-b border-slate-100 pb-4 last:border-0 last:pb-0"
+              >
+                <div className="flex items-center gap-3">
+                  <img
+                    src={imgUrl(item.image)}
+                    alt={item.name}
+                    className="w-14 h-14 object-cover rounded-lg shrink-0"
                   />
-                </div>
-              </div>
 
-              <div className="text-right shrink-0">
-                <p className="font-semibold text-slate-800">
-                  ₹{item.quantity * item.unitPrice}
-                </p>
-                <button
-                  type="button"
-                  onClick={() => handleRemove(item.productId, item.size)}
-                  className="text-xs text-red-600 hover:underline"
-                >
-                  Remove
-                </button>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-slate-800 truncate">
+                      {item.name}
+                      {item.size && (
+                        <span className="text-slate-400 font-normal">
+                          {" "}
+                          — {item.size}
+                        </span>
+                      )}
+                    </p>
+
+                    <div className="flex items-center gap-2 mt-1">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleQuantityChange(
+                            item.productId,
+                            item.size,
+                            item.quantity - 1,
+                          )
+                        }
+                        className="w-6 h-6 rounded bg-slate-100 hover:bg-slate-200 text-slate-700"
+                      >
+                        −
+                      </button>
+                      <span className="w-6 text-center text-sm">
+                        {item.quantity}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleQuantityChange(
+                            item.productId,
+                            item.size,
+                            item.quantity + 1,
+                          )
+                        }
+                        className="w-6 h-6 rounded bg-slate-100 hover:bg-slate-200 text-slate-700"
+                      >
+                        +
+                      </button>
+
+                      <span className="text-slate-400 mx-1">×</span>
+                      <input
+                        type="number"
+                        min="0"
+                        value={item.unitPrice}
+                        onChange={(e) =>
+                          handlePriceChange(
+                            item.productId,
+                            item.size,
+                            Number(e.target.value),
+                          )
+                        }
+                        className="w-20 border border-slate-300 rounded px-1.5 py-0.5 text-sm"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="text-right shrink-0">
+                    <p className="font-semibold text-slate-800">
+                      ₹{item.quantity * item.unitPrice}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => handleRemove(item.productId, item.size)}
+                      className="text-xs text-red-600 hover:underline"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+
+                {priceChanged && (
+                  <div className="mt-2 pl-[68px]">
+                    <input
+                      type="text"
+                      value={item.priceOverrideReason}
+                      onChange={(e) =>
+                        handlePriceReasonChange(
+                          item.productId,
+                          item.size,
+                          e.target.value,
+                        )
+                      }
+                      placeholder={`Reason for changing price from ₹${item.originalPrice} (required)`}
+                      className="w-full border border-amber-300 bg-amber-50 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-amber-500"
+                    />
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
 
           <div className="pt-2 border-t border-slate-200 space-y-1">
             <div className="flex justify-between text-slate-600 text-sm">
@@ -488,10 +566,11 @@ function AdminPOS() {
           className="bg-white border border-slate-200 rounded-xl p-5 space-y-4"
         >
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label htmlFor="posPaymentMethod" className="block text-sm font-medium text-slate-700 mb-1">
               Payment Method
             </label>
             <select
+              id="posPaymentMethod"
               value={paymentMethod}
               onChange={(e) => setPaymentMethod(e.target.value)}
               className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -505,10 +584,11 @@ function AdminPOS() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label htmlFor="posDiscountAmount" className="block text-sm font-medium text-slate-700 mb-1">
               Discount Amount (optional)
             </label>
             <input
+              id="posDiscountAmount"
               type="number"
               min="0"
               max={cartTotal}
@@ -521,10 +601,11 @@ function AdminPOS() {
 
           {paymentMethod !== "Cash" && (
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
+              <label htmlFor="posPaymentProof" className="block text-sm font-medium text-slate-700 mb-1">
                 Payment Proof (optional)
               </label>
               <input
+                id="posPaymentProof"
                 type="file"
                 accept="image/*"
                 onChange={handlePaymentProofChange}
@@ -541,10 +622,11 @@ function AdminPOS() {
           )}
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label htmlFor="posCustomerMobile" className="block text-sm font-medium text-slate-700 mb-1">
               Customer Mobile (optional)
             </label>
             <input
+              id="posCustomerMobile"
               type="tel"
               maxLength={10}
               value={customerMobile}
@@ -567,10 +649,11 @@ function AdminPOS() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label htmlFor="posCustomerName" className="block text-sm font-medium text-slate-700 mb-1">
               Customer Name (optional)
             </label>
             <input
+              id="posCustomerName"
               type="text"
               value={customerName}
               onChange={(e) => setCustomerName(e.target.value)}
@@ -594,6 +677,55 @@ function AdminPOS() {
       <p className="text-center text-sm text-slate-400 mt-4">
         Scan another product's QR code to add it to this same cart.
       </p>
+
+      {recentSales.length > 0 && (
+        <div className="bg-white border border-slate-200 rounded-xl p-5 mt-6">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-semibold text-slate-800">Recent Sales</h3>
+            <Link
+              to="/admin/pos/sales"
+              className="text-xs font-medium text-blue-700 hover:underline"
+            >
+              Manage all sales →
+            </Link>
+          </div>
+
+          <div className="space-y-3">
+            {recentSales.map((s) => (
+              <div
+                key={s._id}
+                className="flex items-center justify-between border-b border-slate-100 pb-3 last:border-0 last:pb-0"
+              >
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-slate-800">
+                    ₹{s.totalAmount} · {s.paymentMethod}
+                    {s.customerName && ` · ${s.customerName}`}
+                  </p>
+                  <p className="text-xs text-slate-400">
+                    {new Date(s.createdAt).toLocaleString("en-IN")}
+                    {s.soldBy?.name && ` · by ${s.soldBy.name}`}
+                  </p>
+                </div>
+
+                {s.voided ? (
+                  <span className="text-xs font-medium text-red-500 shrink-0 ml-2">
+                    Voided
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => handleVoidSale(s._id)}
+                    disabled={voidingId === s._id}
+                    className="text-xs text-red-600 hover:underline shrink-0 ml-2 disabled:opacity-50"
+                  >
+                    {voidingId === s._id ? "Voiding..." : "Void"}
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

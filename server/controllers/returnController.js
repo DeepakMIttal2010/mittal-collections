@@ -7,6 +7,7 @@ import { sendEmail } from "../config/mailer.js";
 import { notifyUser } from "../utils/notify.js";
 import { restoreStock } from "./orderController.js";
 import { applyLoyaltyPointsChange } from "../utils/loyaltyPoints.js";
+import { escapeHtml } from "../utils/escapeHtml.js";
 
 const notifyAdmin = async (returnRequest) => {
   try {
@@ -19,8 +20,8 @@ const notifyAdmin = async (returnRequest) => {
       subject: `New return request: ${returnRequest.productName}`,
       html: `
         <p>A customer requested a return.</p>
-        <p><strong>Product:</strong> ${returnRequest.productName} (Qty: ${returnRequest.quantity})</p>
-        <p><strong>Reason:</strong> ${returnRequest.reason}</p>
+        <p><strong>Product:</strong> ${escapeHtml(returnRequest.productName)} (Qty: ${returnRequest.quantity})</p>
+        <p><strong>Reason:</strong> ${escapeHtml(returnRequest.reason)}</p>
         <p><a href="${process.env.CLIENT_URL}/admin/returns">View in admin panel</a></p>
       `,
     });
@@ -36,10 +37,15 @@ const notifyCustomer = async (returnRequest, customerEmail) => {
       subject: `Your return request is now "${returnRequest.status}"`,
       html: `
         <p>Hi,</p>
-        <p>Your return request for <strong>${returnRequest.productName}</strong> is now:
-          <strong>${returnRequest.status}</strong>
+        <p>Your return request for <strong>${escapeHtml(returnRequest.productName)}</strong> is now:
+          <strong>${escapeHtml(returnRequest.status)}</strong>
         </p>
-        ${returnRequest.adminNote ? `<p>Note from our team: ${returnRequest.adminNote}</p>` : ""}
+        ${
+          returnRequest.status === "Refunded"
+            ? `<p>Your refund is being processed by our team and will reflect in your original payment method within 5-7 business days.</p>`
+            : ""
+        }
+        ${returnRequest.adminNote ? `<p>Note from our team: ${escapeHtml(returnRequest.adminNote)}</p>` : ""}
         <p><a href="${process.env.CLIENT_URL}/returns">View your returns</a></p>
       `,
     });
@@ -238,12 +244,19 @@ export const getAllReturnRequestsAdmin = async (req, res) => {
   try {
     const filter = {};
 
-    if (req.query.status) filter.status = req.query.status;
+    // typeof guard, not just truthiness -- an object-shaped query param
+    // (e.g. ?status[$ne]=x) would otherwise flow straight into this
+    // Mongo filter as a raw operator object instead of a literal value.
+    if (typeof req.query.status === "string") filter.status = req.query.status;
 
+    // Safety ceiling, not real pagination — see getAllOrders' own
+    // comment (orderController.js) for why this pattern was chosen here
+    // over a full pagination rework.
     const returns = await ReturnRequest.find(filter)
       .populate("user", "name email")
       .populate("order", "totalPrice")
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .limit(2000);
 
     res.status(200).json({
       success: true,

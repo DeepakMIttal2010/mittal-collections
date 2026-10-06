@@ -1,5 +1,6 @@
 import { FaCheck, FaBoxOpen, FaTruck, FaHome, FaClipboardList, FaTimes } from "react-icons/fa";
 import { useLanguage } from "../context/LanguageContext";
+import { dateLocale } from "../utils/dateLocale";
 
 // Canonical progression a non-cancelled order moves through. "Pending" is
 // relabeled "Ordered" here since that's what a customer actually
@@ -14,8 +15,8 @@ function getStages(t) {
   ];
 }
 
-const formatDate = (date) =>
-  new Date(date).toLocaleString("en-IN", {
+const formatDate = (date, language) =>
+  new Date(date).toLocaleString(dateLocale(language), {
     day: "2-digit",
     month: "short",
     year: "numeric",
@@ -24,7 +25,7 @@ const formatDate = (date) =>
   });
 
 function OrderStatusTimeline({ order }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const history = order.statusHistory || [];
   const findEntry = (status) => history.find((h) => h.status === status);
 
@@ -40,7 +41,7 @@ function OrderStatusTimeline({ order }) {
           <p className="font-semibold text-red-700">{t("Order Cancelled", "ऑर्डर रद्द हुआ")}</p>
           {cancelledEntry && (
             <p className="text-sm text-red-600">
-              {formatDate(cancelledEntry.changedAt)}
+              {formatDate(cancelledEntry.changedAt, language)}
             </p>
           )}
         </div>
@@ -94,7 +95,7 @@ function OrderStatusTimeline({ order }) {
                 )}
               </p>
               {entry ? (
-                <p className="text-sm text-slate-500">{formatDate(entry.changedAt)}</p>
+                <p className="text-sm text-slate-500">{formatDate(entry.changedAt, language)}</p>
               ) : (
                 !isDone && <p className="text-sm text-slate-400">{t("Pending", "लंबित")}</p>
               )}

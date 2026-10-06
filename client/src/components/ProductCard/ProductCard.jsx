@@ -1,10 +1,12 @@
 import { imgUrl, imgSrcSet } from "../../services/api";
 import { lazy, Suspense, useEffect, useState } from "react";
 import "./ProductCard.css";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
 import {
   FaGift,
   FaHeart,
+  FaRegHeart,
   FaEye,
   FaShoppingCart,
   FaExchangeAlt,
@@ -15,7 +17,9 @@ import { useCart } from "../../context/CartContext";
 import { useCompare } from "../../context/CompareContext";
 import { LOW_STOCK_THRESHOLD, getStockStatus } from "../../utils/stock";
 import { productUrl } from "../../utils/productUrl";
+import { handleImageError } from "../../utils/imageFallback";
 import { getEarnRate } from "../../services/rewardsService";
+import { trackSelectItem } from "../../utils/analytics";
 import { useLanguage } from "../../context/LanguageContext";
 
 // Lazy-loaded, not a static import: QuickViewModal (and the DOMPurify it
@@ -28,12 +32,14 @@ import { useLanguage } from "../../context/LanguageContext";
 const QuickViewModal = lazy(() => import("./QuickViewModal"));
 
 function ProductCard({ product }) {
+  const navigate = useNavigate();
   const { addToCart } = useCart();
-  const { addToWishlist } = useWishlist();
+  const { wishlistItems, addToWishlist, removeFromWishlist } = useWishlist();
   const { toggleCompare, isInCompare } = useCompare();
   const { t } = useLanguage();
   const [showQuickView, setShowQuickView] = useState(false);
   const inCompare = isInCompare(product._id);
+  const isWishlisted = wishlistItems.some((item) => item._id === product._id);
   const [earnRate, setEarnRate] = useState(null);
   // oldPrice defaults to 0 for a product an admin never set one for —
   // unguarded, (0-price)/0*100 renders as a literal "-Infinity% OFF"
@@ -53,7 +59,11 @@ function ProductCard({ product }) {
 
   return (
     <div className="product-card">
-      <Link to={productUrl(product)} className="product-link">
+      <Link
+        to={productUrl(product)}
+        className="product-link"
+        onClick={() => trackSelectItem(product)}
+      >
         <div className="product-image">
           <img
             src={`${imgUrl(product.image, "w_400,q_auto,f_auto")}`}
@@ -61,6 +71,7 @@ function ProductCard({ product }) {
             sizes="(min-width: 1024px) 270px, (min-width: 768px) 29vw, 45vw"
             alt={t(product.name, product.nameHi)}
             loading="lazy"
+            onError={handleImageError}
           />
 
           {hasDiscount && (
@@ -83,41 +94,6 @@ function ProductCard({ product }) {
             )
           )}
 
-          <div className="product-icons">
-            <button
-              type="button"
-              aria-label={t("Add to wishlist", "विशलिस्ट में डालें")}
-              onClick={(e) => {
-                e.preventDefault();
-                addToWishlist(product);
-              }}
-            >
-              <FaHeart />
-            </button>
-
-            <button
-              type="button"
-              aria-label={t("Quick view", "क्विक व्यू")}
-              onClick={(e) => {
-                e.preventDefault();
-                setShowQuickView(true);
-              }}
-            >
-              <FaEye />
-            </button>
-
-            <button
-              type="button"
-              aria-label={t("Toggle compare", "तुलना टॉगल करें")}
-              className={inCompare ? "active" : ""}
-              onClick={(e) => {
-                e.preventDefault();
-                toggleCompare(product);
-              }}
-            >
-              <FaExchangeAlt />
-            </button>
-          </div>
         </div>
 
         <div className="product-info">
@@ -141,7 +117,7 @@ function ProductCard({ product }) {
           <div className="price">
             <span className="new-price">₹{product.price}</span>
 
-            <span className="old-price">₹{product.oldPrice}</span>
+            {hasDiscount && <span className="old-price">₹{product.oldPrice}</span>}
           </div>
 
           {pointsPreview > 0 && (
@@ -153,6 +129,60 @@ function ProductCard({ product }) {
         </div>
       </Link>
 
+      {/* Siblings of the Link, not descendants (2026-10-06 a11y fix) —
+          these used to be nested inside it with onClick's e.preventDefault()
+          stopping the Link's own navigation on a mouse click. That worked
+          for mouse users, but <button> inside <a> is invalid per the
+          HTML5 content model, and VoiceOver/TalkBack are documented to
+          collapse nested interactive controls into the outer link, making
+          these unreachable or producing unpredictable activation order
+          for screen-reader users. .product-card now carries the
+          position: relative these were anchored to (previously
+          .product-image, inside the Link) — same visual position, since
+          .product-image was always the Link's first child flush against
+          .product-card's own top-left corner.
+          Only the heart stays on the photo at all times (the Flipkart/
+          Myntra pattern) -- three always-visible 44px buttons were
+          covering a real chunk of the product photo on touch devices,
+          and real photos are this site's main selling point. */}
+      <button
+        type="button"
+        className={`wishlist-btn ${isWishlisted ? "active" : ""}`}
+        aria-label={
+          isWishlisted
+            ? t("Remove from wishlist", "विशलिस्ट से हटाएं")
+            : t("Add to wishlist", "विशलिस्ट में डालें")
+        }
+        aria-pressed={isWishlisted}
+        onClick={() => {
+          if (isWishlisted) removeFromWishlist(product._id);
+          else addToWishlist(product);
+        }}
+      >
+        <span className="wishlist-btn-circle">
+          {isWishlisted ? <FaHeart /> : <FaRegHeart />}
+        </span>
+      </button>
+
+      <div className="product-icons">
+        <button
+          type="button"
+          aria-label={t("Quick view", "क्विक व्यू")}
+          onClick={() => setShowQuickView(true)}
+        >
+          <FaEye />
+        </button>
+
+        <button
+          type="button"
+          aria-label={t("Toggle compare", "तुलना टॉगल करें")}
+          className={inCompare ? "active" : ""}
+          onClick={() => toggleCompare(product)}
+        >
+          <FaExchangeAlt />
+        </button>
+      </div>
+
       <div className="product-action">
         <button
           className="cart-btn"
@@ -160,6 +190,27 @@ function ProductCard({ product }) {
           disabled={isOutOfStock}
           onClick={(e) => {
             e.preventDefault();
+
+            // A variant product added with no size picked falls back to
+            // CartContext's top-level product.price/stock, which only
+            // ever mirrors the FIRST variant (Product.js's own schema
+            // comment) — this silently added whatever size happened to
+            // be first in the array, at that size's price, with no size
+            // recorded on the cart line at all. Same guard
+            // Wishlist.jsx's handleAddToCart already uses for the exact
+            // same reason — send them to the product page to pick a
+            // real size instead of guessing one.
+            if (product.variants?.length > 0) {
+              toast.info(
+                t(
+                  "Please select a size on the product page",
+                  "प्रोडक्ट पेज पर साइज़ चुनें",
+                ),
+              );
+              navigate(productUrl(product));
+              return;
+            }
+
             addToCart(product);
           }}
         >

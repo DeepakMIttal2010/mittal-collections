@@ -9,9 +9,11 @@ import SearchLog from "../models/SearchLog.js";
 import User from "../models/User.js";
 import Wishlist from "../models/Wishlist.js";
 import Review from "../models/Review.js";
+import Question from "../models/Question.js";
 import { rankProducts } from "../utils/fuzzySearch.js";
 import { sendEmail } from "../config/mailer.js";
 import { notifyUser } from "../utils/notify.js";
+import { escapeHtml } from "../utils/escapeHtml.js";
 import {
   generateProductNumber,
   decodeProductNumber,
@@ -20,12 +22,17 @@ import { deleteCloudinaryAssetsByUrl } from "../utils/cloudinaryCleanup.js";
 import { sanitizeProductDescription } from "../utils/sanitizeProductDescription.js";
 import { escapeRegex } from "../utils/escapeRegex.js";
 
-// Never sent by a public route — cost data is admin-only. The nested
-// variants.purchasePrice needs its own dotted exclusion; a bare
-// "-purchasePrice" only strips the top-level field, not the same-named
-// field inside each variants[] subdocument.
+// Never sent by a public route — cost data and adminRemarks are both
+// admin-only (see Product.js's own comment on adminRemarks: "never shown
+// to customers"). The nested variants.purchasePrice needs its own
+// dotted exclusion; a bare "-purchasePrice" only strips the top-level
+// field, not the same-named field inside each variants[] subdocument.
+// Security audit (2026-09-29) found adminRemarks was missing from this
+// list despite its own documented intent -- live-confirmed 51 products'
+// internal sourcing/pricing notes were readable via the public product
+// endpoints before this fix.
 const COST_FIELDS =
-  "-purchasePrice -miscExpenses -purchaseDate -variants.purchasePrice";
+  "-purchasePrice -miscExpenses -purchaseDate -variants.purchasePrice -adminRemarks -adminRemarksUpdatedAt";
 
 // getProducts' page size when a caller opts into pagination (`page` sent)
 // without also specifying `limit` — Amazon/Flipkart-style listing density,
@@ -125,7 +132,7 @@ export const notifyStockAlertSubscribers = async (product) => {
         to: alert.email,
         subject: `${product.name} is back in stock!`,
         html: `
-          <p>Good news — <strong>${product.name}</strong> is back in stock at Mittal Collections.</p>
+          <p>Good news — <strong>${escapeHtml(product.name)}</strong> is back in stock at Mittal Collections.</p>
           <p><a href="${productLink}">Shop it now</a> before it sells out again.</p>
         `,
       });
@@ -604,6 +611,7 @@ export const duplicateProduct = async (req, res) => {
       countryOfOrigin: source.countryOfOrigin,
       whatsIncluded: source.whatsIncluded,
       colorVariesNote: source.colorVariesNote,
+      colorVariesNoteHi: source.colorVariesNoteHi,
       localDeliveryOnly: source.localDeliveryOnly,
 
       featured: false,
@@ -1216,6 +1224,7 @@ export const addProduct = async (req, res) => {
       countryOfOrigin,
       whatsIncluded,
       colorVariesNote,
+      colorVariesNoteHi,
       localDeliveryOnly,
       adminRemarks,
       isReturnable,
@@ -1287,6 +1296,7 @@ export const addProduct = async (req, res) => {
       countryOfOrigin: countryOfOrigin || "",
       whatsIncluded: whatsIncluded || "",
       colorVariesNote: colorVariesNote || "",
+      colorVariesNoteHi: colorVariesNoteHi || "",
       localDeliveryOnly: localDeliveryOnly === "true",
       adminRemarks: adminRemarks || "",
       adminRemarksUpdatedAt: adminRemarks ? new Date() : null,
@@ -1364,7 +1374,18 @@ export const updateProduct = async (req, res) => {
     product.description = sanitizeProductDescription(req.body.description);
     product.nameHi = req.body.nameHi || "";
     product.descriptionHi = sanitizeProductDescription(req.body.descriptionHi);
-    const variants = parseVariants(req.body.variants);
+    // Whether this specific request included a `variants` field at all
+    // — not just whether it happened to be non-empty. Omitting it
+    // (a partial-update script, anything that isn't the exact admin
+    // edit form re-sending the full array) must fall back to the
+    // product's EXISTING variants, not silently wipe them to [] and
+    // start trusting req.body.price/stock instead — the same class of
+    // footgun mainImageIndex/adminRemarks already guard against
+    // elsewhere in this function via an explicit `!== undefined` check.
+    const variantsProvided = req.body.variants !== undefined;
+    const variants = variantsProvided
+      ? parseVariants(req.body.variants)
+      : product.variants;
     const hasVariants = variants.length > 0;
 
     // Same rule as addProduct — once variants exist they're the source of
@@ -1379,7 +1400,9 @@ export const updateProduct = async (req, res) => {
     product.stock = hasVariants
       ? variants.reduce((sum, v) => sum + v.stock, 0)
       : req.body.stock;
-    product.variants = variants;
+    if (variantsProvided) {
+      product.variants = variants;
+    }
 
     product.featured = req.body.featured === "true";
     product.isActive = req.body.isActive === "true";
@@ -1410,6 +1433,7 @@ export const updateProduct = async (req, res) => {
     product.countryOfOrigin = req.body.countryOfOrigin || "";
     product.whatsIncluded = req.body.whatsIncluded || "";
     product.colorVariesNote = req.body.colorVariesNote || "";
+    product.colorVariesNoteHi = req.body.colorVariesNoteHi || "";
     product.localDeliveryOnly = req.body.localDeliveryOnly === "true";
 
     // Only bump the timestamp when the note itself actually changed —
@@ -1655,6 +1679,7 @@ export const permanentlyDeleteProduct = async (req, res) => {
       Wishlist.deleteMany({ product: product._id }),
       StockAlert.deleteMany({ product: product._id }),
       Review.deleteMany({ product: product._id }),
+      Question.deleteMany({ product: product._id }),
     ]);
 
     res.json({

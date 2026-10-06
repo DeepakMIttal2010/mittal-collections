@@ -5,16 +5,16 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "node scripts/fetch-hero-banners.mjs && vite build",
     "lint": "eslint .",
     "preview": "vite preview"
   },
   "dependencies": {
-    "@sentry/react": "^10.74.0",
+    "@sentry/react": "^11.0.0",
     "@tailwindcss/vite": "^4.3.3",
     "@tanstack/react-virtual": "^3.14.13",
     "@vercel/edge": "^1.3.3",
-    "dompurify": "^3.4.15",
+    "dompurify": "^3.4.16",
     "fix-webm-duration": "^1.0.6",
     "papaparse": "^5.7.0",
     "qrcode": "^1.5.4",
@@ -33,10 +33,10 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.1",
-    "eslint": "^10.10.0",
+    "eslint": "^10.11.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.7",
     "globals": "^17.12.0",
-    "vite": "^8.3.0"
+    "vite": "^8.3.1"
   }
 }

@@ -19,7 +19,7 @@ export const getAllOrders = async ({ sortOrder = "" } = {}) => {
     const data = await response.json();
 
     return {
-      success: true,
+      success: data.success,
       orders: data.orders || [],
     };
   } catch (error) {

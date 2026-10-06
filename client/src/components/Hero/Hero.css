@@ -43,6 +43,19 @@
   right: 24px;
 }
 
+/* .hero-arrow's top: 50% assumes a normal photo slide's moderate,
+   fairly consistent height — the rewards slide's 4 benefit cards
+   (stacked to 1 column on mobile, see .hero-rewards-cards below) make
+   that section 2-3x taller, so a vertically-centered arrow lands
+   somewhere in the middle of the card stack instead of anywhere near
+   an edge. Hiding it here rather than repositioning: .hero-dots
+   already sits at the section's bottom (near the CTA, a sensible
+   place for it on this slide) and gives full slide-jump navigation on
+   its own, so nothing is lost. */
+.hero-rewards-slide .hero-arrow {
+  display: none;
+}
+
 .hero-dots {
   position: absolute;
   bottom: 24px;
@@ -122,6 +135,20 @@
   min-width: 0;
   text-align: center;
   color: #292018;
+  /* Reserves roughly the space a typical slide's title+description+
+     buttons need (measured against the FALLBACK_SLIDE's own real
+     rendered height, Hero.jsx's baseline content). Without this, every
+     slide swap -- the fallback-to-real swap on first load, or the
+     6s auto-rotate between banners with different text lengths -- can
+     resize this column and shift every section below it. A live
+     Lighthouse desktop audit (2026-09-25) isolated exactly this: 0.104
+     of the page's 0.142 CLS traced to section.hero specifically, not
+     any other component (the welcome popup, checked and ruled out --
+     it's `position: fixed`, which can't push page content). An
+     unusually long banner can still exceed this and shift slightly;
+     this covers the common case, not every possible admin-entered
+     banner text. */
+  min-height: 320px;
 }
 
 .hero-split-eyebrow-row {
@@ -280,6 +307,33 @@
   .hero-split-image {
     aspect-ratio: 4 / 3;
     border-radius: 14px;
+  }
+
+  .hero-split-content {
+    /* Smaller reservation to match this breakpoint's smaller title/
+       description font sizes below — see the base rule's comment for
+       why this exists at all. Bumped 230px -> 290px (2026-10-05): a live
+       mobile PageSpeed audit measured 0.260 of the page's 0.353 CLS on
+       this exact element — the "GIFT-READY COLLECTION" banner (a 2-line
+       title + its 125-char description, the longest real banner copy at
+       the time) overflowed the old 230px reservation on mobile's stacked
+       layout, shifting TrustBar and everything below it down once that
+       slide rendered.
+       Bumped again 290px -> 310px same day: that first pass was measured
+       against English copy only. Checking every banner's Hindi pair
+       (heroBannersSnapshot.json) found character counts close to or
+       occasionally above the English string for the same slide, and
+       Devanagari text needs more vertical room per line than Latin text
+       at the same font-size/line-height even at similar character counts
+       (taller glyphs, matras, conjuncts) — so a Hindi-mode visitor on
+       this banner could still hit the same CLS the English-only pass
+       just fixed. The extra 20px is headroom for that script-rendering
+       difference, not a specific measurement (no Hindi-mode Lighthouse
+       run available to measure against directly). Still not a guarantee
+       against an even longer future banner in either language — same
+       "covers today's real content with margin" reasoning as the base
+       rule above. */
+    min-height: 310px;
   }
 
   .hero-split-title {

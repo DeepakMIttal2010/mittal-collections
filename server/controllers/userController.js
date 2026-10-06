@@ -4,9 +4,16 @@ import LoyaltyTransaction from "../models/LoyaltyTransaction.js";
 import Wishlist from "../models/Wishlist.js";
 import CartSnapshot from "../models/CartSnapshot.js";
 import PageVisit from "../models/PageVisit.js";
+import Address from "../models/Address.js";
+import Notification from "../models/Notification.js";
+import Review from "../models/Review.js";
+import Question from "../models/Question.js";
+import Ticket from "../models/Ticket.js";
+import ReturnRequest from "../models/ReturnRequest.js";
 import { applyLoyaltyPointsChange } from "../utils/loyaltyPoints.js";
 import { notifyUser } from "../utils/notify.js";
 import { sendEmail } from "../config/mailer.js";
+import { escapeHtml } from "../utils/escapeHtml.js";
 
 // How many of a customer's most recent page visits to show on their admin
 // details page — enough to see a real browsing session, not their entire
@@ -24,29 +31,44 @@ export const getAllCustomers = async (req, res) => {
       : "createdAt";
     const sortOrder = req.query.sortOrder === "asc" ? 1 : -1;
 
+    // Safety ceiling, not real pagination — see orderController.js's
+    // getAllOrders for why this pattern was chosen here over a full
+    // pagination rework.
     const customers = await User.find({ role: "user" })
       .select("-password")
-      .sort({ [sortBy]: sortOrder });
+      .sort({ [sortBy]: sortOrder })
+      .limit(2000);
 
-    // Har customer ke liye order count aur total spent nikalo
-    const customersWithStats = await Promise.all(
-      customers.map(async (customer) => {
-        const orders = await Order.find({ user: customer._id });
-
-        const totalOrders = orders.length;
-
-        const totalSpent = orders.reduce(
-          (sum, order) => sum + (order.totalPrice || 0),
-          0,
-        );
-
-        return {
-          ...customer.toObject(),
-          totalOrders,
-          totalSpent,
-        };
-      }),
+    // One aggregate query for every customer's stats instead of a
+    // per-customer Order.find() inside Promise.all -- that was a real
+    // N+1 firing on every admin Customers page load (fetching every
+    // FULL order document per customer just to sum totalPrice), found
+    // in the 2026-09-26 Server/Infra audit. $group here computes the
+    // same totalOrders/totalSpent server-side, in one round trip,
+    // without ever pulling a full Order document into Node at all.
+    const statsByUserId = new Map(
+      (
+        await Order.aggregate([
+          {
+            $group: {
+              _id: "$user",
+              totalOrders: { $sum: 1 },
+              totalSpent: { $sum: { $ifNull: ["$totalPrice", 0] } },
+            },
+          },
+        ])
+      ).map((row) => [String(row._id), row]),
     );
+
+    const customersWithStats = customers.map((customer) => {
+      const stats = statsByUserId.get(String(customer._id));
+
+      return {
+        ...customer.toObject(),
+        totalOrders: stats?.totalOrders || 0,
+        totalSpent: stats?.totalSpent || 0,
+      };
+    });
 
     res.status(200).json({
       success: true,
@@ -242,7 +264,7 @@ export const toggleBlockCustomer = async (req, res) => {
         bcc: process.env.ADMIN_NOTIFICATION_EMAIL,
         subject: statusMessage.subject,
         html: `
-          <p>Hi ${customer.name || "there"},</p>
+          <p>Hi ${escapeHtml(customer.name || "there")},</p>
           <p>${statusMessage.body}</p>
         `,
       });
@@ -288,6 +310,40 @@ export const deleteCustomer = async (req, res) => {
         message: "Customer not found",
       });
     }
+
+    // Order history is a real business/financial record (and every other
+    // admin list that shows orders populates `user` for a name/email) —
+    // deleting a customer who has any would leave those orders pointing
+    // at a dangling user reference forever. toggleBlockCustomer already
+    // exists as the reversible alternative for "stop this customer from
+    // using the account" without destroying that history.
+    const hasOrders = await Order.exists({ user: customer._id });
+
+    if (hasOrders) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "This customer has order history and can't be deleted — block them instead to prevent further activity.",
+      });
+    }
+
+    // No orders means none of this customer's other data has any
+    // standalone record-keeping value either — clean it up alongside the
+    // account instead of leaving it as dangling references (the same
+    // class of gap already closed for product deletion, which cleans up
+    // orphaned Questions in permanentlyDeleteProduct).
+    await Promise.all([
+      Address.deleteMany({ user: customer._id }),
+      Wishlist.deleteMany({ user: customer._id }),
+      CartSnapshot.deleteOne({ user: customer._id }),
+      Notification.deleteMany({ user: customer._id }),
+      Review.deleteMany({ user: customer._id }),
+      Question.deleteMany({ user: customer._id }),
+      Ticket.deleteMany({ user: customer._id }),
+      ReturnRequest.deleteMany({ user: customer._id }),
+      LoyaltyTransaction.deleteMany({ user: customer._id }),
+      PageVisit.updateMany({ user: customer._id }, { $set: { user: null } }),
+    ]);
 
     await customer.deleteOne();
 

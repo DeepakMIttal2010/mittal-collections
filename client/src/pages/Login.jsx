@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { toast } from "react-toastify";
 import { FaArrowLeft } from "react-icons/fa";
@@ -7,6 +7,7 @@ import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
 import GoogleSignInButton from "../components/GoogleSignInButton";
 import CompleteMobileModal from "../components/CompleteMobileModal";
+import Seo from "../components/Seo";
 
 function Login() {
   const navigate = useNavigate();
@@ -14,6 +15,22 @@ function Login() {
   const redirectTo = searchParams.get("redirect") || "/";
   const { login } = useAuth();
   const { t } = useLanguage();
+
+  // authFetchGuard.js redirects here with this flag the moment any
+  // request comes back 401 for a stale token (expired, or the account
+  // was blocked/deleted) — without this, that bounce to /login reads
+  // as an unexplained, silent logout with no indication why.
+  useEffect(() => {
+    if (searchParams.get("expired") === "true") {
+      toast.error(
+        t(
+          "Your session has expired. Please log in again.",
+          "आपका सेशन समाप्त हो गया है। कृपया फिर से लॉगिन करें।",
+        ),
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const [formData, setFormData] = useState({
     email: "",
@@ -68,6 +85,7 @@ function Login() {
 
   return (
     <div className="min-h-[70vh] flex items-center justify-center py-16 px-4">
+      <Seo title="Login" noindex />
       <div className="w-full max-w-md">
         <h1 className="text-5xl font-bold text-center text-slate-900 mb-10">
           {t("Login", "लॉगिन")}

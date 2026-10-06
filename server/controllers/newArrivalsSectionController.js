@@ -68,6 +68,17 @@ export const addNewArrivalsSection = async (req, res) => {
       section,
     });
   } catch (error) {
+    // The unique index on `category` (see NewArrivalsSection.js) is
+    // what actually stops two concurrent submissions for the same
+    // category from both creating a section — the findOne pre-check
+    // above can't fully close that race.
+    if (error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: "This category already has a New Arrivals section",
+      });
+    }
+
     console.error("Add New Arrivals Section Error:", error);
 
     res.status(500).json({
@@ -121,6 +132,13 @@ export const updateNewArrivalsSection = async (req, res) => {
       section,
     });
   } catch (error) {
+    if (error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: "This category already has a New Arrivals section",
+      });
+    }
+
     console.error("Update New Arrivals Section Error:", error);
 
     res.status(500).json({
