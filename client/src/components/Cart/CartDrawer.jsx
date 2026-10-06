@@ -9,6 +9,7 @@ import { useLanguage } from "../../context/LanguageContext";
 import { getPublicRewardsInfo } from "../../services/rewardsService";
 import { getSiteSettings } from "../../services/settingsService";
 import { handleImageError } from "../../utils/imageFallback";
+import { useModalA11y } from "../../hooks/useModalA11y";
 
 function CartDrawer() {
   const navigate = useNavigate();
@@ -25,6 +26,11 @@ function CartDrawer() {
     isCartOpen,
     closeCart,
   } = useCart();
+  // Unlike QuickViewModal (mounted only while open), this drawer is
+  // always mounted and toggles via translate-x — `active` must track
+  // isCartOpen itself so the trap engages/disengages each time it's
+  // actually shown, not just once on first mount.
+  const panelRef = useModalA11y(isCartOpen, closeCart);
 
   const [earnRate, setEarnRate] = useState(null);
   const [freeShippingThreshold, setFreeShippingThreshold] = useState(499);
@@ -66,6 +72,11 @@ function CartDrawer() {
       />
 
       <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={t("Cart", "कार्ट")}
+        tabIndex={-1}
         className={`fixed top-0 right-0 h-full w-[88%] max-w-sm bg-white z-[101] shadow-xl flex flex-col transition-transform duration-300 ${
           isCartOpen ? "translate-x-0" : "translate-x-full"
         }`}

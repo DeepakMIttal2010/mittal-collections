@@ -82,6 +82,7 @@ function ProductDetails() {
   const [activeMediaIndex, setActiveMediaIndex] = useState(0);
   const [mainImageLoaded, setMainImageLoaded] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(null);
+  const lightboxRef = useRef(null);
   const [isLightboxZoomed, setIsLightboxZoomed] = useState(false);
   const [relatedProducts, setRelatedProducts] = useState([]);
   const [bundleProducts, setBundleProducts] = useState([]);
@@ -368,6 +369,25 @@ function ProductDetails() {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lightboxIndex]);
+
+  // Focus management only — this lightbox already had real Escape/Arrow
+  // handling (above) before the rest of the app's modals did, but like
+  // them it never moved focus in on open or back out on close, and had
+  // no role/aria-modal for assistive tech. Kept separate from the
+  // keydown effect above rather than routed through the shared
+  // useModalA11y hook, since that hook's own Escape/Tab handling would
+  // otherwise double up with the Escape/Arrow logic already here.
+  useEffect(() => {
+    if (lightboxIndex === null) return undefined;
+
+    const previouslyFocused = document.activeElement;
+    const frame = requestAnimationFrame(() => lightboxRef.current?.focus());
+
+    return () => {
+      cancelAnimationFrame(frame);
+      if (previouslyFocused?.isConnected) previouslyFocused.focus();
+    };
   }, [lightboxIndex]);
 
   const isWishlisted = product
@@ -1379,6 +1399,11 @@ function ProductDetails() {
 
       {lightboxIndex !== null && (
         <div
+          ref={lightboxRef}
+          role="dialog"
+          aria-modal="true"
+          aria-label={t(product?.name, product?.nameHi)}
+          tabIndex={-1}
           onClick={closeLightbox}
           className="fixed inset-0 bg-black/90 z-[200] flex items-center justify-center p-4"
         >
