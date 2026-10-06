@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import ReturnRequest from "../models/ReturnRequest.js";
 import Order from "../models/Order.js";
 import Product from "../models/Product.js";
@@ -6,6 +7,7 @@ import { sendEmail } from "../config/mailer.js";
 import { notifyUser } from "../utils/notify.js";
 import { restoreStock } from "./orderController.js";
 import { applyLoyaltyPointsChange } from "../utils/loyaltyPoints.js";
+import { escapeHtml } from "../utils/escapeHtml.js";
 
 const notifyAdmin = async (returnRequest) => {
   try {
@@ -18,8 +20,8 @@ const notifyAdmin = async (returnRequest) => {
       subject: `New return request: ${returnRequest.productName}`,
       html: `
         <p>A customer requested a return.</p>
-        <p><strong>Product:</strong> ${returnRequest.productName} (Qty: ${returnRequest.quantity})</p>
-        <p><strong>Reason:</strong> ${returnRequest.reason}</p>
+        <p><strong>Product:</strong> ${escapeHtml(returnRequest.productName)} (Qty: ${returnRequest.quantity})</p>
+        <p><strong>Reason:</strong> ${escapeHtml(returnRequest.reason)}</p>
         <p><a href="${process.env.CLIENT_URL}/admin/returns">View in admin panel</a></p>
       `,
     });
@@ -35,10 +37,15 @@ const notifyCustomer = async (returnRequest, customerEmail) => {
       subject: `Your return request is now "${returnRequest.status}"`,
       html: `
         <p>Hi,</p>
-        <p>Your return request for <strong>${returnRequest.productName}</strong> is now:
-          <strong>${returnRequest.status}</strong>
+        <p>Your return request for <strong>${escapeHtml(returnRequest.productName)}</strong> is now:
+          <strong>${escapeHtml(returnRequest.status)}</strong>
         </p>
-        ${returnRequest.adminNote ? `<p>Note from our team: ${returnRequest.adminNote}</p>` : ""}
+        ${
+          returnRequest.status === "Refunded"
+            ? `<p>Your refund is being processed by our team and will reflect in your original payment method within 5-7 business days.</p>`
+            : ""
+        }
+        ${returnRequest.adminNote ? `<p>Note from our team: ${escapeHtml(returnRequest.adminNote)}</p>` : ""}
         <p><a href="${process.env.CLIENT_URL}/returns">View your returns</a></p>
       `,
     });
@@ -54,14 +61,36 @@ export const createReturnRequest = async (req, res) => {
   try {
     const { orderId, productId, quantity, reason } = req.body;
 
-    if (!orderId || !productId || !reason?.trim()) {
+    // orderId/productId come straight from the request body (unlike a
+    // route param, which Express always parses as a plain string) — an
+    // object payload like {"$gt": ""} here would otherwise flow into
+    // Order.findById/Product.findById and the ReturnRequest.findOne
+    // query below as a raw Mongo query operator instead of a literal id.
+    // The explicit typeof check (not just ObjectId.isValid, which also
+    // accepts 12-byte buffers) is what closes off an object-shaped
+    // payload in a way static analysis can actually verify.
+    if (
+      typeof orderId !== "string" ||
+      typeof productId !== "string" ||
+      !mongoose.Types.ObjectId.isValid(orderId) ||
+      !mongoose.Types.ObjectId.isValid(productId) ||
+      !reason?.trim()
+    ) {
       return res.status(400).json({
         success: false,
         message: "Order, product and reason are required",
       });
     }
 
-    const order = await Order.findById(orderId);
+    const safeOrderId = orderId;
+    const safeProductId = productId;
+    // Real ObjectId instances (not just validated strings) for the raw
+    // query-filter/document objects below — guarantees those object
+    // literals can never carry an object-shaped value.
+    const orderObjectId = new mongoose.Types.ObjectId(orderId);
+    const productObjectId = new mongoose.Types.ObjectId(productId);
+
+    const order = await Order.findById(safeOrderId);
 
     if (!order || order.user.toString() !== req.user._id.toString()) {
       return res.status(404).json({
@@ -78,7 +107,7 @@ export const createReturnRequest = async (req, res) => {
     }
 
     const orderItem = order.orderItems.find(
-      (item) => item.product.toString() === productId,
+      (item) => item.product.toString() === safeProductId,
     );
 
     if (!orderItem) {
@@ -93,9 +122,16 @@ export const createReturnRequest = async (req, res) => {
       orderItem.quantity,
     );
 
+    // Fast path for the common (sequential) case — an immediate, clean
+    // 400 without needing a round trip to actually attempt the insert.
+    // Not sufficient alone against two truly concurrent submissions
+    // (double-click, two tabs), which is what the partial unique index
+    // on {order, product, size} (see ReturnRequest.js) and the
+    // duplicate-key handling below actually guard against.
     const existing = await ReturnRequest.findOne({
-      order: orderId,
-      product: productId,
+      order: orderObjectId,
+      product: productObjectId,
+      size: orderItem.size || "",
       status: { $ne: "Rejected" },
     });
 
@@ -106,7 +142,7 @@ export const createReturnRequest = async (req, res) => {
       });
     }
 
-    const product = await Product.findById(productId);
+    const product = await Product.findById(safeProductId);
 
     if (!product || !product.isReturnable) {
       return res.status(400).json({
@@ -137,13 +173,14 @@ export const createReturnRequest = async (req, res) => {
     }
 
     const returnRequest = await ReturnRequest.create({
-      order: orderId,
+      order: orderObjectId,
       user: req.user._id,
-      product: productId,
+      product: productObjectId,
       productName: orderItem.name,
       productImage: orderItem.image,
       quantity: requestedQty,
       reason: reason.trim(),
+      size: orderItem.size || "",
     });
 
     notifyAdmin(returnRequest).catch(() => {});
@@ -153,6 +190,21 @@ export const createReturnRequest = async (req, res) => {
       returnRequest,
     });
   } catch (error) {
+    // The partial unique index on {order, product, size} (see
+    // ReturnRequest.js) is what actually stops two concurrent
+    // submissions (double-click, two tabs) from both creating a live
+    // return request for the same item — an application-level
+    // findOne-then-create check can't fully close that race. The loser
+    // gets a duplicate-key error here instead of a real validation
+    // failure; surface it as the same "already exists" message the old
+    // pre-check gave, not a generic 500.
+    if (error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: "A return request already exists for this item",
+      });
+    }
+
     console.error("Create Return Request Error:", error);
 
     res.status(500).json({
@@ -192,12 +244,19 @@ export const getAllReturnRequestsAdmin = async (req, res) => {
   try {
     const filter = {};
 
-    if (req.query.status) filter.status = req.query.status;
+    // typeof guard, not just truthiness -- an object-shaped query param
+    // (e.g. ?status[$ne]=x) would otherwise flow straight into this
+    // Mongo filter as a raw operator object instead of a literal value.
+    if (typeof req.query.status === "string") filter.status = req.query.status;
 
+    // Safety ceiling, not real pagination — see getAllOrders' own
+    // comment (orderController.js) for why this pattern was chosen here
+    // over a full pagination rework.
     const returns = await ReturnRequest.find(filter)
       .populate("user", "name email")
       .populate("order", "totalPrice")
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .limit(2000);
 
     res.status(200).json({
       success: true,
@@ -249,50 +308,73 @@ export const updateReturnStatus = async (req, res) => {
     // Stock comes back the moment the item is physically back in hand —
     // "Picked Up" normally, but also covers an admin jumping straight to
     // "Refunded" without a separate pickup step recorded.
-    if (
-      ["Picked Up", "Refunded"].includes(status) &&
-      !returnRequest.stockRestored
-    ) {
-      await restoreStock([
-        { product: returnRequest.product, quantity: returnRequest.quantity },
-      ]);
-      returnRequest.stockRestored = true;
+    //
+    // The stockRestored/pointsClawedBack flags below are claimed via an
+    // atomic findOneAndUpdate (not just an in-memory `if (!flag)` check
+    // before the later .save()) — two concurrent requests for the same
+    // return (a double-click on the admin status <select>, which has no
+    // disabled-while-saving guard, or two admin tabs) could otherwise
+    // both read the flag as false before either write lands, and both
+    // restore stock / claw back points for one physical return.
+    if (["Picked Up", "Refunded"].includes(status)) {
+      const claimedStock = await ReturnRequest.findOneAndUpdate(
+        { _id: returnRequest._id, stockRestored: false },
+        { $set: { stockRestored: true } },
+      );
+
+      if (claimedStock) {
+        await restoreStock([
+          {
+            product: returnRequest.product,
+            quantity: returnRequest.quantity,
+            size: returnRequest.size,
+          },
+        ]);
+        returnRequest.stockRestored = true;
+      }
     }
 
     // Claw back only the loyalty points actually earned on the returned
     // item's share of the order — not the whole order's points — and
     // only if points were ever credited (order was delivered) in the
     // first place.
-    if (status === "Refunded" && !returnRequest.pointsClawedBack) {
-      const order = await Order.findById(returnRequest.order);
+    if (status === "Refunded") {
+      const claimedPoints = await ReturnRequest.findOneAndUpdate(
+        { _id: returnRequest._id, pointsClawedBack: false },
+        { $set: { pointsClawedBack: true } },
+      );
 
-      if (order?.pointsCredited && order.pointsEarned > 0 && order.totalPrice > 0) {
-        const orderItem = order.orderItems.find(
-          (item) => item.product.toString() === returnRequest.product.toString(),
-        );
+      if (claimedPoints) {
+        const order = await Order.findById(returnRequest.order);
 
-        if (orderItem) {
-          const returnedValue = orderItem.price * returnRequest.quantity;
-          const pointsToClawback = Math.min(
-            Math.round(
-              order.pointsEarned * (returnedValue / order.totalPrice),
-            ),
-            order.pointsEarned,
+        if (order?.pointsCredited && order.pointsEarned > 0 && order.totalPrice > 0) {
+          const orderItem = order.orderItems.find(
+            (item) => item.product.toString() === returnRequest.product.toString(),
           );
 
-          if (pointsToClawback > 0) {
-            await applyLoyaltyPointsChange({
-              userId: returnRequest.user._id,
-              type: "clawback",
-              points: -pointsToClawback,
-              order: order._id,
-              description: `Reversed earn for returned item: ${returnRequest.productName}`,
-            });
+          if (orderItem) {
+            const returnedValue = orderItem.price * returnRequest.quantity;
+            const pointsToClawback = Math.min(
+              Math.round(
+                order.pointsEarned * (returnedValue / order.totalPrice),
+              ),
+              order.pointsEarned,
+            );
+
+            if (pointsToClawback > 0) {
+              await applyLoyaltyPointsChange({
+                userId: returnRequest.user._id,
+                type: "clawback",
+                points: -pointsToClawback,
+                order: order._id,
+                description: `Reversed earn for returned item: ${returnRequest.productName}`,
+              });
+            }
           }
         }
-      }
 
-      returnRequest.pointsClawedBack = true;
+        returnRequest.pointsClawedBack = true;
+      }
     }
 
     await returnRequest.save();

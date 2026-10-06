@@ -1,13 +1,15 @@
 import { useEffect, useState } from "react";
 import { imgUrl } from "../../services/api";
 import { Link, useNavigate } from "react-router-dom";
-import { FaTimes, FaPlus, FaMinus, FaLock, FaGift } from "react-icons/fa";
+import { FaTimes, FaPlus, FaMinus, FaLock, FaGift, FaTags } from "react-icons/fa";
 
 import { useCart } from "../../context/CartContext";
 import { useAuth } from "../../context/AuthContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { getPublicRewardsInfo } from "../../services/rewardsService";
 import { getSiteSettings } from "../../services/settingsService";
+import { handleImageError } from "../../utils/imageFallback";
+import { useModalA11y } from "../../hooks/useModalA11y";
 
 function CartDrawer() {
   const navigate = useNavigate();
@@ -20,9 +22,15 @@ function CartDrawer() {
     removeFromCart,
     totalItems,
     totalPrice,
+    bundleInfo,
     isCartOpen,
     closeCart,
   } = useCart();
+  // Unlike QuickViewModal (mounted only while open), this drawer is
+  // always mounted and toggles via translate-x — `active` must track
+  // isCartOpen itself so the trap engages/disengages each time it's
+  // actually shown, not just once on first mount.
+  const panelRef = useModalA11y(isCartOpen, closeCart);
 
   const [earnRate, setEarnRate] = useState(null);
   const [freeShippingThreshold, setFreeShippingThreshold] = useState(499);
@@ -64,6 +72,11 @@ function CartDrawer() {
       />
 
       <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={t("Cart", "कार्ट")}
+        tabIndex={-1}
         className={`fixed top-0 right-0 h-full w-[88%] max-w-sm bg-white z-[101] shadow-xl flex flex-col transition-transform duration-300 ${
           isCartOpen ? "translate-x-0" : "translate-x-full"
         }`}
@@ -126,18 +139,15 @@ function CartDrawer() {
               {cartItems.map((item) => (
                 <div key={item._id} className="flex gap-4 py-4">
                   <img
-                    src={
-                      item.image?.startsWith("http")
-                        ? item.image
-                        : `${imgUrl(item.image)}`
-                    }
-                    alt={item.name}
+                    src={imgUrl(item.image, "w_200,q_auto,f_auto")}
+                    alt={t(item.name, item.nameHi)}
                     className="w-20 h-20 object-cover rounded-lg shrink-0"
+                    onError={handleImageError}
                   />
 
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-slate-800 line-clamp-2">
-                      {item.name}
+                      {t(item.name, item.nameHi)}
                     </p>
                     {item.selectedSize && (
                       <p className="text-xs text-slate-400">
@@ -157,10 +167,16 @@ function CartDrawer() {
                   </div>
 
                   <div className="flex flex-col items-center gap-1 border border-slate-200 rounded-lg h-fit px-1.5 py-1">
+                    {/* w-9 h-9 (36px) explicit touch target -- was p-1
+                        around a text-xs icon (~20x20px), well under the
+                        ~32px floor, on the core mobile purchase flow
+                        (2026-10-05 mobile CSS audit). Explicit width/
+                        height is more reliable here than padding math
+                        against the icon's own font metrics. */}
                     <button
                       type="button"
                       onClick={() => increaseQty(item._id)}
-                      className="text-xs text-slate-600 hover:text-slate-900 p-1"
+                      className="w-9 h-9 flex items-center justify-center text-xs text-slate-600 hover:text-slate-900"
                     >
                       <FaPlus />
                     </button>
@@ -170,7 +186,7 @@ function CartDrawer() {
                     <button
                       type="button"
                       onClick={() => decreaseQty(item._id)}
-                      className="text-xs text-slate-600 hover:text-slate-900 p-1"
+                      className="w-9 h-9 flex items-center justify-center text-xs text-slate-600 hover:text-slate-900"
                     >
                       <FaMinus />
                     </button>
@@ -186,6 +202,26 @@ function CartDrawer() {
                   "टैक्स शामिल है। शिपिंग चेकआउट पर calculate होगी।",
                 )}
               </p>
+
+              {/* Cart.jsx's full-page summary already shows this same
+                  bundleInfo.eligible state as a prominent "Extra X% OFF
+                  Applied!" banner -- this drawer previously showed only
+                  a plain Subtotal with no mention of it at all, so a
+                  customer who unlocked the discount and checks out
+                  straight from here never saw it confirmed anywhere
+                  before landing on Checkout. Compact version of the
+                  same message, not the full missing-category nudge --
+                  that's better suited to the full cart page's more
+                  spacious layout. */}
+              {bundleInfo.eligible && (
+                <div className="flex items-center gap-1.5 text-indigo-700 text-xs font-semibold mb-2">
+                  <FaTags className="text-[10px]" />
+                  {t(
+                    `Extra ${bundleInfo.discountPercent}% OFF applied!`,
+                    `अतिरिक्त ${bundleInfo.discountPercent}% छूट लागू हुई!`,
+                  )}
+                </div>
+              )}
 
               <div className="flex items-center justify-between mb-2">
                 <span className="font-semibold text-slate-800">

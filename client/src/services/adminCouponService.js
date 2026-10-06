@@ -20,7 +20,7 @@ export const getAllCouponsAdmin = async ({
 
     const data = await response.json();
 
-    return { success: true, coupons: data.coupons || [] };
+    return { success: data.success, coupons: data.coupons || [] };
   } catch (error) {
     console.error("Get Coupons Error:", error);
     return { success: false, coupons: [], message: "Unable to fetch" };

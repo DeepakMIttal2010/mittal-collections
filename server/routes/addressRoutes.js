@@ -1,4 +1,5 @@
 import express from "express";
+import validateObjectId from "../middleware/validateObjectId.js";
 import authMiddleware from "../middleware/authMiddleware.js";
 import {
   getAddresses,
@@ -9,6 +10,8 @@ import {
 } from "../controllers/addressController.js";
 
 const router = express.Router();
+
+router.param("id", validateObjectId);
 
 router.use(authMiddleware);
 

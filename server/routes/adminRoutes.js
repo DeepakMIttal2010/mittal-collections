@@ -1,4 +1,5 @@
 import express from "express";
+import validateObjectId from "../middleware/validateObjectId.js";
 
 import {
   getDashboardData,
@@ -12,6 +13,7 @@ import {
   getProductViewUsers,
   getEngagementDetails,
   getAbandonedCartDetails,
+  deleteAbandonedCart,
 } from "../controllers/adminController.js";
 import { getGoogleReportsData } from "../controllers/googleReportsController.js";
 import authMiddleware from "../middleware/authMiddleware.js";
@@ -19,6 +21,9 @@ import adminMiddleware from "../middleware/adminMiddleware.js";
 import requirePermission from "../middleware/requirePermission.js";
 
 const router = express.Router();
+
+router.param("id", validateObjectId);
+router.param("productId", validateObjectId);
 const dashboardPerm = requirePermission("dashboard");
 const reportsPerm = requirePermission("reports");
 
@@ -100,6 +105,14 @@ router.get(
   adminMiddleware,
   reportsPerm,
   getAbandonedCartDetails,
+);
+
+router.delete(
+  "/abandoned-carts/:id",
+  authMiddleware,
+  adminMiddleware,
+  reportsPerm,
+  deleteAbandonedCart,
 );
 
 export default router;

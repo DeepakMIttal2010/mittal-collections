@@ -79,6 +79,12 @@ test("account bell shows an unread count; clicking a notification marks it read 
   await expect(item).toBeVisible();
   await item.click();
   await expect(page).toHaveURL(/\/my-orders\//);
+  // Wait for Order Details to actually finish loading (its own data
+  // fetch after the URL changes), not just the URL match above --
+  // otherwise the goto() below fires while that page is still settling,
+  // which was flaking as "page.goto: <unknown error>" under Firefox in
+  // CI's slower/resource-constrained runner (not reproducible locally).
+  await expect(page.getByText(/order details/i)).toBeVisible();
 
   // Clicking marked it read — badge should be gone now.
   await page.goto("/account");

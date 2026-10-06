@@ -5,6 +5,8 @@ import { FaStar, FaRegStar } from "react-icons/fa";
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
 import { getProductReviews, submitReview } from "../services/reviewService";
+import { imgUrl } from "../services/api";
+import { dateLocale } from "../utils/dateLocale";
 
 function Stars({ value, size = "text-sm" }) {
   return (
@@ -20,7 +22,7 @@ const MAX_REVIEW_IMAGES = 3;
 
 function ProductReviews({ productId }) {
   const { isLoggedIn } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   const [reviews, setReviews] = useState([]);
   const [totalReviews, setTotalReviews] = useState(0);
@@ -345,8 +347,9 @@ function ProductReviews({ productId }) {
                   {review.images?.map((url) => (
                     <img
                       key={url}
-                      src={url}
+                      src={imgUrl(url, "w_128,h_128,c_fill,q_auto,f_auto")}
                       alt={t("Customer photo", "ग्राहक फ़ोटो")}
+                      loading="lazy"
                       className="w-16 h-16 object-cover rounded-lg border border-slate-200"
                     />
                   ))}
@@ -361,7 +364,7 @@ function ProductReviews({ productId }) {
               )}
               <p className="text-xs text-slate-400">
                 {review.user?.name || t("Anonymous", "अज्ञात")} ·{" "}
-                {new Date(review.createdAt).toLocaleDateString("en-IN", {
+                {new Date(review.createdAt).toLocaleDateString(dateLocale(language), {
                   day: "numeric",
                   month: "short",
                   year: "numeric",

@@ -4,6 +4,7 @@ import { toast } from "react-toastify";
 import { getProfile, updateProfile } from "../services/authService";
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
+import Seo from "../components/Seo";
 
 function EditProfile() {
   const navigate = useNavigate();
@@ -72,6 +73,7 @@ function EditProfile() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
+      <Seo title="Edit Profile" noindex />
       <div className="text-sm mb-2">
         <Link to="/account" className="text-blue-700 hover:underline">
           {t("Your Account", "आपका खाता")}

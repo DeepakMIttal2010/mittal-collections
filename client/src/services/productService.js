@@ -175,30 +175,30 @@ export const getNewArrivalProducts = async (limit = 8) => {
 };
 
 // ==========================
-// Get Gifting Products
+// Get Gifting Products By Category
 // ==========================
-export const getGiftingProducts = async (limit = 40) => {
+export const getGiftingProductsByCategory = async (limit = 8) => {
   try {
     const response = await fetch(
       `${API_BASE_URL}/products/gifting?limit=${limit}`,
     );
 
     if (!response.ok) {
-      throw new Error("Failed to fetch gifting products");
+      throw new Error("Failed to fetch gifting products by category");
     }
 
     const data = await response.json();
 
     return {
       success: data.success,
-      products: data.products || [],
+      sections: data.sections || [],
     };
   } catch (error) {
-    console.error("Get Gifting Products Error:", error);
+    console.error("Get Gifting Products By Category Error:", error);
 
     return {
       success: false,
-      products: [],
+      sections: [],
     };
   }
 };

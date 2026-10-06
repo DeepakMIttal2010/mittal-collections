@@ -1,7 +1,10 @@
 import Category from "../models/Category.js";
 import Product from "../models/Product.js";
 import Subcategory from "../models/Subcategory.js";
+import TrendingSection from "../models/TrendingSection.js";
+import NewArrivalsSection from "../models/NewArrivalsSection.js";
 import { deleteCloudinaryAssetsByUrl } from "../utils/cloudinaryCleanup.js";
+import { escapeRegex } from "../utils/escapeRegex.js";
 
 // Simple slug generator from category name
 const generateSlug = (name) =>
@@ -92,8 +95,10 @@ export const getAllCategoriesAdmin = async (req, res) => {
     const filter = {};
 
     const { search } = req.query;
-    if (search && search.trim()) {
-      const regex = new RegExp(search.trim(), "i");
+    // typeof guard: a bracket-shaped query param (?search[$ne]=null)
+    // parses to an object, not a string, and .trim() would throw.
+    if (typeof search === "string" && search.trim()) {
+      const regex = new RegExp(escapeRegex(search.trim()), "i");
       filter.$or = [{ name: regex }, { description: regex }];
     }
 
@@ -376,21 +381,37 @@ export const permanentlyDeleteCategory = async (req, res) => {
       });
     }
 
-    const [hasProducts, hasSubcategories] = await Promise.all([
-      Product.exists({
-        $or: [
-          { category: category._id },
-          { additionalCategories: category._id },
-        ],
-      }),
-      Subcategory.exists({ category: category._id }),
-    ]);
+    const [hasProducts, hasSubcategories, hasTrendingSection, hasNewArrivalsSection] =
+      await Promise.all([
+        Product.exists({
+          $or: [
+            { category: category._id },
+            { additionalCategories: category._id },
+          ],
+        }),
+        Subcategory.exists({ category: category._id }),
+        TrendingSection.exists({ category: category._id }),
+        NewArrivalsSection.exists({ category: category._id }),
+      ]);
 
     if (hasProducts || hasSubcategories) {
       return res.status(400).json({
         success: false,
         message:
           "This category is still used by products or subcategories and cannot be permanently deleted",
+      });
+    }
+
+    // Without this, deleting a category that still has an admin-curated
+    // "Top Trending" or "New Arrivals" homepage section leaves that
+    // section's `category` field pointing at a document that no longer
+    // exists — AdminTrendingByCategory.jsx already has to defensively
+    // render "Category no longer exists" for exactly this state.
+    if (hasTrendingSection || hasNewArrivalsSection) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "This category is still used by a Trending or New Arrivals section and cannot be permanently deleted",
       });
     }
 

@@ -95,6 +95,11 @@ const reviewSchema = new mongoose.Schema(
 
 // Admin notification poll's unseen-reviews query.
 reviewSchema.index({ isSeenByAdmin: 1, createdAt: -1 });
+// One review per customer per product — enforced at the DB level, not
+// just the findOne-then-create check in submitReview, which two
+// concurrent submissions (double-click, two tabs) could both pass
+// before either write lands.
+reviewSchema.index({ product: 1, user: 1 }, { unique: true });
 
 const Review = mongoose.model("Review", reviewSchema);
 

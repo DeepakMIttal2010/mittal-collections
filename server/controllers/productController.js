@@ -9,22 +9,30 @@ import SearchLog from "../models/SearchLog.js";
 import User from "../models/User.js";
 import Wishlist from "../models/Wishlist.js";
 import Review from "../models/Review.js";
+import Question from "../models/Question.js";
 import { rankProducts } from "../utils/fuzzySearch.js";
 import { sendEmail } from "../config/mailer.js";
 import { notifyUser } from "../utils/notify.js";
+import { escapeHtml } from "../utils/escapeHtml.js";
 import {
   generateProductNumber,
   decodeProductNumber,
 } from "../utils/costCipher.js";
 import { deleteCloudinaryAssetsByUrl } from "../utils/cloudinaryCleanup.js";
 import { sanitizeProductDescription } from "../utils/sanitizeProductDescription.js";
+import { escapeRegex } from "../utils/escapeRegex.js";
 
-// Never sent by a public route — cost data is admin-only. The nested
-// variants.purchasePrice needs its own dotted exclusion; a bare
-// "-purchasePrice" only strips the top-level field, not the same-named
-// field inside each variants[] subdocument.
+// Never sent by a public route — cost data and adminRemarks are both
+// admin-only (see Product.js's own comment on adminRemarks: "never shown
+// to customers"). The nested variants.purchasePrice needs its own
+// dotted exclusion; a bare "-purchasePrice" only strips the top-level
+// field, not the same-named field inside each variants[] subdocument.
+// Security audit (2026-09-29) found adminRemarks was missing from this
+// list despite its own documented intent -- live-confirmed 51 products'
+// internal sourcing/pricing notes were readable via the public product
+// endpoints before this fix.
 const COST_FIELDS =
-  "-purchasePrice -miscExpenses -purchaseDate -variants.purchasePrice";
+  "-purchasePrice -miscExpenses -purchaseDate -variants.purchasePrice -adminRemarks -adminRemarksUpdatedAt";
 
 // getProducts' page size when a caller opts into pagination (`page` sent)
 // without also specifying `limit` — Amazon/Flipkart-style listing density,
@@ -124,7 +132,7 @@ export const notifyStockAlertSubscribers = async (product) => {
         to: alert.email,
         subject: `${product.name} is back in stock!`,
         html: `
-          <p>Good news — <strong>${product.name}</strong> is back in stock at Mittal Collections.</p>
+          <p>Good news — <strong>${escapeHtml(product.name)}</strong> is back in stock at Mittal Collections.</p>
           <p><a href="${productLink}">Shop it now</a> before it sells out again.</p>
         `,
       });
@@ -212,7 +220,11 @@ export const getProducts = async (req, res) => {
     const { search, category, subcategory, maxPrice, minPrice, sortBy } =
       req.query;
 
-    if (category && category.trim()) {
+    // typeof guards: a bracket-shaped query param (e.g. ?category[$ne]=null)
+    // parses to an object under Express's default query parser, not a
+    // string — `.trim()` would throw, and an object reaching a query
+    // filter below would be a Mongo operator-injection risk.
+    if (typeof category === "string" && category.trim()) {
       const categoryId = category.trim();
       // filter.$or is already taken by the stock/willRestock condition
       // above — can't reuse the key here, that would silently replace it
@@ -222,7 +234,7 @@ export const getProducts = async (req, res) => {
         { $or: [{ category: categoryId }, { additionalCategories: categoryId }] },
       ];
     }
-    if (subcategory && subcategory.trim()) {
+    if (typeof subcategory === "string" && subcategory.trim()) {
       filter.subcategories = subcategory.trim();
     }
     if (maxPrice && !Number.isNaN(Number(maxPrice))) {
@@ -239,7 +251,7 @@ export const getProducts = async (req, res) => {
       .sort({ createdAt: -1 })
       .lean();
 
-    const hasSearch = search && search.trim();
+    const hasSearch = typeof search === "string" && search.trim();
     if (hasSearch) {
       products = rankProducts(search.trim(), products);
 
@@ -352,7 +364,9 @@ export const getSearchSuggestions = async (req, res) => {
   try {
     const { q, category } = req.query;
 
-    if (!q || !q.trim()) {
+    // typeof guards: a bracket-shaped query param parses to an object,
+    // not a string — `.trim()` would throw.
+    if (typeof q !== "string" || !q.trim()) {
       return res.status(200).json({ success: true, products: [] });
     }
 
@@ -362,7 +376,7 @@ export const getSearchSuggestions = async (req, res) => {
       $or: [{ stock: { $gt: 0 } }, { willRestock: { $ne: false } }],
     };
 
-    if (category && category.trim()) {
+    if (typeof category === "string" && category.trim()) {
       const categoryId = category.trim();
       filter.$and = [
         ...(filter.$and || []),
@@ -400,12 +414,14 @@ export const getAllProductsAdmin = async (req, res) => {
     const { search, category, subcategory, stockStatus, dateFrom, dateTo } =
       req.query;
 
-    if (search && search.trim()) {
-      const regex = new RegExp(search.trim(), "i");
+    // typeof guards: a bracket-shaped query param parses to an object,
+    // not a string — `.trim()` would throw.
+    if (typeof search === "string" && search.trim()) {
+      const regex = new RegExp(escapeRegex(search.trim()), "i");
       filter.$or = [{ name: regex }, { description: regex }];
     }
 
-    if (category && category.trim()) {
+    if (typeof category === "string" && category.trim()) {
       const categoryId = category.trim();
       // filter.$or may already be taken by the search condition above —
       // $and keeps both instead of one silently replacing the other.
@@ -414,7 +430,7 @@ export const getAllProductsAdmin = async (req, res) => {
         { $or: [{ category: categoryId }, { additionalCategories: categoryId }] },
       ];
     }
-    if (subcategory && subcategory.trim()) {
+    if (typeof subcategory === "string" && subcategory.trim()) {
       filter.subcategories = subcategory.trim();
     }
 
@@ -595,6 +611,7 @@ export const duplicateProduct = async (req, res) => {
       countryOfOrigin: source.countryOfOrigin,
       whatsIncluded: source.whatsIncluded,
       colorVariesNote: source.colorVariesNote,
+      colorVariesNoteHi: source.colorVariesNoteHi,
       localDeliveryOnly: source.localDeliveryOnly,
 
       featured: false,
@@ -818,16 +835,20 @@ export const getNewArrivalProducts = async (req, res) => {
 };
 
 // ============================
-// GET GIFTING PRODUCTS (Public) — flat, site-wide list of products an
-// admin has opted in via isGiftingItem, newest first. Mirrors
-// getNewArrivalProducts's shape, but opt-in (isGiftingItem defaults
-// false) rather than opt-out, and deliberately flat/uncategorized —
-// gifting spans arbitrary categories, so there's no per-category
-// grouping the way New Arrivals/Trending have.
+// GET GIFTING PRODUCTS BY CATEGORY (Public) — products an admin has
+// opted in via isGiftingItem, grouped by whichever category each one
+// actually belongs to. Unlike getNewArrivalsByCategory, there's no
+// admin-curated NewArrivalsSection-style opt-in per category here —
+// gifting items are already an explicit opt-in on the product itself,
+// so a category's section simply exists whenever it has >=1 qualifying
+// gifting product, grouped dynamically rather than pre-configured.
 // ============================
-export const getGiftingProducts = async (req, res) => {
+export const getGiftingProductsByCategory = async (req, res) => {
   try {
-    const limit = Math.max(parseInt(req.query.limit, 10) || 40, 1);
+    const perCategoryLimit = Math.max(
+      parseInt(req.query.limit, 10) || 8,
+      1,
+    );
 
     const products = await Product.find({
       isActive: true,
@@ -836,14 +857,41 @@ export const getGiftingProducts = async (req, res) => {
       $or: [{ stock: { $gt: 0 } }, { willRestock: { $ne: false } }],
     })
       .select(COST_FIELDS)
-      .populate("category", "name nameHi slug image")
+      .populate("category", "name nameHi slug isActive")
       .populate("subcategories", "name nameHi slug")
-      .sort({ createdAt: -1 })
-      .limit(limit);
+      .sort({ createdAt: -1 });
+
+    const sectionsByCategory = new Map();
+
+    for (const product of products) {
+      // A product's category could have been deactivated without the
+      // reference being cleaned up — skip rather than show a section
+      // for a category that no longer resolves anywhere on the site.
+      if (!product.category?.isActive) continue;
+
+      const categoryId = product.category._id.toString();
+
+      if (!sectionsByCategory.has(categoryId)) {
+        sectionsByCategory.set(categoryId, {
+          category: {
+            _id: product.category._id,
+            name: product.category.name,
+            nameHi: product.category.nameHi,
+            slug: product.category.slug,
+          },
+          products: [],
+        });
+      }
+
+      const section = sectionsByCategory.get(categoryId);
+      if (section.products.length < perCategoryLimit) {
+        section.products.push(product);
+      }
+    }
 
     res.status(200).json({
       success: true,
-      products,
+      sections: Array.from(sectionsByCategory.values()),
     });
   } catch (error) {
     console.error(error);
@@ -1142,6 +1190,12 @@ export const getProductById = async (req, res) => {
 // ADD PRODUCT
 // ============================
 export const addProduct = async (req, res) => {
+  // Declared outside the try block (and assigned, not re-declared,
+  // inside it) so the catch block below can still reach whatever was
+  // already uploaded to Cloudinary if Product.create() fails partway.
+  let images = [];
+  let videos = [];
+
   try {
     const {
       name,
@@ -1170,6 +1224,7 @@ export const addProduct = async (req, res) => {
       countryOfOrigin,
       whatsIncluded,
       colorVariesNote,
+      colorVariesNoteHi,
       localDeliveryOnly,
       adminRemarks,
       isReturnable,
@@ -1182,8 +1237,8 @@ export const addProduct = async (req, res) => {
       visibility,
     } = req.body;
 
-    const images = (req.files?.images || []).map((file) => file.path);
-    const videos = (req.files?.videos || []).map((file) => file.path);
+    images = (req.files?.images || []).map((file) => file.path);
+    videos = (req.files?.videos || []).map((file) => file.path);
 
     if (images.length === 0) {
       return res.status(400).json({
@@ -1241,6 +1296,7 @@ export const addProduct = async (req, res) => {
       countryOfOrigin: countryOfOrigin || "",
       whatsIncluded: whatsIncluded || "",
       colorVariesNote: colorVariesNote || "",
+      colorVariesNoteHi: colorVariesNoteHi || "",
       localDeliveryOnly: localDeliveryOnly === "true",
       adminRemarks: adminRemarks || "",
       adminRemarksUpdatedAt: adminRemarks ? new Date() : null,
@@ -1267,6 +1323,14 @@ export const addProduct = async (req, res) => {
     });
   } catch (error) {
     console.error(error);
+
+    // imageOptimizer already uploaded every image/video to Cloudinary
+    // before this handler ever ran (multer uses memoryStorage — the
+    // optimizer middleware IS the upload step). If Product.create()
+    // fails here (a validation error, a DB hiccup), those uploads would
+    // otherwise sit orphaned in Cloudinary forever — most reachable via
+    // AdminBulkImport.jsx, which calls this once per CSV row in a loop.
+    await deleteCloudinaryAssetsByUrl([...(images || []), ...(videos || [])]);
 
     res.status(500).json({
       success: false,
@@ -1310,7 +1374,18 @@ export const updateProduct = async (req, res) => {
     product.description = sanitizeProductDescription(req.body.description);
     product.nameHi = req.body.nameHi || "";
     product.descriptionHi = sanitizeProductDescription(req.body.descriptionHi);
-    const variants = parseVariants(req.body.variants);
+    // Whether this specific request included a `variants` field at all
+    // — not just whether it happened to be non-empty. Omitting it
+    // (a partial-update script, anything that isn't the exact admin
+    // edit form re-sending the full array) must fall back to the
+    // product's EXISTING variants, not silently wipe them to [] and
+    // start trusting req.body.price/stock instead — the same class of
+    // footgun mainImageIndex/adminRemarks already guard against
+    // elsewhere in this function via an explicit `!== undefined` check.
+    const variantsProvided = req.body.variants !== undefined;
+    const variants = variantsProvided
+      ? parseVariants(req.body.variants)
+      : product.variants;
     const hasVariants = variants.length > 0;
 
     // Same rule as addProduct — once variants exist they're the source of
@@ -1325,7 +1400,9 @@ export const updateProduct = async (req, res) => {
     product.stock = hasVariants
       ? variants.reduce((sum, v) => sum + v.stock, 0)
       : req.body.stock;
-    product.variants = variants;
+    if (variantsProvided) {
+      product.variants = variants;
+    }
 
     product.featured = req.body.featured === "true";
     product.isActive = req.body.isActive === "true";
@@ -1356,6 +1433,7 @@ export const updateProduct = async (req, res) => {
     product.countryOfOrigin = req.body.countryOfOrigin || "";
     product.whatsIncluded = req.body.whatsIncluded || "";
     product.colorVariesNote = req.body.colorVariesNote || "";
+    product.colorVariesNoteHi = req.body.colorVariesNoteHi || "";
     product.localDeliveryOnly = req.body.localDeliveryOnly === "true";
 
     // Only bump the timestamp when the note itself actually changed —
@@ -1601,6 +1679,7 @@ export const permanentlyDeleteProduct = async (req, res) => {
       Wishlist.deleteMany({ product: product._id }),
       StockAlert.deleteMany({ product: product._id }),
       Review.deleteMany({ product: product._id }),
+      Question.deleteMany({ product: product._id }),
     ]);
 
     res.json({

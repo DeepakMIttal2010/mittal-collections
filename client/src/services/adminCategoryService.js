@@ -30,7 +30,7 @@ export const getAllCategories = async ({
     const data = await response.json();
 
     return {
-      success: true,
+      success: data.success,
       categories: data.categories || [],
       total: data.total || 0,
       page: data.page || 1,

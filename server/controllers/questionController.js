@@ -1,16 +1,50 @@
+import mongoose from "mongoose";
 import Question from "../models/Question.js";
+import Product from "../models/Product.js";
+import SiteSettings from "../models/SiteSettings.js";
+import { sendEmail } from "../config/mailer.js";
+import { notifyUser } from "../utils/notify.js";
+import { escapeHtml } from "../utils/escapeHtml.js";
+
+// Unlike Tickets, submitting a question previously only ever produced
+// an in-app admin notification (the unseen-questions poll) — an admin
+// not actively watching the dashboard had no way to learn a customer
+// was waiting on an answer. Mirrors ticketController.js's notifyAdmin.
+const notifyAdmin = async (question, productName) => {
+  try {
+    const settings = await SiteSettings.findOne();
+
+    if (!settings?.email) return;
+
+    await sendEmail({
+      to: settings.email,
+      subject: `New product question: ${productName}`,
+      html: `
+        <p>A customer asked a question about <strong>${escapeHtml(productName)}</strong>:</p>
+        <p>${escapeHtml(question.question)}</p>
+        <p><a href="${process.env.CLIENT_URL}/admin/questions">View in admin panel</a></p>
+      `,
+    });
+  } catch (error) {
+    console.error("Notify Admin (Question) Error:", error);
+  }
+};
 
 // ============================
 // GET PUBLISHED Q&A FOR A PRODUCT (Public)
 // ============================
 export const getProductQuestions = async (req, res) => {
   try {
+    // Hard ceiling, not real pagination — this collection has no cap
+    // today, and a heavily-asked product could otherwise return an
+    // unbounded array on a public, unauthenticated route.
     const questions = await Question.find({
       product: req.params.productId,
       isPublished: true,
     })
       .populate("user", "name")
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .limit(500);
 
     res.status(200).json({
       success: true,
@@ -33,7 +67,18 @@ export const submitQuestion = async (req, res) => {
   try {
     const { productId, question } = req.body;
 
-    if (!productId || !question) {
+    // productId comes straight from the request body (unlike a route
+    // param, which Express always parses as a plain string) — an
+    // object payload like {"$gt": ""} here would otherwise flow into
+    // the Product.findById query below as a raw Mongo query operator
+    // instead of a literal id, the same NoSQL-injection path CodeQL
+    // already flagged once in posController.js/returnController.js/
+    // reviewController.js.
+    if (
+      typeof productId !== "string" ||
+      !mongoose.Types.ObjectId.isValid(productId) ||
+      !question
+    ) {
       return res.status(400).json({
         success: false,
         message: "Product and question are required",
@@ -45,6 +90,9 @@ export const submitQuestion = async (req, res) => {
       user: req.user._id,
       question,
     });
+
+    const product = await Product.findById(productId).select("name");
+    notifyAdmin(newQuestion, product?.name || "a product").catch(() => {});
 
     res.status(201).json({
       success: true,
@@ -68,10 +116,12 @@ export const getAllQuestionsAdmin = async (req, res) => {
   try {
     const sortOrder = req.query.sortOrder === "asc" ? 1 : -1;
 
+    // Same hard ceiling as getProductQuestions above, not real pagination.
     const questions = await Question.find()
       .populate("user", "name email")
       .populate("product", "name image")
-      .sort({ createdAt: sortOrder });
+      .sort({ createdAt: sortOrder })
+      .limit(1000);
 
     res.status(200).json({
       success: true,
@@ -94,7 +144,16 @@ export const answerQuestion = async (req, res) => {
   try {
     const { answer, isPublished } = req.body;
 
-    const question = await Question.findById(req.params.id);
+    if (answer !== undefined && typeof answer !== "string") {
+      return res.status(400).json({
+        success: false,
+        message: "Answer must be text",
+      });
+    }
+
+    const question = await Question.findById(req.params.id)
+      .populate("product", "name nameHi")
+      .populate("user", "name email");
 
     if (!question) {
       return res.status(404).json({
@@ -103,11 +162,48 @@ export const answerQuestion = async (req, res) => {
       });
     }
 
+    // submitQuestion's own response tells the customer "we'll answer your
+    // question soon" — this is the one moment that promise is actually
+    // kept, so it's the moment to tell them, not every save (e.g. an
+    // admin later just toggling isPublished shouldn't re-notify).
+    const isNewAnswer = answer !== undefined && answer.trim() !== "" && !question.answer;
+
     if (answer !== undefined) question.answer = answer;
     question.isPublished =
       isPublished === undefined ? Boolean(answer) : isPublished;
 
     await question.save();
+
+    if (isNewAnswer) {
+      const title = "Your question was answered";
+      const productName = question.product?.name || "a product";
+
+      notifyUser({
+        userId: question.user._id,
+        type: "question_answered",
+        title,
+        message: `We answered your question about ${productName}.`,
+        link: `/product/${question.product?._id || ""}`,
+      });
+
+      // Mirrors ticketController.js's addTicketMessage/updateTicketStatus
+      // reply emails — questions previously only got an in-app alert,
+      // easy to miss if the customer isn't actively browsing the site.
+      if (question.user.email) {
+        sendEmail({
+          to: question.user.email,
+          subject: title,
+          html: `
+            <p>Hi ${escapeHtml(question.user.name || "there")},</p>
+            <p>We answered your question about <strong>${escapeHtml(productName)}</strong>:</p>
+            <p>${escapeHtml(question.answer)}</p>
+            <p><a href="${process.env.CLIENT_URL}/product/${question.product?._id || ""}">View on the product page</a></p>
+          `,
+        }).catch((error) =>
+          console.error("Answer Question Email Error:", error),
+        );
+      }
+    }
 
     res.status(200).json({
       success: true,

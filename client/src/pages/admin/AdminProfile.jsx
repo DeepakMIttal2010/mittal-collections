@@ -113,10 +113,11 @@ function AdminProfile() {
 
           <form onSubmit={handleProfileSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
+              <label htmlFor="profileName" className="block text-sm font-medium text-slate-700 mb-1">
                 Name
               </label>
               <input
+                id="profileName"
                 type="text"
                 name="name"
                 value={profileData.name}
@@ -127,10 +128,11 @@ function AdminProfile() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
+              <label htmlFor="profileEmail" className="block text-sm font-medium text-slate-700 mb-1">
                 Email
               </label>
               <input
+                id="profileEmail"
                 type="email"
                 value={profileData.email}
                 disabled
@@ -142,10 +144,11 @@ function AdminProfile() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
+              <label htmlFor="profileMobile" className="block text-sm font-medium text-slate-700 mb-1">
                 Mobile
               </label>
               <input
+                id="profileMobile"
                 type="tel"
                 inputMode="numeric"
                 name="mobile"
@@ -165,10 +168,11 @@ function AdminProfile() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
+              <label htmlFor="profileRole" className="block text-sm font-medium text-slate-700 mb-1">
                 Role
               </label>
               <input
+                id="profileRole"
                 type="text"
                 value={profileData.role}
                 disabled

@@ -35,6 +35,19 @@ export const subscribe = async (req, res) => {
       message: "Subscribed successfully",
     });
   } catch (error) {
+    // Two concurrent submits for the same email (double-click, a
+    // client-side double POST) can both pass the findOne pre-check
+    // above before either write lands — the loser hits the unique
+    // index and gets a duplicate-key error here rather than a real
+    // failure. Same email really is subscribed either way, so this
+    // should read as success, not a generic 500.
+    if (error.code === 11000) {
+      return res.status(200).json({
+        success: true,
+        message: "You're already subscribed",
+      });
+    }
+
     console.error("Newsletter Subscribe Error:", error);
 
     res.status(500).json({
@@ -77,7 +90,15 @@ export const uploadCampaignImage = async (req, res) => {
 // ============================
 export const getSubscribers = async (req, res) => {
   try {
-    const subscribers = await Subscriber.find({}).sort({ createdAt: -1 });
+    // Safety ceiling, not real pagination — see orderController.js's
+    // getAllOrders for why this pattern was chosen here over a full
+    // pagination rework. sendCampaign below deliberately does NOT get
+    // this same cap — a newsletter send has to reach every subscriber,
+    // not just the first 2000, so silently truncating that list would be
+    // a real (and much worse) bug, not a safety improvement.
+    const subscribers = await Subscriber.find({})
+      .sort({ createdAt: -1 })
+      .limit(2000);
 
     res.status(200).json({
       success: true,

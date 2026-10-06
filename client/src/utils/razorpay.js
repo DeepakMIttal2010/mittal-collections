@@ -1,4 +1,5 @@
 import { resumeRazorpayPayment, verifyRazorpayPayment } from "../services/orderService";
+import { trackPurchase } from "./analytics";
 
 // Loaded on-demand rather than globally in index.html, so pages that
 // never reach payment don't pay for it. Shared by Checkout (creating a
@@ -24,9 +25,17 @@ export const loadRazorpayScript = () => {
 // never paid (modal dismissed, bank timeout, payment failed, etc.) —
 // used by the "Pay Now" button on My Orders / Order Details, never by
 // Checkout itself (which creates a fresh order via createOrder).
+//
+// `t` is the caller's `useLanguage()` translator, passed in because this
+// is a plain util module with no hook access of its own — Checkout.jsx's
+// own Razorpay flow (built inline in that component, where `t` is
+// already in scope) wraps every one of these same messages in `t(en,
+// hi)`; this resume path previously didn't, so a Hindi-mode customer
+// retrying a failed/stuck payment saw English-only error toasts.
 export const resumeOrderPayment = async ({
   orderId,
   user,
+  t,
   onSuccess,
   onFailure,
   onDismiss,
@@ -34,14 +43,21 @@ export const resumeOrderPayment = async ({
   const scriptLoaded = await loadRazorpayScript();
 
   if (!scriptLoaded) {
-    onFailure("Unable to load the payment gateway. Please check your connection.");
+    onFailure(
+      t(
+        "Unable to load the payment gateway. Please check your connection.",
+        "पेमेंट गेटवे लोड नहीं हो पाया। कृपया अपना कनेक्शन जांचें।",
+      ),
+    );
     return;
   }
 
   const response = await resumeRazorpayPayment(orderId);
 
   if (!response?.success) {
-    onFailure(response?.message || "Unable to resume payment.");
+    onFailure(
+      response?.message || t("Unable to resume payment.", "पेमेंट resume नहीं हो पाया।"),
+    );
     return;
   }
 
@@ -67,10 +83,21 @@ export const resumeOrderPayment = async ({
       });
 
       if (verifyResponse.success) {
+        // This is a genuinely completed sale — same as the first-time
+        // Checkout.jsx flow, just reached via a retried/resumed payment
+        // instead. verifyResponse.order (the server's confirmed order,
+        // with its real line items) is what makes this possible here:
+        // there's no live cart to build a purchase event from on this
+        // page. See trackPurchase's own comment for why this path used
+        // to silently undercount GA4 revenue.
+        trackPurchase(verifyResponse.order);
         onSuccess();
       } else {
         onFailure(
-          "Payment received, but verification failed. Please contact support.",
+          t(
+            "Payment received, but verification failed. Please contact support.",
+            "पेमेंट मिल गया, लेकिन verify नहीं हो पाया। कृपया सपोर्ट से संपर्क करें।",
+          ),
         );
       }
     },
@@ -80,7 +107,7 @@ export const resumeOrderPayment = async ({
   });
 
   razorpay.on("payment.failed", () => {
-    onFailure("Payment failed — you can try again.");
+    onFailure(t("Payment failed — you can try again.", "पेमेंट नहीं हो पाया — आप दोबारा कोशिश कर सकते हैं।"));
   });
 
   razorpay.open();

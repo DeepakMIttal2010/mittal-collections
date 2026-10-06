@@ -27,7 +27,10 @@ searchLogSchema.index(
   { createdAt: 1 },
   { expireAfterSeconds: 365 * 24 * 60 * 60 },
 );
-searchLogSchema.index({ query: 1 });
+// A `{query:1}` index used to live here too. Removed (2026-10-02 DB/API
+// audit) — every read of this collection (adminController.js) only ever
+// filters/groups by `createdAt`, never `query`, so it was pure write-time
+// overhead with no query ever benefiting from it.
 
 const SearchLog = mongoose.model("SearchLog", searchLogSchema);
 

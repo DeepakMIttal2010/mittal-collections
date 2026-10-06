@@ -4,6 +4,7 @@ import request from "supertest";
 import "./setup.js";
 import app from "../app.js";
 import User from "../models/User.js";
+import Order from "../models/Order.js";
 import LoyaltyTransaction from "../models/LoyaltyTransaction.js";
 import { expireInactivePoints } from "../utils/loyaltyPoints.js";
 import {
@@ -218,6 +219,47 @@ describe("Loyalty points on order delivery/cancellation", () => {
 
     const referrerAfterSecond = await User.findById(referrer._id);
     expect(referrerAfterSecond.loyaltyPoints).toBe(100); // unchanged
+  });
+
+  // Without this, a referred customer could get their first order
+  // Delivered (paying out both sides' referral bonus), then
+  // cancel/return it — keeping the referral points with no real order
+  // behind them, repeatable with a fresh account each time.
+  it("claws back the referral bonus (and releases eligibility) when the order that earned it is cancelled", async () => {
+    await seedLoyaltySettings({ earnRate: 20 });
+    await seedReferralSettings({ referrerPoints: 100, referredPoints: 50 });
+
+    const referrer = await createUser();
+    const referred = await createUser({
+      referredBy: referrer._id,
+      referralRewarded: false,
+    });
+    const admin = await createUser({ role: "admin" });
+    const referredToken = signToken(referred);
+    const adminToken = signToken(admin);
+    const product = await createProduct({ price: 1000, stock: 10 });
+
+    const order = await placeOrder(referredToken, product, 1);
+    await setStatus(adminToken, order._id, "Delivered");
+
+    // 100 referrer bonus; 50 order-earn + 50 referred bonus for the
+    // referred user — matches the payout test above.
+    expect((await User.findById(referrer._id)).loyaltyPoints).toBe(100);
+    expect((await User.findById(referred._id)).loyaltyPoints).toBe(100);
+
+    await setStatus(adminToken, order._id, "Cancelled");
+
+    const referrerAfterCancel = await User.findById(referrer._id);
+    const referredAfterCancel = await User.findById(referred._id);
+
+    expect(referrerAfterCancel.loyaltyPoints).toBe(0);
+    expect(referredAfterCancel.loyaltyPoints).toBe(0);
+    // Released, not left permanently spent — a genuinely-delivered later
+    // order can still earn the referral bonus once.
+    expect(referredAfterCancel.referralRewarded).toBe(false);
+
+    const reloadedOrder = await Order.findById(order._id);
+    expect(reloadedOrder.referralBonusPaid).toBe(true);
   });
 });
 

@@ -8,13 +8,16 @@ import {
 } from "../services/productService";
 import ProductGrid from "../components/ProductGrid/ProductGrid";
 import ProductGridSkeleton from "../components/ProductGrid/ProductGridSkeleton";
+import PriceRangeSlider from "../components/PriceRangeSlider/PriceRangeSlider";
 import Seo from "../components/Seo";
 import Breadcrumbs from "../components/Breadcrumbs";
 import { buildBreadcrumbJsonLd } from "../utils/breadcrumbJsonLd";
 import { getSiteSettings } from "../services/settingsService";
 import { SITE_URL } from "../utils/siteUrl";
+import { productUrl } from "../utils/productUrl";
 import { useLanguage } from "../context/LanguageContext";
 import { FaGift, FaFilter, FaTimes } from "react-icons/fa";
+import { trackFilter } from "../utils/analytics";
 
 // Sizing/buying help callouts shown on the matching category's product
 // listing — curtains gets the interactive calculator (real measurement
@@ -118,16 +121,6 @@ function pickPrimaryGroupLabel(groupLabels) {
   return groupLabels[0];
 }
 
-// min/max in rupees; max: null means "no upper bound" (the "1,500+" row).
-function getPriceRanges(t) {
-  return [
-    { id: "under-499", label: t("Under ₹499", "₹499 से कम"), min: 0, max: 499 },
-    { id: "500-999", label: "₹500 – ₹999", min: 500, max: 999 },
-    { id: "1000-1499", label: "₹1,000 – ₹1,499", min: 1000, max: 1499 },
-    { id: "1500-plus", label: t("₹1,500 and above", "₹1,500 और ऊपर"), min: 1500, max: null },
-  ];
-}
-
 function getSortOptions(t) {
   return [
     { value: "featured", label: t("Featured", "फ़ीचर्ड") },
@@ -140,8 +133,12 @@ function getSortOptions(t) {
   ];
 }
 
-function sortProducts(products, sortBy) {
+function sortProducts(products, sortBy, language) {
   const sorted = [...products];
+  // Falls back to the English name for any product missing a Hindi one
+  // rather than sorting it as an empty string (which would otherwise
+  // sink every untranslated product to one end of the list).
+  const displayName = (p) => (language === "hi" && p.nameHi ? p.nameHi : p.name);
 
   switch (sortBy) {
     case "price-asc":
@@ -151,10 +148,10 @@ function sortProducts(products, sortBy) {
       sorted.sort((a, b) => b.price - a.price);
       break;
     case "name-asc":
-      sorted.sort((a, b) => a.name.localeCompare(b.name));
+      sorted.sort((a, b) => displayName(a).localeCompare(displayName(b), language));
       break;
     case "name-desc":
-      sorted.sort((a, b) => b.name.localeCompare(a.name));
+      sorted.sort((a, b) => displayName(b).localeCompare(displayName(a), language));
       break;
     case "date-asc":
       sorted.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
@@ -179,7 +176,7 @@ function sortProducts(products, sortBy) {
 function CategoryPage() {
   const { categorySlug, subcategorySlug } = useParams();
   const navigate = useNavigate();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   const [status, setStatus] = useState("loading");
   const [category, setCategory] = useState(null);
@@ -188,16 +185,16 @@ function CategoryPage() {
   const [products, setProducts] = useState([]);
   const [sortBy, setSortBy] = useState("featured");
   const [bundlePartners, setBundlePartners] = useState([]);
-  // priceRangeId is the selected row's `id` (see getPriceRanges), or null
-  // for "no price filter applied". isFilterOpen controls the bottom-sheet
-  // panel visibility — separate from the selection itself so opening the
-  // panel doesn't immediately re-filter anything until Apply is pressed.
-  const [priceRangeId, setPriceRangeId] = useState(null);
+  // priceRange is [min, max] in rupees, or null for "no price filter
+  // applied". isFilterOpen controls the bottom-sheet panel visibility —
+  // separate from the selection itself so opening the panel doesn't
+  // immediately re-filter anything until Apply is pressed.
+  const [priceRange, setPriceRange] = useState(null);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  // A draft copy, only committed to priceRangeId on "Apply Filters" — so
+  // A draft copy, only committed to priceRange on "Apply Filters" — so
   // opening the panel, changing your mind, and tapping outside to close
   // it doesn't silently apply a filter you never confirmed.
-  const [draftPriceRangeId, setDraftPriceRangeId] = useState(null);
+  const [draftPriceRange, setDraftPriceRange] = useState(null);
   // Material/Size (and any other non-primary subcategory group) as
   // checkbox facets in the filter panel — a Set of subcategory _ids,
   // OR'd within a group ("Cotton" or "Microfiber"), AND'd across groups
@@ -303,8 +300,16 @@ function CategoryPage() {
     };
   }, [categorySlug, subcategorySlug]);
 
-  const priceRanges = useMemo(() => getPriceRanges(t), [t]);
-  const activePriceRange = priceRanges.find((r) => r.id === priceRangeId) || null;
+  // Slider/number-box bounds — rounded up to a clean ₹100 so the top
+  // handle doesn't sit at an odd number like ₹1,847.
+  const absoluteMaxPrice = useMemo(() => {
+    const highest = products.reduce((max, p) => Math.max(max, p.price), 0);
+    return Math.max(Math.ceil(highest / 100) * 100, 100);
+  }, [products]);
+
+  const [priceMin, priceMax] = priceRange || [0, absoluteMaxPrice];
+  const isPriceActive = priceRange !== null && (priceMin > 0 || priceMax < absoluteMaxPrice);
+  const [draftPriceMin, draftPriceMax] = draftPriceRange || [0, absoluteMaxPrice];
 
   // Grouped by groupLabel, in whatever order they first appear — which
   // group is "primary" (see pickPrimaryGroupLabel above) decides pill vs.
@@ -352,13 +357,8 @@ function CategoryPage() {
 
   const filteredProducts = useMemo(() => {
     return products.filter((p) => {
-      if (activePriceRange) {
-        if (
-          p.price < activePriceRange.min ||
-          (activePriceRange.max !== null && p.price > activePriceRange.max)
-        ) {
-          return false;
-        }
+      if (isPriceActive && (p.price < priceMin || p.price > priceMax)) {
+        return false;
       }
 
       if (minRating !== null && (p.rating || 0) < minRating) return false;
@@ -368,18 +368,18 @@ function CategoryPage() {
     // matchesFacets closes over facetGroups/selectedFacetIds, both listed
     // below, so it doesn't need to be a dependency itself.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [products, activePriceRange, minRating, selectedFacetIds, facetGroups]);
+  }, [products, isPriceActive, priceMin, priceMax, minRating, selectedFacetIds, facetGroups]);
 
   const sortedProducts = useMemo(
-    () => sortProducts(filteredProducts, sortBy),
-    [filteredProducts, sortBy],
+    () => sortProducts(filteredProducts, sortBy, language),
+    [filteredProducts, sortBy, language],
   );
 
   const activeFilterCount =
-    (activePriceRange ? 1 : 0) + (minRating !== null ? 1 : 0) + selectedFacetIds.size;
+    (isPriceActive ? 1 : 0) + (minRating !== null ? 1 : 0) + selectedFacetIds.size;
 
   const openFilterPanel = () => {
-    setDraftPriceRangeId(priceRangeId);
+    setDraftPriceRange(priceRange);
     setDraftFacetIds(new Set(selectedFacetIds));
     setDraftMinRating(minRating);
     setIsFilterOpen(true);
@@ -397,15 +397,27 @@ function CategoryPage() {
       return;
     }
 
-    setPriceRangeId(draftPriceRangeId);
+    setPriceRange(draftPriceRange);
     setSelectedFacetIds(new Set(draftFacetIds));
     setMinRating(draftMinRating);
     setIsFilterOpen(false);
+
+    const draftItemNames = facetGroups
+      .flatMap((g) => g.items)
+      .filter((i) => draftFacetIds.has(i._id))
+      .map((i) => i.name);
+    if (draftItemNames.length > 0) {
+      trackFilter("facets", draftItemNames.join(", "));
+    }
+    if (draftMinRating) trackFilter("min_rating", String(draftMinRating));
+    if (draftPriceRange) {
+      trackFilter("price_range", `${draftPriceRange[0]}-${draftPriceRange[1]}`);
+    }
   };
 
   const clearAllFilters = () => {
-    setDraftPriceRangeId(null);
-    setPriceRangeId(null);
+    setDraftPriceRange(null);
+    setPriceRange(null);
     setDraftFacetIds(new Set());
     setSelectedFacetIds(new Set());
     setDraftMinRating(null);
@@ -454,8 +466,15 @@ function CategoryPage() {
 
     setSelectedFacetIds((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+        const item = facetGroups
+          .flatMap((g) => g.items)
+          .find((i) => i._id === id);
+        if (item) trackFilter(item.groupLabel, item.name);
+      }
 
       return next;
     });
@@ -506,8 +525,13 @@ function CategoryPage() {
     );
   }
 
+  // These pills are the main crawlable navigation from a category to its
+  // subcategory pages (see the <Link> conversion earlier this session) —
+  // at py-1.5 they measured only ~26-32px tall, well under Google's
+  // ~44-48px tap-target guidance. min-h-11 (44px) guarantees the floor
+  // regardless of text length, rather than tuning padding by trial.
   const pillClass = (isActive) =>
-    `px-4 py-1.5 rounded-full border text-sm font-medium whitespace-nowrap transition-colors ${
+    `inline-flex items-center min-h-11 px-4 py-1.5 rounded-full border text-sm font-medium whitespace-nowrap transition-colors ${
       isActive
         ? "bg-amber-600 border-amber-600 text-white"
         : "border-slate-300 text-slate-700 hover:border-amber-600 hover:text-amber-600"
@@ -550,13 +574,62 @@ function CategoryPage() {
   const sizeHelpLinks = getSizeHelpLinks(t);
   const sortOptions = getSortOptions(t);
 
+  // A category with exactly one subcategory in some group (verified live:
+  // Cushion Covers, Dohars, Hotel Linen for the primary group; a brand-new
+  // category like Comforters can trivially have this on EVERY facet group
+  // too — Size/Material/Bed Size each with a single value until real
+  // variety is added) renders the same product grid at both /category/x
+  // and /category/x/only-sub — a genuine duplicate-content pair, not a
+  // hypothetical one. Rather than remove the subcategory page (it's still
+  // a real, valid URL someone could land on or share), canonicalize it
+  // back to the parent category so Google consolidates ranking signal onto
+  // one URL instead of splitting/flagging it as a duplicate. This used to
+  // only fire for the primary group (checked via !activeSubcategoryIsFacet)
+  // — a facet subcategory that happens to be its group's only member is
+  // just as much a duplicate page, so it's checked directly against the
+  // active subcategory's own group instead of assuming only the primary
+  // group can ever be that thin.
+  const activeSubcategoryOwnGroup = activeSubcategory
+    ? subcategoryGroups.find((g) => g.label === activeSubcategory.groupLabel)
+    : null;
+
+  const activeSubcategoryIsOnlyGroupOption =
+    activeSubcategory && activeSubcategoryOwnGroup?.items.length === 1;
+
+  const canonicalCategoryUrl = activeSubcategoryIsOnlyGroupOption
+    ? `${SITE_URL}/category/${categorySlug}`
+    : `${SITE_URL}/category/${categorySlug}${subcategorySlug ? `/${subcategorySlug}` : ""}`;
+
+  // Built from `products` (the base fetched list for this category/
+  // subcategory), not `sortedProducts` (post-filter/sort) — a bot sees
+  // one static render, and this should describe the page's actual
+  // collection, not whatever a visitor's client-side filter state
+  // happens to be. Capped well under any practical page size so a large
+  // category doesn't bloat the JSON-LD payload; a carousel rich result
+  // only ever needs a representative sample, not the full catalog.
+  const itemListJsonLd = products.length > 0 && {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    itemListElement: products.slice(0, 50).map((p, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      url: `${SITE_URL}${productUrl(p)}`,
+    })),
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
       <Seo
         title={pageTitle}
-        description={`Buy ${pageTitle} online with pan-India delivery at Mittal Collections - fast 24-hour delivery in Ghaziabad. ${category.description || ""}`.trim().slice(0, 160)}
-        url={`${SITE_URL}/category/${categorySlug}${subcategorySlug ? `/${subcategorySlug}` : ""}`}
-        jsonLd={buildBreadcrumbJsonLd(breadcrumbItemsForSeo)}
+        // Shorter fixed wrapper than the old "Buy X online with pan-India
+        // delivery at Mittal Collections - fast 24-hour delivery in
+        // Ghaziabad. " (~85 chars before category.description even
+        // starts) — that left barely any budget for the one thing that
+        // actually differs page to page, making every category's meta
+        // description read as near-identical boilerplate.
+        description={`${pageTitle}: pan-India delivery, 24hr in Ghaziabad. ${category.description || ""}`.trim().slice(0, 160)}
+        url={canonicalCategoryUrl}
+        jsonLd={[buildBreadcrumbJsonLd(breadcrumbItemsForSeo), itemListJsonLd]}
       />
       <Breadcrumbs items={breadcrumbItems} />
       <h1 className="text-xl font-semibold text-slate-800 mb-4">
@@ -565,6 +638,23 @@ function CategoryPage() {
           ? ` / ${t(activeSubcategory.name, activeSubcategory.nameHi)}`
           : ""}
       </h1>
+
+      {/* Already written (used in the <meta description> above) but was
+          never actually shown to a visitor or a crawler — the page had no
+          unique body text of its own, just breadcrumbs + pills + a
+          product grid, which reads as thin/near-duplicate content across
+          every category and subcategory URL. No Hindi field exists on
+          Category/Subcategory yet (unlike name/nameHi), so this stays
+          English-only for now, same as the structured data.
+          A subcategory's own subtitle (Subcategory.subtitle) is more
+          specific to that exact page than the parent category's
+          description — e.g. "Madrasi Towel" gets its own text instead of
+          reusing generic Towels copy — so it takes priority when present. */}
+      {(activeSubcategory?.subtitle || category.description) && (
+        <p className="text-sm text-slate-600 mb-4 max-w-3xl">
+          {activeSubcategory?.subtitle || category.description}
+        </p>
+      )}
 
       {/* Was one full-width card per bundle partner and per guide link —
           on a category with 2 of each (e.g. Doormats: Bedsheets + Cushion
@@ -611,25 +701,26 @@ function CategoryPage() {
           shown as their own labelled row on desktop where there's room. */}
       {primaryGroup && (
         <div className="flex flex-wrap gap-3 mb-4">
-          <button
-            type="button"
+          {/* Real <Link>s, not onClick={navigate} buttons — this pill row
+              is the main path from a category page to its subcategory
+              pages, and a button with no href is invisible to a crawler
+              (ProductCard already gets this right for category->product
+              links; this was the one navigation surface that didn't). */}
+          <Link
+            to={`/category/${categorySlug}`}
             className={pillClass(!activeSubcategory)}
-            onClick={() => navigate(`/category/${categorySlug}`)}
           >
             {t("All", "सभी")}
-          </button>
+          </Link>
 
           {primaryGroup.items.map((sub) => (
-            <button
+            <Link
               key={sub._id}
-              type="button"
+              to={`/category/${categorySlug}/${sub.slug}`}
               className={pillClass(activeSubcategory?._id === sub._id)}
-              onClick={() =>
-                navigate(`/category/${categorySlug}/${sub.slug}`)
-              }
             >
               {t(sub.name, sub.nameHi)}
-            </button>
+            </Link>
           ))}
         </div>
       )}
@@ -641,16 +732,13 @@ function CategoryPage() {
           </p>
           <div className="flex flex-wrap gap-3">
             {group.items.map((sub) => (
-              <button
+              <Link
                 key={sub._id}
-                type="button"
+                to={`/category/${categorySlug}/${sub.slug}`}
                 className={pillClass(activeSubcategory?._id === sub._id)}
-                onClick={() =>
-                  navigate(`/category/${categorySlug}/${sub.slug}`)
-                }
               >
                 {t(sub.name, sub.nameHi)}
-              </button>
+              </Link>
             ))}
           </div>
         </div>
@@ -663,7 +751,7 @@ function CategoryPage() {
             instantly instead of the sheet's draft+Apply flow — see
             toggleSidebarFacet's comment for why that's the right call for
             an always-visible panel. Reuses every bit of existing filter
-            state/logic (priceRangeId, selectedFacetIds, minRating) — same
+            state/logic (priceRange, selectedFacetIds, minRating) — same
             source of truth as the mobile panel, so switching between
             screen widths never desyncs the two. */}
         <aside className="hidden lg:block w-64 shrink-0 sticky top-24 self-start">
@@ -695,29 +783,12 @@ function CategoryPage() {
                 {t("Price", "कीमत")}
               </h3>
 
-              <div className="space-y-2.5">
-                {priceRanges.map((range) => (
-                  <label
-                    key={range.id}
-                    className="flex items-center gap-3 cursor-pointer"
-                  >
-                    <input
-                      type="radio"
-                      name="sidebar-price-range"
-                      checked={priceRangeId === range.id}
-                      onChange={() =>
-                        setPriceRangeId((prev) =>
-                          prev === range.id ? null : range.id,
-                        )
-                      }
-                      className="w-4 h-4 accent-amber-600"
-                    />
-                    <span className="text-sm text-slate-700">
-                      {range.label}
-                    </span>
-                  </label>
-                ))}
-              </div>
+              <PriceRangeSlider
+                min={0}
+                max={absoluteMaxPrice}
+                value={[priceMin, priceMax]}
+                onChange={setPriceRange}
+              />
             </div>
 
             {facetGroups.map((group) => (
@@ -813,13 +884,13 @@ function CategoryPage() {
 
           {activeFilterCount > 0 && (
             <div className="flex flex-wrap gap-2 mb-6">
-              {activePriceRange && (
+              {isPriceActive && (
                 <button
                   type="button"
-                  onClick={() => setPriceRangeId(null)}
+                  onClick={() => setPriceRange(null)}
                   className="flex items-center gap-1.5 bg-amber-50 border border-amber-200 text-amber-800 text-xs font-medium rounded-full pl-3 pr-2 py-1.5"
                 >
-                  {activePriceRange.label}
+                  ₹{priceMin} – ₹{priceMax}
                   <FaTimes className="text-[10px]" />
                 </button>
               )}
@@ -885,25 +956,12 @@ function CategoryPage() {
                   {t("Price", "कीमत")}
                 </h3>
 
-                <div className="space-y-3">
-                  {priceRanges.map((range) => (
-                    <label
-                      key={range.id}
-                      className="flex items-center gap-3 cursor-pointer"
-                    >
-                      <input
-                        type="radio"
-                        name="price-range"
-                        checked={draftPriceRangeId === range.id}
-                        onChange={() => setDraftPriceRangeId(range.id)}
-                        className="w-4 h-4 accent-amber-600"
-                      />
-                      <span className="text-sm text-slate-700">
-                        {range.label}
-                      </span>
-                    </label>
-                  ))}
-                </div>
+                <PriceRangeSlider
+                  min={0}
+                  max={absoluteMaxPrice}
+                  value={[draftPriceMin, draftPriceMax]}
+                  onChange={setDraftPriceRange}
+                />
               </div>
 
               {/* Same Material/Size/Bed Size groups as the desktop pill

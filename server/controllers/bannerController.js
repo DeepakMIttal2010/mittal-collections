@@ -1,5 +1,6 @@
 import Banner from "../models/Banner.js";
 import { deleteCloudinaryAssetsByUrl } from "../utils/cloudinaryCleanup.js";
+import { isSafeLinkUrl } from "../utils/isSafeLinkUrl.js";
 
 // ============================
 // GET ACTIVE BANNERS (Public)
@@ -64,11 +65,16 @@ export const addBanner = async (req, res) => {
   try {
     const {
       subtitle,
+      subtitleHi,
       title,
+      titleHi,
       description,
+      descriptionHi,
       button1Label,
+      button1LabelHi,
       button1Link,
       button2Label,
+      button2LabelHi,
       button2Link,
       displayOrder,
       isActive,
@@ -88,14 +94,26 @@ export const addBanner = async (req, res) => {
       });
     }
 
+    if (!isSafeLinkUrl(button1Link) || !isSafeLinkUrl(button2Link)) {
+      return res.status(400).json({
+        success: false,
+        message: "Button links must be a normal http(s)/mailto/tel URL or a relative path",
+      });
+    }
+
     const banner = await Banner.create({
       image: req.file.path,
       subtitle,
+      subtitleHi,
       title,
+      titleHi,
       description,
+      descriptionHi,
       button1Label,
+      button1LabelHi,
       button1Link,
       button2Label,
+      button2LabelHi,
       button2Link,
       displayOrder: displayOrder || 0,
       isActive: isActive === undefined ? true : isActive === "true",
@@ -107,6 +125,14 @@ export const addBanner = async (req, res) => {
       banner,
     });
   } catch (error) {
+    // imageOptimizer middleware already uploaded req.file to Cloudinary
+    // before this handler ran — if Banner.create() then fails, that
+    // upload is otherwise never cleaned up (same leak class fixed in
+    // productController.js's addProduct).
+    if (req.file) {
+      await deleteCloudinaryAssetsByUrl([req.file.path]);
+    }
+
     console.error("Add Banner Error:", error);
 
     res.status(500).json({
@@ -132,22 +158,42 @@ export const updateBanner = async (req, res) => {
 
     const {
       subtitle,
+      subtitleHi,
       title,
+      titleHi,
       description,
+      descriptionHi,
       button1Label,
+      button1LabelHi,
       button1Link,
       button2Label,
+      button2LabelHi,
       button2Link,
       displayOrder,
       isActive,
     } = req.body;
 
+    if (
+      (button1Link !== undefined && !isSafeLinkUrl(button1Link)) ||
+      (button2Link !== undefined && !isSafeLinkUrl(button2Link))
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Button links must be a normal http(s)/mailto/tel URL or a relative path",
+      });
+    }
+
     if (title !== undefined) banner.title = title;
+    if (titleHi !== undefined) banner.titleHi = titleHi;
     if (subtitle !== undefined) banner.subtitle = subtitle;
+    if (subtitleHi !== undefined) banner.subtitleHi = subtitleHi;
     if (description !== undefined) banner.description = description;
+    if (descriptionHi !== undefined) banner.descriptionHi = descriptionHi;
     if (button1Label !== undefined) banner.button1Label = button1Label;
+    if (button1LabelHi !== undefined) banner.button1LabelHi = button1LabelHi;
     if (button1Link !== undefined) banner.button1Link = button1Link;
     if (button2Label !== undefined) banner.button2Label = button2Label;
+    if (button2LabelHi !== undefined) banner.button2LabelHi = button2LabelHi;
     if (button2Link !== undefined) banner.button2Link = button2Link;
     if (displayOrder !== undefined) banner.displayOrder = displayOrder;
     if (isActive !== undefined) banner.isActive = isActive === "true";

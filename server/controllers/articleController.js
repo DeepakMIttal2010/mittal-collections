@@ -1,6 +1,7 @@
 import Article from "../models/Article.js";
 import { deleteCloudinaryAssetsByUrl } from "../utils/cloudinaryCleanup.js";
 import { sanitizeArticleContent } from "../utils/sanitizeArticleContent.js";
+import { escapeRegex } from "../utils/escapeRegex.js";
 
 const generateSlug = (title) =>
   title
@@ -40,7 +41,7 @@ export const getArticleBySlug = async (req, res) => {
     const article = await Article.findOne({
       slug: req.params.slug,
       isActive: true,
-    });
+    }).populate("category", "name nameHi slug");
 
     if (!article) {
       return res.status(404).json({
@@ -71,8 +72,10 @@ export const getAllArticlesAdmin = async (req, res) => {
     const filter = {};
 
     const { search } = req.query;
-    if (search && search.trim()) {
-      const regex = new RegExp(search.trim(), "i");
+    // typeof guard: a bracket-shaped query param (?search[$ne]=null)
+    // parses to an object, not a string, and .trim() would throw.
+    if (typeof search === "string" && search.trim()) {
+      const regex = new RegExp(escapeRegex(search.trim()), "i");
       filter.title = regex;
     }
 
@@ -171,8 +174,17 @@ export const uploadArticleImage = async (req, res) => {
 // ============================
 export const addArticle = async (req, res) => {
   try {
-    const { title, excerpt, content, titleHi, excerptHi, contentHi, coverImage, isActive } =
-      req.body;
+    const {
+      title,
+      excerpt,
+      content,
+      titleHi,
+      excerptHi,
+      contentHi,
+      coverImage,
+      category,
+      isActive,
+    } = req.body;
 
     if (!title || !content) {
       return res.status(400).json({
@@ -201,6 +213,7 @@ export const addArticle = async (req, res) => {
       excerptHi: excerptHi || "",
       contentHi: sanitizeArticleContent(contentHi),
       coverImage: coverImage || "",
+      category: category || null,
       isActive: isActive === undefined ? true : isActive === true || isActive === "true",
     });
 
@@ -233,8 +246,17 @@ export const updateArticle = async (req, res) => {
       });
     }
 
-    const { title, excerpt, content, titleHi, excerptHi, contentHi, coverImage, isActive } =
-      req.body;
+    const {
+      title,
+      excerpt,
+      content,
+      titleHi,
+      excerptHi,
+      contentHi,
+      coverImage,
+      category,
+      isActive,
+    } = req.body;
 
     if (title && title !== article.title) {
       article.title = title;
@@ -247,6 +269,10 @@ export const updateArticle = async (req, res) => {
     if (excerptHi !== undefined) article.excerptHi = excerptHi;
     if (contentHi !== undefined)
       article.contentHi = sanitizeArticleContent(contentHi);
+    // "" from a cleared <select> means "no category" -- both undefined
+    // (field not sent) and "" need distinct handling, so this can't
+    // reuse the `!== undefined` pattern the other optional fields use.
+    if (category !== undefined) article.category = category || null;
 
     let oldCoverImage = null;
     if (coverImage !== undefined && coverImage !== article.coverImage) {

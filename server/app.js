@@ -47,15 +47,21 @@ import { classifyKnownErrors, jsonErrorHandler } from "./middleware/errorHandler
 
 const app = express();
 
-// Render sits behind exactly one reverse proxy — trust X-Forwarded-For
-// so req.ip reflects the real visitor IP (needed for geo-location
-// lookups). `true` (trust every hop, no matter how many) lets a client
-// spoof its own X-Forwarded-For and pick whatever req.ip it wants,
-// which trivially defeats every IP-keyed rate limiter below (auth
-// brute-force protection included) — express-rate-limit's own startup
-// check flags this. `1` trusts exactly the nearest hop (Render's LB)
-// and ignores anything further down the chain, i.e. attacker-supplied.
-app.set("trust proxy", 1);
+// Two reverse proxies actually sit in front of the app, not one —
+// confirmed via a real captured X-Forwarded-For (2026-09-19):
+// "<real client>, <Cloudflare edge IP>, <Render's internal LB>", with
+// Render's LB as the actual TCP peer. `trust proxy: 1` only trusted
+// that nearest hop, so req.ip resolved to Render's own private LB
+// address on every request — geo-location lookups always failed since
+// that's not a real public IP, and every visit's location silently
+// showed blank in the reports. `true` (trust every hop, no matter how
+// many) lets a client spoof its own X-Forwarded-For and pick whatever
+// req.ip it wants, which trivially defeats every IP-keyed rate limiter
+// below (auth brute-force protection included) — express-rate-limit's
+// own startup check flags this. `2` trusts exactly these two known
+// hops and ignores anything further down the chain, i.e.
+// attacker-supplied.
+app.set("trust proxy", 2);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -66,9 +72,19 @@ const __dirname = path.dirname(__filename);
 const ALLOWED_ORIGINS = [
   "https://www.mittalcollections.com",
   "https://mittalcollections.com",
-  "http://localhost:5173",
-  "http://localhost:3000",
 ];
+
+// Vite picks the next free port (5174, 5175, ...) whenever 5173 is
+// already in use by another local dev server — confirmed live in Sentry
+// as recurring "Not allowed by CORS" noise from exactly this (a local
+// `npm run dev` client, whose VITE_API_URL points at this production
+// API, landing on a port other than the one hardcoded port this list
+// used to allow). Matching any localhost port is still safe: CORS only
+// restricts which origins a *browser* will let JS call this API from,
+// and "localhost" only ever resolves to the machine making the request
+// — there's no origin an external attacker could spoof to pass this.
+const isAllowedOrigin = (origin) =>
+  ALLOWED_ORIGINS.includes(origin) || /^http:\/\/localhost:\d+$/.test(origin);
 
 // Middlewares
 app.use(
@@ -85,7 +101,7 @@ app.use(compression());
 app.use(
   cors({
     origin: (origin, callback) => {
-      if (!origin || ALLOWED_ORIGINS.includes(origin)) {
+      if (!origin || isAllowedOrigin(origin)) {
         return callback(null, true);
       }
 

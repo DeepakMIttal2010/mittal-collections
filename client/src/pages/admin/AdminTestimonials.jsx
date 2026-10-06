@@ -139,10 +139,11 @@ function AdminTestimonials() {
         className="bg-white border border-slate-200 rounded-xl p-6 mb-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 items-end"
       >
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">
+          <label htmlFor="testimonialName" className="block text-sm font-medium text-slate-700 mb-1">
             Name
           </label>
           <input
+            id="testimonialName"
             type="text"
             name="name"
             value={formData.name}
@@ -153,10 +154,11 @@ function AdminTestimonials() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">
+          <label htmlFor="testimonialCity" className="block text-sm font-medium text-slate-700 mb-1">
             City
           </label>
           <input
+            id="testimonialCity"
             type="text"
             name="city"
             value={formData.city}
@@ -167,10 +169,11 @@ function AdminTestimonials() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">
+          <label htmlFor="testimonialRating" className="block text-sm font-medium text-slate-700 mb-1">
             Rating
           </label>
           <select
+            id="testimonialRating"
             name="rating"
             value={formData.rating}
             onChange={handleChange}
@@ -185,10 +188,11 @@ function AdminTestimonials() {
         </div>
 
         <div className="sm:col-span-2 lg:col-span-2">
-          <label className="block text-sm font-medium text-slate-700 mb-1">
+          <label htmlFor="testimonialReview" className="block text-sm font-medium text-slate-700 mb-1">
             Review (optional)
           </label>
           <input
+            id="testimonialReview"
             type="text"
             name="review"
             placeholder="What the customer said"
@@ -199,10 +203,11 @@ function AdminTestimonials() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">
+          <label htmlFor="testimonialDisplayOrder" className="block text-sm font-medium text-slate-700 mb-1">
             Order
           </label>
           <input
+            id="testimonialDisplayOrder"
             type="number"
             name="displayOrder"
             value={formData.displayOrder}

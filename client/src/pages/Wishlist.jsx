@@ -1,11 +1,14 @@
 import { imgUrl } from "../services/api";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
 import { FaTrash, FaShoppingCart } from "react-icons/fa";
 
 import { useWishlist } from "../context/WishlistContext";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
+import { productUrl } from "../utils/productUrl";
+import { handleImageError } from "../utils/imageFallback";
 import Seo from "../components/Seo";
 
 function Wishlist() {
@@ -14,6 +17,27 @@ function Wishlist() {
   const { addToCart } = useCart();
   const { isLoggedIn } = useAuth();
   const { t } = useLanguage();
+  const navigate = useNavigate();
+
+  // A wishlisted product with variants (different sizes, each its own
+  // price/stock) can't be added directly — CartContext falls back to the
+  // top-level price/stock when no variant is given, which only ever
+  // mirrors the FIRST size. That silently charges whatever that size
+  // costs and never reserves stock for the size the customer actually
+  // wants. Send them to the product page to pick one, same as browsing
+  // normally would require.
+  const handleAddToCart = (item) => {
+    if (item.variants?.length > 0) {
+      toast.info(
+        t("Please select a size on the product page", "प्रोडक्ट पेज पर साइज़ चुनें"),
+      );
+      navigate(productUrl(item));
+      return;
+    }
+
+    addToCart(item);
+    removeFromWishlist(item._id);
+  };
 
   const hasItems = wishlistItems && wishlistItems.length > 0;
 
@@ -60,17 +84,18 @@ function Wishlist() {
                 className="border border-slate-200 rounded-xl bg-white overflow-hidden"
               >
                 <img
-                  src={`${imgUrl(item.image)}`}
-                  alt={item.name}
+                  src={`${imgUrl(item.image, "w_400,q_auto,f_auto")}`}
+                  alt={t(item.name, item.nameHi)}
                   className="w-full h-48 object-cover"
+                  onError={handleImageError}
                 />
 
                 <div className="p-4">
                   <h3 className="font-medium text-slate-800 truncate">
-                    {item.name}
+                    {t(item.name, item.nameHi)}
                   </h3>
                   <p className="text-sm text-slate-500">
-                    {item.category?.name || item.category}
+                    {t(item.category?.name || item.category, item.category?.nameHi)}
                   </p>
                   <p className="text-lg font-semibold text-green-700 mt-1">
                     ₹{item.price}
@@ -79,10 +104,7 @@ function Wishlist() {
                   <div className="flex flex-col gap-2 mt-4">
                     <button
                       type="button"
-                      onClick={() => {
-                        addToCart(item);
-                        removeFromWishlist(item._id);
-                      }}
+                      onClick={() => handleAddToCart(item)}
                       className="flex items-center justify-center gap-2 bg-blue-900 hover:bg-blue-950 text-white text-sm font-medium py-2.5 rounded-lg transition-colors"
                     >
                       <FaShoppingCart />

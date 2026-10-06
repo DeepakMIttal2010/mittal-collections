@@ -18,6 +18,7 @@ import {
 import { imgUrl } from "../../services/api";
 import { productUrl } from "../../utils/productUrl";
 import { stripHtml } from "../../utils/stripHtml";
+import { useModalA11y } from "../../hooks/useModalA11y";
 
 const CANVAS_W = 1080;
 const CANVAS_H = 1920;
@@ -558,6 +559,10 @@ const pickVideoMimeType = () => {
 
 function ShareProductModal({ product, onClose }) {
   const isOffline = product.visibility === "offline";
+  // Shared across both the "offline, can't share" early-return panel and
+  // the main share panel below — only one of the two ever renders, so one
+  // ref/call covers both.
+  const panelRef = useModalA11y(true, onClose);
   const canvasRef = useRef(null);
   const videoCanvasRef = useRef(null);
   const [mode, setMode] = useState("image");
@@ -1059,6 +1064,11 @@ function ShareProductModal({ product, onClose }) {
         className="fixed inset-0 z-[1000] bg-black/50 flex items-center justify-center p-4"
       >
         <div
+          ref={panelRef}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Share Product"
+          tabIndex={-1}
           onClick={(e) => e.stopPropagation()}
           className="relative bg-white rounded-xl shadow-2xl w-full max-w-md p-8 text-center"
         >
@@ -1095,6 +1105,11 @@ function ShareProductModal({ product, onClose }) {
       className="fixed inset-0 z-[1000] bg-black/50 flex items-center justify-center p-4"
     >
       <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Share Product"
+        tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
         className="relative bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] grid-rows-[minmax(0,1fr)]"
       >

@@ -1,4 +1,5 @@
 import express from "express";
+import validateObjectId from "../middleware/validateObjectId.js";
 import { uploadProductMedia } from "../middleware/uploadMiddleware.js";
 import imageOptimizer from "../middleware/imageOptimizer.js";
 import authMiddleware from "../middleware/authMiddleware.js";
@@ -16,7 +17,7 @@ import {
   getTrendingProductsByCategory,
   getNewArrivalProducts,
   getNewArrivalsByCategory,
-  getGiftingProducts,
+  getGiftingProductsByCategory,
   getBestSellers,
   getBigSavingsProducts,
   getSearchSuggestions,
@@ -30,6 +31,8 @@ import {
 } from "../controllers/productController.js";
 
 const router = express.Router();
+
+router.param("id", validateObjectId);
 const perm = requirePermission("products");
 const canCreate = requireWriteAccess("products", "new");
 const canModify = requireWriteAccess("products", "modified");
@@ -40,7 +43,7 @@ router.get("/trending", getTrendingProducts);
 router.get("/trending-by-category", getTrendingProductsByCategory);
 router.get("/new-arrivals", getNewArrivalProducts);
 router.get("/new-arrivals-by-category", getNewArrivalsByCategory);
-router.get("/gifting", getGiftingProducts);
+router.get("/gifting", getGiftingProductsByCategory);
 router.get("/best-sellers", getBestSellers);
 router.get("/big-savings", getBigSavingsProducts);
 router.get("/suggestions", getSearchSuggestions);

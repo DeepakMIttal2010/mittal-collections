@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import Review from "../models/Review.js";
 import Order from "../models/Order.js";
 import cloudinary from "../config/cloudinary.js";
@@ -57,22 +58,54 @@ export const getProductReviews = async (req, res) => {
 // SUBMIT REVIEW (Logged-in user)
 // ============================
 export const submitReview = async (req, res) => {
+  // uploadReviewMedia + imageOptimizer run before this controller, so by
+  // the time we get here any images/video are already live Cloudinary
+  // assets — every early-return/error path below must clean these up
+  // (same leak class already fixed for bannerController.js's addBanner),
+  // or a rejected/failed submission leaves orphaned uploads behind.
+  const uploadedUrls = [
+    ...(req.files?.images || []).map((file) => file.path),
+    ...(req.files?.video ? [req.files.video[0].path] : []),
+  ];
+
   try {
     const { productId, rating, title, content } = req.body;
 
-    if (!productId || !rating || !content) {
+    // productId comes straight from the request body (unlike a route
+    // param, which Express always parses as a plain string) — an object
+    // payload like {"$gt": ""} here would otherwise flow into the
+    // Review.findOne/Order.findOne queries below as a raw Mongo query
+    // operator instead of a literal id. The explicit typeof check (not
+    // just ObjectId.isValid, which also accepts 12-byte buffers) is
+    // what closes off an object-shaped payload in a way static analysis
+    // can actually verify.
+    if (
+      typeof productId !== "string" ||
+      !mongoose.Types.ObjectId.isValid(productId) ||
+      !rating ||
+      !content
+    ) {
+      await deleteCloudinaryAssetsByUrl(uploadedUrls);
+
       return res.status(400).json({
         success: false,
         message: "Product, rating and content are required",
       });
     }
 
+    // A real ObjectId instance (not just a validated string) for the
+    // raw query-filter/document objects below — guarantees those object
+    // literals can never carry an object-shaped value.
+    const safeProductId = new mongoose.Types.ObjectId(productId);
+
     const existing = await Review.findOne({
-      product: productId,
+      product: safeProductId,
       user: req.user._id,
     });
 
     if (existing) {
+      await deleteCloudinaryAssetsByUrl(uploadedUrls);
+
       return res.status(400).json({
         success: false,
         message: "You have already reviewed this product",
@@ -88,6 +121,9 @@ export const submitReview = async (req, res) => {
         await cloudinary.uploader.destroy(videoFile.cloudinaryResult.public_id, {
           resource_type: "video",
         });
+        await deleteCloudinaryAssetsByUrl(
+          (req.files?.images || []).map((file) => file.path),
+        );
 
         return res.status(400).json({
           success: false,
@@ -100,15 +136,18 @@ export const submitReview = async (req, res) => {
 
     // Only reviews tied to a Delivered order count toward the per-order
     // bonus cap — a review with no matching order just gets the flat
-    // amount uncapped (e.g. seeded/legacy data).
+    // amount uncapped (e.g. seeded/legacy data). Deliberately NOT a
+    // gate on submission itself — any logged-in customer can review a
+    // product they haven't bought (no "Verified Purchase" requirement),
+    // confirmed intentional by this file's own test coverage.
     const order = await Order.findOne({
       user: req.user._id,
       orderStatus: "Delivered",
-      "orderItems.product": productId,
+      "orderItems.product": safeProductId,
     }).sort({ createdAt: -1 });
 
     const review = await Review.create({
-      product: productId,
+      product: safeProductId,
       user: req.user._id,
       order: order?._id || null,
       rating,
@@ -124,6 +163,20 @@ export const submitReview = async (req, res) => {
       review,
     });
   } catch (error) {
+    // The unique {product, user} index (see Review.js) is what actually
+    // stops two concurrent submissions from both creating a review — the
+    // findOne check above can't fully close that race. Surface the
+    // loser's duplicate-key error as the same message the check above
+    // gives, not a generic 500.
+    await deleteCloudinaryAssetsByUrl(uploadedUrls);
+
+    if (error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: "You have already reviewed this product",
+      });
+    }
+
     console.error("Submit Review Error:", error);
 
     res.status(500).json({
@@ -170,10 +223,14 @@ export const getAllReviewsAdmin = async (req, res) => {
   try {
     const sortOrder = req.query.sortOrder === "asc" ? 1 : -1;
 
+    // Safety ceiling, not real pagination — see getAllOrders' own
+    // comment (orderController.js) for why this pattern was chosen here
+    // over a full pagination rework.
     const reviews = await Review.find()
       .populate("user", "name email")
       .populate("product", "name image")
-      .sort({ createdAt: sortOrder });
+      .sort({ createdAt: sortOrder })
+      .limit(2000);
 
     res.status(200).json({
       success: true,

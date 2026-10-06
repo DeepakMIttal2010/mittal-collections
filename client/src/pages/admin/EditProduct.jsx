@@ -94,6 +94,7 @@ function EditProduct() {
     countryOfOrigin: "",
     whatsIncluded: "",
     colorVariesNote: "",
+    colorVariesNoteHi: "",
     localDeliveryOnly: false,
     adminRemarks: "",
     isReturnable: true,
@@ -174,6 +175,7 @@ function EditProduct() {
         countryOfOrigin: product.countryOfOrigin || "",
         whatsIncluded: product.whatsIncluded || "",
         colorVariesNote: product.colorVariesNote || "",
+        colorVariesNoteHi: product.colorVariesNoteHi || "",
         localDeliveryOnly: product.localDeliveryOnly || false,
         adminRemarks: product.adminRemarks || "",
         isReturnable:
@@ -514,9 +516,10 @@ function EditProduct() {
 
       <form className="product-form" onSubmit={handleSubmit}>
         <div className="form-group">
-          <label>Product Name</label>
+          <label htmlFor="name">Product Name</label>
 
           <input
+            id="name"
             type="text"
             name="name"
             value={formData.name}
@@ -538,9 +541,10 @@ function EditProduct() {
         </div>
 
         <div className="form-group">
-          <label>Product Name (Hindi, optional)</label>
+          <label htmlFor="nameHi">Product Name (Hindi, optional)</label>
 
           <input
+            id="nameHi"
             type="text"
             name="nameHi"
             placeholder="हिंदी में प्रोडक्ट का नाम"
@@ -563,11 +567,12 @@ function EditProduct() {
 
         <div className="form-row">
           <div className="form-group">
-            <label>
+            <label htmlFor="price">
               Price{hasVariants ? " (auto, from first size below)" : ""}
             </label>
 
             <input
+              id="price"
               type="number"
               name="price"
               value={formData.price}
@@ -577,11 +582,12 @@ function EditProduct() {
           </div>
 
           <div className="form-group">
-            <label>
+            <label htmlFor="oldPrice">
               Old Price{hasVariants ? " (auto, from first size below)" : ""}
             </label>
 
             <input
+              id="oldPrice"
               type="number"
               name="oldPrice"
               value={formData.oldPrice}
@@ -593,9 +599,10 @@ function EditProduct() {
 
         <div className="form-row">
           <div className="form-group">
-            <label>Stock{hasVariants ? " (auto, sum of sizes below)" : ""}</label>
+            <label htmlFor="stock">Stock{hasVariants ? " (auto, sum of sizes below)" : ""}</label>
 
             <input
+              id="stock"
               type="number"
               name="stock"
               value={formData.stock}
@@ -605,9 +612,10 @@ function EditProduct() {
           </div>
 
           <div className="form-group">
-            <label>Category</label>
+            <label htmlFor="category">Category</label>
 
             <select
+              id="category"
               name="category"
               value={formData.category}
               onChange={handleChange}
@@ -696,8 +704,9 @@ function EditProduct() {
                 style={{ alignItems: "flex-end" }}
               >
                 <div className="form-group">
-                  <label>Size</label>
+                  <label htmlFor={`variant-size-${index}`}>Size</label>
                   <input
+                    id={`variant-size-${index}`}
                     type="text"
                     placeholder="e.g. 7x4"
                     value={variant.size}
@@ -707,8 +716,9 @@ function EditProduct() {
                   />
                 </div>
                 <div className="form-group">
-                  <label>Price</label>
+                  <label htmlFor={`variant-price-${index}`}>Price</label>
                   <input
+                    id={`variant-price-${index}`}
                     type="number"
                     value={variant.price}
                     onChange={(e) =>
@@ -717,8 +727,9 @@ function EditProduct() {
                   />
                 </div>
                 <div className="form-group">
-                  <label>MRP</label>
+                  <label htmlFor={`variant-oldPrice-${index}`}>MRP</label>
                   <input
+                    id={`variant-oldPrice-${index}`}
                     type="number"
                     value={variant.oldPrice}
                     onChange={(e) =>
@@ -727,8 +738,9 @@ function EditProduct() {
                   />
                 </div>
                 <div className="form-group">
-                  <label>Stock</label>
+                  <label htmlFor={`variant-stock-${index}`}>Stock</label>
                   <input
+                    id={`variant-stock-${index}`}
                     type="number"
                     value={variant.stock}
                     onChange={(e) =>
@@ -737,10 +749,11 @@ function EditProduct() {
                   />
                 </div>
                 <div className="form-group">
-                  <label title="Internal cost, not shown to customers">
+                  <label htmlFor={`variant-purchasePrice-${index}`} title="Internal cost, not shown to customers">
                     Purchase Price
                   </label>
                   <input
+                    id={`variant-purchasePrice-${index}`}
                     type="number"
                     value={variant.purchasePrice}
                     onChange={(e) =>
@@ -769,9 +782,10 @@ function EditProduct() {
 
         <div className="form-row">
           <div className="form-group">
-            <label>Fabric (optional)</label>
+            <label htmlFor="fabric">Fabric (optional)</label>
 
             <input
+              id="fabric"
               type="text"
               name="fabric"
               placeholder="e.g. 100% Cotton"
@@ -781,9 +795,10 @@ function EditProduct() {
           </div>
 
           <div className="form-group">
-            <label>Size (optional)</label>
+            <label htmlFor="size">Size (optional)</label>
 
             <input
+              id="size"
               type="text"
               name="size"
               placeholder="e.g. 90 x 100 inches"
@@ -795,9 +810,10 @@ function EditProduct() {
 
         <div className="form-row">
           <div className="form-group">
-            <label>Colour (optional)</label>
+            <label htmlFor="color">Colour (optional)</label>
 
             <input
+              id="color"
               type="text"
               name="color"
               placeholder="e.g. Sage Green"
@@ -807,9 +823,10 @@ function EditProduct() {
           </div>
 
           <div className="form-group">
-            <label>Pattern (optional)</label>
+            <label htmlFor="pattern">Pattern (optional)</label>
 
             <input
+              id="pattern"
               type="text"
               name="pattern"
               placeholder="e.g. Floral"
@@ -821,9 +838,10 @@ function EditProduct() {
 
         <div className="form-row">
           <div className="form-group">
-            <label>GSM (optional)</label>
+            <label htmlFor="gsm">GSM (optional)</label>
 
             <input
+              id="gsm"
               type="text"
               name="gsm"
               placeholder="e.g. 180 GSM"
@@ -833,9 +851,10 @@ function EditProduct() {
           </div>
 
           <div className="form-group">
-            <label>Wash Care (optional)</label>
+            <label htmlFor="washCare">Wash Care (optional)</label>
 
             <input
+              id="washCare"
               type="text"
               name="washCare"
               placeholder="e.g. Machine wash cold"
@@ -847,9 +866,10 @@ function EditProduct() {
 
         <div className="form-row">
           <div className="form-group">
-            <label>Brand (optional)</label>
+            <label htmlFor="brand">Brand (optional)</label>
 
             <input
+              id="brand"
               type="text"
               name="brand"
               placeholder="e.g. Mittal Collections"
@@ -859,9 +879,10 @@ function EditProduct() {
           </div>
 
           <div className="form-group">
-            <label>Country of Origin (optional)</label>
+            <label htmlFor="countryOfOrigin">Country of Origin (optional)</label>
 
             <input
+              id="countryOfOrigin"
               type="text"
               name="countryOfOrigin"
               placeholder="e.g. India"
@@ -872,9 +893,10 @@ function EditProduct() {
         </div>
 
         <div className="form-group">
-          <label>What's Included (optional)</label>
+          <label htmlFor="whatsIncluded">What's Included (optional)</label>
 
           <input
+            id="whatsIncluded"
             type="text"
             name="whatsIncluded"
             placeholder="e.g. Set of 5 Cushion Covers"
@@ -884,9 +906,10 @@ function EditProduct() {
         </div>
 
         <div className="form-group">
-          <label>Colour Variation Notice (optional)</label>
+          <label htmlFor="colorVariesNote">Colour Variation Notice (optional)</label>
 
           <input
+            id="colorVariesNote"
             type="text"
             name="colorVariesNote"
             placeholder="e.g. Available in multiple colours - same quality. We'll send any available colour unless you confirm a specific one via Contact Us."
@@ -896,11 +919,25 @@ function EditProduct() {
         </div>
 
         <div className="form-group">
-          <label>
+          <label htmlFor="colorVariesNoteHi">Colour Variation Notice (Hindi, optional)</label>
+
+          <input
+            id="colorVariesNoteHi"
+            type="text"
+            name="colorVariesNoteHi"
+            placeholder="हिंदी में नोटिस — खाली छोड़ने पर अंग्रेज़ी वाला ही दिखेगा"
+            value={formData.colorVariesNoteHi}
+            onChange={handleChange}
+          />
+        </div>
+
+        <div className="form-group">
+          <label htmlFor="adminRemarks">
             Admin Remarks / Audit Note (optional, not shown to customers)
           </label>
 
           <textarea
+            id="adminRemarks"
             name="adminRemarks"
             rows="3"
             placeholder="e.g. Verified pricing and photos on 8 Sep 2026 - OK from my side."
@@ -923,9 +960,9 @@ function EditProduct() {
         </div>
 
         <div className="form-group">
-          <label>Product Images</label>
+          <label htmlFor="productImages">Product Images</label>
 
-          <input type="file" accept="image/*" multiple onChange={handleAddImages} />
+          <input id="productImages" type="file" accept="image/*" multiple onChange={handleAddImages} />
         </div>
 
         <div className="checkbox-row">
@@ -1002,9 +1039,10 @@ function EditProduct() {
         )}
 
         <div className="form-group">
-          <label>Product Videos (optional, max 2)</label>
+          <label htmlFor="productVideos">Product Videos (optional, max 2)</label>
 
           <input
+            id="productVideos"
             type="file"
             accept="video/mp4,video/webm,video/quicktime"
             multiple
@@ -1043,9 +1081,10 @@ function EditProduct() {
         )}
 
         <div className="form-group">
-          <label>Show Product</label>
+          <label htmlFor="visibility">Show Product</label>
 
           <select
+            id="visibility"
             name="visibility"
             value={formData.visibility}
             onChange={handleChange}
@@ -1151,9 +1190,10 @@ function EditProduct() {
         {formData.isReturnable && (
           <div className="form-row">
             <div className="form-group">
-              <label>Custom Return Period (days, optional)</label>
+              <label htmlFor="returnPeriodDays">Custom Return Period (days, optional)</label>
 
               <input
+                id="returnPeriodDays"
                 type="number"
                 name="returnPeriodDays"
                 min="0"
@@ -1168,9 +1208,10 @@ function EditProduct() {
         {formData.isTrending && (
           <div className="form-row">
             <div className="form-group">
-              <label>Trending Rank (lower shows first)</label>
+              <label htmlFor="trendingRank">Trending Rank (lower shows first)</label>
 
               <input
+                id="trendingRank"
                 type="number"
                 name="trendingRank"
                 value={formData.trendingRank}
@@ -1184,9 +1225,10 @@ function EditProduct() {
         {formData.restockAlertEnabled && (
           <div className="form-row">
             <div className="form-group">
-              <label>Alert when stock falls to or below</label>
+              <label htmlFor="restockAlertQuantity">Alert when stock falls to or below</label>
 
               <input
+                id="restockAlertQuantity"
                 type="number"
                 name="restockAlertQuantity"
                 placeholder="e.g. 10"
@@ -1206,9 +1248,10 @@ function EditProduct() {
 
         <div className="form-row">
           <div className="form-group">
-            <label>Purchase Price</label>
+            <label htmlFor="purchasePrice">Purchase Price</label>
 
             <input
+              id="purchasePrice"
               type="number"
               name="purchasePrice"
               placeholder="What you paid for it"
@@ -1220,9 +1263,10 @@ function EditProduct() {
           </div>
 
           <div className="form-group">
-            <label>Misc Exps</label>
+            <label htmlFor="miscExpenses">Misc Exps</label>
 
             <input
+              id="miscExpenses"
               type="number"
               name="miscExpenses"
               placeholder="Packing, transport, etc."
@@ -1235,9 +1279,10 @@ function EditProduct() {
 
         <div className="form-row">
           <div className="form-group">
-            <label>Total Cost</label>
+            <label htmlFor="totalCost">Total Cost</label>
 
             <input
+              id="totalCost"
               type="text"
               value={`₹${Math.round(Number(formData.purchasePrice) || 0) + Math.round(Number(formData.miscExpenses) || 0)}`}
               disabled
@@ -1245,9 +1290,10 @@ function EditProduct() {
           </div>
 
           <div className="form-group">
-            <label>Purchase Date</label>
+            <label htmlFor="purchaseDate">Purchase Date</label>
 
             <input
+              id="purchaseDate"
               type="date"
               name="purchaseDate"
               value={formData.purchaseDate}

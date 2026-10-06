@@ -40,6 +40,25 @@ const offlineSaleItemSchema = new mongoose.Schema(
       min: 0,
     },
 
+    // The product/variant's real catalog price at the moment of sale,
+    // captured alongside unitPrice so a deviation is always auditable
+    // later even if the product's price has since changed. Equal to
+    // unitPrice on a normal sale; only diverges when a staff member
+    // typed a different price in (haggling, a damaged-item discount,
+    // a mistake) — see priceOverrideReason below, required by
+    // posController.js whenever these two differ.
+    originalPrice: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+
+    priceOverrideReason: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
     subtotal: {
       type: Number,
       required: true,
@@ -122,6 +141,55 @@ const offlineSaleSchema = new mongoose.Schema(
     // which staff member/device processed the sale even if that
     // admin's account details change later.
     soldByMobile: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    // A completed sale had no way to be undone — a mis-scanned item or a
+    // walk-away customer left stock permanently short with no way to get
+    // it back through the app. Voiding restores stock and claws back any
+    // loyalty points, same as a return, but keeps the sale document
+    // itself (not deleted) as an audit trail of what happened.
+    voided: {
+      type: Boolean,
+      default: false,
+    },
+
+    voidedAt: {
+      type: Date,
+      default: null,
+    },
+
+    voidedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+
+    voidReason: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    // Set only when an already-recorded sale is later corrected (a
+    // mis-scanned quantity, wrong price typed in) via updateOfflineSale
+    // — items/totalAmount always reflect the CURRENT version; this is
+    // just "was this touched after creation, by whom, and why," not a
+    // full version history.
+    lastEditedAt: {
+      type: Date,
+      default: null,
+    },
+
+    lastEditedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+
+    editReason: {
       type: String,
       default: "",
       trim: true,

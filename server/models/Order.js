@@ -8,6 +8,21 @@ const orderSchema = new mongoose.Schema(
       required: true,
     },
 
+    // A UUID Checkout.jsx generates once per checkout attempt and
+    // resends unchanged on any retry of that same submission (a flaky
+    // network auto-retry, or the same click landing twice) — the
+    // partial unique index below (scoped per user, only when this is
+    // actually set) is what stops that from creating two real orders
+    // for one checkout action. Every other race in createOrder
+    // (stock, loyalty points, first-order coupon) is already claimed
+    // atomically per-item/per-resource, but nothing previously stopped
+    // two fully-valid, independently-successful requests from both
+    // reaching Order.create() for the same checkout.
+    clientRequestId: {
+      type: String,
+      default: null,
+    },
+
     orderItems: [
       {
         product: {
@@ -155,6 +170,22 @@ const orderSchema = new mongoose.Schema(
       default: false,
     },
 
+    // Recorded only on the specific order whose Delivered transition
+    // actually triggered the one-time referral payout (User.referralRewarded
+    // is a per-user flag, not per-order) — exactly the amounts paid to
+    // each side at that moment, not re-derived from current
+    // ReferralSettings later (those can change), so a later clawback (this
+    // same order getting cancelled/returned) reverses precisely what was
+    // given, no more and no less.
+    referralBonusPaid: {
+      type: Boolean,
+      default: false,
+    },
+    referralBonusPoints: {
+      referrer: { type: Number, default: 0 },
+      referred: { type: Number, default: 0 },
+    },
+
     orderStatus: {
       type: String,
       enum: ["Pending", "Processing", "Shipped", "Delivered", "Cancelled"],
@@ -197,6 +228,17 @@ const orderSchema = new mongoose.Schema(
       default: "",
     },
 
+    // Set only in the narrow race where a Razorpay payment is verified
+    // (valid signature — money genuinely taken) AFTER the stale-order
+    // cron already cancelled this same order and restored its stock.
+    // The order is left Cancelled rather than silently auto-revived
+    // (stock may already be sold to someone else) — this flags it for
+    // an admin to manually refund or manually re-fulfill.
+    paidAfterCancellation: {
+      type: Boolean,
+      default: false,
+    },
+
     isSeenByAdmin: {
       type: Boolean,
       default: false,
@@ -237,6 +279,10 @@ orderSchema.index({ "orderItems.product": 1 });
 // unseen-orders query both sort by createdAt without a user filter.
 orderSchema.index({ createdAt: -1 });
 orderSchema.index({ isSeenByAdmin: 1, createdAt: -1 });
+orderSchema.index(
+  { user: 1, clientRequestId: 1 },
+  { unique: true, partialFilterExpression: { clientRequestId: { $type: "string" } } },
+);
 
 const Order = mongoose.model("Order", orderSchema);
 

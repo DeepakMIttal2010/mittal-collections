@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import request from "supertest";
 import mongoose from "mongoose";
+import crypto from "crypto";
 
 import "./setup.js";
 import app from "../app.js";
@@ -545,5 +546,90 @@ describe("Order status transition validation", () => {
 
     expect(res.status).toBe(200);
     expect((await Order.findById(order._id)).orderStatus).toBe("Shipped");
+  });
+});
+
+describe("POST /api/orders/verify-payment", () => {
+  const razorpayOrderId = "order_test123";
+  const razorpayPaymentId = "pay_test456";
+
+  const validSignature = () =>
+    crypto
+      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+      .update(`${razorpayOrderId}|${razorpayPaymentId}`)
+      .digest("hex");
+
+  const verify = (token, orderId, signature) =>
+    request(app)
+      .post("/api/orders/verify-payment")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        orderId,
+        razorpay_order_id: razorpayOrderId,
+        razorpay_payment_id: razorpayPaymentId,
+        razorpay_signature: signature,
+      });
+
+  it("rejects an invalid signature without marking the order paid", async () => {
+    const user = await createUser();
+    const token = signToken(user);
+    const order = await createTestOrder({
+      user: user._id,
+      paymentMethod: "Razorpay",
+      razorpayOrderId,
+    });
+
+    const res = await verify(token, order._id, "not-the-real-signature");
+
+    expect(res.status).toBe(400);
+    expect((await Order.findById(order._id)).isPaid).toBe(false);
+  });
+
+  it("marks a Pending order paid on a valid signature", async () => {
+    const user = await createUser();
+    const token = signToken(user);
+    const order = await createTestOrder({
+      user: user._id,
+      paymentMethod: "Razorpay",
+      razorpayOrderId,
+      orderStatus: "Pending",
+    });
+
+    const res = await verify(token, order._id, validSignature());
+
+    expect(res.status).toBe(200);
+
+    const reloaded = await Order.findById(order._id);
+    expect(reloaded.isPaid).toBe(true);
+    expect(reloaded.razorpayPaymentId).toBe(razorpayPaymentId);
+    expect(reloaded.paidAfterCancellation).toBe(false);
+    expect(reloaded.orderStatus).toBe("Pending");
+  });
+
+  // The stale-order cron can cancel (and restore stock for) an order
+  // before a delayed verify call arrives with proof the customer was
+  // actually charged — this must never be silently swallowed: the
+  // payment fact has to be recorded and clearly flagged, without
+  // pretending the order was quietly un-cancelled (stock may already be
+  // gone).
+  it("flags paidAfterCancellation instead of silently reviving a Cancelled order", async () => {
+    const user = await createUser();
+    const token = signToken(user);
+    const order = await createTestOrder({
+      user: user._id,
+      paymentMethod: "Razorpay",
+      razorpayOrderId,
+      orderStatus: "Cancelled",
+    });
+
+    const res = await verify(token, order._id, validSignature());
+
+    expect(res.status).toBe(200);
+
+    const reloaded = await Order.findById(order._id);
+    expect(reloaded.isPaid).toBe(true);
+    expect(reloaded.paidAfterCancellation).toBe(true);
+    // Still Cancelled — not auto-revived.
+    expect(reloaded.orderStatus).toBe("Cancelled");
   });
 });

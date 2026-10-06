@@ -4,11 +4,13 @@ import { FaBell } from "react-icons/fa";
 
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
+import Seo from "../components/Seo";
 import {
   getMyNotifications,
   markNotificationRead,
   markAllNotificationsRead,
 } from "../services/notificationService";
+import { dateLocale } from "../utils/dateLocale";
 
 function getTypeLabels(t) {
   return {
@@ -17,13 +19,15 @@ function getTypeLabels(t) {
     return_status: t("Return Update", "रिटर्न अपडेट"),
     back_in_stock: t("Back in Stock", "फिर से स्टॉक में"),
     loyalty_points: t("Loyalty Points", "लॉयल्टी पॉइंट्स"),
+    price_drop: t("Price Drop", "कीमत घटी"),
     account_status: t("Account Update", "खाता अपडेट"),
+    question_answered: t("Question Answered", "सवाल का जवाब"),
   };
 }
 
 function Notifications() {
   const { isLoggedIn } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const navigate = useNavigate();
 
   const [notifications, setNotifications] = useState([]);
@@ -67,6 +71,7 @@ function Notifications() {
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-8">
+      <Seo title="Notifications" noindex />
       <div className="text-sm mb-2">
         <Link to="/account" className="text-blue-700 hover:underline">
           {t("Your Account", "आपका खाता")}
@@ -114,7 +119,7 @@ function Notifications() {
                   {typeLabels[item.type] || t("Notification", "सूचना")}
                 </span>
                 <span className="text-xs text-slate-400 shrink-0">
-                  {new Date(item.createdAt).toLocaleString("en-IN", {
+                  {new Date(item.createdAt).toLocaleString(dateLocale(language), {
                     day: "numeric",
                     month: "short",
                     hour: "numeric",

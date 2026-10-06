@@ -1,7 +1,9 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { toast } from "react-toastify";
 
 import { readJsonFromStorage } from "../utils/safeLocalStorage";
+import { useAuth } from "./AuthContext";
+import { useLanguage } from "./LanguageContext";
 
 const CompareContext = createContext();
 
@@ -11,10 +13,29 @@ export function CompareProvider({ children }) {
   const [compareItems, setCompareItems] = useState(() =>
     readJsonFromStorage("compareItems", []),
   );
+  const { user } = useAuth();
+  const { t } = useLanguage();
 
   useEffect(() => {
     localStorage.setItem("compareItems", JSON.stringify(compareItems));
   }, [compareItems]);
+
+  // Same reasoning as CartContext's identical guard (see its comment for
+  // the full explanation): tracks the actual user id, not just a
+  // logged-in boolean, so User A logging in as User B WITHOUT an
+  // explicit logout first still clears the compare list — a plain
+  // true/false check never transitions through false in that case.
+  const wasUserId = useRef(user?._id ?? null);
+
+  useEffect(() => {
+    const currentUserId = user?._id ?? null;
+
+    if (wasUserId.current && currentUserId !== wasUserId.current) {
+      setCompareItems([]);
+    }
+
+    wasUserId.current = currentUserId;
+  }, [user]);
 
   const isInCompare = (productId) =>
     compareItems.some((item) => item._id === productId);
@@ -23,12 +44,17 @@ export function CompareProvider({ children }) {
     if (isInCompare(product._id)) return;
 
     if (compareItems.length >= MAX_COMPARE_ITEMS) {
-      toast.error(`You can compare up to ${MAX_COMPARE_ITEMS} products`);
+      toast.error(
+        t(
+          `You can compare up to ${MAX_COMPARE_ITEMS} products`,
+          `आप अधिकतम ${MAX_COMPARE_ITEMS} प्रोडक्ट कंपेयर कर सकते हैं`,
+        ),
+      );
       return;
     }
 
     setCompareItems([...compareItems, product]);
-    toast.success("Added to compare");
+    toast.success(t("Added to compare", "कंपेयर में जोड़ा गया"));
   };
 
   const removeFromCompare = (productId) => {

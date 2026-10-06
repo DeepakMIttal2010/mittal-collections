@@ -11,6 +11,12 @@ const newArrivalsSectionSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Category",
       required: [true, "Category is required"],
+      // Only ever one section per category, active or not — same
+      // reasoning as TrendingSection.js. The app-level findOne
+      // pre-check in the controller is the fast path; this is the true
+      // concurrency backstop for two admins submitting the same
+      // category at once.
+      unique: true,
     },
 
     displayOrder: {

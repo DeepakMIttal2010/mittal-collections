@@ -96,7 +96,15 @@ function Faq() {
   return (
     <section className="py-16 bg-white">
       <Helmet>
-        <script type="application/ld+json">{JSON.stringify(faqJsonLd)}</script>
+        {/* JSON.stringify alone isn't safe as a <script> tag's raw
+            content — see Seo.jsx's safeJsonLdStringify for why an
+            unescaped "<" (e.g. inside "</script>") can break out of this
+            tag. FAQ content is currently admin-authored, not
+            customer-submitted, but this keeps the same safe-embedding
+            pattern used everywhere else jsonLd renders. */}
+        <script type="application/ld+json">
+          {JSON.stringify(faqJsonLd).replace(/</g, "\\u003c")}
+        </script>
       </Helmet>
 
       <div className="max-w-3xl mx-auto px-4">

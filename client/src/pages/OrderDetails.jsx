@@ -8,6 +8,8 @@ import { resumeOrderPayment } from "../utils/razorpay";
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
 import OrderStatusTimeline from "../components/OrderStatusTimeline";
+import { handleImageError } from "../utils/imageFallback";
+import { dateLocale } from "../utils/dateLocale";
 
 const STATUS_COLORS = {
   Pending: "bg-slate-100 text-slate-700",
@@ -31,7 +33,7 @@ function OrderDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { isLoggedIn, user } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -63,6 +65,7 @@ function OrderDetails() {
     resumeOrderPayment({
       orderId: id,
       user,
+      t,
       onSuccess: () => {
         toast.success(
           t("Payment successful — order placed 🎉", "पेमेंट सफल — ऑर्डर हो गया 🎉"),
@@ -127,7 +130,7 @@ function OrderDetails() {
           </h1>
           <p className="text-sm text-slate-500">
             {t("Placed on ", "दिनांक ")}
-            {new Date(order.createdAt).toLocaleDateString("en-IN", {
+            {new Date(order.createdAt).toLocaleDateString(dateLocale(language), {
               day: "numeric",
               month: "long",
               year: "numeric",
@@ -163,9 +166,10 @@ function OrderDetails() {
                 >
                   {item.image && (
                     <img
-                      src={imgUrl(item.image)}
+                      src={imgUrl(item.image, "w_150,q_auto,f_auto")}
                       alt={item.name}
                       className="w-16 h-16 object-cover rounded-lg shrink-0"
+                      onError={handleImageError}
                     />
                   )}
                   <div className="min-w-0 flex-1">

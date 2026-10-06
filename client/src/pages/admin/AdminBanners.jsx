@@ -13,11 +13,16 @@ import {
 
 const EMPTY_FORM = {
   subtitle: "",
+  subtitleHi: "",
   title: "",
+  titleHi: "",
   description: "",
+  descriptionHi: "",
   button1Label: "",
+  button1LabelHi: "",
   button1Link: "",
   button2Label: "",
+  button2LabelHi: "",
   button2Link: "",
   displayOrder: 0,
   isActive: true,
@@ -105,11 +110,16 @@ function AdminBanners() {
     setEditingId(banner._id);
     setFormData({
       subtitle: banner.subtitle || "",
+      subtitleHi: banner.subtitleHi || "",
       title: banner.title || "",
+      titleHi: banner.titleHi || "",
       description: banner.description || "",
+      descriptionHi: banner.descriptionHi || "",
       button1Label: banner.button1Label || "",
+      button1LabelHi: banner.button1LabelHi || "",
       button1Link: banner.button1Link || "",
       button2Label: banner.button2Label || "",
+      button2LabelHi: banner.button2LabelHi || "",
       button2Link: banner.button2Link || "",
       displayOrder: banner.displayOrder || 0,
       isActive: banner.isActive,
@@ -214,10 +224,11 @@ function AdminBanners() {
         >
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
+              <label htmlFor="bannerSubtitle" className="block text-sm font-medium text-slate-700 mb-1">
                 Subtitle
               </label>
               <input
+                id="bannerSubtitle"
                 type="text"
                 name="subtitle"
                 placeholder="PREMIUM HOME FURNISHING"
@@ -228,10 +239,28 @@ function AdminBanners() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
+              <label htmlFor="bannerSubtitleHi" className="block text-sm font-medium text-slate-700 mb-1">
+                Subtitle (Hindi, optional)
+              </label>
+              <input
+                id="bannerSubtitleHi"
+                type="text"
+                name="subtitleHi"
+                placeholder="प्रीमियम होम फर्निशिंग"
+                value={formData.subtitleHi}
+                onChange={handleChange}
+                className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="bannerDisplayOrder" className="block text-sm font-medium text-slate-700 mb-1">
                 Order (Priority)
               </label>
               <input
+                id="bannerDisplayOrder"
                 type="number"
                 name="displayOrder"
                 value={formData.displayOrder}
@@ -241,43 +270,79 @@ function AdminBanners() {
             </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Title
-            </label>
-            <textarea
-              name="title"
-              rows={2}
-              placeholder="Transform Every Corner&#10;of Your Home"
-              value={formData.title}
-              onChange={handleChange}
-              required
-              className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <p className="text-xs text-slate-400 mt-1">
-              Press Enter for a line break.
-            </p>
-          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="bannerTitle" className="block text-sm font-medium text-slate-700 mb-1">
+                Title
+              </label>
+              <textarea
+                id="bannerTitle"
+                name="title"
+                rows={2}
+                placeholder="Transform Every Corner&#10;of Your Home"
+                value={formData.title}
+                onChange={handleChange}
+                required
+                className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <p className="text-xs text-slate-400 mt-1">
+                Press Enter for a line break.
+              </p>
+            </div>
 
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Description
-            </label>
-            <textarea
-              name="description"
-              rows={2}
-              value={formData.description}
-              onChange={handleChange}
-              className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+            <div>
+              <label htmlFor="bannerTitleHi" className="block text-sm font-medium text-slate-700 mb-1">
+                Title (Hindi, optional)
+              </label>
+              <textarea
+                id="bannerTitleHi"
+                name="titleHi"
+                rows={2}
+                placeholder="अपने घर के हर कोने को&#10;संवारें"
+                value={formData.titleHi}
+                onChange={handleChange}
+                className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
+              <label htmlFor="bannerDescription" className="block text-sm font-medium text-slate-700 mb-1">
+                Description
+              </label>
+              <textarea
+                id="bannerDescription"
+                name="description"
+                rows={2}
+                value={formData.description}
+                onChange={handleChange}
+                className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="bannerDescriptionHi" className="block text-sm font-medium text-slate-700 mb-1">
+                Description (Hindi, optional)
+              </label>
+              <textarea
+                id="bannerDescriptionHi"
+                name="descriptionHi"
+                rows={2}
+                value={formData.descriptionHi}
+                onChange={handleChange}
+                className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label htmlFor="bannerButton1Label" className="block text-sm font-medium text-slate-700 mb-1">
                 Button 1 Label
               </label>
               <input
+                id="bannerButton1Label"
                 type="text"
                 name="button1Label"
                 placeholder="Shop Now"
@@ -287,10 +352,25 @@ function AdminBanners() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
+              <label htmlFor="bannerButton1LabelHi" className="block text-sm font-medium text-slate-700 mb-1">
+                Button 1 Label (Hindi, optional)
+              </label>
+              <input
+                id="bannerButton1LabelHi"
+                type="text"
+                name="button1LabelHi"
+                placeholder="अभी खरीदें"
+                value={formData.button1LabelHi}
+                onChange={handleChange}
+                className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label htmlFor="bannerButton1Link" className="block text-sm font-medium text-slate-700 mb-1">
                 Button 1 Link
               </label>
               <input
+                id="bannerButton1Link"
                 type="text"
                 name="button1Link"
                 placeholder="/category/bedsheets"
@@ -301,12 +381,13 @@ function AdminBanners() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
+              <label htmlFor="bannerButton2Label" className="block text-sm font-medium text-slate-700 mb-1">
                 Button 2 Label
               </label>
               <input
+                id="bannerButton2Label"
                 type="text"
                 name="button2Label"
                 placeholder="Explore Collection"
@@ -316,10 +397,25 @@ function AdminBanners() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
+              <label htmlFor="bannerButton2LabelHi" className="block text-sm font-medium text-slate-700 mb-1">
+                Button 2 Label (Hindi, optional)
+              </label>
+              <input
+                id="bannerButton2LabelHi"
+                type="text"
+                name="button2LabelHi"
+                placeholder="कलेक्शन देखें"
+                value={formData.button2LabelHi}
+                onChange={handleChange}
+                className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label htmlFor="bannerButton2Link" className="block text-sm font-medium text-slate-700 mb-1">
                 Button 2 Link
               </label>
               <input
+                id="bannerButton2Link"
                 type="text"
                 name="button2Link"
                 placeholder="#shop-categories"
@@ -331,10 +427,11 @@ function AdminBanners() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label htmlFor="bannerImage" className="block text-sm font-medium text-slate-700 mb-1">
               Banner Image
             </label>
             <input
+              id="bannerImage"
               type="file"
               accept="image/*"
               onChange={handleImage}

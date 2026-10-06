@@ -7,6 +7,7 @@ import User from "../models/User.js";
 import { sendEmail } from "../config/mailer.js";
 import { generateUniqueReferralCode } from "../utils/referral.js";
 import { createAndSendOtp, verifyOtp } from "../utils/otp.js";
+import { escapeHtml } from "../utils/escapeHtml.js";
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_OAUTH_CLIENT_ID);
 
@@ -29,11 +30,12 @@ export const register = async (req, res) => {
     // A JSON body can carry an object where a string is expected (e.g.
     // {"email": {"$ne": null}}) — passed straight into a Mongoose query
     // filter unchecked, that's a NoSQL operator-injection vector rather
-    // than a genuine "no such user" lookup.
-    if (typeof email !== "string") {
+    // than a genuine "no such user" lookup. mobile hits the same kind of
+    // filter below (existingMobile), so it needs the same guard.
+    if (typeof email !== "string" || typeof mobile !== "string") {
       return res.status(400).json({
         success: false,
-        message: "Invalid email",
+        message: "Invalid email or mobile number",
       });
     }
 
@@ -47,7 +49,13 @@ export const register = async (req, res) => {
       });
     }
 
-    const existingUser = await User.findOne({ email });
+    // User.email is stored lowercase (schema: `lowercase: true`) —
+    // normalizing here too means the duplicate check below actually
+    // catches an existing account typed in different casing, instead
+    // of deferring the collision to User.create()'s unique-index error.
+    const normalizedEmail = email.toLowerCase().trim();
+
+    const existingUser = await User.findOne({ email: normalizedEmail });
 
     if (existingUser) {
       return res.status(400).json({
@@ -77,11 +85,11 @@ export const register = async (req, res) => {
     }
 
     await createAndSendOtp({
-      target: email,
+      target: normalizedEmail,
       purpose: "register",
       payload: {
         name,
-        email,
+        email: normalizedEmail,
         mobile,
         hashedPassword,
         referredById: referrer?._id || null,
@@ -92,7 +100,7 @@ export const register = async (req, res) => {
     res.status(200).json({
       success: true,
       message: "Verification code sent to your email",
-      email,
+      email: normalizedEmail,
     });
   } catch (error) {
     console.error(error);
@@ -116,8 +124,10 @@ export const verifyRegisterOtp = async (req, res) => {
       });
     }
 
+    const normalizedEmail = email.toLowerCase().trim();
+
     const result = await verifyOtp({
-      target: email.toLowerCase().trim(),
+      target: normalizedEmail,
       purpose: "register",
       code: otp,
     });
@@ -134,7 +144,7 @@ export const verifyRegisterOtp = async (req, res) => {
     // Someone could have registered with this email/mobile via another
     // path (e.g. Google sign-in) while this code was pending — re-check
     // rather than let a stale payload create a duplicate.
-    const existingUser = await User.findOne({ email });
+    const existingUser = await User.findOne({ email: normalizedEmail });
     if (existingUser) {
       return res.status(400).json({
         success: false,
@@ -154,7 +164,7 @@ export const verifyRegisterOtp = async (req, res) => {
 
     const user = await User.create({
       name,
-      email,
+      email: normalizedEmail,
       mobile,
       password: hashedPassword,
       emailVerified: true,
@@ -172,7 +182,7 @@ export const verifyRegisterOtp = async (req, res) => {
         bcc: process.env.ADMIN_NOTIFICATION_EMAIL,
         subject: "Welcome to Mittal Collections!",
         html: `
-          <p>Hi ${user.name},</p>
+          <p>Hi ${escapeHtml(user.name)},</p>
           <p>Welcome to Mittal Collections! Your account has been created successfully.</p>
           <p>Explore premium bedsheets, towels, curtains, pillows and more at
           <a href="${process.env.CLIENT_URL}">mittalcollections.com</a>.</p>
@@ -223,19 +233,20 @@ export const login = async (req, res) => {
       });
     }
 
-    const user = await User.findOne({ email }).populate("adminRole");
+    // User.email is stored lowercase (schema: `lowercase: true`) — a
+    // raw-cased lookup here silently fails to match for anyone who
+    // typed their email differently than at registration (e.g. a
+    // mobile keyboard auto-capitalizing the first letter), a real
+    // "wrong password" -looking bug that isn't actually about the
+    // password at all.
+    const user = await User.findOne({
+      email: email.toLowerCase().trim(),
+    }).populate("adminRole");
 
     if (!user) {
       return res.status(401).json({
         success: false,
         message: "Invalid email or password",
-      });
-    }
-
-    if (user.isBlocked) {
-      return res.status(403).json({
-        success: false,
-        message: "Your account has been blocked. Please contact support.",
       });
     }
 
@@ -245,6 +256,19 @@ export const login = async (req, res) => {
       return res.status(401).json({
         success: false,
         message: "Invalid email or password",
+      });
+    }
+
+    // Checked only after the password is confirmed correct — otherwise
+    // submitting any password for a blocked account's email would
+    // disclose that the email is registered and blocked without
+    // actually knowing the password, the same email-enumeration
+    // concern forgotPassword already avoids by giving a uniform
+    // response regardless of whether the account exists.
+    if (user.isBlocked) {
+      return res.status(403).json({
+        success: false,
+        message: "Your account has been blocked. Please contact support.",
       });
     }
 
@@ -328,7 +352,7 @@ export const googleAuth = async (req, res) => {
       // Not linked yet — but an account with this email may already
       // exist from normal email/password signup. Link rather than
       // creating a duplicate.
-      user = await User.findOne({ email: payload.email });
+      user = await User.findOne({ email: payload.email.toLowerCase().trim() });
 
       if (user) {
         user.googleId = payload.sub;
@@ -353,7 +377,7 @@ export const googleAuth = async (req, res) => {
             bcc: process.env.ADMIN_NOTIFICATION_EMAIL,
             subject: "Welcome to Mittal Collections!",
             html: `
-              <p>Hi ${user.name},</p>
+              <p>Hi ${escapeHtml(user.name)},</p>
               <p>Welcome to Mittal Collections! Your account has been created successfully.</p>
               <p>Explore premium bedsheets, towels, curtains, pillows and more at
               <a href="${process.env.CLIENT_URL}">mittalcollections.com</a>.</p>
@@ -538,16 +562,27 @@ export const forgotPassword = async (req, res) => {
 
       const resetUrl = `${process.env.CLIENT_URL}/reset-password/${rawToken}`;
 
-      await sendEmail({
-        to: user.email,
-        subject: "Reset your Mittal Collections password",
-        html: `
-          <p>Hi ${user.name || "there"},</p>
-          <p>We received a request to reset your password. This link expires in 30 minutes.</p>
-          <p><a href="${resetUrl}">Reset your password</a></p>
-          <p>If you didn't request this, you can safely ignore this email.</p>
-        `,
-      });
+      // Unlike every other sendEmail call site in this file, this one
+      // must never let a transient send failure (Brevo blip, bad key)
+      // propagate up to the outer catch — that would return a 500 only
+      // when the account genuinely exists (a 200 either means no
+      // account or a successful email), turning the response code
+      // itself into exactly the enumeration side-channel the uniform
+      // response below is meant to prevent.
+      try {
+        await sendEmail({
+          to: user.email,
+          subject: "Reset your Mittal Collections password",
+          html: `
+            <p>Hi ${escapeHtml(user.name || "there")},</p>
+            <p>We received a request to reset your password. This link expires in 30 minutes.</p>
+            <p><a href="${resetUrl}">Reset your password</a></p>
+            <p>If you didn't request this, you can safely ignore this email.</p>
+          `,
+        });
+      } catch (error) {
+        console.error("Forgot Password Email Error:", error);
+      }
     }
 
     res.status(200).json({
@@ -605,6 +640,29 @@ export const resetPassword = async (req, res) => {
 
     await user.save();
 
+    // Standard security-notification pattern this flow was missing
+    // (block/unblock, order status, ticket replies all notify the
+    // user on every other sensitive action) — if an attacker who's
+    // gained some access resets the password, the real account owner
+    // gets no alert otherwise. Best-effort: the password change itself
+    // already succeeded by this point, so a transient email failure
+    // shouldn't turn into a 500 for something that genuinely worked.
+    if (user.email) {
+      try {
+        await sendEmail({
+          to: user.email,
+          subject: "Your Mittal Collections password was reset",
+          html: `
+            <p>Hi ${escapeHtml(user.name || "there")},</p>
+            <p>Your password was just reset using the "Forgot Password" link.</p>
+            <p>If this was you, no action is needed. If you didn't do this, please contact support immediately — someone else may have access to your account.</p>
+          `,
+        });
+      } catch (error) {
+        console.error("Reset Password Notification Email Error:", error);
+      }
+    }
+
     res.status(200).json({
       success: true,
       message: "Password reset successfully",
@@ -661,6 +719,26 @@ export const changePassword = async (req, res) => {
     user.password = await bcrypt.hash(newPassword, 10);
 
     await user.save();
+
+    // Same security-notification pattern as resetPassword — the account's
+    // already-known owner here (currentPassword was verified above), so
+    // there's no enumeration concern, just a best-effort alert that
+    // shouldn't block the (already-successful) password change.
+    if (user.email) {
+      try {
+        await sendEmail({
+          to: user.email,
+          subject: "Your Mittal Collections password was changed",
+          html: `
+            <p>Hi ${escapeHtml(user.name || "there")},</p>
+            <p>Your account password was just changed.</p>
+            <p>If this was you, no action is needed. If you didn't do this, please contact support immediately — someone else may have access to your account.</p>
+          `,
+        });
+      } catch (error) {
+        console.error("Change Password Notification Email Error:", error);
+      }
+    }
 
     res.status(200).json({
       success: true,

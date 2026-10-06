@@ -64,6 +64,20 @@ wishlistSchema.index(
   { unique: true, partialFilterExpression: { visitorId: { $exists: true } } },
 );
 
+// A guest who never logs in (or clears localStorage, minting a fresh
+// visitorId next visit) leaves these orphaned forever otherwise — same
+// partialFilterExpression trick as the unique index above, so only
+// guest entries (visitorId set) expire; a logged-in customer's own
+// wishlist items (user set, no visitorId) are untouched regardless of
+// age.
+wishlistSchema.index(
+  { createdAt: 1 },
+  {
+    expireAfterSeconds: 90 * 24 * 60 * 60,
+    partialFilterExpression: { visitorId: { $exists: true } },
+  },
+);
+
 const Wishlist = mongoose.model("Wishlist", wishlistSchema);
 
 export default Wishlist;

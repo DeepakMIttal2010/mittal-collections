@@ -3,11 +3,14 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { getMyOrders } from "../services/orderService";
+import { getProductById } from "../services/productService";
 import { resumeOrderPayment } from "../utils/razorpay";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
 import ReturnRequestModal from "../components/ReturnRequestModal";
+import { handleImageError } from "../utils/imageFallback";
+import { dateLocale } from "../utils/dateLocale";
 
 function getTabs(t) {
   return [
@@ -64,7 +67,7 @@ function getStatusLabel(t, status) {
 
 function OrderCard({ order, onBuyAgain, onPayNow, payingId }) {
   const navigate = useNavigate();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [returnModalItem, setReturnModalItem] = useState(null);
   const [returnedProductIds, setReturnedProductIds] = useState(new Set());
   const statusText = getStatusText(t);
@@ -76,7 +79,7 @@ function OrderCard({ order, onBuyAgain, onPayNow, payingId }) {
     !order.isPaid &&
     order.orderStatus === "Pending";
   const deliveredDate = order.deliveredAt
-    ? new Date(order.deliveredAt).toLocaleDateString("en-IN", {
+    ? new Date(order.deliveredAt).toLocaleDateString(dateLocale(language), {
         day: "numeric",
         month: "long",
       })
@@ -97,7 +100,7 @@ function OrderCard({ order, onBuyAgain, onPayNow, payingId }) {
               {t("Order Placed", "ऑर्डर दिया गया")}
             </p>
             <p className="font-medium text-slate-800">
-              {new Date(order.createdAt).toLocaleDateString("en-IN", {
+              {new Date(order.createdAt).toLocaleDateString(dateLocale(language), {
                 day: "numeric",
                 month: "long",
                 year: "numeric",
@@ -147,9 +150,10 @@ function OrderCard({ order, onBuyAgain, onPayNow, payingId }) {
               <div key={i} className="flex items-center gap-3">
                 {item.image && (
                   <img
-                    src={imgUrl(item.image)}
+                    src={imgUrl(item.image, "w_150,q_auto,f_auto")}
                     alt={item.name}
                     className="w-14 h-14 object-cover rounded-lg shrink-0 border border-slate-100"
+                    onError={handleImageError}
                   />
                 )}
                 <div className="min-w-0">
@@ -181,7 +185,7 @@ function OrderCard({ order, onBuyAgain, onPayNow, payingId }) {
                           {t("Return window closed on ", "रिटर्न विंडो बंद हो गई ")}
                           {new Date(
                             item.returnInfo.deadline,
-                          ).toLocaleDateString("en-IN", {
+                          ).toLocaleDateString(dateLocale(language), {
                             day: "numeric",
                             month: "short",
                           })}
@@ -311,6 +315,7 @@ function MyOrders() {
     resumeOrderPayment({
       orderId: order._id,
       user,
+      t,
       onSuccess: () => {
         toast.success(
           t("Payment successful — order placed 🎉", "पेमेंट सफल — ऑर्डर हो गया 🎉"),
@@ -342,15 +347,53 @@ function MyOrders() {
     return Array.from(seen.values());
   }, [orders]);
 
+  // Both "Buy Again" surfaces (a whole past order's items, or a single
+  // item from the deduped Buy Again tab) used to add straight from the
+  // order's own frozen snapshot -- no live stock check at all (the
+  // object passed to addToCart had no `stock` field, so its out-of-
+  // stock guard silently never triggered), and stale price/image/name
+  // if the product had changed since. Re-fetching the live product
+  // first means an out-of-stock or since-deleted item is refused with
+  // a clear reason instead of silently landing in the cart only to
+  // misbehave at checkout, and a still-available item gets added with
+  // its real current price/stock rather than what it cost last time.
+  const handleReorderItem = async (item) => {
+    const response = await getProductById(item.product);
+
+    if (!response.success) {
+      toast.error(
+        t(`${item.name} is no longer available`, `${item.name} अब उपलब्ध नहीं है`),
+      );
+      return;
+    }
+
+    const product = response.product;
+    const variant = item.size
+      ? product.variants?.find((v) => v.size === item.size)
+      : null;
+
+    if (item.size && !variant) {
+      toast.error(
+        t(
+          `${item.name} (${item.size}) is no longer available`,
+          `${item.name} (${item.size}) अब उपलब्ध नहीं है`,
+        ),
+      );
+      return;
+    }
+
+    const stock = variant ? variant.stock : product.stock;
+
+    if (stock <= 0) {
+      toast.error(t(`${item.name} is out of stock`, `${item.name} स्टॉक में नहीं है`));
+      return;
+    }
+
+    addToCart(product, 1, variant);
+  };
+
   const handleBuyAgain = (items) => {
-    items?.forEach((item) =>
-      addToCart({
-        _id: item.product,
-        name: item.name,
-        image: item.image,
-        price: item.price,
-      }),
-    );
+    items?.forEach((item) => handleReorderItem(item));
   };
 
   const tabClass = (key) =>
@@ -426,9 +469,10 @@ function MyOrders() {
                     <div className="flex items-center gap-4 min-w-0">
                       {item.image && (
                         <img
-                          src={`${imgUrl(item.image)}`}
+                          src={`${imgUrl(item.image, "w_150,q_auto,f_auto")}`}
                           alt={item.name}
                           className="w-14 h-14 object-cover rounded-lg shrink-0"
+                          onError={handleImageError}
                         />
                       )}
                       <div className="min-w-0">
@@ -444,14 +488,7 @@ function MyOrders() {
 
                     <button
                       type="button"
-                      onClick={() =>
-                        addToCart({
-                          _id: item.product,
-                          name: item.name,
-                          image: item.image,
-                          price: item.price,
-                        })
-                      }
+                      onClick={() => handleReorderItem(item)}
                       className="shrink-0 bg-blue-900 hover:bg-blue-950 text-white text-sm font-medium px-4 py-2 rounded-full transition-colors"
                     >
                       {t("Add to Cart", "कार्ट में डालें")}

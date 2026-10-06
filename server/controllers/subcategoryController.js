@@ -1,6 +1,8 @@
 import Subcategory from "../models/Subcategory.js";
 import Product from "../models/Product.js";
+import SiteSettings from "../models/SiteSettings.js";
 import { deleteCloudinaryAssetsByUrl } from "../utils/cloudinaryCleanup.js";
+import { escapeRegex } from "../utils/escapeRegex.js";
 
 const generateSlug = (name) =>
   name
@@ -41,8 +43,10 @@ export const getAllSubcategoriesAdmin = async (req, res) => {
     const filter = {};
 
     const { search } = req.query;
-    if (search && search.trim()) {
-      const regex = new RegExp(search.trim(), "i");
+    // typeof guard: a bracket-shaped query param (?search[$ne]=null)
+    // parses to an object, not a string, and .trim() would throw.
+    if (typeof search === "string" && search.trim()) {
+      const regex = new RegExp(escapeRegex(search.trim()), "i");
       filter.$or = [{ name: regex }, { groupLabel: regex }];
     }
 
@@ -123,6 +127,13 @@ export const addSubcategory = async (req, res) => {
       subcategory,
     });
   } catch (error) {
+    if (error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: "A subcategory with this name already exists under this category",
+      });
+    }
+
     console.error("Add Subcategory Error:", error);
 
     res.status(500).json({
@@ -187,6 +198,13 @@ export const updateSubcategory = async (req, res) => {
       subcategory,
     });
   } catch (error) {
+    if (error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: "A subcategory with this name already exists under this category",
+      });
+    }
+
     console.error("Update Subcategory Error:", error);
 
     res.status(500).json({
@@ -289,6 +307,22 @@ export const permanentlyDeleteSubcategory = async (req, res) => {
         success: false,
         message:
           "This subcategory is still used by products and cannot be permanently deleted",
+      });
+    }
+
+    // Matches permanentlyDeleteCategory's own TrendingSection/
+    // NewArrivalsSection check — SiteSettings.pricingRules[].subcategory
+    // is another real cross-reference (used for the Add/Edit Product
+    // cost auto-fill) that a plain Product.exists check doesn't cover.
+    const usedInPricingRules = await SiteSettings.exists({
+      "pricingRules.subcategory": subcategory._id,
+    });
+
+    if (usedInPricingRules) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "This subcategory is used by a pricing rule and cannot be permanently deleted",
       });
     }
 

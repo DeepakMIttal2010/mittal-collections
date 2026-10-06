@@ -1,4 +1,4 @@
-import { imgUrl } from "../services/api";
+import { imgUrl, imgSrcSet } from "../services/api";
 import Seo from "../components/Seo";
 import PincodeChecker from "../components/PincodeChecker";
 import ProductDetailsSkeleton from "./ProductDetailsSkeleton";
@@ -16,6 +16,9 @@ import { calculateDeliveryFee } from "../utils/shipping";
 import { toWhatsAppNumber } from "../utils/whatsapp";
 import { stripHtml } from "../utils/stripHtml";
 import { sanitizeDescriptionHtml } from "../utils/sanitizeDescriptionHtml";
+import { handleImageError } from "../utils/imageFallback";
+import { toast } from "react-toastify";
+import { trackViewItem } from "../utils/analytics";
 import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import {
@@ -37,6 +40,8 @@ import {
   FaBan,
   FaPalette,
   FaTruck,
+  FaRulerCombined,
+  FaExchangeAlt,
 } from "react-icons/fa";
 import {
   FaFacebookF,
@@ -52,6 +57,7 @@ import {
 } from "../services/productService";
 import { useCart } from "../context/CartContext";
 import { useWishlist } from "../context/WishlistContext";
+import { useCompare } from "../context/CompareContext";
 import { useAuth } from "../context/AuthContext";
 import ProductCard from "../components/ProductCard/ProductCard";
 import RecentlyViewed from "../components/RecentlyViewed/RecentlyViewed";
@@ -76,6 +82,7 @@ function ProductDetails() {
   const [activeMediaIndex, setActiveMediaIndex] = useState(0);
   const [mainImageLoaded, setMainImageLoaded] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(null);
+  const lightboxRef = useRef(null);
   const [isLightboxZoomed, setIsLightboxZoomed] = useState(false);
   const [relatedProducts, setRelatedProducts] = useState([]);
   const [bundleProducts, setBundleProducts] = useState([]);
@@ -85,6 +92,7 @@ function ProductDetails() {
   const [reviewStats, setReviewStats] = useState({
     averageRating: 0,
     totalReviews: 0,
+    reviews: [],
   });
 
   const [descExpanded, setDescExpanded] = useState(false);
@@ -101,6 +109,7 @@ function ProductDetails() {
   const bundleScrollRef = useRef(null);
 
   const { addToCart } = useCart();
+  const { toggleCompare, isInCompare } = useCompare();
   const { wishlistItems, addToWishlist, removeFromWishlist } = useWishlist();
   const { user, isLoggedIn } = useAuth();
 
@@ -141,6 +150,14 @@ function ProductDetails() {
   }, []);
 
   useEffect(() => {
+    // Without this, navigating from product A to product B while A's
+    // fetch is still in flight — e.g. clicking a related product before
+    // a slow response resolves — lets A's `.then` chain fire after B's
+    // and silently overwrite the screen (and add-to-cart target) back to
+    // product A while the URL still shows B. Same guard Checkout.jsx's
+    // pincode-check effect already uses.
+    let cancelled = false;
+
     const loadProduct = async () => {
       setLoading(true);
       setRelatedProducts([]);
@@ -149,6 +166,8 @@ function ProductDetails() {
       setBundleDiscountPercent(0);
 
       const response = await getProductById(id);
+
+      if (cancelled) return;
 
       // Only a confirmed 404 counts as "doesn't exist" — a transient
       // failure (cold-starting backend, network blip) must not render
@@ -163,16 +182,18 @@ function ProductDetails() {
         setSelectedVariant(response.product.variants?.[0] || null);
         setQuantity(1);
         addRecentlyViewed(response.product._id);
+        trackViewItem(response.product);
 
         getProductViewCount(response.product._id).then((viewRes) => {
-          if (viewRes.success) setViewCount(viewRes.count);
+          if (!cancelled && viewRes.success) setViewCount(viewRes.count);
         });
 
         getProductReviews(response.product._id).then((reviewRes) => {
-          if (reviewRes.success) {
+          if (!cancelled && reviewRes.success) {
             setReviewStats({
               averageRating: reviewRes.averageRating,
               totalReviews: reviewRes.totalReviews,
+              reviews: reviewRes.reviews || [],
             });
           }
         });
@@ -192,6 +213,8 @@ function ProductDetails() {
             getProductsByCategory(categoryId),
             getSiteSettings(),
           ]);
+
+          if (cancelled) return;
 
           if (relatedRes.success) {
             setRelatedProducts(
@@ -217,6 +240,8 @@ function ProductDetails() {
               partnerCategory._id,
             );
 
+            if (cancelled) return;
+
             if (bundleRes.success) {
               setBundleProducts(bundleRes.products.slice(0, 8));
               setBundleCategory(partnerCategory);
@@ -226,10 +251,14 @@ function ProductDetails() {
         }
       }
 
-      setLoading(false);
+      if (!cancelled) setLoading(false);
     };
 
     loadProduct();
+
+    return () => {
+      cancelled = true;
+    };
   }, [id]);
 
   const scrollRelated = (direction) => {
@@ -342,6 +371,25 @@ function ProductDetails() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lightboxIndex]);
 
+  // Focus management only — this lightbox already had real Escape/Arrow
+  // handling (above) before the rest of the app's modals did, but like
+  // them it never moved focus in on open or back out on close, and had
+  // no role/aria-modal for assistive tech. Kept separate from the
+  // keydown effect above rather than routed through the shared
+  // useModalA11y hook, since that hook's own Escape/Tab handling would
+  // otherwise double up with the Escape/Arrow logic already here.
+  useEffect(() => {
+    if (lightboxIndex === null) return undefined;
+
+    const previouslyFocused = document.activeElement;
+    const frame = requestAnimationFrame(() => lightboxRef.current?.focus());
+
+    return () => {
+      cancelAnimationFrame(frame);
+      if (previouslyFocused?.isConnected) previouslyFocused.focus();
+    };
+  }, [lightboxIndex]);
+
   const isWishlisted = product
     ? wishlistItems.some((item) => item._id === product._id)
     : false;
@@ -416,11 +464,12 @@ function ProductDetails() {
     ? selectedVariant.oldPrice
     : product.oldPrice;
   const displayStock = selectedVariant ? selectedVariant.stock : product.stock;
-  const displaySize = selectedVariant?.size || product.size;
-  // Search queries for this category routinely include the exact
-  // dimension ("king size bedsheet 90x108", "7x4 curtains") — appending
-  // it is a real keyword match a bare product name misses.
-  const seoTitle = displaySize ? `${product.name} — ${displaySize}` : product.name;
+  // product.name already carries the exact dimension by convention (see
+  // seo_title_convention) -- appending the variant/product size here
+  // used to duplicate it (confirmed live across every sampled product,
+  // one case 3x over, pushing titles past 200 chars), so the name alone
+  // is the title.
+  const seoTitle = product.name;
 
   const pointsPreview = earnRate
     ? Math.floor((displayPrice * quantity) / earnRate)
@@ -492,7 +541,11 @@ function ProductDetails() {
     "@type": "Product",
     name: product.name,
     description: stripHtml(product.description),
-    image: imgUrl(product.image),
+    // Google's Product rich-result guidance wants multiple angles when
+    // they exist, not just the main photo — productImages already
+    // excludes videos (see mediaItems above) and falls back to the
+    // single product.image when no gallery array is set.
+    image: productImages.map((url) => imgUrl(url)),
     brand: {
       "@type": "Brand",
       name: "Mittal Collections",
@@ -500,9 +553,15 @@ function ProductDetails() {
     offers: {
       "@type": "Offer",
       priceCurrency: "INR",
-      price: product.price,
+      // displayPrice/displayStock (not the flat product.price/stock,
+      // which only mirror the FIRST variant / SUM every variant) so
+      // this always matches whatever's actually shown on screen —
+      // otherwise a sold-out default variant with stock left in
+      // another size still reports InStock here while the visible page
+      // shows Out of Stock, a real Merchant Center suspension risk.
+      price: displayPrice,
       availability:
-        product.stock > 0
+        displayStock > 0
           ? "https://schema.org/InStock"
           : "https://schema.org/OutOfStock",
       url: shareUrl,
@@ -548,6 +607,12 @@ function ProductDetails() {
             // Confirmed against the live Returns policy page text
             // ("Return pickup is completely free") rather than assumed.
             returnFees: "https://schema.org/FreeReturn",
+            // Flagged by Search Console (2026-10-03, "Merchant listings
+            // structured data issues") as a missing recommended field.
+            // ReturnByMail matches how a return actually happens here --
+            // a courier pickup/return shipment, not a customer walking
+            // into the Ghaziabad shop with the item.
+            returnMethod: "https://schema.org/ReturnByMail",
           }
         : {
             "@type": "MerchantReturnPolicy",
@@ -562,7 +627,51 @@ function ProductDetails() {
         reviewCount: reviewStats.totalReviews,
       },
     }),
+    // Individual reviews alongside the aggregate — this content is
+    // already fetched (for the rating badge above) and already shown to
+    // visitors via <ProductReviews> below, just never handed to Google
+    // before now. Capped at the 10 most recent (server already sorts
+    // newest-first) so this doesn't bloat the page with every review
+    // a popular product accumulates over time.
+    ...(reviewStats.reviews.length > 0 && {
+      review: reviewStats.reviews.slice(0, 10).map((r) => ({
+        "@type": "Review",
+        author: { "@type": "Person", name: r.user?.name || "Customer" },
+        reviewRating: {
+          "@type": "Rating",
+          ratingValue: r.rating,
+          bestRating: 5,
+          worstRating: 1,
+        },
+        reviewBody: r.content,
+        datePublished: r.createdAt,
+        // Review.images are already full Cloudinary URLs (see
+        // Review.js), not the raw public-id paths imgUrl() transforms —
+        // this data was already fetched and displayed on real customer
+        // photo reviews but never handed to Google's Review markup,
+        // which supports an `image` property for exactly this case.
+        ...(r.images?.length > 0 && { image: r.images }),
+      })),
+    }),
   };
+
+  // `video` is not a valid schema.org property on Product — it's only
+  // defined on CreativeWork-type things, so nesting it inside
+  // productJsonLd (as this used to) is silently ignored by Google's
+  // parser and unlocks no video-result eligibility at all. A standalone
+  // VideoObject block (its own top-level entry in the jsonLd array
+  // below) is the correct, documented way to associate a video with the
+  // page. No per-video thumbnail/title exists in this data model, so
+  // the main product photo/name/description stand in.
+  const videoJsonLd = (product.videos || []).map((url) => ({
+    "@context": "https://schema.org",
+    "@type": "VideoObject",
+    name: product.name,
+    description: stripHtml(product.description),
+    thumbnailUrl: imgUrl(product.image),
+    contentUrl: url,
+    uploadDate: product.createdAt,
+  }));
 
   // Structured data stays English-only regardless of the language toggle
   // (schema.org/SEO convention) — only the visible breadcrumb trail below
@@ -644,7 +753,13 @@ function ProductDetails() {
         title={seoTitle}
         description={
           product.description
-            ? `Buy online, pan-India delivery (24hr in Ghaziabad) - ${stripHtml(product.description)}`.slice(0, 160)
+            ? // Shorter than the old "Buy online, pan-India delivery (24hr
+              // in Ghaziabad) - " prefix (53 chars) — that was eating a
+              // third of the 160-char budget on every single product
+              // before any product-specific content (material, size,
+              // features — what actually differentiates one product's
+              // snippet from another's) got a chance to show.
+              `Pan-India delivery, 24hr in Ghaziabad. ${stripHtml(product.description)}`.slice(0, 160)
             : `Buy ${product.name} online with pan-India delivery - fast 24-hour delivery in Ghaziabad`.slice(0, 160)
         }
         image={imgUrl(product.image)}
@@ -654,6 +769,7 @@ function ProductDetails() {
           productJsonLd,
           buildBreadcrumbJsonLd(breadcrumbItemsForSeo),
           faqJsonLd,
+          ...videoJsonLd,
         ]}
       />
       <Breadcrumbs items={breadcrumbItems} />
@@ -699,9 +815,18 @@ function ProductDetails() {
                   <img
                     key={activeMedia?.url}
                     src={`${imgUrl(activeMedia?.url, "w_1600,q_auto,f_auto")}`}
+                    srcSet={imgSrcSet(activeMedia?.url, [400, 800, 1200, 1600])}
+                    sizes="(min-width: 1024px) 50vw, 100vw"
                     alt={t(product.name, product.nameHi)}
                     style={zoomStyle}
                     onLoad={() => setMainImageLoaded(true)}
+                    onError={(e) => {
+                      // Reveal the fallback instead of leaving it stuck
+                      // behind the loading-pulse placeholder forever —
+                      // onLoad never fires for a failed image.
+                      setMainImageLoaded(true);
+                      handleImageError(e);
+                    }}
                     fetchPriority="high"
                     className={`w-full h-full object-cover transition-all duration-300 pointer-events-none ${
                       mainImageLoaded ? "opacity-100" : "opacity-0"
@@ -716,7 +841,7 @@ function ProductDetails() {
 
               {discount > 0 && (
                 <span className="absolute top-3 left-3 bg-red-600 text-white text-xs font-semibold px-2.5 py-1 rounded-full">
-                  {discount}% OFF
+                  {t(`${discount}% OFF`, `${discount}% छूट`)}
                 </span>
               )}
             </div>
@@ -762,6 +887,7 @@ function ProductDetails() {
                         src={`${imgUrl(item.url, "w_150,q_auto,f_auto")}`}
                         alt={`${t(product.name, product.nameHi)} - photo ${index + 1}`}
                         loading="lazy"
+                        onError={handleImageError}
                         className="w-full h-full object-cover"
                       />
                     )}
@@ -886,7 +1012,7 @@ function ProductDetails() {
             <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mb-4">
               <FaPalette className="text-amber-600 mt-0.5 shrink-0" />
               <p className="text-xs text-amber-800 font-medium">
-                {product.colorVariesNote}
+                {t(product.colorVariesNote, product.colorVariesNoteHi)}
               </p>
             </div>
           )}
@@ -966,6 +1092,25 @@ function ProductDetails() {
             </div>
           )}
 
+          {/* The calculator page has real Search Console demand (13+
+              "curtain size calculator" query variants) but was only
+              linked from the Curtains category page and the Articles
+              hub — nowhere a customer actually about to buy a curtain
+              would see it. Every curtain product is exactly that
+              moment. */}
+          {product.category?.slug === "curtains" && (
+            <Link
+              to="/curtain-size-calculator"
+              className="flex items-center gap-2 text-sm text-blue-700 hover:underline mb-6"
+            >
+              <FaRulerCombined className="shrink-0" />
+              {t(
+                "Not sure what size you need? Use our Curtain Size Calculator →",
+                "साइज़ पक्का नहीं? हमारा कर्टन साइज़ कैलकुलेटर इस्तेमाल करें →",
+              )}
+            </Link>
+          )}
+
           <div className="flex items-center gap-3 mb-6">
             <span className="text-sm font-medium text-slate-700">{t("Qty:", "मात्रा:")}</span>
             <div className="flex items-center border border-slate-300 rounded-lg">
@@ -981,9 +1126,25 @@ function ProductDetails() {
               </span>
               <button
                 type="button"
-                onClick={() =>
-                  setQuantity((q) => Math.min(q + 1, displayStock || q + 1))
-                }
+                onClick={() => {
+                  // displayStock === 0 previously let this compute
+                  // Math.min(q + 1, 0) = 0, visibly showing "Qty: 0"
+                  // even though Add to Cart is already disabled in that
+                  // state — cosmetic but confusing. Also toasts once the
+                  // cap is actually reached, matching the same "Only X
+                  // in stock" message CartContext's increaseQty already
+                  // shows for an item already sitting in the cart.
+                  if (displayStock <= 0) return;
+
+                  if (quantity >= displayStock) {
+                    toast.error(
+                      t(`Only ${displayStock} in stock`, `केवल ${displayStock} स्टॉक में`),
+                    );
+                    return;
+                  }
+
+                  setQuantity((q) => Math.min(q + 1, displayStock));
+                }}
                 className="px-3 py-1.5 text-slate-600 hover:bg-slate-50"
               >
                 +
@@ -1011,6 +1172,21 @@ function ProductDetails() {
               }`}
             >
               <FaHeart />
+            </button>
+
+            {/* Touch devices no longer get compare on the product card
+                (see ProductCard.css) -- this is their way in. */}
+            <button
+              onClick={() => toggleCompare(product)}
+              aria-label={t("Toggle compare", "तुलना टॉगल करें")}
+              aria-pressed={isInCompare(product._id)}
+              className={`w-12 h-12 shrink-0 rounded-full border flex items-center justify-center transition-colors ${
+                isInCompare(product._id)
+                  ? "bg-blue-50 border-blue-200 text-blue-700"
+                  : "border-slate-300 text-slate-600 hover:bg-slate-50"
+              }`}
+            >
+              <FaExchangeAlt />
             </button>
           </div>
 
@@ -1223,6 +1399,11 @@ function ProductDetails() {
 
       {lightboxIndex !== null && (
         <div
+          ref={lightboxRef}
+          role="dialog"
+          aria-modal="true"
+          aria-label={t(product?.name, product?.nameHi)}
+          tabIndex={-1}
           onClick={closeLightbox}
           className="fixed inset-0 bg-black/90 z-[200] flex items-center justify-center p-4"
         >
@@ -1286,6 +1467,7 @@ function ProductDetails() {
                 src={`${imgUrl(mediaItems[lightboxIndex]?.url)}`}
                 alt={`${t(product.name, product.nameHi)} - ${t("photo", "फ़ोटो")} ${lightboxIndex + 1}`}
                 onClick={toggleLightboxZoom}
+                onError={handleImageError}
                 className={
                   isLightboxZoomed
                     ? "max-w-none cursor-zoom-out"

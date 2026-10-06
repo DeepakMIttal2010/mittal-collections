@@ -22,7 +22,7 @@ function CompareBar() {
         {compareItems.map((product) => (
           <div key={product._id} className="relative">
             <img
-              src={imgUrl(product.image)}
+              src={imgUrl(product.image, "w_100,q_auto,f_auto")}
               alt={product.name}
               className="w-8 h-8 sm:w-9 sm:h-9 rounded-full object-cover border-2 border-white"
             />

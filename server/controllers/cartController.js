@@ -1,5 +1,7 @@
 import CartSnapshot from "../models/CartSnapshot.js";
 import { sendEmail } from "../config/mailer.js";
+import { isValidVisitorId } from "../utils/isValidVisitorId.js";
+import { escapeHtml } from "../utils/escapeHtml.js";
 
 const REMINDER_DELAY_HOURS = 3;
 
@@ -47,10 +49,12 @@ export const syncGuestCart = async (req, res) => {
   try {
     const { visitorId, items } = req.body;
 
-    // Must be a plain string, not just truthy — an object here (e.g.
-    // { "$gt": "" }) would otherwise be passed straight into the Mongo
-    // queries below as a query operator instead of a literal value.
-    if (!visitorId || typeof visitorId !== "string") {
+    // Must be a plain, reasonably-bounded string, not just truthy — an
+    // object here (e.g. { "$gt": "" }) would otherwise be passed
+    // straight into the Mongo queries below as a query operator
+    // instead of a literal value, and an unbounded string could hit
+    // CartSnapshot's unique index on visitorId with an oversized key.
+    if (!isValidVisitorId(visitorId)) {
       return res.status(400).json({
         success: false,
         message: "visitorId is required",
@@ -98,9 +102,8 @@ export const mergeGuestCart = async (req, res) => {
   try {
     const { visitorId } = req.body;
 
-    // Same guard as syncGuestCart — must be a plain string, not an
-    // object that could be interpreted as a Mongo query operator.
-    if (visitorId && typeof visitorId === "string") {
+    // Same guard as syncGuestCart.
+    if (isValidVisitorId(visitorId)) {
       await CartSnapshot.deleteOne({ visitorId });
     }
 
@@ -122,9 +125,6 @@ export const mergeGuestCart = async (req, res) => {
 // ============================
 export const sendAbandonedCartReminders = async (req, res) => {
   try {
-    if (req.query.secret !== process.env.CRON_SECRET) {
-      return res.status(401).json({ success: false, message: "Unauthorized" });
-    }
 
     const cutoff = new Date(Date.now() - REMINDER_DELAY_HOURS * 60 * 60 * 1000);
 
@@ -142,10 +142,15 @@ export const sendAbandonedCartReminders = async (req, res) => {
     for (const cart of abandoned) {
       if (!cart.user?.email || cart.items.length === 0) continue;
 
+      // item.name comes straight from CartSnapshot.items, which syncCart
+      // persists from req.body with no server-side re-derivation (unlike
+      // order placement, which re-verifies every item against the DB) —
+      // so it's fully attacker-controlled free text and must be escaped
+      // the same as cart.user.name below.
       const itemsHtml = cart.items
         .map(
           (item) =>
-            `<li>${item.name} × ${item.quantity} — ₹${item.price * item.quantity}</li>`,
+            `<li>${escapeHtml(item.name)} × ${item.quantity} — ₹${item.price * item.quantity}</li>`,
         )
         .join("");
 
@@ -154,7 +159,7 @@ export const sendAbandonedCartReminders = async (req, res) => {
           to: cart.user.email,
           subject: "You left something in your cart",
           html: `
-            <p>Hi ${cart.user.name || "there"},</p>
+            <p>Hi ${escapeHtml(cart.user.name || "there")},</p>
             <p>You still have items waiting in your cart at Mittal Collections:</p>
             <ul>${itemsHtml}</ul>
             <p><a href="${process.env.CLIENT_URL}/cart">Complete your order</a></p>

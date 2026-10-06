@@ -234,10 +234,11 @@ function AdminSubcategories() {
       >
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label htmlFor="subcategoryCategory" className="block text-sm font-medium text-slate-700 mb-1">
               Category
             </label>
             <select
+              id="subcategoryCategory"
               name="category"
               value={formData.category}
               onChange={handleChange}
@@ -254,10 +255,11 @@ function AdminSubcategories() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label htmlFor="subcategoryGroupLabel" className="block text-sm font-medium text-slate-700 mb-1">
               Group Label
             </label>
             <input
+              id="subcategoryGroupLabel"
               type="text"
               name="groupLabel"
               placeholder="e.g. By Size"
@@ -269,10 +271,11 @@ function AdminSubcategories() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label htmlFor="subcategoryName" className="block text-sm font-medium text-slate-700 mb-1">
               Item Name
             </label>
             <input
+              id="subcategoryName"
               type="text"
               name="name"
               placeholder="e.g. Single"
@@ -284,10 +287,11 @@ function AdminSubcategories() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label htmlFor="subcategoryNameHi" className="block text-sm font-medium text-slate-700 mb-1">
               Item Name (Hindi, optional)
             </label>
             <input
+              id="subcategoryNameHi"
               type="text"
               name="nameHi"
               placeholder="हिंदी में आइटम का नाम"
@@ -298,10 +302,11 @@ function AdminSubcategories() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label htmlFor="subcategorySubtitle" className="block text-sm font-medium text-slate-700 mb-1">
               Subtitle (optional)
             </label>
             <input
+              id="subcategorySubtitle"
               type="text"
               name="subtitle"
               placeholder={'e.g. 60" X 90"'}
@@ -314,10 +319,11 @@ function AdminSubcategories() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label htmlFor="subcategoryDisplayOrder" className="block text-sm font-medium text-slate-700 mb-1">
               Order
             </label>
             <input
+              id="subcategoryDisplayOrder"
               type="number"
               name="displayOrder"
               value={formData.displayOrder}
@@ -327,10 +333,11 @@ function AdminSubcategories() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label htmlFor="subcategoryImage" className="block text-sm font-medium text-slate-700 mb-1">
               Tile Image (optional)
             </label>
             <input
+              id="subcategoryImage"
               type="file"
               accept="image/*"
               onChange={handleImage}

@@ -40,7 +40,15 @@ test("logged-out checkout redirects to login and returns to checkout after loggi
   await page.getByRole("button", { name: /add to cart/i }).first().click();
   await page.goto("/checkout");
 
-  await expect(page).toHaveURL("/login?redirect=/checkout");
+  // Asserted via the parsed URL/searchParams, not a literal query string —
+  // ProtectedRoute.jsx builds this with encodeURIComponent (redirect=
+  // %2Fcheckout), same convention AdminProtectedRoute.jsx already uses,
+  // so a raw string match here is brittle against how the target gets
+  // encoded. What actually matters is where the browser landed and what
+  // Login.jsx will read back via searchParams.get("redirect").
+  await expect(page).toHaveURL(/\/login\?redirect=/);
+  const url = new URL(page.url());
+  expect(url.searchParams.get("redirect")).toBe("/checkout");
 });
 
 test("a logged-in customer with an item in cart reaches the checkout page (not redirected)", async ({

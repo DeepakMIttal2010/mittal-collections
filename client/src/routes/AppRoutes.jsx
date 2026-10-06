@@ -5,6 +5,7 @@ import Home from "../pages/Home";
 import NotFound from "../pages/NotFound";
 import MainLayout from "../layouts/MainLayout";
 import PageLoader from "../components/PageLoader";
+import ProtectedRoute from "./ProtectedRoute";
 
 // Every route below this point is code-split, so its JS chunk is only
 // fetched from the CDN the first time someone navigates there. If a
@@ -40,6 +41,7 @@ function lazyWithReload(importer) {
 
 const About = lazyWithReload(() => import("../pages/About"));
 const Contact = lazyWithReload(() => import("../pages/Contact"));
+const GhaziabadStore = lazyWithReload(() => import("../pages/GhaziabadStore"));
 const Cart = lazyWithReload(() => import("../pages/Cart"));
 const Wishlist = lazyWithReload(() => import("../pages/Wishlist"));
 const Login = lazyWithReload(() => import("../pages/Login"));
@@ -142,6 +144,7 @@ const AdminTicketDetail = lazyWithReload(
 );
 const AdminReturns = lazyWithReload(() => import("../pages/admin/AdminReturns"));
 const AdminPOS = lazyWithReload(() => import("../pages/admin/AdminPOS"));
+const AdminPOSSales = lazyWithReload(() => import("../pages/admin/AdminPOSSales"));
 const AdminWalkthrough = lazyWithReload(() => import("../pages/admin/AdminWalkthrough"));
 const PrintLabels = lazyWithReload(() => import("../pages/admin/PrintLabels"));
 const ProductQRLabel = lazyWithReload(() => import("../pages/admin/ProductQRLabel"));
@@ -176,11 +179,11 @@ function AppRoutes() {
           />
           <Route
             path="/pillows"
-            element={<Navigate to="/category/pillows" replace />}
+            element={<Navigate to="/category/cushions" replace />}
           />
           <Route
             path="/blankets"
-            element={<Navigate to="/category/blankets" replace />}
+            element={<Navigate to="/category/dohars" replace />}
           />
           <Route
             path="/offers"
@@ -188,27 +191,39 @@ function AppRoutes() {
           />
           <Route path="/about" element={<About />} />
           <Route path="/contact" element={<Contact />} />
+          <Route
+            path="/ghaziabad-home-furnishing-store"
+            element={<GhaziabadStore />}
+          />
           <Route path="/cart" element={<Cart />} />
-          <Route path="/checkout" element={<Checkout />} />
           <Route path="/wishlist" element={<Wishlist />} />
           <Route path="/compare" element={<Compare />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password/:token" element={<ResetPassword />} />
-          <Route path="/change-password" element={<ChangePassword />} />
-          <Route path="/account" element={<Account />} />
-          <Route path="/loyalty-history" element={<LoyaltyHistory />} />
-          <Route path="/edit-profile" element={<EditProfile />} />
-          <Route path="/addresses" element={<Addresses />} />
-          <Route path="/addresses/add" element={<AddressForm />} />
-          <Route path="/addresses/edit/:id" element={<AddressForm />} />
-          <Route path="/my-orders" element={<MyOrders />} />
-          <Route path="/my-orders/:id" element={<OrderDetails />} />
-          <Route path="/tickets" element={<Tickets />} />
-          <Route path="/tickets/:id" element={<TicketDetail />} />
-          <Route path="/returns" element={<Returns />} />
-          <Route path="/notifications" element={<Notifications />} />
+
+          {/* ================= CUSTOMER-PRIVATE (login required) =================
+              See routes/ProtectedRoute.jsx — single guard for this whole
+              subtree instead of each page reimplementing its own
+              isLoggedIn redirect. */}
+          <Route element={<ProtectedRoute />}>
+            <Route path="/checkout" element={<Checkout />} />
+            <Route path="/change-password" element={<ChangePassword />} />
+            <Route path="/account" element={<Account />} />
+            <Route path="/loyalty-history" element={<LoyaltyHistory />} />
+            <Route path="/edit-profile" element={<EditProfile />} />
+            <Route path="/addresses" element={<Addresses />} />
+            <Route path="/addresses/add" element={<AddressForm />} />
+            <Route path="/addresses/edit/:id" element={<AddressForm />} />
+            <Route path="/my-orders" element={<MyOrders />} />
+            <Route path="/my-orders/:id" element={<OrderDetails />} />
+            <Route path="/tickets" element={<Tickets />} />
+            <Route path="/tickets/:id" element={<TicketDetail />} />
+            <Route path="/returns" element={<Returns />} />
+            <Route path="/notifications" element={<Notifications />} />
+          </Route>
+
           <Route path="/policies/:slug" element={<PolicyPage />} />
           <Route path="/articles" element={<Articles />} />
           <Route path="/articles/:slug" element={<ArticleDetail />} />
@@ -295,6 +310,7 @@ function AppRoutes() {
           <Route path="returns" element={<AdminReturns />} />
           <Route path="pos" element={<AdminPOS />} />
           <Route path="pos/:id" element={<AdminPOS />} />
+          <Route path="pos/sales" element={<AdminPOSSales />} />
           <Route path="walkthrough" element={<AdminWalkthrough />} />
           <Route path="print-labels" element={<PrintLabels />} />
           <Route path="products/:id/qr" element={<ProductQRLabel />} />

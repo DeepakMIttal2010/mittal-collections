@@ -176,10 +176,11 @@ function AdminNewArrivalsSections() {
         className="bg-white border border-slate-200 rounded-xl p-6 mb-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end"
       >
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">
+          <label htmlFor="newArrivalsCategory" className="block text-sm font-medium text-slate-700 mb-1">
             Category
           </label>
           <select
+            id="newArrivalsCategory"
             name="category"
             value={formData.category}
             onChange={handleChange}
@@ -196,10 +197,11 @@ function AdminNewArrivalsSections() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">
+          <label htmlFor="newArrivalsDisplayOrder" className="block text-sm font-medium text-slate-700 mb-1">
             Order (Priority)
           </label>
           <input
+            id="newArrivalsDisplayOrder"
             type="number"
             name="displayOrder"
             value={formData.displayOrder}

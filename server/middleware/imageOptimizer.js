@@ -56,6 +56,56 @@ const optimizeBuffer = async (file) => {
   return pipeline.jpeg({ quality: JPEG_QUALITY, mozjpeg: true }).toBuffer();
 };
 
+// multer's fileFilter only checks the client-supplied Content-Type
+// header for the file part, which any caller fully controls — it's not
+// a real content check. Normally sharp's resize/re-encode in
+// optimizeBuffer decodes the buffer as a side effect and throws on
+// anything that isn't genuinely that image format, which is the real
+// validation. But a caller can skip that entirely via the
+// "optimizeImages=false" form field (meant for admin-curated assets
+// that shouldn't be recompressed) — and that field isn't restricted to
+// admin routes, so an authenticated customer posting straight to
+// POST /api/reviews (uploadReviewMedia + this middleware, no admin gate)
+// could set it to upload an arbitrary file mislabeled as an image with
+// no content check at all. Decoding (without re-encoding) whenever
+// optimization is skipped closes that off while still letting a
+// legitimate caller avoid the recompression cost.
+const assertValidImage = async (file) => {
+  await sharp(file.buffer).metadata();
+};
+
+// Same spirit as assertValidImage above, but videos have no equivalent
+// "decode it and see" library already in this dependency tree (adding
+// one, e.g. ffmpeg, is a real infra change, not a validation tweak) — so
+// this checks the file's actual container signature instead of trusting
+// file.mimetype (multer's fileFilter only checks the client-supplied
+// Content-Type header, which any caller fully controls). Every video
+// upload reaches this with zero content check today, via
+// POST /api/reviews (uploadReviewMedia + this middleware — no admin
+// gate, reachable by any authenticated customer) as well as admin
+// product-media uploads — an attacker could otherwise host an arbitrary
+// file on this site's Cloudinary account mislabeled as video/mp4.
+// mp4/mov (QuickTime) share the ISO base media file format container,
+// identified by an "ftyp" box at byte offset 4; webm is Matroska-based,
+// identified by its EBML header magic bytes.
+const assertValidVideo = (file) => {
+  const buffer = file.buffer;
+
+  const isIsoBmff =
+    buffer.length >= 8 && buffer.toString("ascii", 4, 8) === "ftyp";
+
+  const isWebm =
+    buffer.length >= 4 &&
+    buffer[0] === 0x1a &&
+    buffer[1] === 0x45 &&
+    buffer[2] === 0xdf &&
+    buffer[3] === 0xa3;
+
+  if (!isIsoBmff && !isWebm) {
+    throw new Error("File is not a valid MP4, MOV or WEBM video");
+  }
+};
+
 const uploadBufferToCloudinary = (buffer, resourceType, publicId) =>
   new Promise((resolve, reject) => {
     const options = {
@@ -80,6 +130,8 @@ const uploadBufferToCloudinary = (buffer, resourceType, publicId) =>
 
 const processFile = async (file, shouldOptimize, publicId) => {
   if (isVideo(file.mimetype)) {
+    assertValidVideo(file);
+
     const result = await uploadBufferToCloudinary(file.buffer, "video", publicId);
     file.path = result.secure_url;
     // Exposed so callers can validate/act on Cloudinary-reported metadata
@@ -87,6 +139,10 @@ const processFile = async (file, shouldOptimize, publicId) => {
     // the URL alone doesn't carry that.
     file.cloudinaryResult = result;
     return;
+  }
+
+  if (!shouldOptimize) {
+    await assertValidImage(file);
   }
 
   const buffer = shouldOptimize ? await optimizeBuffer(file) : file.buffer;

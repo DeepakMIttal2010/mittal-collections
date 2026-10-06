@@ -5,7 +5,7 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" type="image/png" href="/favicon-32.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Mittal Collections - Premium Home Furnishing | Bedsheets, Towels, Curtains</title>
+    <title>Bedsheets, Curtains, Home Decor Online | Mittal Collections</title>
 
     <!-- "Add to Home Screen" support (Android/Chrome + iOS/Safari) -->
     <link rel="manifest" href="/manifest.json" />
@@ -30,10 +30,24 @@
          not a site-wide typeface change. -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- Loaded non-render-blocking (preload -> swap to stylesheet on
+         load): a synchronous <link rel="stylesheet"> here blocks first
+         paint on this one CSS fetch even though it's only ever used for
+         the hero heading. display=swap in the URL already means text
+         never goes invisible while it loads, so there's no FOIT risk to
+         trade away by deferring the stylesheet itself too. -->
     <link
+      rel="preload"
+      as="style"
       href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&display=swap"
-      rel="stylesheet"
+      onload="this.onload=null;this.rel='stylesheet'"
     />
+    <noscript>
+      <link
+        rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&display=swap"
+      />
+    </noscript>
     <!-- No static <meta name="description"> here on purpose — every
          route sets its own via the shared <Seo> component
          (react-helmet-async). A static one here would never get
@@ -49,9 +63,26 @@
          Skipped entirely on /admin/* — otherwise the site owner's own
          admin-panel usage (product edits, reports, etc.) gets counted
          as real customer sessions/pageviews in GA4, polluting the
-         traffic numbers this analytics is meant to measure. -->
+         traffic numbers this analytics is meant to measure.
+
+         Also skipped on localhost/127.0.0.1/local network IPs — this had
+         no such gate before, so every local `npm run dev` session (any
+         developer's, including every automated browser check run against
+         localhost while building/testing a feature) was firing real
+         pageviews into the SAME production GA4 property, indistinguishable
+         from genuine visitors. Confirmed live in the property: ~98% of a
+         month's "sessions" were Direct-channel with ~13% engagement and
+         session count ≈ user count (each "user" a single, non-returning
+         hit) — the signature of repeated automated/local hits, not real
+         traffic (2026-09-19). -->
     <script>
-      if (!location.pathname.startsWith("/admin")) {
+      var isLocalHost =
+        location.hostname === "localhost" ||
+        location.hostname === "127.0.0.1" ||
+        location.hostname.startsWith("192.168.") ||
+        location.hostname.endsWith(".local");
+
+      if (!isLocalHost && !location.pathname.startsWith("/admin")) {
         window.dataLayer = window.dataLayer || [];
         function gtag() {
           dataLayer.push(arguments);
@@ -63,6 +94,33 @@
           const script = document.createElement("script");
           script.async = true;
           script.src = "https://www.googletagmanager.com/gtag/js?id=G-1HP8PP1ZDM";
+          document.head.appendChild(script);
+        });
+
+        // Meta (Facebook) Pixel — same gating and lazy-load timing as the
+        // gtag block above, for the same reasons (keep dev/admin usage out
+        // of ad-platform data, don't compete with the app's own JS for the
+        // initial render/interactive budget). The fbq queue stub is set up
+        // synchronously so any fbq() call made before fbevents.js finishes
+        // loading still queues correctly instead of being dropped.
+        !(function (f, b, e, v, n, t, s) {
+          if (f.fbq) return;
+          n = f.fbq = function () {
+            n.callMethod ? n.callMethod.apply(n, arguments) : n.queue.push(arguments);
+          };
+          f._fbq || (f._fbq = n);
+          n.push = n;
+          n.loaded = !0;
+          n.version = "2.0";
+          n.queue = [];
+        })(window, document, "script");
+        fbq("init", "1309398947938801");
+        fbq("track", "PageView");
+
+        window.addEventListener("load", () => {
+          const script = document.createElement("script");
+          script.async = true;
+          script.src = "https://connect.facebook.net/en_US/fbevents.js";
           document.head.appendChild(script);
         });
       }

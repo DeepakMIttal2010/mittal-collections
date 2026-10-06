@@ -1,4 +1,5 @@
 import express from "express";
+import validateObjectId from "../middleware/validateObjectId.js";
 
 import {
   getAllTrendingSectionsAdmin,
@@ -14,6 +15,8 @@ import adminMiddleware from "../middleware/adminMiddleware.js";
 import requirePermission from "../middleware/requirePermission.js";
 
 const router = express.Router();
+
+router.param("id", validateObjectId);
 const perm = requirePermission("trending");
 
 // Admin-only — the public homepage/page reads sections through

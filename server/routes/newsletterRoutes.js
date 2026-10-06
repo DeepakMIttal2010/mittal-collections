@@ -10,11 +10,12 @@ import adminMiddleware from "../middleware/adminMiddleware.js";
 import upload from "../middleware/uploadMiddleware.js";
 import imageOptimizer from "../middleware/imageOptimizer.js";
 import requirePermission from "../middleware/requirePermission.js";
+import { emailTriggerLimiter } from "../middleware/emailTriggerLimiter.js";
 
 const router = express.Router();
 const perm = requirePermission("newsletter");
 
-router.post("/subscribe", subscribe);
+router.post("/subscribe", emailTriggerLimiter, subscribe);
 
 router.get("/admin", authMiddleware, adminMiddleware, perm, getSubscribers);
 router.post("/send", authMiddleware, adminMiddleware, perm, sendCampaign);

@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { getCategories } from "../../services/categoryService";
 import Skeleton from "../Skeleton";
 import { useLanguage } from "../../context/LanguageContext";
+import { handleImageError } from "../../utils/imageFallback";
 
 function Categories() {
   const [categories, setCategories] = useState([]);
@@ -108,6 +109,7 @@ function Categories() {
                     sizes="(min-width: 1024px) 405px, (min-width: 640px) 45vw, 90vw"
                     alt={t(category.name, category.nameHi)}
                     loading="lazy"
+                    onError={handleImageError}
                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                   />
 

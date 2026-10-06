@@ -5,12 +5,26 @@ const storage = multer.memoryStorage();
 const IMAGE_TYPES = /jpg|jpeg|png|webp/;
 const VIDEO_TYPES = /mp4|webm|mov|quicktime/;
 
+// A rejected file type is an expected, client-side outcome (someone
+// picked the wrong file), not a server bug — status = 400 here is what
+// errorHandler.js's jsonErrorHandler reads to respond 400 instead of the
+// 500 default, and what keeps it out of Sentry (shouldHandleError only
+// reports >= 500). A plain `new Error(...)` isn't a multer.MulterError,
+// so classifyKnownErrors' own instanceof check doesn't catch these —
+// confirmed live in Sentry as an "Unhandled" 500 for exactly this
+// message before this existed.
+const fileTypeError = (message) => {
+  const err = new Error(message);
+  err.status = 400;
+  return err;
+};
+
 // File Filter — images only (banners, categories, subcategories)
 const imageFileFilter = (req, file, cb) => {
   if (IMAGE_TYPES.test(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(new Error("Only JPG, JPEG, PNG and WEBP images are allowed."));
+    cb(fileTypeError("Only JPG, JPEG, PNG and WEBP images are allowed."));
   }
 };
 
@@ -20,7 +34,7 @@ const productMediaFileFilter = (req, file, cb) => {
     cb(null, true);
   } else {
     cb(
-      new Error(
+      fileTypeError(
         "Only JPG, JPEG, PNG, WEBP images and MP4, WEBM, MOV videos are allowed.",
       ),
     );

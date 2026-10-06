@@ -40,7 +40,7 @@ export const getAllProducts = async ({
     const data = await response.json();
 
     return {
-      success: true,
+      success: data.success,
       products: data.products || [],
       total: data.total || 0,
       page: data.page || 1,

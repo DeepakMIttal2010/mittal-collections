@@ -14,14 +14,22 @@ import {
 } from "../services/wishlistService";
 
 import { useAuth } from "./AuthContext";
+import { useLanguage } from "./LanguageContext";
 import { getVisitorId } from "../utils/visitorId";
 
 const WishlistContext = createContext();
 
 export function WishlistProvider({ children }) {
   const [wishlistItems, setWishlistItems] = useState([]);
-  const { isLoggedIn } = useAuth();
+  const { isLoggedIn, user } = useAuth();
+  const { t } = useLanguage();
 
+  // Keyed on the actual user id, not just isLoggedIn — User A logging in
+  // as User B without an explicit logout first never transitions
+  // isLoggedIn through false, so a plain [isLoggedIn] dependency would
+  // keep showing User A's wishlist to User B until a manual page
+  // refresh (same bug class already fixed for CartContext/
+  // CompareContext on the same shared-device scenario).
   useEffect(() => {
     const loadWishlist = async () => {
       if (isLoggedIn) {
@@ -40,13 +48,13 @@ export function WishlistProvider({ children }) {
     };
 
     loadWishlist();
-  }, [isLoggedIn]);
+  }, [isLoggedIn, user?._id]);
 
   const addToWishlist = async (product) => {
     const exists = wishlistItems.find((item) => item._id === product._id);
 
     if (exists) {
-      toast.info("Already in wishlist");
+      toast.info(t("Already in wishlist", "पहले से विशलिस्ट में है"));
       return;
     }
 
@@ -57,7 +65,7 @@ export function WishlistProvider({ children }) {
     if (response.success) {
       setWishlistItems([...wishlistItems, product]);
 
-      toast.success("Added to wishlist ❤️");
+      toast.success(t("Added to wishlist ❤️", "विशलिस्ट में जोड़ा गया ❤️"));
     } else {
       toast.error(response.message);
     }
@@ -71,7 +79,7 @@ export function WishlistProvider({ children }) {
     if (response.success) {
       setWishlistItems(wishlistItems.filter((item) => item._id !== productId));
 
-      toast.success("Removed from wishlist");
+      toast.success(t("Removed from wishlist", "विशलिस्ट से हटाया गया"));
     } else {
       toast.error(response.message);
     }
@@ -84,7 +92,7 @@ export function WishlistProvider({ children }) {
 
     if (response.success) {
       setWishlistItems([]);
-      toast.success("Wishlist cleared successfully");
+      toast.success(t("Wishlist cleared successfully", "विशलिस्ट खाली कर दी गई"));
     } else {
       toast.error(response.message);
     }
