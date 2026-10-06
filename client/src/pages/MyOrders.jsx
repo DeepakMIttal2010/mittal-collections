@@ -10,6 +10,7 @@ import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
 import ReturnRequestModal from "../components/ReturnRequestModal";
 import { handleImageError } from "../utils/imageFallback";
+import { dateLocale } from "../utils/dateLocale";
 
 function getTabs(t) {
   return [
@@ -66,7 +67,7 @@ function getStatusLabel(t, status) {
 
 function OrderCard({ order, onBuyAgain, onPayNow, payingId }) {
   const navigate = useNavigate();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [returnModalItem, setReturnModalItem] = useState(null);
   const [returnedProductIds, setReturnedProductIds] = useState(new Set());
   const statusText = getStatusText(t);
@@ -78,7 +79,7 @@ function OrderCard({ order, onBuyAgain, onPayNow, payingId }) {
     !order.isPaid &&
     order.orderStatus === "Pending";
   const deliveredDate = order.deliveredAt
-    ? new Date(order.deliveredAt).toLocaleDateString("en-IN", {
+    ? new Date(order.deliveredAt).toLocaleDateString(dateLocale(language), {
         day: "numeric",
         month: "long",
       })
@@ -99,7 +100,7 @@ function OrderCard({ order, onBuyAgain, onPayNow, payingId }) {
               {t("Order Placed", "ऑर्डर दिया गया")}
             </p>
             <p className="font-medium text-slate-800">
-              {new Date(order.createdAt).toLocaleDateString("en-IN", {
+              {new Date(order.createdAt).toLocaleDateString(dateLocale(language), {
                 day: "numeric",
                 month: "long",
                 year: "numeric",
@@ -184,7 +185,7 @@ function OrderCard({ order, onBuyAgain, onPayNow, payingId }) {
                           {t("Return window closed on ", "रिटर्न विंडो बंद हो गई ")}
                           {new Date(
                             item.returnInfo.deadline,
-                          ).toLocaleDateString("en-IN", {
+                          ).toLocaleDateString(dateLocale(language), {
                             day: "numeric",
                             month: "short",
                           })}

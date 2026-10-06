@@ -271,8 +271,9 @@ function SaleFormModal({ sale, onClose, onSaved }) {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs text-slate-500">Payment Method</label>
+              <label htmlFor="saleModalPaymentMethod" className="text-xs text-slate-500">Payment Method</label>
               <select
+                id="saleModalPaymentMethod"
                 value={paymentMethod}
                 onChange={(e) => setPaymentMethod(e.target.value)}
                 className="w-full text-sm border border-slate-300 rounded-lg px-3 py-1.5"
@@ -285,8 +286,9 @@ function SaleFormModal({ sale, onClose, onSaved }) {
               </select>
             </div>
             <div>
-              <label className="text-xs text-slate-500">Discount (₹)</label>
+              <label htmlFor="saleModalDiscount" className="text-xs text-slate-500">Discount (₹)</label>
               <input
+                id="saleModalDiscount"
                 type="number"
                 min="0"
                 value={discountAmount}
@@ -295,8 +297,9 @@ function SaleFormModal({ sale, onClose, onSaved }) {
               />
             </div>
             <div>
-              <label className="text-xs text-slate-500">Customer Mobile</label>
+              <label htmlFor="saleModalCustomerMobile" className="text-xs text-slate-500">Customer Mobile</label>
               <input
+                id="saleModalCustomerMobile"
                 type="text"
                 value={customerMobile}
                 onChange={(e) => setCustomerMobile(e.target.value)}
@@ -304,8 +307,9 @@ function SaleFormModal({ sale, onClose, onSaved }) {
               />
             </div>
             <div>
-              <label className="text-xs text-slate-500">Customer Name</label>
+              <label htmlFor="saleModalCustomerName" className="text-xs text-slate-500">Customer Name</label>
               <input
+                id="saleModalCustomerName"
                 type="text"
                 value={customerName}
                 onChange={(e) => setCustomerName(e.target.value)}
@@ -316,8 +320,9 @@ function SaleFormModal({ sale, onClose, onSaved }) {
 
           {isEdit && (
             <div>
-              <label className="text-xs text-slate-500">Reason for this edit (optional, kept for the record)</label>
+              <label htmlFor="saleModalEditReason" className="text-xs text-slate-500">Reason for this edit (optional, kept for the record)</label>
               <input
+                id="saleModalEditReason"
                 type="text"
                 value={editReason}
                 onChange={(e) => setEditReason(e.target.value)}

@@ -310,10 +310,11 @@ function AdminBulkImport() {
       <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-4 mb-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label htmlFor="bulkImportFolder" className="block text-sm font-medium text-slate-700 mb-1">
               1. Product Images Folder
             </label>
             <input
+              id="bulkImportFolder"
               type="file"
               webkitdirectory=""
               directory=""
@@ -329,10 +330,11 @@ function AdminBulkImport() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label htmlFor="bulkImportCsv" className="block text-sm font-medium text-slate-700 mb-1">
               2. Product Details CSV
             </label>
             <input
+              id="bulkImportCsv"
               type="file"
               accept=".csv"
               onChange={handleCsvSelect}

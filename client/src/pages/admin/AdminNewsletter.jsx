@@ -121,10 +121,11 @@ function AdminNewsletter() {
         className="bg-white border border-slate-200 rounded-xl p-6 max-w-2xl space-y-4"
       >
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">
+          <label htmlFor="newsletterSubject" className="block text-sm font-medium text-slate-700 mb-1">
             Subject
           </label>
           <input
+            id="newsletterSubject"
             type="text"
             value={subject}
             onChange={(e) => setSubject(e.target.value)}

@@ -2,6 +2,28 @@
 // tier blocks outbound SMTP ports, but HTTPS API calls go through fine.
 const BREVO_ENDPOINT = "https://api.brevo.com/v3/smtp/email";
 
+// Every one of the ~20 sendEmail() call sites across the codebase builds
+// only a bare fragment (<p>/<ul>/etc., no <!DOCTYPE>/<html>/<head>/<body>)
+// — a round-12 email audit flagged this as a real, if low-per-email-
+// visibility, deliverability/rendering risk: Gmail tolerates a bare
+// fragment fine, but stricter/legacy clients (Outlook desktop's Word
+// rendering engine in particular) are documented to behave inconsistently
+// without a real document structure and a meta charset. Wrapping once
+// here, at the single choke point every email already passes through,
+// fixes all ~20 call sites at once rather than needing each one updated
+// individually — none of them need to change what they pass in.
+const wrapEmailHtml = (bodyHtml) => `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mittal Collections</title>
+</head>
+<body style="margin:0;padding:0;">
+${bodyHtml}
+</body>
+</html>`;
+
 export const sendEmail = async ({ to, subject, html, bcc }) => {
   const bccList = (Array.isArray(bcc) ? bcc : bcc ? [bcc] : []).filter(
     Boolean,
@@ -31,7 +53,7 @@ export const sendEmail = async ({ to, subject, html, bcc }) => {
         bcc: bccList.map((email) => ({ email })),
       }),
       subject,
-      htmlContent: html,
+      htmlContent: wrapEmailHtml(html),
     }),
   });
 

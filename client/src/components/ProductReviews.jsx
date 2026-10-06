@@ -6,6 +6,7 @@ import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
 import { getProductReviews, submitReview } from "../services/reviewService";
 import { imgUrl } from "../services/api";
+import { dateLocale } from "../utils/dateLocale";
 
 function Stars({ value, size = "text-sm" }) {
   return (
@@ -21,7 +22,7 @@ const MAX_REVIEW_IMAGES = 3;
 
 function ProductReviews({ productId }) {
   const { isLoggedIn } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   const [reviews, setReviews] = useState([]);
   const [totalReviews, setTotalReviews] = useState(0);
@@ -363,7 +364,7 @@ function ProductReviews({ productId }) {
               )}
               <p className="text-xs text-slate-400">
                 {review.user?.name || t("Anonymous", "अज्ञात")} ·{" "}
-                {new Date(review.createdAt).toLocaleDateString("en-IN", {
+                {new Date(review.createdAt).toLocaleDateString(dateLocale(language), {
                   day: "numeric",
                   month: "short",
                   year: "numeric",

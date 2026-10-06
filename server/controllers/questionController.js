@@ -151,10 +151,9 @@ export const answerQuestion = async (req, res) => {
       });
     }
 
-    const question = await Question.findById(req.params.id).populate(
-      "product",
-      "name nameHi",
-    );
+    const question = await Question.findById(req.params.id)
+      .populate("product", "name nameHi")
+      .populate("user", "name email");
 
     if (!question) {
       return res.status(404).json({
@@ -176,13 +175,34 @@ export const answerQuestion = async (req, res) => {
     await question.save();
 
     if (isNewAnswer) {
+      const title = "Your question was answered";
+      const productName = question.product?.name || "a product";
+
       notifyUser({
-        userId: question.user,
+        userId: question.user._id,
         type: "question_answered",
-        title: "Your question was answered",
-        message: `We answered your question about ${question.product?.name || "a product"}.`,
+        title,
+        message: `We answered your question about ${productName}.`,
         link: `/product/${question.product?._id || ""}`,
       });
+
+      // Mirrors ticketController.js's addTicketMessage/updateTicketStatus
+      // reply emails — questions previously only got an in-app alert,
+      // easy to miss if the customer isn't actively browsing the site.
+      if (question.user.email) {
+        sendEmail({
+          to: question.user.email,
+          subject: title,
+          html: `
+            <p>Hi ${escapeHtml(question.user.name || "there")},</p>
+            <p>We answered your question about <strong>${escapeHtml(productName)}</strong>:</p>
+            <p>${escapeHtml(question.answer)}</p>
+            <p><a href="${process.env.CLIENT_URL}/product/${question.product?._id || ""}">View on the product page</a></p>
+          `,
+        }).catch((error) =>
+          console.error("Answer Question Email Error:", error),
+        );
+      }
     }
 
     res.status(200).json({

@@ -207,10 +207,11 @@ function AdminArticleForm() {
         className="bg-white border border-slate-200 rounded-xl p-6 max-w-2xl space-y-4"
       >
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">
+          <label htmlFor="articleTitle" className="block text-sm font-medium text-slate-700 mb-1">
             Title
           </label>
           <input
+            id="articleTitle"
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
@@ -221,10 +222,11 @@ function AdminArticleForm() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">
+          <label htmlFor="articleExcerpt" className="block text-sm font-medium text-slate-700 mb-1">
             Excerpt
           </label>
           <textarea
+            id="articleExcerpt"
             rows={2}
             value={excerpt}
             onChange={(e) => setExcerpt(e.target.value)}
@@ -234,7 +236,7 @@ function AdminArticleForm() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">
+          <label htmlFor="articleCoverImage" className="block text-sm font-medium text-slate-700 mb-1">
             Cover Image
           </label>
           {coverImage && (
@@ -245,6 +247,7 @@ function AdminArticleForm() {
             />
           )}
           <input
+            id="articleCoverImage"
             type="file"
             accept="image/*"
             onChange={handleCoverUpload}
@@ -256,7 +259,7 @@ function AdminArticleForm() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">
+          <label htmlFor="articleCategory" className="block text-sm font-medium text-slate-700 mb-1">
             Related Category (optional)
           </label>
           <p className="text-xs text-slate-500 mb-1">
@@ -265,6 +268,7 @@ function AdminArticleForm() {
             products it's about.
           </p>
           <select
+            id="articleCategory"
             value={category}
             onChange={(e) => setCategory(e.target.value)}
             className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -304,10 +308,11 @@ function AdminArticleForm() {
           </p>
 
           <div className="mb-4">
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label htmlFor="articleTitleHi" className="block text-sm font-medium text-slate-700 mb-1">
               शीर्षक (Title in Hindi)
             </label>
             <input
+              id="articleTitleHi"
               type="text"
               value={titleHi}
               onChange={(e) => setTitleHi(e.target.value)}
@@ -317,10 +322,11 @@ function AdminArticleForm() {
           </div>
 
           <div className="mb-4">
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label htmlFor="articleExcerptHi" className="block text-sm font-medium text-slate-700 mb-1">
               सारांश (Excerpt in Hindi)
             </label>
             <textarea
+              id="articleExcerptHi"
               rows={2}
               value={excerptHi}
               onChange={(e) => setExcerptHi(e.target.value)}

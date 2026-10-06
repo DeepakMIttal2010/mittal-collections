@@ -640,6 +640,29 @@ export const resetPassword = async (req, res) => {
 
     await user.save();
 
+    // Standard security-notification pattern this flow was missing
+    // (block/unblock, order status, ticket replies all notify the
+    // user on every other sensitive action) — if an attacker who's
+    // gained some access resets the password, the real account owner
+    // gets no alert otherwise. Best-effort: the password change itself
+    // already succeeded by this point, so a transient email failure
+    // shouldn't turn into a 500 for something that genuinely worked.
+    if (user.email) {
+      try {
+        await sendEmail({
+          to: user.email,
+          subject: "Your Mittal Collections password was reset",
+          html: `
+            <p>Hi ${escapeHtml(user.name || "there")},</p>
+            <p>Your password was just reset using the "Forgot Password" link.</p>
+            <p>If this was you, no action is needed. If you didn't do this, please contact support immediately — someone else may have access to your account.</p>
+          `,
+        });
+      } catch (error) {
+        console.error("Reset Password Notification Email Error:", error);
+      }
+    }
+
     res.status(200).json({
       success: true,
       message: "Password reset successfully",
@@ -696,6 +719,26 @@ export const changePassword = async (req, res) => {
     user.password = await bcrypt.hash(newPassword, 10);
 
     await user.save();
+
+    // Same security-notification pattern as resetPassword — the account's
+    // already-known owner here (currentPassword was verified above), so
+    // there's no enumeration concern, just a best-effort alert that
+    // shouldn't block the (already-successful) password change.
+    if (user.email) {
+      try {
+        await sendEmail({
+          to: user.email,
+          subject: "Your Mittal Collections password was changed",
+          html: `
+            <p>Hi ${escapeHtml(user.name || "there")},</p>
+            <p>Your account password was just changed.</p>
+            <p>If this was you, no action is needed. If you didn't do this, please contact support immediately — someone else may have access to your account.</p>
+          `,
+        });
+      } catch (error) {
+        console.error("Change Password Notification Email Error:", error);
+      }
+    }
 
     res.status(200).json({
       success: true,
