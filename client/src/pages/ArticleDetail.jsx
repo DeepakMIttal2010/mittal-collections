@@ -12,7 +12,7 @@ import { sanitizeArticleHtml } from "../utils/sanitizeArticleHtml";
 
 function ArticleDetail() {
   const { slug } = useParams();
-  const { language, t } = useLanguage();
+  const { language, t, setLanguage } = useLanguage();
   const location = useLocation();
   const navigate = useNavigate();
   // The URL prefix is what actually decides which content renders — a
@@ -192,6 +192,14 @@ function ArticleDetail() {
       {hasHindiContent && (
         <Link
           to={isHindi ? `/articles/${article.slug}` : `/hi/articles/${article.slug}`}
+          // Without this, the effect above (which keeps the URL in sync
+          // with the HEADER's language toggle) immediately overrode this
+          // link's own navigation on click -- the global `language`
+          // state hadn't changed, so that effect saw a URL/toggle
+          // mismatch and bounced straight back to the page this link
+          // was trying to leave. Setting it here too keeps both in sync
+          // the same way clicking the header toggle itself already does.
+          onClick={() => setLanguage(isHindi ? "en" : "hi")}
           className="inline-block text-sm text-amber-600 hover:underline mb-4"
         >
           {isHindi ? "Read in English" : "हिंदी में पढ़ें"}
