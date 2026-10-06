@@ -4,9 +4,11 @@ import { FaTimes } from "react-icons/fa";
 
 import { createReturnRequest } from "../services/returnService";
 import { useLanguage } from "../context/LanguageContext";
+import { useModalA11y } from "../hooks/useModalA11y";
 
 function ReturnRequestModal({ order, item, onClose, onSubmitted }) {
   const { t } = useLanguage();
+  const panelRef = useModalA11y(true, onClose);
   const [quantity, setQuantity] = useState(item.quantity);
   const [reason, setReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -45,6 +47,11 @@ function ReturnRequestModal({ order, item, onClose, onSubmitted }) {
       className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4"
     >
       <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={t("Return this item", "यह आइटम रिटर्न करें")}
+        tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
         className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 relative"
       >

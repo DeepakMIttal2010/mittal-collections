@@ -19,6 +19,7 @@ import { productUrl } from "../../utils/productUrl";
 import { getEarnRate } from "../../services/rewardsService";
 import { useLanguage } from "../../context/LanguageContext";
 import { stripHtml } from "../../utils/stripHtml";
+import { useModalA11y } from "../../hooks/useModalA11y";
 
 function QuickViewModal({ product, onClose }) {
   const navigate = useNavigate();
@@ -26,6 +27,7 @@ function QuickViewModal({ product, onClose }) {
   const { wishlistItems, addToWishlist, removeFromWishlist } = useWishlist();
   const { toggleCompare, isInCompare } = useCompare();
   const { t } = useLanguage();
+  const panelRef = useModalA11y(true, onClose);
   const [earnRate, setEarnRate] = useState(null);
   const inCompare = isInCompare(product._id);
 
@@ -64,6 +66,11 @@ function QuickViewModal({ product, onClose }) {
       className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4"
     >
       <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={t(product.name, product.nameHi)}
+        tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
         className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden relative grid grid-cols-1 sm:grid-cols-2"
       >

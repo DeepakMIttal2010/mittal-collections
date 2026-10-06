@@ -15,6 +15,7 @@ import { useLanguage } from "../context/LanguageContext";
 import { getPublicRewardsInfo } from "../services/rewardsService";
 import { getSiteSettings } from "../services/settingsService";
 import { getBannerCoupon } from "../services/couponService";
+import { useModalA11y } from "../hooks/useModalA11y";
 
 const SHOWN_KEY = "mc_welcome_popup_shown_at";
 const SUPPRESS_MS = 24 * 60 * 60 * 1000; // 24 hours
@@ -134,6 +135,12 @@ function WelcomeBenefitsPopup({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entered, previewMode]);
 
+  // Matches the early-return condition below exactly — the hook itself
+  // can't be called conditionally (rules of hooks), but what counts as
+  // "active" for focus-trapping purposes must track the same visibility
+  // this component actually renders under.
+  const panelRef = useModalA11y(visible && !!rewards, handleClose);
+
   if (!visible || !rewards) return null;
 
   const discountLabel = coupon
@@ -199,6 +206,11 @@ function WelcomeBenefitsPopup({
       />
 
       <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={t("Welcome Benefits", "वेलकम बेनिफिट्स")}
+        tabIndex={-1}
         className={`relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transition-all duration-300 ${
           entered ? "scale-100 translate-y-0" : "scale-95 translate-y-3"
         }`}
