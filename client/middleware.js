@@ -61,8 +61,17 @@ export default function middleware(request) {
 
   const userAgent = request.headers.get("user-agent") || "";
 
-  if (url.pathname === "/" && BOT_USER_AGENT.test(userAgent)) {
-    return rewrite(new URL("/api/render?path=/", request.url));
+  if (url.pathname === "/") {
+    if (BOT_USER_AGENT.test(userAgent)) {
+      return rewrite(new URL("/api/render?path=/", request.url));
+    }
+
+    // Same "Vercel serves the static file straight from disk, bypassing
+    // vercel.json's `rewrites` entirely for an exact '/' request" gap the
+    // bot case above exists to work around -- real visitors need the
+    // identical interception to reach home.html (see
+    // scripts/build-home-html.mjs) instead of the plain index.html.
+    return rewrite(new URL("/home.html", request.url));
   }
 
   return next();
