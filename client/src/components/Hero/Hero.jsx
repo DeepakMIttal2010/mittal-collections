@@ -1,5 +1,5 @@
 import { imgUrl, imgSrcSet } from "../../services/api";
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
 
@@ -102,6 +102,18 @@ function Hero() {
   );
   const [activeIndex, setActiveIndex] = useState(0);
   const { t } = useLanguage();
+
+  // Removes scripts/build-home-html.mjs's static pre-painted hero (a
+  // plain DOM sibling of #root, outside React's own tree entirely --
+  // see that file's header for why it's never placed inside #root)
+  // synchronously before the browser's next paint, so this component's
+  // own render replaces it in the same frame rather than a visible
+  // double-hero flash. A no-op on every route except a first load of
+  // "/" (middleware.js only ever rewrites to the page containing it for
+  // that one path) and on any later remount once it's already gone.
+  useLayoutEffect(() => {
+    document.getElementById("hero-ssr-placeholder")?.remove();
+  }, []);
 
   useEffect(() => {
     const loadBanners = async () => {
