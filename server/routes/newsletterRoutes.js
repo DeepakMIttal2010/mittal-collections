@@ -1,6 +1,7 @@
 import express from "express";
 import {
   subscribe,
+  unsubscribe,
   getSubscribers,
   sendCampaign,
   uploadCampaignImage,
@@ -16,6 +17,11 @@ const router = express.Router();
 const perm = requirePermission("newsletter");
 
 router.post("/subscribe", emailTriggerLimiter, subscribe);
+// No rate limit needed -- isValidUnsubscribeToken already rejects
+// anything without a real, previously-issued token, so there's no
+// cheap way to abuse this at volume the way an open subscribe/email
+// endpoint could be.
+router.post("/unsubscribe", unsubscribe);
 
 router.get("/admin", authMiddleware, adminMiddleware, perm, getSubscribers);
 router.post("/send", authMiddleware, adminMiddleware, perm, sendCampaign);

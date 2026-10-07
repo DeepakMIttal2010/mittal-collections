@@ -48,6 +48,9 @@ const Login = lazyWithReload(() => import("../pages/Login"));
 const Register = lazyWithReload(() => import("../pages/Register"));
 const ForgotPassword = lazyWithReload(() => import("../pages/ForgotPassword"));
 const ResetPassword = lazyWithReload(() => import("../pages/ResetPassword"));
+const NewsletterUnsubscribe = lazyWithReload(() =>
+  import("../pages/NewsletterUnsubscribe"),
+);
 const ChangePassword = lazyWithReload(() => import("../pages/ChangePassword"));
 const Account = lazyWithReload(() => import("../pages/Account"));
 const LoyaltyHistory = lazyWithReload(() => import("../pages/LoyaltyHistory"));
@@ -202,6 +205,7 @@ function AppRoutes() {
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password/:token" element={<ResetPassword />} />
+          <Route path="/newsletter/unsubscribe" element={<NewsletterUnsubscribe />} />
 
           {/* ================= CUSTOMER-PRIVATE (login required) =================
               See routes/ProtectedRoute.jsx — single guard for this whole
