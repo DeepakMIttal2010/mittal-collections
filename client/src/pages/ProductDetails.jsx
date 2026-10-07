@@ -734,12 +734,18 @@ function ProductDetails() {
 
   const specRows = [
     { label: t("What's Included", "क्या शामिल है"), value: product.whatsIncluded },
-    { label: t("Fabric", "फैब्रिक"), value: product.fabric },
+    { label: t("Fabric", "फैब्रिक"), value: t(product.fabric, product.fabricHi || product.fabric) },
     { label: t("Size", "साइज़"), value: product.size },
-    { label: t("GSM", "GSM"), value: product.gsm },
-    { label: t("Wash Care", "वॉश केयर"), value: product.washCare },
-    { label: t("Brand", "ब्रांड"), value: product.brand },
-    { label: t("Country of Origin", "मूल देश"), value: product.countryOfOrigin },
+    { label: t("GSM", "GSM"), value: t(product.gsm, product.gsmHi || product.gsm) },
+    {
+      label: t("Wash Care", "वॉश केयर"),
+      value: t(product.washCare, product.washCareHi || product.washCare),
+    },
+    { label: t("Brand", "ब्रांड"), value: t(product.brand, product.brandHi || product.brand) },
+    {
+      label: t("Country of Origin", "मूल देश"),
+      value: t(product.countryOfOrigin, product.countryOfOriginHi || product.countryOfOrigin),
+    },
   ].filter((row) => row.value);
 
   const effectiveReturnDays =

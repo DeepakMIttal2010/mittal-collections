@@ -613,13 +613,18 @@ export const duplicateProduct = async (req, res) => {
       variants: source.variants,
 
       fabric: source.fabric,
+      fabricHi: source.fabricHi,
       color: source.color,
       pattern: source.pattern,
       size: source.size,
       gsm: source.gsm,
+      gsmHi: source.gsmHi,
       washCare: source.washCare,
+      washCareHi: source.washCareHi,
       brand: source.brand,
+      brandHi: source.brandHi,
       countryOfOrigin: source.countryOfOrigin,
+      countryOfOriginHi: source.countryOfOriginHi,
       whatsIncluded: source.whatsIncluded,
       colorVariesNote: source.colorVariesNote,
       colorVariesNoteHi: source.colorVariesNoteHi,
@@ -1226,13 +1231,18 @@ export const addProduct = async (req, res) => {
       willRestock,
       mainImageIndex,
       fabric,
+      fabricHi,
       color,
       pattern,
       size,
       gsm,
+      gsmHi,
       washCare,
+      washCareHi,
       brand,
+      brandHi,
       countryOfOrigin,
+      countryOfOriginHi,
       whatsIncluded,
       colorVariesNote,
       colorVariesNoteHi,
@@ -1298,13 +1308,18 @@ export const addProduct = async (req, res) => {
         : "both",
 
       fabric: fabric || "",
+      fabricHi: fabricHi || "",
       color: color || "",
       pattern: pattern || "",
       size: size || "",
       gsm: gsm || "",
+      gsmHi: gsmHi || "",
       washCare: washCare || "",
+      washCareHi: washCareHi || "",
       brand: brand || "",
+      brandHi: brandHi || "",
       countryOfOrigin: countryOfOrigin || "",
+      countryOfOriginHi: countryOfOriginHi || "",
       whatsIncluded: whatsIncluded || "",
       colorVariesNote: colorVariesNote || "",
       colorVariesNoteHi: colorVariesNoteHi || "",
@@ -1435,13 +1450,18 @@ export const updateProduct = async (req, res) => {
       : "both";
 
     product.fabric = req.body.fabric || "";
+    product.fabricHi = req.body.fabricHi || "";
     product.color = req.body.color || "";
     product.pattern = req.body.pattern || "";
     product.size = req.body.size || "";
     product.gsm = req.body.gsm || "";
+    product.gsmHi = req.body.gsmHi || "";
     product.washCare = req.body.washCare || "";
+    product.washCareHi = req.body.washCareHi || "";
     product.brand = req.body.brand || "";
+    product.brandHi = req.body.brandHi || "";
     product.countryOfOrigin = req.body.countryOfOrigin || "";
+    product.countryOfOriginHi = req.body.countryOfOriginHi || "";
     product.whatsIncluded = req.body.whatsIncluded || "";
     product.colorVariesNote = req.body.colorVariesNote || "";
     product.colorVariesNoteHi = req.body.colorVariesNoteHi || "";

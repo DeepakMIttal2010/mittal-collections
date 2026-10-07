@@ -148,12 +148,20 @@ export function buildProductUpdateFormData(product, overrides = {}) {
   fd.append("stock", get("stock", product.stock));
   fd.append("size", get("size", product.size || ""));
   fd.append("fabric", get("fabric", product.fabric || ""));
+  fd.append("fabricHi", get("fabricHi", product.fabricHi || ""));
   fd.append("color", get("color", product.color || ""));
   fd.append("pattern", get("pattern", product.pattern || ""));
   fd.append("gsm", get("gsm", product.gsm || ""));
+  fd.append("gsmHi", get("gsmHi", product.gsmHi || ""));
   fd.append("washCare", get("washCare", product.washCare || ""));
+  fd.append("washCareHi", get("washCareHi", product.washCareHi || ""));
   fd.append("brand", get("brand", product.brand || ""));
+  fd.append("brandHi", get("brandHi", product.brandHi || ""));
   fd.append("countryOfOrigin", get("countryOfOrigin", product.countryOfOrigin || ""));
+  fd.append(
+    "countryOfOriginHi",
+    get("countryOfOriginHi", product.countryOfOriginHi || ""),
+  );
   fd.append("whatsIncluded", get("whatsIncluded", product.whatsIncluded || ""));
   fd.append("colorVariesNote", get("colorVariesNote", product.colorVariesNote || ""));
   fd.append("colorVariesNoteHi", get("colorVariesNoteHi", product.colorVariesNoteHi || ""));
