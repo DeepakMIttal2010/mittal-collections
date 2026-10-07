@@ -29,7 +29,7 @@ function Register() {
   const [loading, setLoading] = useState(false);
   const [showMobileModal, setShowMobileModal] = useState(false);
   const { login, markJustRegistered } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   const [otpStep, setOtpStep] = useState(false);
   const [otp, setOtp] = useState("");
@@ -68,7 +68,7 @@ function Register() {
 
       const { confirmPassword, ...userData } = formData;
 
-      const data = await registerUser(userData);
+      const data = await registerUser({ ...userData, language });
 
       if (data.success) {
         toast.success(
@@ -122,7 +122,7 @@ function Register() {
 
     try {
       const { confirmPassword, ...userData } = formData;
-      const data = await registerUser(userData);
+      const data = await registerUser({ ...userData, language });
 
       if (data.success) {
         toast.success(t("Verification code resent", "वेरिफिकेशन कोड फिर से भेजा गया"));

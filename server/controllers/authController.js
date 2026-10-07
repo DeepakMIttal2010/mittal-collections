@@ -18,7 +18,8 @@ const googleClient = new OAuth2Client(process.env.GOOGLE_OAUTH_CLIENT_ID);
 // signup rather than just collected.
 export const register = async (req, res) => {
   try {
-    const { name, email, mobile, password, referralCode } = req.body;
+    const { name, email, mobile, password, referralCode, language } = req.body;
+    const preferredLanguage = language === "hi" ? "hi" : "en";
 
     if (!name || !email || !mobile || !password) {
       return res.status(400).json({
@@ -93,8 +94,10 @@ export const register = async (req, res) => {
         mobile,
         hashedPassword,
         referredById: referrer?._id || null,
+        preferredLanguage,
       },
       bcc: process.env.ADMIN_NOTIFICATION_EMAIL,
+      language: preferredLanguage,
     });
 
     res.status(200).json({
@@ -139,7 +142,8 @@ export const verifyRegisterOtp = async (req, res) => {
       });
     }
 
-    const { name, mobile, hashedPassword, referredById } = result.payload;
+    const { name, mobile, hashedPassword, referredById, preferredLanguage } =
+      result.payload;
 
     // Someone could have registered with this email/mobile via another
     // path (e.g. Google sign-in) while this code was pending — re-check
@@ -170,7 +174,10 @@ export const verifyRegisterOtp = async (req, res) => {
       emailVerified: true,
       referralCode: newReferralCode,
       referredBy: referredById || null,
+      preferredLanguage: preferredLanguage === "hi" ? "hi" : "en",
     });
+
+    const isHindi = user.preferredLanguage === "hi";
 
     try {
       await sendEmail({
@@ -180,8 +187,17 @@ export const verifyRegisterOtp = async (req, res) => {
         // no error, just a customer who never got one). Unset in
         // dev/env by default.
         bcc: process.env.ADMIN_NOTIFICATION_EMAIL,
-        subject: "Welcome to Mittal Collections!",
-        html: `
+        subject: isHindi
+          ? "Mittal Collections में आपका स्वागत है!"
+          : "Welcome to Mittal Collections!",
+        html: isHindi
+          ? `
+          <p>नमस्ते ${escapeHtml(user.name)},</p>
+          <p>Mittal Collections में आपका स्वागत है! आपका अकाउंट सफलतापूर्वक बन गया है।</p>
+          <p>प्रीमियम बेडशीट, तौलिए, पर्दे, तकिए और भी बहुत कुछ देखें
+          <a href="${process.env.CLIENT_URL}">mittalcollections.com</a> पर।</p>
+        `
+          : `
           <p>Hi ${escapeHtml(user.name)},</p>
           <p>Welcome to Mittal Collections! Your account has been created successfully.</p>
           <p>Explore premium bedsheets, towels, curtains, pillows and more at
@@ -215,7 +231,7 @@ export const verifyRegisterOtp = async (req, res) => {
 
 export const login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, language } = req.body;
 
     if (!email || !password) {
       return res.status(400).json({
@@ -270,6 +286,17 @@ export const login = async (req, res) => {
         success: false,
         message: "Your account has been blocked. Please contact support.",
       });
+    }
+
+    // Opportunistic refresh, not a dedicated settings toggle (per the
+    // "automatic" design this was built with) -- keeps preferredLanguage
+    // current for a returning customer who's since switched the
+    // storefront's language toggle, without needing its own UI. Only
+    // writes when it's actually changed, so a login doesn't cost a
+    // write on every single request.
+    if ((language === "hi" || language === "en") && user.preferredLanguage !== language) {
+      user.preferredLanguage = language;
+      await user.save();
     }
 
     const token = jwt.sign(
@@ -569,11 +596,22 @@ export const forgotPassword = async (req, res) => {
       // account or a successful email), turning the response code
       // itself into exactly the enumeration side-channel the uniform
       // response below is meant to prevent.
+      const isHindi = user.preferredLanguage === "hi";
+
       try {
         await sendEmail({
           to: user.email,
-          subject: "Reset your Mittal Collections password",
-          html: `
+          subject: isHindi
+            ? "अपना Mittal Collections पासवर्ड रीसेट करें"
+            : "Reset your Mittal Collections password",
+          html: isHindi
+            ? `
+            <p>नमस्ते ${escapeHtml(user.name || "")},</p>
+            <p>हमें आपका पासवर्ड रीसेट करने का अनुरोध मिला है। यह लिंक 30 मिनट में समाप्त हो जाएगा।</p>
+            <p><a href="${resetUrl}">अपना पासवर्ड रीसेट करें</a></p>
+            <p>अगर आपने यह अनुरोध नहीं किया है, तो इस ईमेल को नज़रअंदाज़ करें।</p>
+          `
+            : `
             <p>Hi ${escapeHtml(user.name || "there")},</p>
             <p>We received a request to reset your password. This link expires in 30 minutes.</p>
             <p><a href="${resetUrl}">Reset your password</a></p>
@@ -648,11 +686,21 @@ export const resetPassword = async (req, res) => {
     // already succeeded by this point, so a transient email failure
     // shouldn't turn into a 500 for something that genuinely worked.
     if (user.email) {
+      const isHindi = user.preferredLanguage === "hi";
+
       try {
         await sendEmail({
           to: user.email,
-          subject: "Your Mittal Collections password was reset",
-          html: `
+          subject: isHindi
+            ? "आपका Mittal Collections पासवर्ड रीसेट कर दिया गया है"
+            : "Your Mittal Collections password was reset",
+          html: isHindi
+            ? `
+            <p>नमस्ते ${escapeHtml(user.name || "")},</p>
+            <p>आपका पासवर्ड अभी "Forgot Password" लिंक से रीसेट किया गया है।</p>
+            <p>अगर यह आपने किया है, तो कोई कार्रवाई करने की ज़रूरत नहीं है। अगर आपने यह नहीं किया है, तो कृपया तुरंत सपोर्ट से संपर्क करें — हो सकता है किसी और के पास आपके अकाउंट का एक्सेस हो।</p>
+          `
+            : `
             <p>Hi ${escapeHtml(user.name || "there")},</p>
             <p>Your password was just reset using the "Forgot Password" link.</p>
             <p>If this was you, no action is needed. If you didn't do this, please contact support immediately — someone else may have access to your account.</p>
@@ -725,11 +773,21 @@ export const changePassword = async (req, res) => {
     // there's no enumeration concern, just a best-effort alert that
     // shouldn't block the (already-successful) password change.
     if (user.email) {
+      const isHindi = user.preferredLanguage === "hi";
+
       try {
         await sendEmail({
           to: user.email,
-          subject: "Your Mittal Collections password was changed",
-          html: `
+          subject: isHindi
+            ? "आपका Mittal Collections पासवर्ड बदल दिया गया है"
+            : "Your Mittal Collections password was changed",
+          html: isHindi
+            ? `
+            <p>नमस्ते ${escapeHtml(user.name || "")},</p>
+            <p>आपके अकाउंट का पासवर्ड अभी बदला गया है।</p>
+            <p>अगर यह आपने किया है, तो कोई कार्रवाई करने की ज़रूरत नहीं है। अगर आपने यह नहीं किया है, तो कृपया तुरंत सपोर्ट से संपर्क करें — हो सकता है किसी और के पास आपके अकाउंट का एक्सेस हो।</p>
+          `
+            : `
             <p>Hi ${escapeHtml(user.name || "there")},</p>
             <p>Your account password was just changed.</p>
             <p>If this was you, no action is needed. If you didn't do this, please contact support immediately — someone else may have access to your account.</p>
