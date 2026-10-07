@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { unsubscribeFromNewsletter } from "../services/newsletterService";
 import { useLanguage } from "../context/LanguageContext";
@@ -19,6 +19,7 @@ function NewsletterUnsubscribe() {
 
   const [status, setStatus] = useState("idle"); // idle | loading | done | error
   const [message, setMessage] = useState("");
+  const headingRef = useRef(null);
 
   const handleUnsubscribe = async () => {
     setStatus("loading");
@@ -27,13 +28,26 @@ function NewsletterUnsubscribe() {
     setMessage(data.message || "");
   };
 
+  // Moves focus to the result heading whenever the status changes so a
+  // screen-reader user (whose activated button just unmounted) is told
+  // what happened instead of losing focus to <body> with no announcement.
+  useEffect(() => {
+    if (status === "done" || status === "error") {
+      headingRef.current?.focus();
+    }
+  }, [status]);
+
   return (
     <div className="min-h-[60vh] flex items-center justify-center py-16 px-4">
       {/* Carries the subscriber's email + a signed token in the query
           string — same noindex reasoning as ResetPassword.jsx's token
           URL. */}
       <Seo title="Unsubscribe" noindex />
-      <div className="w-full max-w-md text-center">
+      <div
+        className="w-full max-w-md text-center"
+        role="status"
+        aria-live="polite"
+      >
         {!email || !token ? (
           <>
             <h1 className="text-3xl font-bold text-slate-900 mb-3">
@@ -48,7 +62,11 @@ function NewsletterUnsubscribe() {
           </>
         ) : status === "done" ? (
           <>
-            <h1 className="text-3xl font-bold text-slate-900 mb-3">
+            <h1
+              ref={headingRef}
+              tabIndex={-1}
+              className="text-3xl font-bold text-slate-900 mb-3 outline-none"
+            >
               {t("You're unsubscribed", "आप अनसब्सक्राइब हो गए हैं")}
             </h1>
             <p className="text-slate-600">
@@ -60,7 +78,11 @@ function NewsletterUnsubscribe() {
           </>
         ) : status === "error" ? (
           <>
-            <h1 className="text-3xl font-bold text-slate-900 mb-3">
+            <h1
+              ref={headingRef}
+              tabIndex={-1}
+              className="text-3xl font-bold text-slate-900 mb-3 outline-none"
+            >
               {t("Couldn't unsubscribe", "अनसब्सक्राइब नहीं हो सका")}
             </h1>
             <p className="text-slate-600">

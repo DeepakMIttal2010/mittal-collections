@@ -135,6 +135,7 @@ function AdminReturns() {
                 <input
                   type="text"
                   placeholder="Note to customer (optional)"
+                  aria-label={`Note to customer for return ${ret._id}`}
                   defaultValue={ret.adminNote}
                   onChange={(e) =>
                     setNoteDrafts((prev) => ({
@@ -148,6 +149,7 @@ function AdminReturns() {
                 <select
                   value={ret.status}
                   onChange={(e) => handleStatusChange(ret._id, e.target.value)}
+                  aria-label={`Update status for return ${ret._id}`}
                   className="text-sm border border-slate-300 rounded-lg px-3 py-1.5"
                 >
                   {STATUSES.map((s) => (

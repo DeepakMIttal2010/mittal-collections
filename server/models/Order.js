@@ -279,6 +279,13 @@ orderSchema.index({ "orderItems.product": 1 });
 // unseen-orders query both sort by createdAt without a user filter.
 orderSchema.index({ createdAt: -1 });
 orderSchema.index({ isSeenByAdmin: 1, createdAt: -1 });
+// Both cron jobs' filter shapes — neither matched an existing index
+// (Mongo could use at most one field via the single-field indexes above
+// and had to scan/filter the rest in memory). Currently cheap at today's
+// order volume but these run on a recurring schedule, so the cost would
+// otherwise creep up unnoticed as volume grows.
+orderSchema.index({ orderStatus: 1, reviewRequestSent: 1 });
+orderSchema.index({ paymentMethod: 1, orderStatus: 1, isPaid: 1 });
 orderSchema.index(
   { user: 1, clientRequestId: 1 },
   { unique: true, partialFilterExpression: { clientRequestId: { $type: "string" } } },
