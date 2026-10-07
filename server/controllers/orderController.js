@@ -108,22 +108,34 @@ const attachReturnEligibility = async (orders) => {
   return wasArray ? decorated : decorated[0];
 };
 
+// Hi copy is only used for the email (subjectHi/bodyHi below) -- the
+// in-app notification (notifyUser call in sendOrderStatusNotification)
+// stays English-only, same scope as the rest of this round's
+// localization pass (customer-facing emails first).
 const ORDER_STATUS_MESSAGES = {
   Processing: {
     subject: "Your order is being processed",
+    subjectHi: "आपका ऑर्डर प्रोसेस हो रहा है",
     body: "Your order is now being processed and will be shipped soon.",
+    bodyHi: "आपका ऑर्डर अभी प्रोसेस हो रहा है और जल्द ही भेजा जाएगा।",
   },
   Shipped: {
     subject: "Your order has shipped",
+    subjectHi: "आपका ऑर्डर भेज दिया गया है",
     body: "Your order is on its way!",
+    bodyHi: "आपका ऑर्डर रास्ते में है!",
   },
   Delivered: {
     subject: "Your order has been delivered",
+    subjectHi: "आपका ऑर्डर डिलीवर हो गया है",
     body: "Your order has been delivered. We hope you love it!",
+    bodyHi: "आपका ऑर्डर डिलीवर हो गया है। हमें उम्मीद है आपको पसंद आएगा!",
   },
   Cancelled: {
     subject: "Your order has been cancelled",
+    subjectHi: "आपका ऑर्डर रद्द कर दिया गया है",
     body: "Your order has been cancelled. If a coupon or loyalty points were used, they've been refunded to your account.",
+    bodyHi: "आपका ऑर्डर रद्द कर दिया गया है। अगर कोई कूपन या लॉयल्टी पॉइंट्स इस्तेमाल किए गए थे, तो वे आपके अकाउंट में वापस कर दिए गए हैं।",
   },
 };
 
@@ -145,15 +157,24 @@ const sendOrderStatusNotification = (order, status) => {
   });
 
   User.findById(order.user)
-    .select("name email")
+    .select("name email preferredLanguage")
     .then((customer) => {
       if (!customer?.email) return;
+
+      const isHindi = customer.preferredLanguage === "hi";
 
       return sendEmail({
         to: customer.email,
         bcc: process.env.ADMIN_NOTIFICATION_EMAIL,
-        subject: statusMessage.subject,
-        html: `
+        subject: isHindi ? statusMessage.subjectHi : statusMessage.subject,
+        html: isHindi
+          ? `
+          <p>नमस्ते ${escapeHtml(customer.name || "")},</p>
+          <p>${statusMessage.bodyHi}</p>
+          <p>ऑर्डर आईडी: ${order._id}</p>
+          <p><a href="${process.env.CLIENT_URL}/my-orders/${order._id}">अपना ऑर्डर देखें</a></p>
+        `
+          : `
           <p>Hi ${escapeHtml(customer.name || "there")},</p>
           <p>${statusMessage.body}</p>
           <p>Order ID: ${order._id}</p>
@@ -684,21 +705,43 @@ export const createOrder = async (req, res) => {
     // order not yet paid — this confirms the order was received, not that
     // payment succeeded. Never blocks the actual order response on failure.
     try {
+      const isHindi = req.user.preferredLanguage === "hi";
+      // Item NAMES stay English either way -- Product has no nameHi-
+      // equivalent translation wired into order line items yet (that's
+      // the separate product-spec-Hindi-fields item from this same
+      // round's scope, not done here), only the surrounding email copy
+      // is localized.
+      const itemsListHtml = verifiedItems
+        .map(
+          (item) =>
+            `<li>${escapeHtml(item.name)}${item.size ? ` (${isHindi ? "साइज़" : "Size"}: ${escapeHtml(item.size)})` : ""} × ${item.quantity} — ₹${item.price * item.quantity}</li>`,
+        )
+        .join("");
+
       await sendEmail({
         to: req.user.email,
         bcc: process.env.ADMIN_NOTIFICATION_EMAIL,
-        subject: "Your Mittal Collections order is confirmed",
-        html: `
+        subject: isHindi
+          ? "आपका Mittal Collections ऑर्डर कन्फर्म हो गया है"
+          : "Your Mittal Collections order is confirmed",
+        html: isHindi
+          ? `
+          <p>नमस्ते ${escapeHtml(req.user.name || "")},</p>
+          <p>आपके ऑर्डर के लिए धन्यवाद! यहां एक छोटा सारांश है:</p>
+          <p>ऑर्डर आईडी: ${order._id}</p>
+          <ul>
+            ${itemsListHtml}
+          </ul>
+          <p><strong>कुल: ₹${totalPrice}</strong></p>
+          <p>भुगतान का तरीका: ${paymentMethod}</p>
+          <p><a href="${process.env.CLIENT_URL}/my-orders/${order._id}">अपना ऑर्डर देखें</a></p>
+        `
+          : `
           <p>Hi ${escapeHtml(req.user.name || "there")},</p>
           <p>Thanks for your order! Here's a quick summary:</p>
           <p>Order ID: ${order._id}</p>
           <ul>
-            ${verifiedItems
-              .map(
-                (item) =>
-                  `<li>${escapeHtml(item.name)}${item.size ? ` (Size: ${escapeHtml(item.size)})` : ""} × ${item.quantity} — ₹${item.price * item.quantity}</li>`,
-              )
-              .join("")}
+            ${itemsListHtml}
           </ul>
           <p><strong>Total: ₹${totalPrice}</strong></p>
           <p>Payment method: ${paymentMethod}</p>

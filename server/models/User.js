@@ -56,6 +56,19 @@ const userSchema = new mongoose.Schema(
       default: "user",
     },
 
+    // Captured automatically from whichever language the storefront's
+    // own toggle was set to at signup/login (see authController.js) --
+    // no separate account-settings UI for it. Every customer-facing
+    // email call site reads this to pick en/hi subject+body, the same
+    // way the storefront itself already does via LanguageContext/t().
+    // Defaults "en" since that's also LanguageContext's own default for
+    // a visitor who's never touched the toggle.
+    preferredLanguage: {
+      type: String,
+      enum: ["en", "hi"],
+      default: "en",
+    },
+
     // Only meaningful when role === "admin". Absent/null = a full,
     // unrestricted admin (every account that existed before this field
     // was added, including the owner's own) — restriction is opt-in,
