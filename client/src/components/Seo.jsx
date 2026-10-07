@@ -73,6 +73,7 @@ function Seo({
       <meta property="og:title" content={fullTitle} />
       {description && <meta property="og:description" content={description} />}
       <meta property="og:image" content={image || DEFAULT_IMAGE} />
+      <meta property="og:image:alt" content={fullTitle} />
       {url && <meta property="og:url" content={url} />}
       {url && <link rel="canonical" href={url} />}
       {alternateLangs?.map(({ lang: altLang, url: altUrl }) => (

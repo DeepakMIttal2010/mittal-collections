@@ -33,11 +33,84 @@ import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const OUT_PATH = path.join(__dirname, "../src/data/heroBannersSnapshot.json");
+const INDEX_HTML_PATH = path.join(__dirname, "../index.html");
 const API_BASE = process.env.VITE_API_URL || "https://mittal-collections-api.onrender.com/api";
 const MAX_ATTEMPTS = 4;
 const RETRY_DELAY_MS = 15000;
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Minimal, standalone copy of src/services/api.js's isCloudinaryUploadUrl +
+// imgUrl/imgSrcSet Cloudinary-transform logic — not imported directly
+// because this script runs as plain Node (not through Vite), and that
+// file's top-level `import.meta.env.VITE_API_URL` read throws outside a
+// Vite build. Same duplicate-rather-than-import convention render.js's
+// own header comment already documents for this exact reason.
+const isCloudinaryUploadUrl = (p) => {
+  try {
+    const u = new URL(p);
+    return u.hostname === "res.cloudinary.com" && u.pathname.includes("/upload/");
+  } catch {
+    return false;
+  }
+};
+
+const cloudinaryTransform = (p, transform) =>
+  isCloudinaryUploadUrl(p) ? p.replace("/upload/", `/upload/${transform}/`) : p;
+
+// The snapshot exists so a first-time visitor's browser can discover the
+// hero image URL before JS executes (see the file header) — but nothing
+// told the BROWSER to start fetching it that early. This closes that gap:
+// inject a <link rel="preload" as="image"> for the first slide's image
+// into index.html at build time, matching the exact src/srcset/sizes
+// Hero.jsx itself requests (w_1000 main + 500/800/1200 srcset widths),
+// so the real LCP request starts as soon as the HTML parses instead of
+// waiting for main.jsx to download, parse, execute, and mount.
+const PRELOAD_START = "<!-- hero-image-preload:start -->";
+const PRELOAD_END = "<!-- hero-image-preload:end -->";
+
+function buildPreloadTag(imageUrl) {
+  if (!imageUrl) return "";
+  const src = cloudinaryTransform(imageUrl, "w_1000,q_auto,f_webp");
+  const srcset = isCloudinaryUploadUrl(imageUrl)
+    ? [500, 800, 1200]
+        .map((w) => `${cloudinaryTransform(imageUrl, `w_${w},q_auto,f_webp`)} ${w}w`)
+        .join(", ")
+    : "";
+  return `${PRELOAD_START}
+    <link
+      rel="preload"
+      as="image"
+      href="${src}"
+      ${srcset ? `imagesrcset="${srcset}"` : ""}
+      imagesizes="(max-width: 640px) 90vw, (max-width: 1200px) 45vw, 512px"
+      fetchpriority="high"
+    />
+    ${PRELOAD_END}`;
+}
+
+function updateIndexHtmlPreload(imageUrl) {
+  const html = fs.readFileSync(INDEX_HTML_PATH, "utf8");
+  const tag = buildPreloadTag(imageUrl);
+  const startIdx = html.indexOf(PRELOAD_START);
+  const endIdx = html.indexOf(PRELOAD_END);
+
+  let next;
+  if (startIdx !== -1 && endIdx !== -1) {
+    // Idempotent — replaces whatever a prior build injected rather than
+    // stacking a new one on every run.
+    next = html.slice(0, startIdx) + tag + html.slice(endIdx + PRELOAD_END.length);
+  } else if (tag) {
+    next = html.replace(
+      '<link rel="preconnect" href="https://res.cloudinary.com" crossorigin />',
+      (match) => `${match}\n    ${tag}`,
+    );
+  } else {
+    return;
+  }
+
+  fs.writeFileSync(INDEX_HTML_PATH, next);
+}
 
 async function fetchBanners() {
   const res = await fetch(`${API_BASE}/banners`);
@@ -58,6 +131,7 @@ async function main() {
       fs.mkdirSync(path.dirname(OUT_PATH), { recursive: true });
       fs.writeFileSync(OUT_PATH, JSON.stringify(banners, null, 2) + "\n");
       console.log(`fetch-hero-banners: snapshotted ${banners.length} banner(s) from ${API_BASE} (attempt ${attempt})`);
+      updateIndexHtmlPreload(banners[0]?.image);
       return;
     } catch (e) {
       console.warn(`fetch-hero-banners: attempt ${attempt}/${MAX_ATTEMPTS} failed (${e.message})`);
