@@ -136,13 +136,27 @@ const productSchema = new mongoose.Schema(
     // Merchant Center diagnostics don't credit a color/pattern mentioned
     // only in description prose, they want the dedicated structured field.
     fabric: { type: String, default: "", trim: true },
+    // Only these 5 spec fields get a Hindi counterpart -- color/pattern/
+    // size aren't included here since those are either free text that
+    // doubles as part of the product name/title (size) or already
+    // covered by existing nameHi (color/pattern are usually baked into
+    // the product name itself, e.g. "Navy Blue Floral"). Same t()
+    // fallback-to-English convention as every other ...Hi field in this
+    // schema -- ProductDetails.jsx reads via t(product.fabric,
+    // product.fabricHi), so an empty value here is a silent, safe
+    // English fallback, never a broken-looking blank.
+    fabricHi: { type: String, default: "", trim: true },
     color: { type: String, default: "", trim: true },
     pattern: { type: String, default: "", trim: true },
     size: { type: String, default: "", trim: true },
     gsm: { type: String, default: "", trim: true },
+    gsmHi: { type: String, default: "", trim: true },
     washCare: { type: String, default: "", trim: true },
+    washCareHi: { type: String, default: "", trim: true },
     brand: { type: String, default: "", trim: true },
+    brandHi: { type: String, default: "", trim: true },
     countryOfOrigin: { type: String, default: "", trim: true },
+    countryOfOriginHi: { type: String, default: "", trim: true },
 
     // e.g. "Set of 5 Cushion Covers" or "1 Bedsheet + 2 Pillow Covers" —
     // shown as its own labeled line on the product page so a customer

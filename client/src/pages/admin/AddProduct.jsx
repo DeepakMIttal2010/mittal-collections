@@ -80,13 +80,18 @@ function AddProduct() {
     visibility: "both",
     optimizeImages: true,
     fabric: "",
+    fabricHi: "",
     color: "",
     pattern: "",
     size: "",
     gsm: "",
+    gsmHi: "",
     washCare: "",
+    washCareHi: "",
     brand: "",
+    brandHi: "",
     countryOfOrigin: "",
+    countryOfOriginHi: "",
     whatsIncluded: "",
     colorVariesNote: "",
     colorVariesNoteHi: "",
@@ -330,13 +335,18 @@ function AddProduct() {
     data.append("mainImageIndex", mainImageIndex);
     data.append("optimizeImages", formData.optimizeImages);
     data.append("fabric", formData.fabric);
+    data.append("fabricHi", formData.fabricHi);
     data.append("color", formData.color);
     data.append("pattern", formData.pattern);
     data.append("size", formData.size);
     data.append("gsm", formData.gsm);
+    data.append("gsmHi", formData.gsmHi);
     data.append("washCare", formData.washCare);
+    data.append("washCareHi", formData.washCareHi);
     data.append("brand", formData.brand);
+    data.append("brandHi", formData.brandHi);
     data.append("countryOfOrigin", formData.countryOfOrigin);
+    data.append("countryOfOriginHi", formData.countryOfOriginHi);
     data.append("whatsIncluded", formData.whatsIncluded);
     data.append("colorVariesNote", formData.colorVariesNote);
     data.append("colorVariesNoteHi", formData.colorVariesNoteHi);
@@ -674,6 +684,21 @@ function AddProduct() {
 
         <div className="form-row">
           <div className="form-group">
+            <label htmlFor="fabricHi">Fabric (Hindi, optional)</label>
+
+            <input
+              id="fabricHi"
+              type="text"
+              name="fabricHi"
+              placeholder="जैसे 100% कॉटन"
+              value={formData.fabricHi}
+              onChange={handleChange}
+            />
+          </div>
+        </div>
+
+        <div className="form-row">
+          <div className="form-group">
             <label htmlFor="color">Colour (optional)</label>
 
             <input
@@ -730,6 +755,34 @@ function AddProduct() {
 
         <div className="form-row">
           <div className="form-group">
+            <label htmlFor="gsmHi">GSM (Hindi, optional)</label>
+
+            <input
+              id="gsmHi"
+              type="text"
+              name="gsmHi"
+              placeholder="जैसे 180 जीएसएम"
+              value={formData.gsmHi}
+              onChange={handleChange}
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="washCareHi">Wash Care (Hindi, optional)</label>
+
+            <input
+              id="washCareHi"
+              type="text"
+              name="washCareHi"
+              placeholder="जैसे ठंडे पानी में धोएं"
+              value={formData.washCareHi}
+              onChange={handleChange}
+            />
+          </div>
+        </div>
+
+        <div className="form-row">
+          <div className="form-group">
             <label htmlFor="brand">Brand (optional)</label>
 
             <input
@@ -751,6 +804,34 @@ function AddProduct() {
               name="countryOfOrigin"
               placeholder="e.g. India"
               value={formData.countryOfOrigin}
+              onChange={handleChange}
+            />
+          </div>
+        </div>
+
+        <div className="form-row">
+          <div className="form-group">
+            <label htmlFor="brandHi">Brand (Hindi, optional)</label>
+
+            <input
+              id="brandHi"
+              type="text"
+              name="brandHi"
+              placeholder="जैसे मित्तल कलेक्शंस"
+              value={formData.brandHi}
+              onChange={handleChange}
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="countryOfOriginHi">Country of Origin (Hindi, optional)</label>
+
+            <input
+              id="countryOfOriginHi"
+              type="text"
+              name="countryOfOriginHi"
+              placeholder="जैसे भारत"
+              value={formData.countryOfOriginHi}
               onChange={handleChange}
             />
           </div>

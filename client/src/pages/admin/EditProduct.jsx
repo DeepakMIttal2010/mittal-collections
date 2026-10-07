@@ -85,13 +85,18 @@ function EditProduct() {
     visibility: "both",
     optimizeImages: true,
     fabric: "",
+    fabricHi: "",
     color: "",
     pattern: "",
     size: "",
     gsm: "",
+    gsmHi: "",
     washCare: "",
+    washCareHi: "",
     brand: "",
+    brandHi: "",
     countryOfOrigin: "",
+    countryOfOriginHi: "",
     whatsIncluded: "",
     colorVariesNote: "",
     colorVariesNoteHi: "",
@@ -166,13 +171,18 @@ function EditProduct() {
         visibility: product.visibility || "both",
         optimizeImages: true,
         fabric: product.fabric || "",
+        fabricHi: product.fabricHi || "",
         color: product.color || "",
         pattern: product.pattern || "",
         size: product.size || "",
         gsm: product.gsm || "",
+        gsmHi: product.gsmHi || "",
         washCare: product.washCare || "",
+        washCareHi: product.washCareHi || "",
         brand: product.brand || "",
+        brandHi: product.brandHi || "",
         countryOfOrigin: product.countryOfOrigin || "",
+        countryOfOriginHi: product.countryOfOriginHi || "",
         whatsIncluded: product.whatsIncluded || "",
         colorVariesNote: product.colorVariesNote || "",
         colorVariesNoteHi: product.colorVariesNoteHi || "",
@@ -810,6 +820,21 @@ function EditProduct() {
 
         <div className="form-row">
           <div className="form-group">
+            <label htmlFor="fabricHi">Fabric (Hindi, optional)</label>
+
+            <input
+              id="fabricHi"
+              type="text"
+              name="fabricHi"
+              placeholder="जैसे 100% कॉटन"
+              value={formData.fabricHi}
+              onChange={handleChange}
+            />
+          </div>
+        </div>
+
+        <div className="form-row">
+          <div className="form-group">
             <label htmlFor="color">Colour (optional)</label>
 
             <input
@@ -866,6 +891,34 @@ function EditProduct() {
 
         <div className="form-row">
           <div className="form-group">
+            <label htmlFor="gsmHi">GSM (Hindi, optional)</label>
+
+            <input
+              id="gsmHi"
+              type="text"
+              name="gsmHi"
+              placeholder="जैसे 180 जीएसएम"
+              value={formData.gsmHi}
+              onChange={handleChange}
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="washCareHi">Wash Care (Hindi, optional)</label>
+
+            <input
+              id="washCareHi"
+              type="text"
+              name="washCareHi"
+              placeholder="जैसे ठंडे पानी में धोएं"
+              value={formData.washCareHi}
+              onChange={handleChange}
+            />
+          </div>
+        </div>
+
+        <div className="form-row">
+          <div className="form-group">
             <label htmlFor="brand">Brand (optional)</label>
 
             <input
@@ -887,6 +940,34 @@ function EditProduct() {
               name="countryOfOrigin"
               placeholder="e.g. India"
               value={formData.countryOfOrigin}
+              onChange={handleChange}
+            />
+          </div>
+        </div>
+
+        <div className="form-row">
+          <div className="form-group">
+            <label htmlFor="brandHi">Brand (Hindi, optional)</label>
+
+            <input
+              id="brandHi"
+              type="text"
+              name="brandHi"
+              placeholder="जैसे मित्तल कलेक्शंस"
+              value={formData.brandHi}
+              onChange={handleChange}
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="countryOfOriginHi">Country of Origin (Hindi, optional)</label>
+
+            <input
+              id="countryOfOriginHi"
+              type="text"
+              name="countryOfOriginHi"
+              placeholder="जैसे भारत"
+              value={formData.countryOfOriginHi}
               onChange={handleChange}
             />
           </div>
