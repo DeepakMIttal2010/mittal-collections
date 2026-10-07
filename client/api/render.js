@@ -247,8 +247,15 @@ const buildProductBodyHtml = (product, plainDescription, offerPrice, offerStock,
     .map(([label, value]) => `<li>${escapeHtml(label)}: ${escapeHtml(value)}</li>`)
     .join("\n");
 
+  // Per-photo alt text, matching ProductDetails.jsx's client-rendered
+  // version (`${name} - photo ${i+1}`) -- every gallery image used to
+  // get the identical alt string here, diluting per-image indexing
+  // signal across a multi-photo product's entire gallery.
   const imagesHtml = galleryImages
-    .map((url) => `<img src="${escapeHtml(url)}" alt="${escapeHtml(product.name)}" />`)
+    .map(
+      (url, i) =>
+        `<img src="${escapeHtml(url)}" alt="${escapeHtml(product.name)} - photo ${i + 1}" />`,
+    )
     .join("\n");
 
   return `
@@ -272,8 +279,47 @@ const buildProductBodyHtml = (product, plainDescription, offerPrice, offerStock,
 // from a genuinely-empty/removed page to that classifier. This gives
 // Googlebot's first-pass (non-JS) crawl the same product list a real
 // visitor's browser renders, not just a head-only shell.
-const buildCategoryBodyHtml = (heading, bodyText, breadcrumbItems, products) => {
+const buildCategoryBodyHtml = (
+  heading,
+  bodyText,
+  breadcrumbItems,
+  products,
+  categorySlug,
+  subcategories,
+) => {
   const breadcrumbHtml = buildBreadcrumbHtml(breadcrumbItems);
+
+  // Every subcategory under this category, grouped by groupLabel — real
+  // crawlable links regardless of which group a subcategory belongs to
+  // (the client-side CategoryPage.jsx pill row only shows one "primary"
+  // group at a time; this flat, complete listing exists purely so no
+  // subcategory is ever JS-only-discoverable, not to mirror that UI).
+  const subcategoryLinksHtml =
+    subcategories && subcategories.length > 0
+      ? (() => {
+          const byGroup = new Map();
+          for (const s of subcategories) {
+            const list = byGroup.get(s.groupLabel) || [];
+            list.push(s);
+            byGroup.set(s.groupLabel, list);
+          }
+          return [...byGroup.entries()]
+            .map(
+              ([groupLabel, items]) => `<section>
+            <h2>${escapeHtml(groupLabel || "Shop by")}</h2>
+            <ul>
+              ${items
+                .map(
+                  (s) =>
+                    `<li><a href="${SITE_URL}/category/${categorySlug}/${s.slug}">${escapeHtml(s.name)}</a></li>`,
+                )
+                .join("\n")}
+            </ul>
+          </section>`,
+            )
+            .join("\n");
+        })()
+      : "";
 
   const productsHtml = products
     .map((p) => {
@@ -295,6 +341,7 @@ const buildCategoryBodyHtml = (heading, bodyText, breadcrumbItems, products) => 
     <nav aria-label="breadcrumb">${breadcrumbHtml}</nav>
     <h1>${escapeHtml(heading)}</h1>
     ${bodyText ? `<p>${escapeHtml(bodyText)}</p>` : ""}
+    ${subcategoryLinksHtml}
     <ul>
       ${productsHtml}
     </ul>
@@ -331,9 +378,16 @@ const buildSimpleBodyHtml = (breadcrumbItems, heading, description) => `
 // [[crawl_indexation_audit_2026-09-28]]: Table Covers/Table Runners
 // sitting at "URL is unknown to Google" despite being in the sitemap).
 // Mirrors the client-side homepage's CategoryQuickLinks + ShopByNeed
-// sections -- every category, plus the "By Material"/"By Type"
-// subcategory links -- as real crawlable <a> tags, not just the single
-// generic paragraph this body used to be.
+// sections -- every category, plus every subcategory -- as real
+// crawlable <a> tags, not just the single generic paragraph this body
+// used to be. Deliberately NOT filtered to "By Material"/"By Type" the
+// way the earlier version was -- that filter silently dropped every
+// "Size"/"Bed Size"-grouped subcategory from the one page on the site
+// with the most crawl authority, which a live GSC ground-truth scan
+// (2026-10-07) confirmed left several of them sitting at "Discovered -
+// currently not indexed" with no other non-JS-discoverable link at all
+// (see buildCategoryBodyHtml's own subcategory-links addition, the
+// same day, for the other half of this fix).
 const buildHomeBodyHtml = (heading, description, categories, subcategories) => {
   const categoryLinksHtml = categories
     .map(
@@ -343,10 +397,7 @@ const buildHomeBodyHtml = (heading, description, categories, subcategories) => {
     .join("\n");
 
   const categoryMap = new Map(categories.map((c) => [c._id, c]));
-  const relevant = subcategories.filter(
-    (s) => s.groupLabel === "By Material" || s.groupLabel === "By Type",
-  );
-  const shopByNeedHtml = relevant
+  const shopByNeedHtml = subcategories
     .map((s) => {
       const category = categoryMap.get(s.category?._id);
       if (!category) return "";
@@ -907,13 +958,23 @@ const buildMeta = async (path) => {
     // and /category/bedsheets/fitted-bedsheet returned byte-identical
     // title and description). Look the subcategory up the same way
     // CategoryPage.jsx does client-side and fold its name into both.
+    // Fetched unconditionally (not just when parts[2] is a subcategory
+    // segment) so every category page -- not only subcategory detail
+    // pages -- can link to its own subcategories as real <a> tags below.
+    // Before this, a subcategory whose groupLabel wasn't "By Material" or
+    // "By Type" (e.g. "Size", "Bed Size") had NO non-JS-discoverable link
+    // anywhere except sitemap.xml itself -- confirmed to be exactly the
+    // failure mode behind several subcategory URLs sitting at "Discovered
+    // - currently not indexed" / "URL is unknown to Google" in a live GSC
+    // ground-truth scan (2026-10-07).
+    const subRes = await fetchJson(`${API_BASE}/api/subcategories`);
+    const categorySubcategories = (subRes.subcategories || []).filter(
+      (s) => s.category?._id === category._id,
+    );
+
     let subcategory = null;
     let subcategoryIsOnlyGroupOption = false;
     if (parts[2]) {
-      const subRes = await fetchJson(`${API_BASE}/api/subcategories`);
-      const categorySubcategories = (subRes.subcategories || []).filter(
-        (s) => s.category?._id === category._id,
-      );
       subcategory = categorySubcategories.find((s) => s.slug === parts[2]);
       // A subcategory slug that doesn't resolve is the same "genuinely
       // doesn't exist" case product/article already 404 on below.
@@ -1005,7 +1066,14 @@ const buildMeta = async (path) => {
       // users to see materially the same content, not an artificially
       // trimmed version), and no category here has anywhere near enough
       // products yet for 50 to matter in practice.
-      bodyHtml: buildCategoryBodyHtml(pageTitle, bodyText, breadcrumbItems, categoryProducts),
+      bodyHtml: buildCategoryBodyHtml(
+        pageTitle,
+        bodyText,
+        breadcrumbItems,
+        categoryProducts,
+        category.slug,
+        categorySubcategories,
+      ),
     };
   }
 
@@ -1300,6 +1368,7 @@ const injectMeta = (html, meta) => {
     <meta property="og:title" content="${escapeHtml(meta.title)}" />
     <meta property="og:description" content="${escapeHtml(meta.description)}" />
     <meta property="og:image" content="${escapeHtml(meta.image)}" />
+    <meta property="og:image:alt" content="${escapeHtml(meta.title)}" />
     <meta property="og:url" content="${escapeHtml(meta.url)}" />
     <link rel="canonical" href="${escapeHtml(meta.url)}" />
     ${
