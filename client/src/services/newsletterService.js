@@ -26,6 +26,30 @@ export const subscribeToNewsletter = async (email) => {
   }
 };
 
+export const unsubscribeFromNewsletter = async (email, token) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/newsletter/unsubscribe`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, token }),
+    });
+
+    const data = await response.json();
+
+    return {
+      success: data.success,
+      message: data.message,
+    };
+  } catch (error) {
+    console.error("Newsletter Unsubscribe Error:", error);
+
+    return {
+      success: false,
+      message: "Unable to unsubscribe. Please try again.",
+    };
+  }
+};
+
 export const getSubscribers = async () => {
   try {
     const response = await fetch(`${API_BASE_URL}/newsletter/admin`, {

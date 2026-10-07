@@ -1,5 +1,6 @@
 import Subscriber from "../models/Subscriber.js";
 import { sendEmail } from "../config/mailer.js";
+import { createUnsubscribeToken, isValidUnsubscribeToken } from "../utils/unsubscribeToken.js";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -53,6 +54,48 @@ export const subscribe = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Unable to subscribe. Please try again.",
+    });
+  }
+};
+
+// ============================
+// UNSUBSCRIBE FROM NEWSLETTER (Public)
+// No login possible here (Subscriber has no password) -- the token
+// proves the request came from a link this app actually sent, see
+// unsubscribeToken.js.
+// ============================
+export const unsubscribe = async (req, res) => {
+  try {
+    const { email, token } = req.body;
+
+    if (!email || typeof email !== "string") {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid request",
+      });
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+
+    if (!isValidUnsubscribeToken(normalizedEmail, token)) {
+      return res.status(400).json({
+        success: false,
+        message: "This unsubscribe link is invalid or has expired",
+      });
+    }
+
+    await Subscriber.deleteOne({ email: normalizedEmail });
+
+    res.status(200).json({
+      success: true,
+      message: "You've been unsubscribed",
+    });
+  } catch (error) {
+    console.error("Newsletter Unsubscribe Error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
     });
   }
 };
@@ -145,7 +188,13 @@ export const sendCampaign = async (req, res) => {
 
     for (const subscriber of subscribers) {
       try {
-        await sendEmail({ to: subscriber.email, subject, html });
+        // Per-subscriber, not a shared footer appended once -- the
+        // token is keyed on each subscriber's own email, so the same
+        // link can't be used to unsubscribe someone else.
+        const unsubscribeUrl = `${process.env.CLIENT_URL}/newsletter/unsubscribe?email=${encodeURIComponent(subscriber.email)}&token=${createUnsubscribeToken(subscriber.email)}`;
+        const htmlWithFooter = `${html}<p style="margin-top:32px;font-size:12px;color:#94a3b8;">You're receiving this because you subscribed to Mittal Collections updates. <a href="${unsubscribeUrl}" style="color:#94a3b8;">Unsubscribe</a></p>`;
+
+        await sendEmail({ to: subscriber.email, subject, html: htmlWithFooter });
         sent += 1;
       } catch (error) {
         console.error(`Newsletter send failed for ${subscriber.email}:`, error);
