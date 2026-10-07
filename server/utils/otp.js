@@ -18,6 +18,12 @@ export const createAndSendOtp = async ({
   purpose,
   payload = null,
   bcc,
+  // No User account exists yet at this point for a registration OTP
+  // (that's the whole point of OTP-gating account creation), so there's
+  // no stored preferredLanguage to read -- the caller passes along
+  // whatever the storefront's own language toggle was set to at the
+  // moment the form was submitted.
+  language = "en",
 }) => {
   const code = generateCode();
   const otpHash = await bcrypt.hash(code, 10);
@@ -32,11 +38,21 @@ export const createAndSendOtp = async ({
     expiresAt: new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000),
   });
 
+  const isHindi = language === "hi";
+
   await sendEmail({
     to: target,
     bcc,
-    subject: "Your Mittal Collections verification code",
-    html: `
+    subject: isHindi
+      ? "आपका Mittal Collections वेरिफिकेशन कोड"
+      : "Your Mittal Collections verification code",
+    html: isHindi
+      ? `
+      <p>आपका वेरिफिकेशन कोड है:</p>
+      <p style="font-size: 28px; font-weight: bold; letter-spacing: 4px;">${code}</p>
+      <p>यह कोड ${OTP_TTL_MINUTES} मिनट में समाप्त हो जाएगा। अगर आपने यह रिक्वेस्ट नहीं की है, तो इस ईमेल को नज़रअंदाज़ करें।</p>
+    `
+      : `
       <p>Your verification code is:</p>
       <p style="font-size: 28px; font-weight: bold; letter-spacing: 4px;">${code}</p>
       <p>This code expires in ${OTP_TTL_MINUTES} minutes. If you didn't request this, you can ignore this email.</p>

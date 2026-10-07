@@ -14,7 +14,7 @@ function Login() {
   const [searchParams] = useSearchParams();
   const redirectTo = searchParams.get("redirect") || "/";
   const { login } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   // authFetchGuard.js redirects here with this flag the moment any
   // request comes back 401 for a stale token (expired, or the account
@@ -64,7 +64,7 @@ function Login() {
     setLoading(true);
 
     try {
-      const data = await loginUser(formData);
+      const data = await loginUser({ ...formData, language });
 
       if (data.success) {
         login(data.user, data.token);
