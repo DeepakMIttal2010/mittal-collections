@@ -178,7 +178,7 @@ function ArticleDetail() {
   };
 
   const breadcrumbItems = [
-    { name: "Home", path: "/" },
+    { name: isHindi ? "होम" : "Home", path: "/" },
     { name: isHindi ? "गाइड और आइडिया" : "Guides & Ideas", path: isHindi ? "/hi/articles" : "/articles" },
     { name: displayTitle },
   ];

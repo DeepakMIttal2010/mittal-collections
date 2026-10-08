@@ -206,8 +206,29 @@ export default async function handler(req, res) {
     // active category slugs already fetched above instead of trusting
     // the subcategory endpoint's own category field.
     const activeCategorySlugs = new Set(categoriesRes.categories.map((c) => c.slug));
+
+    // A subcategory that's the sole member of its own group (same
+    // category + same groupLabel) canonicalizes to its parent category
+    // URL instead of its own -- render.js's buildCategoryMeta and
+    // CategoryPage.jsx both do this (subcategoryIsOnlyGroupOption /
+    // activeSubcategoryIsOnlyGroupOption) to avoid a duplicate-content
+    // pair. The sitemap used to not know this and advertised a separate
+    // /category/{cat}/{sub} (+ /hi/ pair) entry anyway -- a real,
+    // live-confirmed hreflang mismatch, since the page itself serves a
+    // canonical pointing elsewhere. Skip advertising a dedicated entry
+    // for these; the parent category's own sitemap entry already covers
+    // the URL Google will actually see.
+    const ownGroupCounts = new Map();
+    (subcategoriesRes.subcategories || []).forEach((s) => {
+      const key = `${s.category?._id}:${s.groupLabel}`;
+      ownGroupCounts.set(key, (ownGroupCounts.get(key) || 0) + 1);
+    });
+
     (subcategoriesRes.subcategories || []).forEach((s) => {
       if (!(s.category?.slug && activeCategorySlugs.has(s.category.slug))) return;
+
+      const isOnlyGroupOption = ownGroupCounts.get(`${s.category?._id}:${s.groupLabel}`) === 1;
+      if (isOnlyGroupOption) return;
 
       const enPath = `/category/${s.category.slug}/${s.slug}`;
 

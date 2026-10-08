@@ -10,6 +10,18 @@ const REMINDER_DELAY_HOURS = 3;
 // Fire-and-forget from the frontend whenever the cart changes. Used
 // purely to detect abandoned carts — not read back by the cart UI.
 // ============================
+// A product id + quantity signature, independent of item order — used to
+// tell a genuinely-changed cart apart from the same cart being re-synced
+// unchanged (e.g. a logged-in customer just browsing other pages with
+// items already sitting in their cart). Price/name/image are intentionally
+// excluded: those can drift (a price change, say) without the customer
+// having done anything, and shouldn't by themselves count as new activity.
+const cartSignature = (items) =>
+  (items || [])
+    .map((item) => `${item.product}:${item.quantity}`)
+    .sort()
+    .join("|");
+
 export const syncCart = async (req, res) => {
   try {
     const { items } = req.body;
@@ -20,9 +32,18 @@ export const syncCart = async (req, res) => {
       return res.status(200).json({ success: true });
     }
 
+    const existing = await CartSnapshot.findOne({ user: req.user._id });
+    // Only clear reminderSentAt when the cart actually changed — a sync
+    // call fires on every mount while items sit untouched in localStorage
+    // (e.g. just browsing other pages while logged in), and unconditionally
+    // resetting this here let an already-reminded, unchanged cart look
+    // brand new again, re-triggering the same reminder email indefinitely
+    // every time the 3-hour cron job next ran.
+    const cartChanged = !existing || cartSignature(existing.items) !== cartSignature(items);
+
     await CartSnapshot.findOneAndUpdate(
       { user: req.user._id },
-      { items, reminderSentAt: null },
+      cartChanged ? { items, reminderSentAt: null } : { items },
       { upsert: true, new: true },
     );
 

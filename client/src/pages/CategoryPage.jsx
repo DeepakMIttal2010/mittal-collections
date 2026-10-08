@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
+import { Link, Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
 import { getCategories } from "../services/categoryService";
 import { getSubcategories } from "../services/subcategoryService";
 import {
@@ -212,6 +212,15 @@ function CategoryPage() {
   // in which language (see render.js and sitemap.js) — same pattern
   // ArticleDetail.jsx already established for /hi/articles/:slug.
   const isHindi = location.pathname.startsWith("/hi/");
+  // Every internal link/navigate() that points at another category page
+  // threads this through, so a visitor already on a /hi/ URL never gets
+  // bounced to an English destination (and vice versa) — this used to be
+  // a real bug: these links were hardcoded English-only, which, combined
+  // with the URL-sync effect below, silently re-redirected a real click
+  // back to /hi/ a moment after the browser already showed the English
+  // target, because the language toggle stayed "hi" from the first page
+  // load and never agreed with the newly-clicked English URL.
+  const categoryUrlPrefix = isHindi ? "/hi" : "";
 
   const [status, setStatus] = useState("loading");
   const [category, setCategory] = useState(null);
@@ -458,7 +467,7 @@ function CategoryPage() {
   // URL instead, same as clicking "All".
   const applyFilters = () => {
     if (activeSubcategoryIsFacet && !draftFacetIds.has(activeSubcategory._id)) {
-      navigate(`/category/${categorySlug}`);
+      navigate(`${categoryUrlPrefix}/category/${categorySlug}`);
       setIsFilterOpen(false);
       return;
     }
@@ -491,7 +500,7 @@ function CategoryPage() {
     setIsFilterOpen(false);
 
     if (activeSubcategoryIsFacet) {
-      navigate(`/category/${categorySlug}`);
+      navigate(`${categoryUrlPrefix}/category/${categorySlug}`);
     }
   };
 
@@ -507,7 +516,7 @@ function CategoryPage() {
 
   const removeFacet = (id) => {
     if (activeSubcategoryIsFacet && id === activeSubcategory._id) {
-      navigate(`/category/${categorySlug}`);
+      navigate(`${categoryUrlPrefix}/category/${categorySlug}`);
       return;
     }
 
@@ -526,7 +535,7 @@ function CategoryPage() {
   // always-visible sidebar has no such "did I mean to open this" moment).
   const toggleSidebarFacet = (id) => {
     if (activeSubcategoryIsFacet && id === activeSubcategory._id) {
-      navigate(`/category/${categorySlug}`);
+      navigate(`${categoryUrlPrefix}/category/${categorySlug}`);
       return;
     }
 
@@ -591,6 +600,19 @@ function CategoryPage() {
     );
   }
 
+  // Same rule Articles already enforce (ArticleDetail.jsx's
+  // hasHindiContent redirect): a /hi/ URL only exists once there's a
+  // real Hindi name to serve there. Dormant today — every category/
+  // subcategory currently has nameHi — but a future one added without
+  // an immediate Hindi backfill shouldn't render English content under
+  // a live /hi/ URL with no fallback.
+  if (isHindi && !category.nameHi) {
+    return <Navigate to={`/category/${categorySlug}`} replace />;
+  }
+  if (isHindi && activeSubcategory && !activeSubcategory.nameHi) {
+    return <Navigate to={`/category/${categorySlug}/${subcategorySlug}`} replace />;
+  }
+
   // These pills are the main crawlable navigation from a category to its
   // subcategory pages (see the <Link> conversion earlier this session) —
   // at py-1.5 they measured only ~26-32px tall, well under Google's
@@ -638,12 +660,13 @@ function CategoryPage() {
     ...(activeSubcategory ? [{ name: displaySubcategoryName }] : []),
   ];
 
-  // The breadcrumb's own Link paths are the one piece of in-page
-  // navigation that follows isHindi (matching ArticleDetail.jsx's same
-  // call) — every OTHER link on this page (subcategory pills, bundle-
-  // partner banner, size-guide links) deliberately stays /hi/-unaware
-  // for now; making the whole site's cross-linking respect isHindi is a
-  // separate, larger decision, not part of making these pages indexable.
+  // The breadcrumb's own Link paths follow isHindi (matching
+  // ArticleDetail.jsx's same call) — as does every other in-page
+  // category-to-category link now (subcategory pills, bundle-partner
+  // banner, "All" pill, facet-clear navigate() calls — see
+  // categoryUrlPrefix above). Size-guide links are the one deliberate
+  // exception: they point at a different page type (size calculators/
+  // static guides) with no Hindi URL of their own yet.
   const breadcrumbItems = [
     { name: t("Home", "होम"), path: "/" },
     {
@@ -768,7 +791,7 @@ function CategoryPage() {
           each, regardless of how many partners/guides exist. */}
       {bundlePartners.length > 0 && (
         <Link
-          to={`/category/${bundlePartners[0].partner.slug}`}
+          to={`${categoryUrlPrefix}/category/${bundlePartners[0].partner.slug}`}
           className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3 text-sm hover:border-amber-400 transition-colors"
         >
           <FaGift className="text-amber-600 shrink-0" />
@@ -811,7 +834,7 @@ function CategoryPage() {
               (ProductCard already gets this right for category->product
               links; this was the one navigation surface that didn't). */}
           <Link
-            to={`/category/${categorySlug}`}
+            to={`${categoryUrlPrefix}/category/${categorySlug}`}
             className={pillClass(!activeSubcategory)}
           >
             {t("All", "सभी")}
@@ -820,7 +843,7 @@ function CategoryPage() {
           {primaryGroup.items.map((sub) => (
             <Link
               key={sub._id}
-              to={`/category/${categorySlug}/${sub.slug}`}
+              to={`${categoryUrlPrefix}/category/${categorySlug}/${sub.slug}`}
               className={pillClass(activeSubcategory?._id === sub._id)}
             >
               {t(sub.name, sub.nameHi)}
@@ -838,7 +861,7 @@ function CategoryPage() {
             {group.items.map((sub) => (
               <Link
                 key={sub._id}
-                to={`/category/${categorySlug}/${sub.slug}`}
+                to={`${categoryUrlPrefix}/category/${categorySlug}/${sub.slug}`}
                 className={pillClass(activeSubcategory?._id === sub._id)}
               >
                 {t(sub.name, sub.nameHi)}

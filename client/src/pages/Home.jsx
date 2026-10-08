@@ -93,6 +93,7 @@ function Home() {
     settings.facebook,
     settings.instagram,
     settings.twitter,
+    settings.linkedin,
   ].filter(Boolean);
 
   const organizationJsonLd = {

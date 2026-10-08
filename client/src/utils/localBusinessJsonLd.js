@@ -100,8 +100,11 @@ export const buildLocalBusinessJsonLd = (
         { "@type": "City", name: "Ghaziabad" },
       ],
     }),
-    sameAs: [settings.facebook, settings.instagram, settings.twitter].filter(
-      Boolean,
-    ),
+    sameAs: [
+      settings.facebook,
+      settings.instagram,
+      settings.twitter,
+      settings.linkedin,
+    ].filter(Boolean),
   };
 };
