@@ -607,10 +607,10 @@ function CategoryPage() {
   // an immediate Hindi backfill shouldn't render English content under
   // a live /hi/ URL with no fallback.
   if (isHindi && !category.nameHi) {
-    return <Navigate to={`/category/${categorySlug}`} replace />;
+    return <Navigate to={`/category/${category.slug}`} replace />;
   }
   if (isHindi && activeSubcategory && !activeSubcategory.nameHi) {
-    return <Navigate to={`/category/${categorySlug}/${subcategorySlug}`} replace />;
+    return <Navigate to={`/category/${category.slug}/${activeSubcategory.slug}`} replace />;
   }
 
   // These pills are the main crawlable navigation from a category to its

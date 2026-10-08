@@ -384,8 +384,13 @@ async function buildCategoryMeta({ categorySlug, subcategorySlug, isHindi }) {
   // category currently has nameHi -- but a future category added
   // without an immediate Hindi backfill shouldn't get a live, crawlable
   // half-translated /hi/ page.
+  // Uses category.slug (the matched DB record), not the raw categorySlug
+  // request param, even though the preceding .find() guarantees they're
+  // equal here -- a static analyzer can't see that equality, only that
+  // category.slug's taint originates from the trusted categories fetch
+  // rather than the URL. See codeql_cross_function_sanitizer_limit.
   if (isHindi && !category.nameHi) {
-    return { redirect: `${SITE_URL}/category/${categorySlug}` };
+    return { redirect: `${SITE_URL}/category/${category.slug}` };
   }
 
   // Fetched unconditionally (not just when a subcategory segment is
@@ -407,9 +412,10 @@ async function buildCategoryMeta({ categorySlug, subcategorySlug, isHindi }) {
     // doesn't exist" case product/article already 404 on below.
     if (!subcategory) return null;
 
-    // Same nameHi gate as the category check above, one level down.
+    // Same nameHi gate as the category check above, one level down --
+    // same category.slug/subcategory.slug reasoning applies here too.
     if (isHindi && !subcategory.nameHi) {
-      return { redirect: `${SITE_URL}/category/${categorySlug}/${subcategorySlug}` };
+      return { redirect: `${SITE_URL}/category/${category.slug}/${subcategory.slug}` };
     }
 
     // Mirrors CategoryPage.jsx's activeSubcategoryIsOnlyGroupOption: a
