@@ -254,6 +254,13 @@ function AppRoutes() {
             path="/category/:categorySlug/:subcategorySlug"
             element={<CategoryPage />}
           />
+          {/* Hindi versions — same component, same self-detecting-the-/hi/-
+              prefix pattern as the article routes above. */}
+          <Route path="/hi/category/:categorySlug" element={<CategoryPage />} />
+          <Route
+            path="/hi/category/:categorySlug/:subcategorySlug"
+            element={<CategoryPage />}
+          />
           <Route path="*" element={<NotFound />} />
         </Route>
 

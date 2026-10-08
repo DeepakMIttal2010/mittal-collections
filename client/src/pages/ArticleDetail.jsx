@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, Navigate, useParams, useLocation, useNavigate } from "react-router-dom";
 
 import { getArticleBySlug } from "../services/articleService";
@@ -57,8 +57,29 @@ function ArticleDetail() {
     };
   }, [slug]);
 
+  // A fresh visitor (no localStorage language preference — e.g. landing
+  // directly on this page from a Hindi search result) always starts
+  // with language="en" (LanguageContext's own default). Without the
+  // hasSyncedRef guard below, this effect used to treat THAT as "the
+  // toggle disagrees with the URL" on first render and navigate away
+  // from /hi/... back to the English URL before anyone ever saw the
+  // Hindi page — confirmed live via a fresh (no-localStorage) Playwright
+  // context landing on a real /hi/articles/:slug URL and immediately
+  // bouncing to /articles/:slug. The URL a visitor actually arrived on
+  // must be authoritative on first load (sync the TOGGLE to match it);
+  // only once synced should a later, genuine toggle click while already
+  // on this page navigate the URL to match.
+  const hasSyncedRef = useRef(false);
+
   useEffect(() => {
     if (!article) return;
+
+    if (!hasSyncedRef.current) {
+      hasSyncedRef.current = true;
+      if (isHindi && language !== "hi") setLanguage("hi");
+      return;
+    }
+
     const wantHindi = language === "hi";
     if (wantHindi === isHindi) return;
     // Only follow the toggle into /hi/ if this article actually has a
@@ -68,7 +89,7 @@ function ArticleDetail() {
     navigate(`${wantHindi ? "/hi" : ""}/articles/${article.slug}`, {
       replace: true,
     });
-  }, [language, isHindi, article, navigate]);
+  }, [language, isHindi, article, navigate, setLanguage]);
 
   if (status === "loading") {
     return (
