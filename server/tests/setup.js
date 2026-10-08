@@ -1,6 +1,7 @@
 import { MongoMemoryServer } from "mongodb-memory-server";
 import mongoose from "mongoose";
 import { beforeAll, afterAll, afterEach } from "vitest";
+import { __resetEngagementCacheForTests } from "../controllers/adminController.js";
 
 let mongod;
 
@@ -22,6 +23,7 @@ afterEach(async () => {
   for (const key of Object.keys(collections)) {
     await collections[key].deleteMany({});
   }
+  __resetEngagementCacheForTests();
 });
 
 afterAll(async () => {
