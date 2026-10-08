@@ -1056,16 +1056,53 @@ export const getVisitLog = async (req, res) => {
 // CartSnapshot is a server-side mirror kept solely for abandoned-cart
 // detection (see its own file comment), synced only while logged in — a
 // guest's cart, which never syncs, isn't reflected here.
+//
+// The no-date-filter case (the dashboard's default load) ran 4 unbounded
+// queries — Product.find() with no filter, an all-time PageVisit
+// aggregation, and full-collection Wishlist/CartSnapshot aggregations —
+// on every single page load, unconditionally. Round 19's deep-bug-sweep
+// flagged this; PageVisit specifically is bot-inflated and TTL-bounded
+// to only 1 year (still a meaningfully large scan). A short in-memory
+// cache is the lowest-risk fix: no new dependency (nothing like
+// node-cache/Redis exists in this project), doesn't touch the query
+// logic itself, and a few minutes of staleness is a non-issue for
+// numbers that are only ever eyeballed on an admin dashboard.
+let engagementCache = { data: null, expiresAt: 0 };
+const ENGAGEMENT_CACHE_TTL_MS = 3 * 60 * 1000;
+
+// Test-only escape hatch — this module-level cache otherwise survives
+// across test cases within the same process even though setup.js's
+// afterEach wipes every Mongo collection, which broke product-engagement
+// test isolation (an earlier test's cached response leaking into a
+// later one that expects a freshly-seeded product to appear). Matches
+// the existing per-test reset convention, just for in-memory state
+// instead of DB state.
+export const __resetEngagementCacheForTests = () => {
+  engagementCache = { data: null, expiresAt: 0 };
+};
 // ============================
 export const getProductEngagement = async (req, res) => {
   try {
+    const hasDateFilter = Boolean(req.query.startDate || req.query.endDate);
+
+    // The no-filter case is both the expensive one (all-time PageVisit
+    // scan, unbounded Wishlist/CartSnapshot aggregations) and the common
+    // one (the dashboard's default load, before an admin picks a date).
+    // A few minutes of staleness is a fine tradeoff for engagement
+    // numbers that are only ever eyeballed, not acted on in real time —
+    // a request with an explicit date range always runs live below,
+    // since it's both rarer and narrower.
+    if (hasDateFilter === false && Date.now() < engagementCache.expiresAt) {
+      return res.status(200).json({ success: true, engagement: engagementCache.data });
+    }
+
     // Views defaults to all-time (unchanged) — only scoped down when the
     // admin actually picks a range, e.g. to see what was viewed
     // yesterday. wishlist/cart counts are a current-state snapshot (see
     // the UI's own note), so they're never date-filtered regardless.
     const viewsMatch = { path: /^\/product\// };
 
-    if (req.query.startDate || req.query.endDate) {
+    if (hasDateFilter) {
       viewsMatch.createdAt = {};
 
       if (req.query.startDate) {
@@ -1130,6 +1167,10 @@ export const getProductEngagement = async (req, res) => {
         };
       })
       .sort((a, b) => b.views - a.views);
+
+    if (hasDateFilter === false) {
+      engagementCache = { data: engagement, expiresAt: Date.now() + ENGAGEMENT_CACHE_TTL_MS };
+    }
 
     res.status(200).json({
       success: true,
