@@ -808,7 +808,15 @@ const buildMeta = async (path) => {
       // that here would have published every product's cost price in
       // Google's own structured data.
       sku: p._id,
-      brand: { "@type": "Brand", name: SITE_NAME },
+      // Falls back to SITE_NAME only when the product genuinely has no
+      // brand set (81/155 today) -- this used to be hardcoded to
+      // SITE_NAME unconditionally, silently overwriting the real p.brand
+      // for every branded product (74/155) even though that same value
+      // is correctly shown in the page's own visible "Brand: ..." line
+      // just below. A structured-data/visible-content mismatch like
+      // that is exactly what Google's guidelines flag, and a real
+      // Merchant Center risk for anything actually branded.
+      brand: { "@type": "Brand", name: p.brand || SITE_NAME },
       offers: {
         "@type": "Offer",
         priceCurrency: "INR",
