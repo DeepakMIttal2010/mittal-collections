@@ -10,19 +10,56 @@ const REMINDER_DELAY_HOURS = 3;
 // Fire-and-forget from the frontend whenever the cart changes. Used
 // purely to detect abandoned carts — not read back by the cart UI.
 // ============================
+// Reconstructed explicitly, field by field, rather than passing req.body's
+// items straight into a Mongo write — CartSnapshot's schema would cast an
+// array of plain objects fine either way, but an explicit allowlist is
+// what this codebase already does everywhere else a request body feeds a
+// write (see adminProductApi.mjs's buildProductUpdateFormData), and is
+// what satisfies a static query-injection scanner that can't see that
+// Mongoose casting already defuses this for a typed subdocument array.
+const sanitizeCartItems = (items) =>
+  (Array.isArray(items) ? items : []).map((item) => ({
+    product: item?.product,
+    name: item?.name,
+    image: item?.image,
+    price: item?.price,
+    quantity: item?.quantity,
+  }));
+
+// A product id + quantity signature, independent of item order — used to
+// tell a genuinely-changed cart apart from the same cart being re-synced
+// unchanged (e.g. a logged-in customer just browsing other pages with
+// items already sitting in their cart). Price/name/image are intentionally
+// excluded: those can drift (a price change, say) without the customer
+// having done anything, and shouldn't by themselves count as new activity.
+const cartSignature = (items) =>
+  (items || [])
+    .map((item) => `${item.product}:${item.quantity}`)
+    .sort()
+    .join("|");
+
 export const syncCart = async (req, res) => {
   try {
-    const { items } = req.body;
+    const items = sanitizeCartItems(req.body.items);
 
-    if (!items || items.length === 0) {
+    if (items.length === 0) {
       await CartSnapshot.deleteOne({ user: req.user._id });
 
       return res.status(200).json({ success: true });
     }
 
+    const existing = await CartSnapshot.findOne({ user: req.user._id });
+    // Only clear reminderSentAt when the cart actually changed — a sync
+    // call fires on every mount while items sit untouched in localStorage
+    // (e.g. just browsing other pages while logged in), and unconditionally
+    // resetting this here let an already-reminded, unchanged cart look
+    // brand new again, re-triggering the same reminder email indefinitely
+    // every time the 3-hour cron job next ran.
+    const cartChanged = !existing || cartSignature(existing.items) !== cartSignature(items);
+
     await CartSnapshot.findOneAndUpdate(
       { user: req.user._id },
-      { items, reminderSentAt: null },
+      cartChanged ? { items, reminderSentAt: null } : { items },
       { upsert: true, new: true },
     );
 
@@ -47,7 +84,8 @@ export const syncCart = async (req, res) => {
 // ============================
 export const syncGuestCart = async (req, res) => {
   try {
-    const { visitorId, items } = req.body;
+    const { visitorId } = req.body;
+    const items = sanitizeCartItems(req.body.items);
 
     // Must be a plain, reasonably-bounded string, not just truthy — an
     // object here (e.g. { "$gt": "" }) would otherwise be passed
@@ -61,7 +99,7 @@ export const syncGuestCart = async (req, res) => {
       });
     }
 
-    if (!items || items.length === 0) {
+    if (items.length === 0) {
       await CartSnapshot.deleteOne({ visitorId });
 
       return res.status(200).json({ success: true });

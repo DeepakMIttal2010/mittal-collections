@@ -119,9 +119,12 @@ const buildLocalBusinessJsonLd = (
         { "@type": "City", name: "Ghaziabad" },
       ],
     }),
-    sameAs: [settings.facebook, settings.instagram, settings.twitter].filter(
-      Boolean,
-    ),
+    sameAs: [
+      settings.facebook,
+      settings.instagram,
+      settings.twitter,
+      settings.linkedin,
+    ].filter(Boolean),
   };
 };
 
@@ -372,6 +375,24 @@ async function buildCategoryMeta({ categorySlug, subcategorySlug, isHindi }) {
   const category = data.categories?.find((c) => c.slug === categorySlug);
   if (!category) return null;
 
+  // Same rule Articles already enforce (see ArticleDetail.jsx / this
+  // file's article branch): a /hi/ URL only exists once there's a real
+  // Hindi name to serve there, otherwise redirect to the English page
+  // instead of silently falling back to an English name under a /hi/
+  // URL (which would also disagree with sitemap.js, which already
+  // gates its own nameHi-aware entries). Dormant today -- every
+  // category currently has nameHi -- but a future category added
+  // without an immediate Hindi backfill shouldn't get a live, crawlable
+  // half-translated /hi/ page.
+  // Uses category.slug (the matched DB record), not the raw categorySlug
+  // request param, even though the preceding .find() guarantees they're
+  // equal here -- a static analyzer can't see that equality, only that
+  // category.slug's taint originates from the trusted categories fetch
+  // rather than the URL. See codeql_cross_function_sanitizer_limit.
+  if (isHindi && !category.nameHi) {
+    return { redirect: `${SITE_URL}/category/${category.slug}` };
+  }
+
   // Fetched unconditionally (not just when a subcategory segment is
   // present) so every category page -- not only subcategory detail
   // pages -- can link to its own subcategories as real <a> tags (see
@@ -390,6 +411,12 @@ async function buildCategoryMeta({ categorySlug, subcategorySlug, isHindi }) {
     // A subcategory slug that doesn't resolve is the same "genuinely
     // doesn't exist" case product/article already 404 on below.
     if (!subcategory) return null;
+
+    // Same nameHi gate as the category check above, one level down --
+    // same category.slug/subcategory.slug reasoning applies here too.
+    if (isHindi && !subcategory.nameHi) {
+      return { redirect: `${SITE_URL}/category/${category.slug}/${subcategory.slug}` };
+    }
 
     // Mirrors CategoryPage.jsx's activeSubcategoryIsOnlyGroupOption: a
     // subcategory that's the sole member of its own group renders the
@@ -780,6 +807,7 @@ const buildMeta = async (path) => {
       settings.facebook,
       settings.instagram,
       settings.twitter,
+      settings.linkedin,
     ].filter(Boolean);
     const organizationJsonLd = {
       "@context": "https://schema.org",
@@ -1344,7 +1372,7 @@ const buildMeta = async (path) => {
     const hiUrl = `${SITE_URL}/hi/articles/${article.slug}`;
 
     const breadcrumbItems = [
-      { name: "Home", path: "/" },
+      { name: "होम", path: "/" },
       { name: "गाइड और आइडिया", path: "/hi/articles" },
       { name: article.titleHi },
     ];
