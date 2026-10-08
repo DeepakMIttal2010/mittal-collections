@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { getCategories } from "../services/categoryService";
 import { getSubcategories } from "../services/subcategoryService";
 import {
@@ -206,7 +206,12 @@ function sortProducts(products, sortBy, language) {
 function CategoryPage() {
   const { categorySlug, subcategorySlug } = useParams();
   const navigate = useNavigate();
-  const { t, language } = useLanguage();
+  const location = useLocation();
+  const { t, language, setLanguage } = useLanguage();
+  // The URL prefix is what actually decides which content is indexable
+  // in which language (see render.js and sitemap.js) — same pattern
+  // ArticleDetail.jsx already established for /hi/articles/:slug.
+  const isHindi = location.pathname.startsWith("/hi/");
 
   const [status, setStatus] = useState("loading");
   const [category, setCategory] = useState(null);
@@ -329,6 +334,37 @@ function CategoryPage() {
       cancelled = true;
     };
   }, [categorySlug, subcategorySlug]);
+
+  // Keeps the global language toggle in sync with the /hi/ URL prefix —
+  // same pattern as ArticleDetail.jsx, including the same fix for the
+  // bug that pattern originally had: a fresh visitor (no localStorage
+  // language preference, so `language` starts "en") landing directly on
+  // a /hi/ URL must NOT be bounced to the English URL just because the
+  // toggle hasn't caught up yet. The URL a visitor actually arrived on
+  // is authoritative on first load (sync the TOGGLE to match it, don't
+  // navigate away from it); only a later, genuine toggle click while
+  // already on this page should navigate the URL to match. Confirmed
+  // live via Playwright against a fresh browser context that the
+  // original (ArticleDetail.jsx) version of this pattern does bounce a
+  // /hi/articles/:slug visitor straight back to English on load.
+  const hasSyncedLanguageRef = useRef(false);
+
+  useEffect(() => {
+    if (status !== "ready") return;
+
+    if (!hasSyncedLanguageRef.current) {
+      hasSyncedLanguageRef.current = true;
+      if (isHindi && language !== "hi") setLanguage("hi");
+      return;
+    }
+
+    const wantHindi = language === "hi";
+    if (wantHindi === isHindi) return;
+    navigate(
+      `${wantHindi ? "/hi" : ""}/category/${categorySlug}${subcategorySlug ? `/${subcategorySlug}` : ""}`,
+      { replace: true },
+    );
+  }, [status, isHindi, language, categorySlug, subcategorySlug, navigate, setLanguage]);
 
   // Slider/number-box bounds — rounded up to a clean ₹100 so the top
   // handle doesn't sit at an odd number like ₹1,847.
@@ -575,26 +611,44 @@ function CategoryPage() {
   const isCottonDoubleBedsheets =
     categorySlug === "bedsheets" && activeSubcategory?.slug === "double-bed-size";
 
-  const pageTitle = isCottonDoubleBedsheets
-    ? "Cotton Double Bedsheets"
-    : activeSubcategory
-      ? `${activeSubcategory.name} - ${category.name}`
-      : category.name;
+  // Title/meta/JSON-LD stay English-only for the TOGGLE (same URL, just
+  // flipping the header switch — schema.org/SEO convention, unchanged).
+  // A /hi/ URL is a different story: it's a genuinely separate indexed
+  // document (see render.js/sitemap.js), so its own title/description/
+  // breadcrumb JSON-LD must actually be Hindi, not just the visible page
+  // body — driven by isHindi (the URL), never by the toggle alone.
+  const displayCategoryName = isHindi ? category.nameHi || category.name : category.name;
+  const displaySubcategoryName = isHindi
+    ? activeSubcategory?.nameHi || activeSubcategory?.name
+    : activeSubcategory?.name;
 
-  // Structured data and the <Seo> title/meta stay English-only regardless
-  // of the language toggle (schema.org/SEO convention) — only the visible
-  // breadcrumb trail below gets translated.
+  const pageTitle = isCottonDoubleBedsheets
+    ? isHindi
+      ? "कॉटन डबल बेडशीट"
+      : "Cotton Double Bedsheets"
+    : activeSubcategory
+      ? `${displaySubcategoryName} - ${displayCategoryName}`
+      : displayCategoryName;
+
+  const categoryPath = `${isHindi ? "/hi" : ""}/category/${categorySlug}`;
+
   const breadcrumbItemsForSeo = [
-    { name: "Home", path: "/" },
-    { name: category.name, path: `/category/${categorySlug}` },
-    ...(activeSubcategory ? [{ name: activeSubcategory.name }] : []),
+    { name: isHindi ? "होम" : "Home", path: "/" },
+    { name: displayCategoryName, path: categoryPath },
+    ...(activeSubcategory ? [{ name: displaySubcategoryName }] : []),
   ];
 
+  // The breadcrumb's own Link paths are the one piece of in-page
+  // navigation that follows isHindi (matching ArticleDetail.jsx's same
+  // call) — every OTHER link on this page (subcategory pills, bundle-
+  // partner banner, size-guide links) deliberately stays /hi/-unaware
+  // for now; making the whole site's cross-linking respect isHindi is a
+  // separate, larger decision, not part of making these pages indexable.
   const breadcrumbItems = [
     { name: t("Home", "होम"), path: "/" },
     {
       name: t(category.name, category.nameHi),
-      path: `/category/${categorySlug}`,
+      path: categoryPath,
     },
     ...(activeSubcategory
       ? [{ name: t(activeSubcategory.name, activeSubcategory.nameHi) }]
@@ -626,9 +680,24 @@ function CategoryPage() {
   const activeSubcategoryIsOnlyGroupOption =
     activeSubcategory && activeSubcategoryOwnGroup?.items.length === 1;
 
-  const canonicalCategoryUrl = activeSubcategoryIsOnlyGroupOption
-    ? `${SITE_URL}/category/${categorySlug}`
-    : `${SITE_URL}/category/${categorySlug}${subcategorySlug ? `/${subcategorySlug}` : ""}`;
+  const categoryUrlSuffix = `/category/${categorySlug}${
+    activeSubcategoryIsOnlyGroupOption ? "" : subcategorySlug ? `/${subcategorySlug}` : ""
+  }`;
+  const enCategoryUrl = `${SITE_URL}${categoryUrlSuffix}`;
+  const hiCategoryUrl = `${SITE_URL}/hi${categoryUrlSuffix}`;
+  const canonicalCategoryUrl = isHindi ? hiCategoryUrl : enCategoryUrl;
+  // Category/Subcategory have `nameHi` but — unlike Product — no
+  // description/subtitle Hindi field yet, so a /hi/ URL's own hreflang
+  // alternate always exists as long as the category itself has a
+  // Hindi NAME (true for all of them today); the body text and meta
+  // description fall back to English until a future Category/Subcategory
+  // Hindi-text backfill, same partial-translation pattern already used
+  // elsewhere (e.g. product spec fields before their own Hindi backfill).
+  const alternateLangs = [
+    { lang: "en", url: enCategoryUrl },
+    { lang: "hi", url: hiCategoryUrl },
+    { lang: "x-default", url: enCategoryUrl },
+  ];
 
   // Built from `products` (the base fetched list for this category/
   // subcategory), not `sortedProducts` (post-filter/sort) — a bot sees
@@ -662,6 +731,8 @@ function CategoryPage() {
         // — used it here too, which this previously missed entirely.
         description={`${pageTitle}: pan-India delivery, 24hr in Ghaziabad. ${activeSubcategory?.subtitle || category.description || ""}`.trim().slice(0, 160)}
         url={canonicalCategoryUrl}
+        lang={isHindi ? "hi" : "en"}
+        alternateLangs={alternateLangs}
         jsonLd={[buildBreadcrumbJsonLd(breadcrumbItemsForSeo), itemListJsonLd]}
       />
       <Breadcrumbs items={breadcrumbItems} />

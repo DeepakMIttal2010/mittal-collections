@@ -286,8 +286,10 @@ const buildCategoryBodyHtml = (
   products,
   categorySlug,
   subcategories,
+  isHindi = false,
 ) => {
   const breadcrumbHtml = buildBreadcrumbHtml(breadcrumbItems);
+  const categoryUrlPrefix = isHindi ? `${SITE_URL}/hi` : SITE_URL;
 
   // Every subcategory under this category, grouped by groupLabel — real
   // crawlable links regardless of which group a subcategory belongs to
@@ -311,7 +313,7 @@ const buildCategoryBodyHtml = (
               ${items
                 .map(
                   (s) =>
-                    `<li><a href="${SITE_URL}/category/${categorySlug}/${s.slug}">${escapeHtml(s.name)}</a></li>`,
+                    `<li><a href="${categoryUrlPrefix}/category/${categorySlug}/${s.slug}">${escapeHtml(isHindi ? s.nameHi || s.name : s.name)}</a></li>`,
                 )
                 .join("\n")}
             </ul>
@@ -347,6 +349,153 @@ const buildCategoryBodyHtml = (
     </ul>
   `;
 };
+
+// Shared by both the English (/category/...) and Hindi (/hi/category/...)
+// branches below -- takes an already-resolved categorySlug/subcategorySlug
+// rather than reading raw parts[] itself, specifically so neither caller
+// has to duplicate this ~90-line block with its own hand-adjusted parts[]
+// offsets (the English and Hindi URL shapes put categorySlug/
+// subcategorySlug at different indices -- a second, naively-adapted copy
+// of this logic is exactly the kind of easy-to-miss index-shift bug this
+// factoring exists to rule out by construction).
+//
+// Category/Subcategory have `nameHi` but no description/subtitle Hindi
+// field yet (unlike Product) -- the Hindi branch's body text and meta
+// description fall back to the English description/subtitle rather than
+// blocking on a full Category/Subcategory Hindi-text backfill, same
+// partial-translation convention already used elsewhere on this site.
+async function buildCategoryMeta({ categorySlug, subcategorySlug, isHindi }) {
+  const data = await fetchJson(`${API_BASE}/api/categories`);
+
+  if (!data.success) return null;
+
+  const category = data.categories?.find((c) => c.slug === categorySlug);
+  if (!category) return null;
+
+  // Fetched unconditionally (not just when a subcategory segment is
+  // present) so every category page -- not only subcategory detail
+  // pages -- can link to its own subcategories as real <a> tags (see
+  // buildCategoryBodyHtml). Before this, a subcategory whose groupLabel
+  // wasn't "By Material" or "By Type" (e.g. "Size", "Bed Size") had NO
+  // non-JS-discoverable link anywhere except sitemap.xml itself.
+  const subRes = await fetchJson(`${API_BASE}/api/subcategories`);
+  const categorySubcategories = (subRes.subcategories || []).filter(
+    (s) => s.category?._id === category._id,
+  );
+
+  let subcategory = null;
+  let subcategoryIsOnlyGroupOption = false;
+  if (subcategorySlug) {
+    subcategory = categorySubcategories.find((s) => s.slug === subcategorySlug);
+    // A subcategory slug that doesn't resolve is the same "genuinely
+    // doesn't exist" case product/article already 404 on below.
+    if (!subcategory) return null;
+
+    // Mirrors CategoryPage.jsx's activeSubcategoryIsOnlyGroupOption: a
+    // subcategory that's the sole member of its own group renders the
+    // exact same product grid as the parent category -- canonicalize to
+    // the parent (within the same language) rather than let Google see
+    // two URLs with identical content.
+    const ownGroupCount = categorySubcategories.filter(
+      (s) => s.groupLabel === subcategory.groupLabel,
+    ).length;
+    subcategoryIsOnlyGroupOption = ownGroupCount === 1;
+  }
+
+  const urlPrefix = isHindi ? `${SITE_URL}/hi` : SITE_URL;
+  const url = subcategoryIsOnlyGroupOption
+    ? `${urlPrefix}/category/${category.slug}`
+    : `${urlPrefix}/category/${category.slug}${subcategorySlug ? `/${subcategorySlug}` : ""}`;
+
+  const displayCategoryName = isHindi ? category.nameHi || category.name : category.name;
+  const displaySubcategoryName = subcategory
+    ? isHindi
+      ? subcategory.nameHi || subcategory.name
+      : subcategory.name
+    : null;
+
+  const categoryPath = `${isHindi ? "/hi" : ""}/category/${category.slug}`;
+  const breadcrumbItems = [
+    { name: isHindi ? "होम" : "Home", path: "/" },
+    ...(subcategory ? [{ name: displayCategoryName, path: categoryPath }] : []),
+    { name: subcategory ? displaySubcategoryName : displayCategoryName },
+  ];
+
+  // Same lead-in CategoryPage.jsx's <Seo> uses, extended with the
+  // subcategory's own name so it isn't just the parent category's copy
+  // repeated verbatim.
+  const title = subcategory
+    ? `${displaySubcategoryName} | ${displayCategoryName} | ${SITE_NAME}`
+    : `${displayCategoryName} | ${SITE_NAME}`;
+  const pageTitle = subcategory
+    ? `${displaySubcategoryName} - ${displayCategoryName}`
+    : displayCategoryName;
+  const bodyText = subcategory
+    ? subcategory.subtitle || ""
+    : category.description || "";
+  const description = `${pageTitle}: pan-India delivery, 24hr in Ghaziabad. ${bodyText}`
+    .trim()
+    .slice(0, 160);
+
+  // Mirrors CategoryPage.jsx's itemListJsonLd -- same endpoints/params it
+  // uses (getProductsByCategory / getProductsBySubcategory), capped the
+  // same way. A carousel rich result only needs a representative sample.
+  // Product URLs here deliberately stay English (/product/..., not
+  // /hi/product/...) even on the Hindi category page -- product Hindi
+  // URLs don't exist yet (a separate, not-yet-built phase of this same
+  // effort), so pointing at a URL that doesn't exist would be worse than
+  // pointing at the real English one.
+  const productsQuery = subcategory
+    ? `subcategory=${encodeURIComponent(subcategory._id)}`
+    : `category=${encodeURIComponent(category._id)}`;
+  const productsData = await fetchJson(`${API_BASE}/api/products?${productsQuery}`);
+  const categoryProducts = productsData.success ? productsData.products || [] : [];
+  const itemListJsonLd = categoryProducts.length > 0 && {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    itemListElement: categoryProducts.slice(0, 50).map((p, i) => {
+      const productSlug = p.slug || "";
+      return {
+        "@type": "ListItem",
+        position: i + 1,
+        url: `${SITE_URL}${productSlug ? `/product/${p._id}/${productSlug}` : `/product/${p._id}`}`,
+      };
+    }),
+  };
+
+  const enUrl = `${SITE_URL}/category/${category.slug}${!subcategoryIsOnlyGroupOption && subcategorySlug ? `/${subcategorySlug}` : ""}`;
+  const hiUrl = `${SITE_URL}/hi/category/${category.slug}${!subcategoryIsOnlyGroupOption && subcategorySlug ? `/${subcategorySlug}` : ""}`;
+
+  return {
+    title,
+    description,
+    image: imgUrl(category.image) || DEFAULT_IMAGE,
+    url,
+    lang: isHindi ? "hi" : "en",
+    alternateLangs: [
+      { lang: "en", url: enUrl },
+      { lang: "hi", url: hiUrl },
+      { lang: "x-default", url: enUrl },
+    ],
+    ogType: "website",
+    jsonLd: [buildBreadcrumbJsonLd(breadcrumbItems), itemListJsonLd].filter(Boolean),
+    // Full list, not the JSON-LD block's 50-item cap above — this is
+    // meant to mirror what a real visitor's browser actually renders
+    // (Google's guidelines on dynamic rendering expect bots and real
+    // users to see materially the same content, not an artificially
+    // trimmed version), and no category here has anywhere near enough
+    // products yet for 50 to matter in practice.
+    bodyHtml: buildCategoryBodyHtml(
+      pageTitle,
+      bodyText,
+      breadcrumbItems,
+      categoryProducts,
+      category.slug,
+      categorySubcategories,
+      isHindi,
+    ),
+  };
+}
 
 // Articles and policy pages (privacy/returns/shipping/terms) both already
 // store their body as real, admin-authored HTML (`<p>`/`<h2>`/etc, the
@@ -951,138 +1100,21 @@ const buildMeta = async (path) => {
   }
 
   if (parts[0] === "category" && parts[1]) {
-    const data = await fetchJson(`${API_BASE}/api/categories`);
+    return buildCategoryMeta({ categorySlug: parts[1], subcategorySlug: parts[2], isHindi: false });
+  }
 
-    if (!data.success) return null;
-
-    const category = data.categories?.find((c) => c.slug === parts[1]);
-    if (!category) return null;
-
-    // A subcategory segment (e.g. /category/bedsheets/fitted-bedsheet)
-    // used to be silently dropped here — every subcategory page under a
-    // given category rendered the exact same title/description as the
-    // parent category page itself, which is a textbook duplicate-content
-    // signal to Google (confirmed via a live fetch: /category/bedsheets
-    // and /category/bedsheets/fitted-bedsheet returned byte-identical
-    // title and description). Look the subcategory up the same way
-    // CategoryPage.jsx does client-side and fold its name into both.
-    // Fetched unconditionally (not just when parts[2] is a subcategory
-    // segment) so every category page -- not only subcategory detail
-    // pages -- can link to its own subcategories as real <a> tags below.
-    // Before this, a subcategory whose groupLabel wasn't "By Material" or
-    // "By Type" (e.g. "Size", "Bed Size") had NO non-JS-discoverable link
-    // anywhere except sitemap.xml itself -- confirmed to be exactly the
-    // failure mode behind several subcategory URLs sitting at "Discovered
-    // - currently not indexed" / "URL is unknown to Google" in a live GSC
-    // ground-truth scan (2026-10-07).
-    const subRes = await fetchJson(`${API_BASE}/api/subcategories`);
-    const categorySubcategories = (subRes.subcategories || []).filter(
-      (s) => s.category?._id === category._id,
-    );
-
-    let subcategory = null;
-    let subcategoryIsOnlyGroupOption = false;
-    if (parts[2]) {
-      subcategory = categorySubcategories.find((s) => s.slug === parts[2]);
-      // A subcategory slug that doesn't resolve is the same "genuinely
-      // doesn't exist" case product/article already 404 on below.
-      if (!subcategory) return null;
-
-      // Mirrors CategoryPage.jsx's activeSubcategoryIsOnlyGroupOption: a
-      // subcategory that's the sole member of its own group renders the
-      // exact same product grid as the parent category — this is what
-      // was still missing here even after the duplicate-content fix
-      // above, since Googlebot/WhatsApp/etc. are served THIS render path
-      // (see vercel.json's bot user-agent rewrite to /api/render), not
-      // the client-side React one, and it kept emitting a self-canonical
-      // for every thin subcategory instead of consolidating to the
-      // parent — confirmed live on all 4 of Comforters' subcategories.
-      const ownGroupCount = categorySubcategories.filter(
-        (s) => s.groupLabel === subcategory.groupLabel,
-      ).length;
-      subcategoryIsOnlyGroupOption = ownGroupCount === 1;
-    }
-
-    // `path` is already trailing-slash-normalized by the caller, so this
-    // stays clean instead of picking up the stray "/" that vercel.json's
-    // "/category/:slug/:subslug*" rewrite destination leaves behind when
-    // there's no subcategory segment.
-    const url = subcategoryIsOnlyGroupOption
-      ? `${SITE_URL}/category/${category.slug}`
-      : `${SITE_URL}${path}`;
-
-    const breadcrumbItems = [
-      { name: "Home", path: "/" },
-      ...(subcategory
-        ? [{ name: category.name, path: `/category/${category.slug}` }]
-        : []),
-      { name: subcategory ? subcategory.name : category.name },
-    ];
-
-    // Same lead-in CategoryPage.jsx's <Seo> uses, extended with the
-    // subcategory's own name so it isn't just the parent category's copy
-    // repeated verbatim. Shorter wrapper (mirrors the client-side fix)
-    // leaves real budget for the actual differentiator -- a subcategory's
-    // own subtitle when it has one (more specific than the parent
-    // category's description, matching CategoryPage.jsx's own priority),
-    // falling back to the category description otherwise.
-    const title = subcategory
-      ? `${subcategory.name} | ${category.name} | ${SITE_NAME}`
-      : `${category.name} | ${SITE_NAME}`;
-    const pageTitle = subcategory
-      ? `${subcategory.name} - ${category.name}`
-      : category.name;
-    const bodyText = subcategory
-      ? subcategory.subtitle || ""
-      : category.description || "";
-    const description = `${pageTitle}: pan-India delivery, 24hr in Ghaziabad. ${bodyText}`
-      .trim()
-      .slice(0, 160);
-
-    // Mirrors CategoryPage.jsx's itemListJsonLd -- same endpoints/params
-    // it uses (getProductsByCategory / getProductsBySubcategory), capped
-    // the same way. A carousel rich result only needs a representative
-    // sample, not the full catalog.
-    const productsQuery = subcategory
-      ? `subcategory=${encodeURIComponent(subcategory._id)}`
-      : `category=${encodeURIComponent(category._id)}`;
-    const productsData = await fetchJson(`${API_BASE}/api/products?${productsQuery}`);
-    const categoryProducts = productsData.success ? productsData.products || [] : [];
-    const itemListJsonLd = categoryProducts.length > 0 && {
-      "@context": "https://schema.org",
-      "@type": "ItemList",
-      itemListElement: categoryProducts.slice(0, 50).map((p, i) => {
-        const productSlug = p.slug || "";
-        return {
-          "@type": "ListItem",
-          position: i + 1,
-          url: `${SITE_URL}${productSlug ? `/product/${p._id}/${productSlug}` : `/product/${p._id}`}`,
-        };
-      }),
-    };
-
-    return {
-      title,
-      description,
-      image: imgUrl(category.image) || DEFAULT_IMAGE,
-      url,
-      ogType: "website",
-      jsonLd: [buildBreadcrumbJsonLd(breadcrumbItems), itemListJsonLd].filter(Boolean),
-      // Full list, not the JSON-LD block's 50-item cap above — this is
-      // meant to mirror what a real visitor's browser actually renders
-      // (Google's guidelines on dynamic rendering expect bots and real
-      // users to see materially the same content, not an artificially
-      // trimmed version), and no category here has anywhere near enough
-      // products yet for 50 to matter in practice.
-      bodyHtml: buildCategoryBodyHtml(
-        pageTitle,
-        bodyText,
-        breadcrumbItems,
-        categoryProducts,
-        category.slug,
-        categorySubcategories,
-      ),
-    };
+  // Hindi category/subcategory pages. Deliberately calls the SAME shared
+  // builder with isHindi:true rather than re-reading parts[] with its own
+  // offsets here -- the English branch above is parts[1]=categorySlug,
+  // parts[2]=subcategorySlug, but under the "hi" prefix everything shifts
+  // one index over (parts[0]="hi", parts[1]="category", parts[2]=
+  // categorySlug, parts[3]=subcategorySlug). A second copy of this block
+  // naively adapted from the English one would be exactly the kind of
+  // subtle, easy-to-miss bug this comment exists to prevent -- confirmed
+  // against the product branch's own near-miss of this same category of
+  // mistake during this same round of work.
+  if (parts[0] === "hi" && parts[1] === "category" && parts[2]) {
+    return buildCategoryMeta({ categorySlug: parts[2], subcategorySlug: parts[3], isHindi: true });
   }
 
   if (parts[0] === "policies" && parts[1]) {

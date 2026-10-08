@@ -170,9 +170,31 @@ export default async function handler(req, res) {
     // content worth Google's crawl budget (found while auditing GSC's
     // "Discovered – currently not indexed" report, 2026-08-10). The pages
     // themselves still work; they're just not advertised in the sitemap.
-    categoriesRes.categories.forEach((c) =>
-      urls.push(urlEntry(`/category/${c.slug}`, undefined, c.updatedAt)),
-    );
+    // A Hindi pair is only advertised once the category/subcategory
+    // actually has a Hindi name — same "don't advertise an untranslated
+    // /hi/ URL" convention the article pairs below already use. Category/
+    // Subcategory have nameHi (from an earlier Hindi backfill) but no
+    // description/subtitle Hindi field yet; render.js's category branch
+    // already falls back to the English body text for those on the /hi/
+    // page, so the alternate is still worth advertising.
+    categoriesRes.categories.forEach((c) => {
+      const enPath = `/category/${c.slug}`;
+
+      if (!c.nameHi) {
+        urls.push(urlEntry(enPath, undefined, c.updatedAt));
+        return;
+      }
+
+      const hiPath = `/hi/category/${c.slug}`;
+      const alternates = [
+        { lang: "en", href: enPath },
+        { lang: "hi", href: hiPath },
+        { lang: "x-default", href: enPath },
+      ];
+
+      urls.push(urlEntry(enPath, alternates, c.updatedAt));
+      urls.push(urlEntry(hiPath, alternates, c.updatedAt));
+    });
 
     // GET /api/subcategories only filters on the subcategory's own
     // isActive, not its parent category's — a deactivated category with
@@ -185,11 +207,24 @@ export default async function handler(req, res) {
     // the subcategory endpoint's own category field.
     const activeCategorySlugs = new Set(categoriesRes.categories.map((c) => c.slug));
     (subcategoriesRes.subcategories || []).forEach((s) => {
-      if (s.category?.slug && activeCategorySlugs.has(s.category.slug)) {
-        urls.push(
-          urlEntry(`/category/${s.category.slug}/${s.slug}`, undefined, s.updatedAt),
-        );
+      if (!(s.category?.slug && activeCategorySlugs.has(s.category.slug))) return;
+
+      const enPath = `/category/${s.category.slug}/${s.slug}`;
+
+      if (!s.nameHi) {
+        urls.push(urlEntry(enPath, undefined, s.updatedAt));
+        return;
       }
+
+      const hiPath = `/hi/category/${s.category.slug}/${s.slug}`;
+      const alternates = [
+        { lang: "en", href: enPath },
+        { lang: "hi", href: hiPath },
+        { lang: "x-default", href: enPath },
+      ];
+
+      urls.push(urlEntry(enPath, alternates, s.updatedAt));
+      urls.push(urlEntry(hiPath, alternates, s.updatedAt));
     });
     products.forEach((p) =>
       urls.push(urlEntry(productUrl(p), undefined, p.updatedAt, p.images, p.name)),

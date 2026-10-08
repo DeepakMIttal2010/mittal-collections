@@ -63,6 +63,17 @@
       "destination": "/api/render?path=/category/:slug/:subslug*"
     },
     {
+      "source": "/hi/category/:slug/:subslug*",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*([bB]ot|Google|facebookexternalhit|WhatsApp|Pinterest|embedly|Quora Link Preview|Slurp|ia_archiver|Discordbot|TelegramBot|redirectionio|[Cc]hat[Gg][Pp][Tt]-[Uu]ser|[Pp]erplexity-[Uu]ser|[Cc]laude-[Uu]ser|[Mm]eta-[Ee]xternal[Aa]gent|Bytespider|[Aa]nthropic-[Aa][Ii]|[Cc]ohere-[Aa][Ii]).*"
+        }
+      ],
+      "destination": "/api/render?path=/hi/category/:slug/:subslug*"
+    },
+    {
       "source": "/articles/:slug",
       "has": [
         {
