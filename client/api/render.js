@@ -548,6 +548,39 @@ const buildSimpleBodyHtml = (breadcrumbItems, heading, description) => `
     ${description ? `<p>${escapeHtml(description)}</p>` : ""}
   `;
 
+// /articles and /hi/articles used to render through buildSimpleBodyHtml
+// above (via the generic STATIC_PAGES branch), which gave a bot nothing
+// but a breadcrumb + h1 + one boilerplate paragraph -- zero links to any
+// of the real articles underneath it. A live GSC check (2026-10-09)
+// confirmed Google crawled exactly that thin body and excluded the page
+// ("Crawled - currently not indexed") while the individual article pages
+// themselves rank fine (they get their own real content via the
+// parts[0]==="articles" branch below). Mirrors buildCategoryBodyHtml's
+// existing real-<ul>-of-links pattern instead of inventing a new one.
+const buildArticleListBodyHtml = (breadcrumbItems, heading, intro, articles, isHindi) => {
+  const articleLinksHtml = articles
+    .map((a) => {
+      const title = isHindi ? a.titleHi : a.title;
+      const excerpt = isHindi ? a.excerptHi || a.excerpt : a.excerpt;
+      const href = `${SITE_URL}${isHindi ? "/hi" : ""}/articles/${a.slug}`;
+
+      return `<li>
+        <a href="${escapeHtml(href)}">${escapeHtml(title)}</a>
+        ${excerpt ? ` — ${escapeHtml(excerpt)}` : ""}
+      </li>`;
+    })
+    .join("\n");
+
+  return `
+    <nav aria-label="breadcrumb">${buildBreadcrumbHtml(breadcrumbItems)}</nav>
+    <h1>${escapeHtml(heading)}</h1>
+    <p>${escapeHtml(intro)}</p>
+    <ul>
+      ${articleLinksHtml}
+    </ul>
+  `;
+};
+
 // The homepage is the single most-crawled, highest-authority page on
 // the site -- real links to a category here pass that straight through
 // to pages Google has otherwise been slow to prioritize crawling (see
@@ -1253,9 +1286,29 @@ const buildMeta = async (path) => {
     };
   }
 
-  if (STATIC_PAGES[path]) {
+  if (path === "/articles" || path === "/hi/articles") {
+    // Pulled out of the generic STATIC_PAGES branch below (same move
+    // already made for /contact and /ghaziabad-home-furnishing-store
+    // above) -- this is a real listing of 24 published articles, not a
+    // static page with nothing else to say, and needs the real <ul> of
+    // links a bot can follow (see buildArticleListBodyHtml's comment --
+    // a live GSC check, 2026-10-09, confirmed the old thin body was
+    // exactly why this page was "Crawled - currently not indexed").
+    const isHindi = path === "/hi/articles";
     const staticPage = STATIC_PAGES[path];
-    const staticBreadcrumbItems = [{ name: "Home", path: "/" }, { name: staticPage.breadcrumb }];
+    const staticBreadcrumbItems = [{ name: isHindi ? "होम" : "Home", path: "/" }, { name: staticPage.breadcrumb }];
+
+    const articlesData = await fetchJson(`${API_BASE}/api/articles`);
+    // Same rule Articles.jsx already applies client-side: a Hindi listing
+    // only shows articles that actually have Hindi content.
+    const articles = (articlesData.articles || []).filter((a) => !isHindi || a.titleHi);
+
+    // Matches Articles.jsx's real on-page intro exactly (not the meta
+    // description duplicated as body copy, which is what the old
+    // STATIC_PAGES-driven body did).
+    const intro = isHindi
+      ? "सही घरेलू साज-सज्जा चुनने में मदद करने वाली खरीदारी गाइड और स्टाइलिंग टिप्स।"
+      : "Buying guides and styling tips to help you choose the right home furnishing.";
 
     // "/articles" and "/hi/articles" are the one real URL pair among
     // STATIC_PAGES (every other entry here has no Hindi counterpart at
@@ -1263,20 +1316,11 @@ const buildMeta = async (path) => {
     // (see parts[0] === "articles" below); the listing pages never did,
     // so bots saw zero declared relationship between the two despite
     // the per-article pages getting it right.
-    const articleListingAlternates =
-      path === "/articles"
-        ? [
-            { lang: "en", url: `${SITE_URL}/articles` },
-            { lang: "hi", url: `${SITE_URL}/hi/articles` },
-            { lang: "x-default", url: `${SITE_URL}/articles` },
-          ]
-        : path === "/hi/articles"
-          ? [
-              { lang: "en", url: `${SITE_URL}/articles` },
-              { lang: "hi", url: `${SITE_URL}/hi/articles` },
-              { lang: "x-default", url: `${SITE_URL}/articles` },
-            ]
-          : undefined;
+    const articleListingAlternates = [
+      { lang: "en", url: `${SITE_URL}/articles` },
+      { lang: "hi", url: `${SITE_URL}/hi/articles` },
+      { lang: "x-default", url: `${SITE_URL}/articles` },
+    ];
 
     return {
       title: staticPage.title,
@@ -1286,6 +1330,22 @@ const buildMeta = async (path) => {
       ogType: "website",
       lang: staticPage.lang,
       alternateLangs: articleListingAlternates,
+      jsonLd: buildBreadcrumbJsonLd(staticBreadcrumbItems),
+      bodyHtml: buildArticleListBodyHtml(staticBreadcrumbItems, staticPage.title, intro, articles, isHindi),
+    };
+  }
+
+  if (STATIC_PAGES[path]) {
+    const staticPage = STATIC_PAGES[path];
+    const staticBreadcrumbItems = [{ name: "Home", path: "/" }, { name: staticPage.breadcrumb }];
+
+    return {
+      title: staticPage.title,
+      description: staticPage.description,
+      image: DEFAULT_IMAGE,
+      url: `${SITE_URL}${path}`,
+      ogType: "website",
+      lang: staticPage.lang,
       jsonLd: buildBreadcrumbJsonLd(staticBreadcrumbItems),
       bodyHtml: buildSimpleBodyHtml(staticBreadcrumbItems, staticPage.title, staticPage.description),
     };

@@ -317,13 +317,29 @@ export const deleteCustomer = async (req, res) => {
     // at a dangling user reference forever. toggleBlockCustomer already
     // exists as the reversible alternative for "stop this customer from
     // using the account" without destroying that history.
-    const hasOrders = await Order.exists({ user: customer._id });
+    //
+    // Same reasoning extends to being someone ELSE's referrer: a referred
+    // customer can never be deleted while they have any order (hasOrders
+    // above already blocks that), so the exposure window for a referrer
+    // is open-ended — any of the referred customer's past orders could
+    // be cancelled/returned at any future point, triggering a loyalty-
+    // points clawback against this referrer (orderController.js's
+    // cancel/return handling). applyLoyaltyPointsChange silently no-ops
+    // if the referrer account no longer exists, so a deleted referrer's
+    // clawback is just permanently lost. Blocking deletion here closes
+    // that leak prospectively; nulling the referredBy link instead
+    // wouldn't actually recover anything, just make the no-op explicit.
+    const [hasOrders, hasReferrals] = await Promise.all([
+      Order.exists({ user: customer._id }),
+      User.exists({ referredBy: customer._id }),
+    ]);
 
-    if (hasOrders) {
+    if (hasOrders || hasReferrals) {
       return res.status(400).json({
         success: false,
-        message:
-          "This customer has order history and can't be deleted — block them instead to prevent further activity.",
+        message: hasOrders
+          ? "This customer has order history and can't be deleted — block them instead to prevent further activity."
+          : "This customer has referred other customers and can't be deleted — block them instead to prevent further activity.",
       });
     }
 

@@ -272,6 +272,25 @@ export const getAllReturnRequestsAdmin = async (req, res) => {
   }
 };
 
+// Explicit state machine for admin return-status transitions. Self-loops
+// are allowed so a double-click / UI retry of the same status (the
+// <select> in AdminReturns.jsx has no disabled-while-saving guard) stays
+// a harmless no-op, same as the stockRestored/pointsClawedBack flags
+// already make the side effects themselves idempotent. Rejected and
+// Refunded are terminal — no escaping either one. Both Requested and
+// Approved can still jump straight to Refunded (skipping "Picked Up")
+// since that's a real, intentional admin workflow (see the comment
+// below on the stock-restore block) — this only closes the genuinely
+// nonsensical jumps, like Rejected -> Refunded phantom-restocking an
+// item that was never accepted back.
+const RETURN_STATUS_TRANSITIONS = {
+  Requested: ["Requested", "Approved", "Rejected", "Picked Up", "Refunded"],
+  Approved: ["Approved", "Rejected", "Picked Up", "Refunded"],
+  "Picked Up": ["Picked Up", "Refunded"],
+  Rejected: ["Rejected"],
+  Refunded: ["Refunded"],
+};
+
 // ============================
 // UPDATE RETURN STATUS (Admin)
 // ============================
@@ -299,6 +318,14 @@ export const updateReturnStatus = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Return request not found",
+      });
+    }
+
+    const allowedNext = RETURN_STATUS_TRANSITIONS[returnRequest.status] || [];
+    if (!allowedNext.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot move a return from "${returnRequest.status}" to "${status}"`,
       });
     }
 

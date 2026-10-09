@@ -16,6 +16,20 @@ const STATUS_TABS = [
 
 const STATUSES = ["Requested", "Approved", "Rejected", "Picked Up", "Refunded"];
 
+// Mirrors server/controllers/returnController.js's RETURN_STATUS_TRANSITIONS
+// (duplicated, not shared — this repo has no client/server shared-code
+// mechanism, same convention used elsewhere). Keeps the dropdown from
+// ever offering a transition the server will reject with a 400 — e.g. a
+// Rejected return jumping straight to Refunded, which would phantom-
+// restock an item that was never actually accepted back.
+const ALLOWED_NEXT_STATUSES = {
+  Requested: ["Requested", "Approved", "Rejected", "Picked Up", "Refunded"],
+  Approved: ["Approved", "Rejected", "Picked Up", "Refunded"],
+  "Picked Up": ["Picked Up", "Refunded"],
+  Rejected: ["Rejected"],
+  Refunded: ["Refunded"],
+};
+
 const STATUS_COLORS = {
   Requested: "bg-blue-100 text-blue-700",
   Approved: "bg-amber-100 text-amber-700",
@@ -152,7 +166,7 @@ function AdminReturns() {
                   aria-label={`Update status for return ${ret._id}`}
                   className="text-sm border border-slate-300 rounded-lg px-3 py-1.5"
                 >
-                  {STATUSES.map((s) => (
+                  {(ALLOWED_NEXT_STATUSES[ret.status] || STATUSES).map((s) => (
                     <option key={s} value={s}>
                       {s}
                     </option>
