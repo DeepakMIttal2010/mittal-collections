@@ -235,16 +235,33 @@ const buildBreadcrumbHtml = (breadcrumbItems) =>
 // product page, not a category page). Specs list only includes fields
 // that are actually set, since most products don't use every one
 // (variant products have no flat size/color, for instance).
-const buildProductBodyHtml = (product, plainDescription, offerPrice, offerStock, breadcrumbItems, galleryImages) => {
+const buildProductBodyHtml = (
+  product,
+  plainDescription,
+  offerPrice,
+  offerStock,
+  breadcrumbItems,
+  galleryImages,
+  isHindi = false,
+) => {
   const breadcrumbHtml = buildBreadcrumbHtml(breadcrumbItems);
+  const displayName = isHindi ? product.nameHi : product.name;
 
-  const specs = [
-    ["Brand", product.brand],
-    ["Fabric", product.fabric],
-    ["Color", product.color],
-    ["Pattern", product.pattern],
-    ["Size", product.size],
-  ].filter(([, value]) => value);
+  const specs = isHindi
+    ? [
+        ["ब्रांड", product.brandHi || product.brand],
+        ["फैब्रिक", product.fabricHi || product.fabric],
+        ["रंग", product.color],
+        ["पैटर्न", product.pattern],
+        ["साइज़", product.size],
+      ].filter(([, value]) => value)
+    : [
+        ["Brand", product.brand],
+        ["Fabric", product.fabric],
+        ["Color", product.color],
+        ["Pattern", product.pattern],
+        ["Size", product.size],
+      ].filter(([, value]) => value);
 
   const specsHtml = specs
     .map(([label, value]) => `<li>${escapeHtml(label)}: ${escapeHtml(value)}</li>`)
@@ -257,15 +274,15 @@ const buildProductBodyHtml = (product, plainDescription, offerPrice, offerStock,
   const imagesHtml = galleryImages
     .map(
       (url, i) =>
-        `<img src="${escapeHtml(url)}" alt="${escapeHtml(product.name)} - photo ${i + 1}" />`,
+        `<img src="${escapeHtml(url)}" alt="${escapeHtml(displayName)} - photo ${i + 1}" />`,
     )
     .join("\n");
 
   return `
     <nav aria-label="breadcrumb">${breadcrumbHtml}</nav>
-    <h1>${escapeHtml(product.name)}</h1>
+    <h1>${escapeHtml(displayName)}</h1>
     ${imagesHtml}
-    <p>₹${escapeHtml(offerPrice)} — ${offerStock > 0 ? "In Stock" : "Out of Stock"}</p>
+    <p>₹${escapeHtml(offerPrice)} — ${offerStock > 0 ? (isHindi ? "उपलब्ध" : "In Stock") : isHindi ? "स्टॉक में नहीं" : "Out of Stock"}</p>
     ${specs.length > 0 ? `<ul>${specsHtml}</ul>` : ""}
     ${plainDescription ? `<p>${escapeHtml(plainDescription)}</p>` : ""}
   `;
@@ -329,13 +346,20 @@ const buildCategoryBodyHtml = (
   const productsHtml = products
     .map((p) => {
       const slug = p.slug || "";
-      const href = `${SITE_URL}${slug ? `/product/${p._id}/${slug}` : `/product/${p._id}`}`;
+      const productPath = slug ? `/product/${p._id}/${slug}` : `/product/${p._id}`;
+      // Only links to the Hindi product page when one actually exists
+      // (p.nameHi) -- same "don't advertise an untranslated /hi/ URL"
+      // rule used everywhere else, so a product that somehow lacks a
+      // Hindi name still gets a real, working (English) link here
+      // rather than a broken/redirecting one.
+      const href = `${SITE_URL}${isHindi && p.nameHi ? `/hi${productPath}` : productPath}`;
+      const displayName = isHindi && p.nameHi ? p.nameHi : p.name;
       const img = imgUrl(p.image);
 
       return `<li>
         <a href="${escapeHtml(href)}">
-          ${img ? `<img src="${escapeHtml(img)}" alt="${escapeHtml(p.name)}" />` : ""}
-          <span>${escapeHtml(p.name)}</span>
+          ${img ? `<img src="${escapeHtml(img)}" alt="${escapeHtml(displayName)}" />` : ""}
+          <span>${escapeHtml(displayName)}</span>
           <span>₹${escapeHtml(p.price)}</span>
         </a>
       </li>`;
@@ -907,21 +931,43 @@ const buildMeta = async (path) => {
   }
 
   if (parts[0] === "product" && parts[1]) {
+    return buildProductMeta({ productId: parts[1], productSlug: parts[2], isHindi: false });
+  }
+
+  // Hindi product pages. Same shared-function pattern as the category
+  // branch above -- parts[0]="hi", parts[1]="product", parts[2]=id,
+  // parts[3]=slug, one index over from the English shape -- rather than
+  // a second hand-adjusted copy of this block.
+  if (parts[0] === "hi" && parts[1] === "product" && parts[2]) {
+    return buildProductMeta({ productId: parts[2], productSlug: parts[3], isHindi: true });
+  }
+
+  async function buildProductMeta({ productId, productSlug, isHindi }) {
     // Fetched together — none depend on each other, and ProductDetails.jsx
     // loads all four independently too (reviews/questions/settings never
     // block the product itself from rendering).
     const [data, settingsData, reviewsData, questionsData] = await Promise.all([
-      fetchJson(`${API_BASE}/api/products/${parts[1]}`),
+      fetchJson(`${API_BASE}/api/products/${productId}`),
       fetchJson(`${API_BASE}/api/settings`),
-      fetchJson(`${API_BASE}/api/reviews/product/${parts[1]}`),
-      fetchJson(`${API_BASE}/api/questions/product/${parts[1]}`),
+      fetchJson(`${API_BASE}/api/reviews/product/${productId}`),
+      fetchJson(`${API_BASE}/api/questions/product/${productId}`),
     ]);
 
     if (!data.success) return null;
 
     const p = data.product;
+
+    // Same rule Articles/Categories already enforce: a /hi/ URL only
+    // exists once there's a real Hindi name to serve there. Dormant
+    // today (per the 2026-10-07 Hindi-specs backfill, all 155 products
+    // have nameHi) but closes the gap for a future product added
+    // without an immediate Hindi backfill.
+    if (isHindi && !p.nameHi) {
+      const enSlug = p.slug || productSlug || "";
+      return { redirect: `${SITE_URL}${enSlug ? `/product/${p._id}/${enSlug}` : `/product/${p._id}`}` };
+    }
     const settings = settingsData.settings || {};
-    const plainDescription = stripHtml(p.description);
+    const plainDescription = stripHtml(isHindi ? p.descriptionHi || p.description : p.description);
     // Google's Product rich-result guidance wants multiple angles when
     // they exist, not just the main photo — mirrors ProductDetails.jsx's
     // productImages fallback (full gallery, or the single main image when
@@ -936,35 +982,45 @@ const buildMeta = async (path) => {
     // up) canonicalizes to itself instead of the real current URL, which
     // is exactly what produced Search Console's "Duplicate without
     // user-selected canonical" for these pages. Matches the client-side
-    // productUrl() helper's own self-healing behaviour.
-    const currentSlug = p.slug || parts[2] || "";
-    const canonicalPath = currentSlug
-      ? `/product/${p._id}/${currentSlug}`
-      : `/product/${p._id}`;
+    // productUrl() helper's own self-healing behaviour. Same currentSlug
+    // (no separate slugHi) under either prefix -- matches productUrl()'s
+    // own isHindi handling client-side.
+    const currentSlug = p.slug || productSlug || "";
+    const enCanonicalPath = currentSlug ? `/product/${p._id}/${currentSlug}` : `/product/${p._id}`;
+    const hiCanonicalPath = `/hi${enCanonicalPath}`;
+    const canonicalPath = isHindi ? hiCanonicalPath : enCanonicalPath;
     const url = `${SITE_URL}${canonicalPath}`;
+    const categoryUrlPrefix = isHindi ? "/hi" : "";
 
     // Mirrors ProductDetails.jsx's breadcrumbItemsForSeo — a subcategory
     // segment used to be dropped here, giving bots a shorter breadcrumb
     // than the one the site itself defines for the same product.
     const breadcrumbItems = [
-      { name: "Home", path: "/" },
+      { name: isHindi ? "होम" : "Home", path: "/" },
       ...(p.category
-        ? [{ name: p.category.name, path: `/category/${p.category.slug}` }]
+        ? [
+            {
+              name: isHindi ? p.category.nameHi || p.category.name : p.category.name,
+              path: `${categoryUrlPrefix}/category/${p.category.slug}`,
+            },
+          ]
         : []),
       ...(p.subcategories?.[0] && p.category
         ? [
             {
-              name: p.subcategories[0].name,
-              path: `/category/${p.category.slug}/${p.subcategories[0].slug}`,
+              name: isHindi
+                ? p.subcategories[0].nameHi || p.subcategories[0].name
+                : p.subcategories[0].name,
+              path: `${categoryUrlPrefix}/category/${p.category.slug}/${p.subcategories[0].slug}`,
             },
           ]
         : []),
-      { name: p.name },
+      { name: isHindi ? p.nameHi : p.name },
     ];
 
     // Mirrors ProductDetails.jsx's seoTitle — p.name already carries the
     // exact dimension by convention, so appending p.size duplicated it.
-    const seoTitle = p.name;
+    const seoTitle = isHindi ? p.nameHi : p.name;
 
     // Mirrors ProductDetails.jsx's displayPrice/displayStock — a
     // variant product's flat p.price only mirrors variants[0], but flat
@@ -987,9 +1043,16 @@ const buildMeta = async (path) => {
     // catalog's lower-priced products (₹80-230 towels ranking well,
     // 0% CTR) pointed at price-sensitive shoppers not getting enough of
     // a hook to click.
-    const description = p.description
-      ? `₹${offerPrice}. Pan-India delivery, 24hr in Ghaziabad. ${plainDescription}`.slice(0, 160)
-      : `₹${offerPrice} — ${p.name}, pan-India delivery, fast 24-hour delivery in Ghaziabad`.slice(0, 160);
+    // Hindi phrasing matches WhyChooseUs.jsx's existing "पूरे भारत में
+    // डिलीवरी, ग़ाज़ियाबाद में 24 घंटे में तेज़ डिलीवरी।" wording exactly,
+    // rather than inventing new phrasing for the same fact.
+    const description = isHindi
+      ? plainDescription
+        ? `₹${offerPrice}। पूरे भारत में डिलीवरी, ग़ाज़ियाबाद में 24 घंटे में तेज़ डिलीवरी। ${plainDescription}`.slice(0, 160)
+        : `₹${offerPrice} — ${p.nameHi}, पूरे भारत में डिलीवरी, ग़ाज़ियाबाद में 24 घंटे में तेज़ डिलीवरी`.slice(0, 160)
+      : p.description
+        ? `₹${offerPrice}. Pan-India delivery, 24hr in Ghaziabad. ${plainDescription}`.slice(0, 160)
+        : `₹${offerPrice} — ${p.name}, pan-India delivery, fast 24-hour delivery in Ghaziabad`.slice(0, 160);
 
     // Mirrors ProductDetails.jsx's effectiveReturnDaysForSeo/shippingFeeForSeo
     // — these unlock the enhanced free-listing treatment in Google
@@ -1007,7 +1070,10 @@ const buildMeta = async (path) => {
     const productJsonLd = {
       "@context": "https://schema.org",
       "@type": "Product",
-      name: p.name,
+      // Matches the page's own visible language -- structured data
+      // disagreeing with what's actually on the page is the same class
+      // of issue the brand-hardcoding fix addressed earlier.
+      name: isHindi ? p.nameHi : p.name,
       description: plainDescription,
       image: galleryImages,
       // The product's own Mongo _id -- already the unique identifier used
@@ -1117,7 +1183,7 @@ const buildMeta = async (path) => {
     const videoJsonLd = (p.videos || []).map((videoUrl) => ({
       "@context": "https://schema.org",
       "@type": "VideoObject",
-      name: p.name,
+      name: isHindi ? p.nameHi : p.name,
       description: plainDescription,
       thumbnailUrl: imgUrl(p.image),
       contentUrl: videoUrl,
@@ -1137,12 +1203,25 @@ const buildMeta = async (path) => {
       })),
     };
 
+    // Only advertised once a real Hindi name exists -- same rule the
+    // nameHi gate above already enforces for actually serving the /hi/
+    // page, so this is always true by the time this return is reached.
+    const alternateLangs = p.nameHi
+      ? [
+          { lang: "en", url: `${SITE_URL}${enCanonicalPath}` },
+          { lang: "hi", url: `${SITE_URL}${hiCanonicalPath}` },
+          { lang: "x-default", url: `${SITE_URL}${enCanonicalPath}` },
+        ]
+      : undefined;
+
     return {
       title: `${seoTitle} | ${SITE_NAME}`,
       description,
       image,
       url,
       ogType: "product",
+      lang: isHindi ? "hi" : "en",
+      alternateLangs,
       jsonLd: [
         productJsonLd,
         buildBreadcrumbJsonLd(breadcrumbItems),
@@ -1156,6 +1235,7 @@ const buildMeta = async (path) => {
         offerStock,
         breadcrumbItems,
         galleryImages,
+        isHindi,
       ),
     };
   }

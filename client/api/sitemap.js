@@ -60,9 +60,10 @@ const slugify = (text) =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)/g, "");
 
-const productUrl = (p) => {
+const productUrl = (p, isHindi = false) => {
   const slug = p.slug || slugify(p.name || "");
-  return slug ? `/product/${p._id}/${slug}` : `/product/${p._id}`;
+  const path = slug ? `/product/${p._id}/${slug}` : `/product/${p._id}`;
+  return isHindi ? `/hi${path}` : path;
 };
 
 // A plain `?limit=1000` call silently truncates past 1000 products —
@@ -247,9 +248,28 @@ export default async function handler(req, res) {
       urls.push(urlEntry(enPath, alternates, s.updatedAt));
       urls.push(urlEntry(hiPath, alternates, s.updatedAt));
     });
-    products.forEach((p) =>
-      urls.push(urlEntry(productUrl(p), undefined, p.updatedAt, p.images, p.name)),
-    );
+    // Same nameHi-gated en/hi reciprocal-pair pattern as categories/
+    // subcategories/articles above -- products never got this before
+    // (zero alternates, even in English), the one remaining gap from
+    // the original hreflang rollout.
+    products.forEach((p) => {
+      const enPath = productUrl(p);
+
+      if (!p.nameHi) {
+        urls.push(urlEntry(enPath, undefined, p.updatedAt, p.images, p.name));
+        return;
+      }
+
+      const hiPath = productUrl(p, true);
+      const alternates = [
+        { lang: "en", href: enPath },
+        { lang: "hi", href: hiPath },
+        { lang: "x-default", href: enPath },
+      ];
+
+      urls.push(urlEntry(enPath, alternates, p.updatedAt, p.images, p.name));
+      urls.push(urlEntry(hiPath, alternates, p.updatedAt, p.images, p.nameHi));
+    });
 
     // A Hindi version is only advertised (and only gets its own sitemap
     // entry) once titleHi is actually filled in — see Article.js and

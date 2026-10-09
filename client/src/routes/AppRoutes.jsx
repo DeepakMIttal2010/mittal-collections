@@ -243,6 +243,7 @@ function AppRoutes() {
           <Route path="/rewards" element={<Rewards />} />
           {/* Product Details */}
           <Route path="/product/:id/:slug?" element={<ProductDetails />} />
+          <Route path="/hi/product/:id/:slug?" element={<ProductDetails />} />
           <Route path="/trending" element={<TrendingPage />} />
           <Route path="/clearance-sale" element={<ClearanceSalePage />} />
           <Route path="/new-arrivals" element={<NewArrivalsPage />} />

@@ -1,7 +1,7 @@
 import { imgUrl, imgSrcSet } from "../../services/api";
 import { lazy, Suspense, useEffect, useState } from "react";
 import "./ProductCard.css";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import {
   FaGift,
@@ -33,6 +33,16 @@ const QuickViewModal = lazy(() => import("./QuickViewModal"));
 
 function ProductCard({ product }) {
   const navigate = useNavigate();
+  // Self-detected, not a prop -- this card renders inside both English
+  // and Hindi category grids (and ProductDetails.jsx's own related-
+  // products row), and always needs to link to whichever language
+  // variant matches wherever it's currently rendered. Same-component
+  // navigation (e.g. clicking a related product from one product page
+  // to another) is exactly the scenario that bounced users back to /hi/
+  // when CategoryPage.jsx's internal links were still hardcoded English
+  // -- linking to the right variant up front avoids recreating that bug
+  // here for products.
+  const isHindi = useLocation().pathname.startsWith("/hi/");
   const { addToCart } = useCart();
   const { wishlistItems, addToWishlist, removeFromWishlist } = useWishlist();
   const { toggleCompare, isInCompare } = useCompare();
@@ -60,7 +70,7 @@ function ProductCard({ product }) {
   return (
     <div className="product-card">
       <Link
-        to={productUrl(product)}
+        to={productUrl(product, isHindi)}
         className="product-link"
         onClick={() => trackSelectItem(product)}
       >
@@ -207,7 +217,7 @@ function ProductCard({ product }) {
                   "प्रोडक्ट पेज पर साइज़ चुनें",
                 ),
               );
-              navigate(productUrl(product));
+              navigate(productUrl(product, isHindi));
               return;
             }
 
