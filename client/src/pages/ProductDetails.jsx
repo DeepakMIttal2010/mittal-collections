@@ -20,7 +20,7 @@ import { handleImageError } from "../utils/imageFallback";
 import { toast } from "react-toastify";
 import { trackViewItem } from "../utils/analytics";
 import { useEffect, useRef, useState } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, useNavigate, useLocation, Link, Navigate } from "react-router-dom";
 import {
   FaStar,
   FaShoppingCart,
@@ -71,7 +71,15 @@ import { useLanguage } from "../context/LanguageContext";
 function ProductDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { t } = useLanguage();
+  const location = useLocation();
+  const { t, language, setLanguage } = useLanguage();
+  // The URL prefix decides which content renders — a /hi/ URL is a
+  // distinct, search-indexable page (see render.js and sitemap.js), so
+  // canonical/hreflang/JSON-LD stay correct regardless of the visitor's
+  // own toggle. Same pattern ArticleDetail.jsx/CategoryPage.jsx already
+  // use for their own /hi/ URLs.
+  const isHindi = location.pathname.startsWith("/hi/");
+  const hasSyncedLanguageRef = useRef(false);
 
   const [product, setProduct] = useState(null);
   const [loadFailed, setLoadFailed] = useState(false);
@@ -261,6 +269,25 @@ function ProductDetails() {
     };
   }, [id]);
 
+  // Keeps the language toggle in sync with the URL -- same corrected
+  // pattern CategoryPage.jsx/ArticleDetail.jsx use (see CategoryPage.jsx's
+  // own comment for the bug this fixes): the URL is authoritative on
+  // first load (sync the toggle to match it, don't fight it), and only a
+  // later, genuine toggle click triggers a navigate.
+  useEffect(() => {
+    if (!product) return;
+
+    if (!hasSyncedLanguageRef.current) {
+      hasSyncedLanguageRef.current = true;
+      if (isHindi && language !== "hi") setLanguage("hi");
+      return;
+    }
+
+    const wantHindi = language === "hi";
+    if (wantHindi === isHindi) return;
+    navigate(productUrl(product, wantHindi), { replace: true });
+  }, [isHindi, language, product, navigate, setLanguage]);
+
   const scrollRelated = (direction) => {
     if (!relatedScrollRef.current) return;
 
@@ -444,12 +471,20 @@ function ProductDetails() {
     );
   }
 
+  // Same rule Articles/Categories already enforce: a /hi/ URL only
+  // exists once there's a real Hindi name to serve there. Dormant today
+  // (all 155 products have nameHi) but closes the gap for a future
+  // product added without an immediate Hindi backfill.
+  if (isHindi && !product.nameHi) {
+    return <Navigate to={productUrl(product, false)} replace />;
+  }
+
   // Real share links reflect wherever the site is actually being viewed
   // from (so it also works correctly off a staging/preview domain);
   // canonicalUrl is the fixed production domain, matching every other
   // page's <Seo url=...> convention instead of drifting with the host.
-  const shareUrl = `${window.location.origin}${productUrl(product)}`;
-  const canonicalUrl = `${SITE_URL}${productUrl(product)}`;
+  const shareUrl = `${window.location.origin}${productUrl(product, isHindi)}`;
+  const canonicalUrl = `${SITE_URL}${productUrl(product, isHindi)}`;
   const shareText = product.name;
   const displayDescription = t(product.description, product.descriptionHi);
   const displayDescriptionText = stripHtml(displayDescription);
@@ -468,8 +503,9 @@ function ProductDetails() {
   // seo_title_convention) -- appending the variant/product size here
   // used to duplicate it (confirmed live across every sampled product,
   // one case 3x over, pushing titles past 200 chars), so the name alone
-  // is the title.
-  const seoTitle = product.name;
+  // is the title. Driven by isHindi (the URL), not the toggle -- matches
+  // render.js's bot-prerender path for the same /hi/ URL.
+  const seoTitle = isHindi ? product.nameHi : product.name;
 
   const pointsPreview = earnRate
     ? Math.floor((displayPrice * quantity) / earnRate)
@@ -539,8 +575,11 @@ function ProductDetails() {
   const productJsonLd = {
     "@context": "https://schema.org",
     "@type": "Product",
-    name: product.name,
-    description: stripHtml(product.description),
+    // Matches the page's own visible language (isHindi, from the URL) --
+    // structured data disagreeing with what's actually on the page is
+    // the same class of issue the brand-hardcoding fix addressed earlier.
+    name: isHindi ? product.nameHi : product.name,
+    description: stripHtml(isHindi ? product.descriptionHi || product.description : product.description),
     // Google's Product rich-result guidance wants multiple angles when
     // they exist, not just the main photo — productImages already
     // excludes videos (see mediaItems above) and falls back to the
@@ -677,35 +716,42 @@ function ProductDetails() {
   const videoJsonLd = (product.videos || []).map((url) => ({
     "@context": "https://schema.org",
     "@type": "VideoObject",
-    name: product.name,
-    description: stripHtml(product.description),
+    name: isHindi ? product.nameHi : product.name,
+    description: stripHtml(isHindi ? product.descriptionHi || product.description : product.description),
     thumbnailUrl: imgUrl(product.image),
     contentUrl: url,
     uploadDate: product.createdAt,
   }));
 
-  // Structured data stays English-only regardless of the language toggle
-  // (schema.org/SEO convention) — only the visible breadcrumb trail below
-  // gets translated.
+  // Driven by isHindi (the URL), same as seoTitle/productJsonLd above --
+  // this used to stay English-only regardless of the language toggle
+  // (the old convention, back when there was no distinct /hi/ URL for a
+  // product to actually be). Now that there is, this must match the
+  // page's own real content on that URL, same as CategoryPage.jsx's
+  // breadcrumbItemsForSeo. The VISIBLE breadcrumb trail below is
+  // unchanged — still toggle-driven via t().
+  const categoryUrlPrefix = isHindi ? "/hi" : "";
   const breadcrumbItemsForSeo = [
-    { name: "Home", path: "/" },
+    { name: isHindi ? "होम" : "Home", path: "/" },
     ...(product.category
       ? [
           {
-            name: product.category.name,
-            path: `/category/${product.category.slug}`,
+            name: isHindi ? product.category.nameHi || product.category.name : product.category.name,
+            path: `${categoryUrlPrefix}/category/${product.category.slug}`,
           },
         ]
       : []),
     ...(product.subcategories?.[0] && product.category
       ? [
           {
-            name: product.subcategories[0].name,
-            path: `/category/${product.category.slug}/${product.subcategories[0].slug}`,
+            name: isHindi
+              ? product.subcategories[0].nameHi || product.subcategories[0].name
+              : product.subcategories[0].name,
+            path: `${categoryUrlPrefix}/category/${product.category.slug}/${product.subcategories[0].slug}`,
           },
         ]
       : []),
-    { name: product.name },
+    { name: isHindi ? product.nameHi : product.name },
   ];
 
   const breadcrumbItems = [
@@ -769,25 +815,40 @@ function ProductDetails() {
       <Seo
         title={seoTitle}
         description={
-          product.description
-            ? // Shorter than the old "Buy online, pan-India delivery (24hr
-              // in Ghaziabad) - " prefix (53 chars) — that was eating a
-              // third of the 160-char budget on every single product
-              // before any product-specific content (material, size,
-              // features — what actually differentiates one product's
-              // snippet from another's) got a chance to show. Price
-              // leads the snippet (not buried after it) — live GSC data
-              // on this catalog's lower-priced products (₹80-230 towels
-              // ranking well, 0% CTR) pointed at price-sensitive
-              // shoppers not getting enough of a hook to click; showing
-              // the price pre-qualifies the snippet the same way it
-              // would on a marketplace listing.
-              `₹${displayPrice}. Pan-India delivery, 24hr in Ghaziabad. ${stripHtml(product.description)}`.slice(0, 160)
-            : `₹${displayPrice} — ${product.name}, pan-India delivery, fast 24-hour delivery in Ghaziabad`.slice(0, 160)
+          // Shorter than the old "Buy online, pan-India delivery (24hr
+          // in Ghaziabad) - " prefix (53 chars) — that was eating a
+          // third of the 160-char budget on every single product before
+          // any product-specific content (material, size, features —
+          // what actually differentiates one product's snippet from
+          // another's) got a chance to show. Price leads the snippet
+          // (not buried after it) — live GSC data on this catalog's
+          // lower-priced products (₹80-230 towels ranking well, 0% CTR)
+          // pointed at price-sensitive shoppers not getting enough of a
+          // hook to click; showing the price pre-qualifies the snippet
+          // the same way it would on a marketplace listing. Hindi
+          // phrasing matches WhyChooseUs.jsx's existing wording exactly,
+          // rather than inventing new phrasing for the same fact.
+          isHindi
+            ? product.descriptionHi || product.description
+              ? `₹${displayPrice}। पूरे भारत में डिलीवरी, ग़ाज़ियाबाद में 24 घंटे में तेज़ डिलीवरी। ${stripHtml(product.descriptionHi || product.description)}`.slice(0, 160)
+              : `₹${displayPrice} — ${product.nameHi}, पूरे भारत में डिलीवरी, ग़ाज़ियाबाद में 24 घंटे में तेज़ डिलीवरी`.slice(0, 160)
+            : product.description
+              ? `₹${displayPrice}. Pan-India delivery, 24hr in Ghaziabad. ${stripHtml(product.description)}`.slice(0, 160)
+              : `₹${displayPrice} — ${product.name}, pan-India delivery, fast 24-hour delivery in Ghaziabad`.slice(0, 160)
         }
         image={imgUrl(product.image)}
         url={canonicalUrl}
         ogType="product"
+        lang={isHindi ? "hi" : "en"}
+        alternateLangs={
+          product.nameHi
+            ? [
+                { lang: "en", url: `${SITE_URL}${productUrl(product, false)}` },
+                { lang: "hi", url: `${SITE_URL}${productUrl(product, true)}` },
+                { lang: "x-default", url: `${SITE_URL}${productUrl(product, false)}` },
+              ]
+            : undefined
+        }
         jsonLd={[
           productJsonLd,
           buildBreadcrumbJsonLd(breadcrumbItemsForSeo),
