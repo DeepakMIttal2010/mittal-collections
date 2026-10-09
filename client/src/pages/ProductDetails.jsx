@@ -754,13 +754,21 @@ function ProductDetails() {
     { name: isHindi ? product.nameHi : product.name },
   ];
 
+  // Paths use categoryUrlPrefix (isHindi, the URL), not the toggle --
+  // CategoryPage.jsx's own breadcrumb already does this. Missing it here
+  // was a real, live-reachable bug: a visitor on a /hi/product/ page
+  // clicking this breadcrumb landed on the English category URL while
+  // the language context stayed stuck at "hi" (the sync-effect's
+  // first-load-ref only corrects on the FIRST mount, not on a ref
+  // mutation with no re-render) -- a silent mixed-language/wrong-
+  // canonical state one click away from every Hindi product page.
   const breadcrumbItems = [
     { name: t("Home", "होम"), path: "/" },
     ...(product.category
       ? [
           {
             name: t(product.category.name, product.category.nameHi),
-            path: `/category/${product.category.slug}`,
+            path: `${categoryUrlPrefix}/category/${product.category.slug}`,
           },
         ]
       : []),
@@ -771,7 +779,7 @@ function ProductDetails() {
               product.subcategories[0].name,
               product.subcategories[0].nameHi,
             ),
-            path: `/category/${product.category.slug}/${product.subcategories[0].slug}`,
+            path: `${categoryUrlPrefix}/category/${product.category.slug}/${product.subcategories[0].slug}`,
           },
         ]
       : []),

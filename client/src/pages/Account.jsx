@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { toast } from "react-toastify";
 import {
   FaBoxOpen,
@@ -88,9 +88,8 @@ function getAccountLinks(t) {
 }
 
 function Account() {
-  const { user, isLoggedIn, logout } = useAuth();
+  const { user, logout } = useAuth();
   const { t } = useLanguage();
-  const navigate = useNavigate();
   const [loyaltyPoints, setLoyaltyPoints] = useState(user?.loyaltyPoints || 0);
   const [referralCode, setReferralCode] = useState(user?.referralCode || "");
   const [unreadCount, setUnreadCount] = useState(0);
@@ -105,11 +104,6 @@ function Account() {
   });
 
   useEffect(() => {
-    if (!isLoggedIn) {
-      navigate("/login?redirect=/account");
-      return;
-    }
-
     getProfile().then((response) => {
       if (response.success) {
         setLoyaltyPoints(response.user.loyaltyPoints || 0);
@@ -126,7 +120,7 @@ function Account() {
     getMyNotifications().then((response) => {
       if (response.success) setUnreadCount(response.unreadCount);
     });
-  }, [isLoggedIn, navigate]);
+  }, []);
 
   const referralLink = referralCode
     ? `${window.location.origin}/register?ref=${referralCode}`

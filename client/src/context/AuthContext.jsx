@@ -1,4 +1,4 @@
-import { createContext, useContext, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 
 import { readJsonFromStorage } from "../utils/safeLocalStorage";
 
@@ -40,6 +40,22 @@ export const AuthProvider = ({ children }) => {
 
     setUser(null);
   };
+
+  // The "storage" event only fires in OTHER tabs, never the one that made
+  // the change, so this never fights with login()/logout() in this same
+  // tab. Without it, a tab left open on e.g. /account keeps showing the
+  // user as logged in after they sign out in another tab, until it hits
+  // a 401 on its next request.
+  useEffect(() => {
+    const handleStorageChange = (event) => {
+      if (event.key !== "token") return;
+
+      setUser(event.newValue ? readJsonFromStorage("user", null) : null);
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
+  }, []);
 
   const updateUser = (updatedFields) => {
     setUser((prev) => {

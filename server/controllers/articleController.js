@@ -10,6 +10,22 @@ const generateSlug = (title) =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)/g, "");
 
+// Inline <img src="..."> uploads (uploadArticleImage below) get their
+// Cloudinary URL written straight into the Quill-authored HTML string by
+// the admin editor's insertEmbed call -- there's no separate join table
+// or image collection tracking them. The only way to know what's actually
+// embedded in a given article is to pull the src values back out of the
+// stored HTML itself.
+const extractContentImageUrls = (html) => {
+  const urls = [];
+  const regex = /<img[^>]+src=["']([^"']+)["']/gi;
+  let match;
+  while ((match = regex.exec(html || ""))) {
+    urls.push(match[1]);
+  }
+  return urls;
+};
+
 // ============================
 // Get All Articles (Public)
 // ============================
@@ -258,6 +274,15 @@ export const updateArticle = async (req, res) => {
       isActive,
     } = req.body;
 
+    // Captured before either field is mutated below -- an edit that only
+    // touches `content` leaves `contentHi` (and its own images) completely
+    // untouched, so both language fields' PRE-edit state is needed to
+    // compute what actually disappeared, not just what one field changed to.
+    const oldImageUrls = new Set([
+      ...extractContentImageUrls(article.content),
+      ...extractContentImageUrls(article.contentHi),
+    ]);
+
     if (title && title !== article.title) {
       article.title = title;
       article.slug = generateSlug(title);
@@ -285,8 +310,21 @@ export const updateArticle = async (req, res) => {
 
     await article.save();
 
-    if (oldCoverImage) {
-      await deleteCloudinaryAssetsByUrl([oldCoverImage]);
+    // Union across BOTH language fields on each side (not a per-field
+    // diff) -- an image reused in both content and contentHi that only
+    // gets dropped from one of them must not be deleted while the other
+    // field still renders it. Only a URL genuinely absent from the
+    // article's current state in either language is actually orphaned.
+    const newImageUrls = new Set([
+      ...extractContentImageUrls(article.content),
+      ...extractContentImageUrls(article.contentHi),
+    ]);
+    const removedImageUrls = [...oldImageUrls].filter((url) => !newImageUrls.has(url));
+
+    if (oldCoverImage || removedImageUrls.length > 0) {
+      await deleteCloudinaryAssetsByUrl(
+        [oldCoverImage, ...removedImageUrls].filter(Boolean),
+      );
     }
 
     res.status(200).json({
@@ -320,7 +358,17 @@ export const deleteArticle = async (req, res) => {
 
     await article.deleteOne();
 
-    await deleteCloudinaryAssetsByUrl([article.coverImage]);
+    // Cover image plus every inline image ever embedded in either
+    // language's content -- the whole article is gone, so none of these
+    // can still be referenced from anywhere else (see extractContentImageUrls
+    // above). deleteCloudinaryAssetsByUrl already dedupes and no-ops on
+    // anything that isn't a real Cloudinary URL, so passing the raw,
+    // possibly-overlapping list from both fields is safe.
+    await deleteCloudinaryAssetsByUrl([
+      article.coverImage,
+      ...extractContentImageUrls(article.content),
+      ...extractContentImageUrls(article.contentHi),
+    ]);
 
     res.status(200).json({
       success: true,
