@@ -286,9 +286,8 @@ function MyOrders() {
   const [activeTab, setActiveTab] = useState("orders");
   const [payingId, setPayingId] = useState(null);
   const { addToCart } = useCart();
-  const { isLoggedIn, user } = useAuth();
+  const { user } = useAuth();
   const { t } = useLanguage();
-  const navigate = useNavigate();
 
   const loadOrders = async () => {
     const response = await getMyOrders();
@@ -301,13 +300,8 @@ function MyOrders() {
   };
 
   useEffect(() => {
-    if (!isLoggedIn) {
-      navigate("/login?redirect=/my-orders");
-      return;
-    }
-
     loadOrders();
-  }, [isLoggedIn, navigate]);
+  }, []);
 
   const handlePayNow = (order) => {
     setPayingId(order._id);
