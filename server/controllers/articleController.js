@@ -10,6 +10,22 @@ const generateSlug = (title) =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)/g, "");
 
+// Inline <img src="..."> uploads (uploadArticleImage below) get their
+// Cloudinary URL written straight into the Quill-authored HTML string by
+// the admin editor's insertEmbed call -- there's no separate join table
+// or image collection tracking them. The only way to know what's actually
+// embedded in a given article is to pull the src values back out of the
+// stored HTML itself.
+const extractContentImageUrls = (html) => {
+  const urls = [];
+  const regex = /<img[^>]+src=["']([^"']+)["']/gi;
+  let match;
+  while ((match = regex.exec(html || ""))) {
+    urls.push(match[1]);
+  }
+  return urls;
+};
+
 // ============================
 // Get All Articles (Public)
 // ============================
@@ -320,7 +336,17 @@ export const deleteArticle = async (req, res) => {
 
     await article.deleteOne();
 
-    await deleteCloudinaryAssetsByUrl([article.coverImage]);
+    // Cover image plus every inline image ever embedded in either
+    // language's content -- the whole article is gone, so none of these
+    // can still be referenced from anywhere else (see extractContentImageUrls
+    // above). deleteCloudinaryAssetsByUrl already dedupes and no-ops on
+    // anything that isn't a real Cloudinary URL, so passing the raw,
+    // possibly-overlapping list from both fields is safe.
+    await deleteCloudinaryAssetsByUrl([
+      article.coverImage,
+      ...extractContentImageUrls(article.content),
+      ...extractContentImageUrls(article.contentHi),
+    ]);
 
     res.status(200).json({
       success: true,
