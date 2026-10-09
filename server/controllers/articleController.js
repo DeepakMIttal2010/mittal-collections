@@ -274,6 +274,15 @@ export const updateArticle = async (req, res) => {
       isActive,
     } = req.body;
 
+    // Captured before either field is mutated below -- an edit that only
+    // touches `content` leaves `contentHi` (and its own images) completely
+    // untouched, so both language fields' PRE-edit state is needed to
+    // compute what actually disappeared, not just what one field changed to.
+    const oldImageUrls = new Set([
+      ...extractContentImageUrls(article.content),
+      ...extractContentImageUrls(article.contentHi),
+    ]);
+
     if (title && title !== article.title) {
       article.title = title;
       article.slug = generateSlug(title);
@@ -301,8 +310,21 @@ export const updateArticle = async (req, res) => {
 
     await article.save();
 
-    if (oldCoverImage) {
-      await deleteCloudinaryAssetsByUrl([oldCoverImage]);
+    // Union across BOTH language fields on each side (not a per-field
+    // diff) -- an image reused in both content and contentHi that only
+    // gets dropped from one of them must not be deleted while the other
+    // field still renders it. Only a URL genuinely absent from the
+    // article's current state in either language is actually orphaned.
+    const newImageUrls = new Set([
+      ...extractContentImageUrls(article.content),
+      ...extractContentImageUrls(article.contentHi),
+    ]);
+    const removedImageUrls = [...oldImageUrls].filter((url) => !newImageUrls.has(url));
+
+    if (oldCoverImage || removedImageUrls.length > 0) {
+      await deleteCloudinaryAssetsByUrl(
+        [oldCoverImage, ...removedImageUrls].filter(Boolean),
+      );
     }
 
     res.status(200).json({
