@@ -22,8 +22,12 @@ const sanitizeCartItems = (items) =>
     product: item?.product,
     name: item?.name,
     image: item?.image,
-    price: item?.price,
-    quantity: item?.quantity,
+    // Coerced (not just passed through) since this value later renders
+    // straight into the abandoned-cart reminder email -- a missing or
+    // malformed price/quantity would otherwise persist as undefined and
+    // show up as a literal "₹NaN" in that email rather than a sane 0.
+    price: Number(item?.price) || 0,
+    quantity: Number(item?.quantity) || 0,
   }));
 
 // A product id + quantity signature, independent of item order — used to

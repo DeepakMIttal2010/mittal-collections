@@ -273,3 +273,61 @@ describe("Return approval side effects (stock restore + loyalty clawback)", () =
     expect(clawback).toBeNull();
   });
 });
+
+describe("Return status transition guard", () => {
+  it("rejects a Rejected -> Refunded jump (would phantom-restock an item never accepted back)", async () => {
+    await seedLoyaltySettings({ earnRate: 20 });
+
+    const user = await createUser();
+    const admin = await createUser({ role: "admin" });
+    const token = signToken(user);
+    const adminToken = signToken(admin);
+    const product = await createProduct({ price: 1000, stock: 5 });
+
+    const order = await placeAndDeliverOrder(token, adminToken, product, 1);
+
+    const returnRequest = await ReturnRequest.create({
+      order: order._id,
+      user: user._id,
+      product: product._id,
+      productName: product.name,
+      quantity: 1,
+      reason: "Didn't like it",
+    });
+
+    await setReturnStatus(adminToken, returnRequest._id, "Rejected");
+
+    const res = await setReturnStatus(adminToken, returnRequest._id, "Refunded");
+    expect(res.status).toBe(400);
+
+    const updatedReturn = await ReturnRequest.findById(returnRequest._id);
+    expect(updatedReturn.status).toBe("Rejected");
+    expect(updatedReturn.stockRestored).toBe(false);
+    expect(updatedReturn.pointsClawedBack).toBe(false);
+
+    const updatedProduct = await Product.findById(product._id);
+    expect(updatedProduct.stock).toBe(4); // unchanged, not phantom-restocked
+  });
+
+  it("allows a same-status self-loop as a harmless no-op", async () => {
+    const user = await createUser();
+    const admin = await createUser({ role: "admin" });
+    const token = signToken(user);
+    const adminToken = signToken(admin);
+    const product = await createProduct({ price: 1000, stock: 5 });
+
+    const order = await placeAndDeliverOrder(token, adminToken, product, 1);
+
+    const returnRequest = await ReturnRequest.create({
+      order: order._id,
+      user: user._id,
+      product: product._id,
+      productName: product.name,
+      quantity: 1,
+      reason: "Didn't like it",
+    });
+
+    const res = await setReturnStatus(adminToken, returnRequest._id, "Requested");
+    expect(res.status).toBe(200);
+  });
+});

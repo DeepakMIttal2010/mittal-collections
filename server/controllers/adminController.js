@@ -137,36 +137,56 @@ export const getDashboardData = async (req, res) => {
 
 export const getNotifications = async (req, res) => {
   try {
-    const unseenOrders = await Order.find({ isSeenByAdmin: false })
-      .populate("user", "name")
-      .sort({ createdAt: -1 })
-      .limit(15);
-
-    const unreadMessages = await ContactMessage.find({ isRead: false })
-      .sort({ createdAt: -1 })
-      .limit(15);
-
-    const unseenReviews = await Review.find({ isSeenByAdmin: false })
-      .populate("user", "name")
-      .populate("product", "name")
-      .sort({ createdAt: -1 })
-      .limit(15);
-
-    const unseenQuestions = await Question.find({ isSeenByAdmin: false })
-      .populate("user", "name")
-      .populate("product", "name")
-      .sort({ createdAt: -1 })
-      .limit(15);
-
-    const unseenTickets = await Ticket.find({ isSeenByAdmin: false })
-      .populate("user", "name")
-      .sort({ lastMessageAt: -1 })
-      .limit(15);
-
-    const unseenReturns = await ReturnRequest.find({ isSeenByAdmin: false })
-      .populate("user", "name")
-      .sort({ createdAt: -1 })
-      .limit(15);
+    // Each *Count below is a real countDocuments(), not the .length of
+    // the capped-at-15 list fetched alongside it — a busy stretch with,
+    // say, 25 unseen orders used to silently report 15 (and total 20,
+    // not 30) until "Mark all as read" was clicked, understating a real
+    // backlog in the bell badge the whole time. The capped list is still
+    // what actually renders in the dropdown; only the counts change here.
+    const [
+      unseenOrders,
+      unseenOrdersCount,
+      unreadMessages,
+      unreadMessagesCount,
+      unseenReviews,
+      unseenReviewsCount,
+      unseenQuestions,
+      unseenQuestionsCount,
+      unseenTickets,
+      unseenTicketsCount,
+      unseenReturns,
+      unseenReturnsCount,
+    ] = await Promise.all([
+      Order.find({ isSeenByAdmin: false })
+        .populate("user", "name")
+        .sort({ createdAt: -1 })
+        .limit(15),
+      Order.countDocuments({ isSeenByAdmin: false }),
+      ContactMessage.find({ isRead: false }).sort({ createdAt: -1 }).limit(15),
+      ContactMessage.countDocuments({ isRead: false }),
+      Review.find({ isSeenByAdmin: false })
+        .populate("user", "name")
+        .populate("product", "name")
+        .sort({ createdAt: -1 })
+        .limit(15),
+      Review.countDocuments({ isSeenByAdmin: false }),
+      Question.find({ isSeenByAdmin: false })
+        .populate("user", "name")
+        .populate("product", "name")
+        .sort({ createdAt: -1 })
+        .limit(15),
+      Question.countDocuments({ isSeenByAdmin: false }),
+      Ticket.find({ isSeenByAdmin: false })
+        .populate("user", "name")
+        .sort({ lastMessageAt: -1 })
+        .limit(15),
+      Ticket.countDocuments({ isSeenByAdmin: false }),
+      ReturnRequest.find({ isSeenByAdmin: false })
+        .populate("user", "name")
+        .sort({ createdAt: -1 })
+        .limit(15),
+      ReturnRequest.countDocuments({ isSeenByAdmin: false }),
+    ]);
 
     // Low stock is a live gauge, not a discrete "new" event — there's no
     // isSeenByAdmin to clear, it just stops appearing once restocked.
@@ -272,21 +292,21 @@ export const getNotifications = async (req, res) => {
     res.status(200).json({
       success: true,
       notifications,
-      unseenOrdersCount: unseenOrders.length,
-      unreadMessagesCount: unreadMessages.length,
-      unseenReviewsCount: unseenReviews.length,
-      unseenQuestionsCount: unseenQuestions.length,
-      unseenTicketsCount: unseenTickets.length,
-      unseenReturnsCount: unseenReturns.length,
+      unseenOrdersCount,
+      unreadMessagesCount,
+      unseenReviewsCount,
+      unseenQuestionsCount,
+      unseenTicketsCount,
+      unseenReturnsCount,
       lowStockCount,
       outOfStockCount,
       totalUnread:
-        unseenOrders.length +
-        unreadMessages.length +
-        unseenReviews.length +
-        unseenQuestions.length +
-        unseenTickets.length +
-        unseenReturns.length +
+        unseenOrdersCount +
+        unreadMessagesCount +
+        unseenReviewsCount +
+        unseenQuestionsCount +
+        unseenTicketsCount +
+        unseenReturnsCount +
         stockNotifications.length,
     });
   } catch (error) {
