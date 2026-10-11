@@ -491,11 +491,11 @@ async function buildCategoryMeta({ categorySlug, subcategorySlug, isHindi }) {
   // Mirrors CategoryPage.jsx's itemListJsonLd -- same endpoints/params it
   // uses (getProductsByCategory / getProductsBySubcategory), capped the
   // same way. A carousel rich result only needs a representative sample.
-  // Product URLs here deliberately stay English (/product/..., not
-  // /hi/product/...) even on the Hindi category page -- product Hindi
-  // URLs don't exist yet (a separate, not-yet-built phase of this same
-  // effort), so pointing at a URL that doesn't exist would be worse than
-  // pointing at the real English one.
+  // On the Hindi category page, link each product to its /hi/product/...
+  // URL (live since PR #272) when it has a Hindi name, same "don't
+  // advertise an untranslated /hi/ URL" guard used in buildCategoryBodyHtml
+  // above -- a product that somehow lacks nameHi still gets a real,
+  // working English URL instead of a broken one.
   const productsQuery = subcategory
     ? `subcategory=${encodeURIComponent(subcategory._id)}`
     : `category=${encodeURIComponent(category._id)}`;
@@ -506,10 +506,11 @@ async function buildCategoryMeta({ categorySlug, subcategorySlug, isHindi }) {
     "@type": "ItemList",
     itemListElement: categoryProducts.slice(0, 50).map((p, i) => {
       const productSlug = p.slug || "";
+      const productPath = productSlug ? `/product/${p._id}/${productSlug}` : `/product/${p._id}`;
       return {
         "@type": "ListItem",
         position: i + 1,
-        url: `${SITE_URL}${productSlug ? `/product/${p._id}/${productSlug}` : `/product/${p._id}`}`,
+        url: `${SITE_URL}${isHindi && p.nameHi ? `/hi${productPath}` : productPath}`,
       };
     }),
   };

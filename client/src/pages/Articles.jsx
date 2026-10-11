@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { FaRulerCombined, FaArrowRight } from "react-icons/fa";
 
@@ -9,7 +9,7 @@ import { useLanguage } from "../context/LanguageContext";
 import { SITE_URL } from "../utils/siteUrl";
 
 function Articles() {
-  const { language } = useLanguage();
+  const { language, setLanguage } = useLanguage();
   const location = useLocation();
   const navigate = useNavigate();
   const isHindi = location.pathname.startsWith("/hi/");
@@ -35,11 +35,27 @@ function Articles() {
   // header's language toggle, so switching it while already on this page
   // feels the same as it does everywhere else on the site (Product
   // name/description swap in place) instead of requiring a fresh click.
+  //
+  // A fresh visitor with no localStorage language preference (language
+  // defaults to "en") landing directly on /hi/articles must not be
+  // bounced to the English URL just because the toggle hasn't caught up
+  // yet — confirmed live via a fresh-context Playwright load that this
+  // page used to do exactly that. Same hasSyncedRef guard as
+  // ArticleDetail.jsx/CategoryPage.jsx: sync the TOGGLE to the URL on
+  // first load, only navigate on a later genuine toggle click.
+  const hasSyncedRef = useRef(false);
+
   useEffect(() => {
+    if (!hasSyncedRef.current) {
+      hasSyncedRef.current = true;
+      if (isHindi && language !== "hi") setLanguage("hi");
+      return;
+    }
+
     const wantHindi = language === "hi";
     if (wantHindi === isHindi) return;
     navigate(wantHindi ? "/hi/articles" : "/articles", { replace: true });
-  }, [language, isHindi, navigate]);
+  }, [language, isHindi, navigate, setLanguage]);
 
   // The Hindi listing only shows articles that actually have a Hindi
   // version — otherwise it would link to a /hi/articles/:slug URL that

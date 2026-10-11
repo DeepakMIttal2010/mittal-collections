@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import { FaChevronDown } from "react-icons/fa";
 
 import { getCategories } from "../services/categoryService";
@@ -231,18 +231,19 @@ function SubmenuGroups({ groups, hrefFor }) {
   ));
 }
 
-function SubmenuPanel({ category, groups }) {
+function SubmenuPanel({ category, groups, isHindi }) {
+  const prefix = isHindi ? "/hi" : "";
   return (
     <div className="bg-white border border-slate-200 border-t-4 border-t-amber-500 shadow-xl rounded-b-xl p-5 flex gap-7 max-w-[90vw] overflow-x-auto">
       <SubmenuGroups
         groups={groups}
-        hrefFor={(item) => `/category/${category.slug}/${item.slug}`}
+        hrefFor={(item) => `${prefix}/category/${category.slug}/${item.slug}`}
       />
     </div>
   );
 }
 
-function CategoryNavItem({ category, groups, linkClassName, portalTarget }) {
+function CategoryNavItem({ category, groups, linkClassName, portalTarget, isHindi }) {
   const { t } = useLanguage();
   const triggerLinkRef = useRef(null);
   const panelRef = useRef(null);
@@ -284,7 +285,7 @@ function CategoryNavItem({ category, groups, linkClassName, portalTarget }) {
     >
       <NavLink
         ref={triggerLinkRef}
-        to={`/category/${category.slug}`}
+        to={`${isHindi ? "/hi" : ""}/category/${category.slug}`}
         aria-haspopup={hasSubmenu ? "true" : undefined}
         aria-expanded={hasSubmenu ? isOpen : undefined}
         className={
@@ -314,14 +315,14 @@ function CategoryNavItem({ category, groups, linkClassName, portalTarget }) {
             }
           }}
         >
-          <SubmenuPanel category={category} groups={groups} />
+          <SubmenuPanel category={category} groups={groups} isHindi={isHindi} />
         </DropdownPortal>
       )}
     </div>
   );
 }
 
-function MoreCategoriesMenu({ categories, getGroupedSubcategories, linkClassName, portalTarget }) {
+function MoreCategoriesMenu({ categories, getGroupedSubcategories, linkClassName, portalTarget, isHindi }) {
   const { t } = useLanguage();
   const triggerButtonRef = useRef(null);
   const panelRef = useRef(null);
@@ -407,7 +408,7 @@ function MoreCategoriesMenu({ categories, getGroupedSubcategories, linkClassName
               {categories.map((category) => (
                 <NavLink
                   key={category._id}
-                  to={`/category/${category.slug}`}
+                  to={`${isHindi ? "/hi" : ""}/category/${category.slug}`}
                   onMouseEnter={() => setActiveCategoryId(category._id)}
                   onFocus={() => setActiveCategoryId(category._id)}
                   className={`block mx-2 px-3 py-2 rounded-md text-sm transition-colors whitespace-nowrap ${
@@ -425,11 +426,11 @@ function MoreCategoriesMenu({ categories, getGroupedSubcategories, linkClassName
               {hasSubmenu ? (
                 <SubmenuGroups
                   groups={groups}
-                  hrefFor={(item) => `/category/${activeCategory.slug}/${item.slug}`}
+                  hrefFor={(item) => `${isHindi ? "/hi" : ""}/category/${activeCategory.slug}/${item.slug}`}
                 />
               ) : (
                 <NavLink
-                  to={`/category/${activeCategory?.slug}`}
+                  to={`${isHindi ? "/hi" : ""}/category/${activeCategory?.slug}`}
                   className="text-sm font-medium text-amber-700 hover:text-amber-800"
                 >
                   {t(
@@ -447,6 +448,7 @@ function MoreCategoriesMenu({ categories, getGroupedSubcategories, linkClassName
 }
 
 function MegaMenu({ linkClassName, portalTarget }) {
+  const isHindi = useLocation().pathname.startsWith("/hi/");
   const [categories, setCategories] = useState([]);
   const [subcategories, setSubcategories] = useState([]);
 
@@ -478,6 +480,7 @@ function MegaMenu({ linkClassName, portalTarget }) {
           groups={getGroupedSubcategories(category._id)}
           linkClassName={linkClassName}
           portalTarget={portalTarget}
+          isHindi={isHindi}
         />
       ))}
 
@@ -486,6 +489,7 @@ function MegaMenu({ linkClassName, portalTarget }) {
         getGroupedSubcategories={getGroupedSubcategories}
         linkClassName={linkClassName}
         portalTarget={portalTarget}
+        isHindi={isHindi}
       />
     </>
   );
