@@ -24,7 +24,7 @@ function getSpecRows(t) {
 // the same category — no user selection needed, unlike the manual
 // Compare Products feature. Rows only appear if at least one of the
 // compared products actually has a value for it.
-function AutoCompareTable({ mainProduct, similarProducts }) {
+function AutoCompareTable({ mainProduct, similarProducts, isHindi = false }) {
   const { addToCart } = useCart();
   const { t } = useLanguage();
   const navigate = useNavigate();
@@ -41,7 +41,7 @@ function AutoCompareTable({ mainProduct, similarProducts }) {
       toast.info(
         t("Please select a size on the product page", "प्रोडक्ट पेज पर साइज़ चुनें"),
       );
-      navigate(productUrl(product));
+      navigate(productUrl(product, isHindi));
       return;
     }
 
@@ -86,7 +86,7 @@ function AutoCompareTable({ mainProduct, similarProducts }) {
                         {t("THIS PRODUCT", "यह प्रोडक्ट")}
                       </span>
                     )}
-                    <Link to={productUrl(product)}>
+                    <Link to={productUrl(product, isHindi)}>
                       <img
                         src={imgUrl(product.image, "w_300,q_auto,f_auto")}
                         alt={t(product.name, product.nameHi)}

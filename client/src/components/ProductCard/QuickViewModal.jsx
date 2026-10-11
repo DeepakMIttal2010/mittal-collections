@@ -21,7 +21,7 @@ import { useLanguage } from "../../context/LanguageContext";
 import { stripHtml } from "../../utils/stripHtml";
 import { useModalA11y } from "../../hooks/useModalA11y";
 
-function QuickViewModal({ product, onClose }) {
+function QuickViewModal({ product, onClose, isHindi = false }) {
   const navigate = useNavigate();
   const { addToCart } = useCart();
   const { wishlistItems, addToWishlist, removeFromWishlist } = useWishlist();
@@ -152,7 +152,7 @@ function QuickViewModal({ product, onClose }) {
                     ),
                   );
                   onClose();
-                  navigate(productUrl(product));
+                  navigate(productUrl(product, isHindi));
                   return;
                 }
 
@@ -192,7 +192,7 @@ function QuickViewModal({ product, onClose }) {
           </div>
 
           <Link
-            to={productUrl(product)}
+            to={productUrl(product, isHindi)}
             onClick={onClose}
             className="text-center text-sm text-blue-700 hover:underline mt-4"
           >

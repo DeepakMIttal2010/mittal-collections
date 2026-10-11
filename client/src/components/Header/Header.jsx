@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   FaUser,
   FaShoppingCart,
@@ -29,6 +29,7 @@ function Header() {
   const { user, logout, isLoggedIn } = useAuth();
   const { language, setLanguage, t } = useLanguage();
   const navigate = useNavigate();
+  const isHindi = useLocation().pathname.startsWith("/hi/");
 
   const [query, setQuery] = useState("");
   const [searchCategory, setSearchCategory] = useState("");
@@ -219,7 +220,7 @@ function Header() {
         // like browsing that category rather than doing nothing.
         if (!categoryId) return;
         const category = categories.find((c) => c._id === categoryId);
-        if (category) navigate(`/category/${category.slug}`);
+        if (category) navigate(`${isHindi ? "/hi" : ""}/category/${category.slug}`);
         return;
       }
 
@@ -230,7 +231,7 @@ function Header() {
 
       navigate(`/search?${params.toString()}`);
     },
-    [navigate, searchCategory, categories],
+    [navigate, searchCategory, categories, isHindi],
   );
 
   useEffect(() => {
@@ -263,7 +264,7 @@ function Header() {
     setShowSuggestions(false);
     setQuery("");
     trackSelectItem(product, "search_suggestions");
-    navigate(productUrl(product));
+    navigate(productUrl(product, isHindi));
   };
 
   useEffect(() => {

@@ -234,6 +234,7 @@ function ProductCard({ product }) {
           <QuickViewModal
             product={product}
             onClose={() => setShowQuickView(false)}
+            isHindi={isHindi}
           />
         </Suspense>
       )}

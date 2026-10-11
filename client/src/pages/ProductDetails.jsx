@@ -1482,6 +1482,7 @@ function ProductDetails() {
       <AutoCompareTable
         mainProduct={product}
         similarProducts={relatedProducts.slice(0, 3)}
+        isHindi={isHindi}
       />
 
       <ProductReviews productId={id} />
