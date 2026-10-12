@@ -736,6 +736,54 @@ const STATIC_PAGES = {
     description:
       "Calculate your curtain size, rod length and fabric width free — enter your window measurements and get the exact size to buy, plus a size chart.",
     breadcrumb: "Curtain Size Calculator",
+    // The generic STATIC_PAGES branch below only ever emits a
+    // BreadcrumbList -- CurtainSizeCalculator.jsx's own client-side
+    // <Seo jsonLd> additionally builds a WebApplication + FAQPage block
+    // (real visitors see it), but bots are always routed here instead
+    // of the real SPA (see this file's header comment) and never got a
+    // mirrored copy, so Googlebot saw neither block. Kept in sync by
+    // hand with CurtainSizeCalculator.jsx's FAQS_EN array.
+    extraJsonLd: [
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        name: "Curtain Size Calculator",
+        applicationCategory: "UtilitiesApplication",
+        description:
+          "Free tool to calculate the curtain size, rod length and fabric width you need based on your window measurements.",
+        url: `${SITE_URL}/curtain-size-calculator`,
+      },
+      {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        mainEntity: [
+          {
+            q: "How do I calculate curtain size from window measurements?",
+            a: "Measure your window's width and drop (height) in inches, then multiply the width by your chosen fullness (2x is standard) to get the fabric width you need. This calculator does that math for you and rounds it up to the nearest standard size sold in stores.",
+          },
+          {
+            q: "How do I calculate curtain rod length?",
+            a: "Rod length = window width + overhang on each side. For an outside-mount rod, add 4–6 inches of overhang per side so the curtain can fully clear the window when opened. Enter your window width above and pick \"Outside Mount\" to get the exact rod length.",
+          },
+          {
+            q: "Does this calculator work in inches or feet?",
+            a: "Enter your measurements in inches (the most common way windows are measured in India) — the calculator instantly converts and rounds the result to the nearest standard feet size (like 4x7 ft or 5x9 ft) that curtains are actually sold in.",
+          },
+          {
+            q: "How much fabric width do I need for curtains?",
+            a: "For a natural, gathered drape, buy 1.5–2.5 times your rod length in total fabric width — 2x (\"Full\") is the most popular choice. Split that total evenly across your number of panels (usually 2).",
+          },
+          {
+            q: "What are the standard curtain sizes available in India?",
+            a: "The most common ready-made curtain sizes are 4x5 ft, 4x7 ft, 4.5x7 ft, 5x7 ft, 5x9 ft and 7x9 ft — see the size chart below for which one fits your window.",
+          },
+        ].map((f) => ({
+          "@type": "Question",
+          name: f.q,
+          acceptedAnswer: { "@type": "Answer", text: f.a },
+        })),
+      },
+    ],
   },
   "/articles": {
     title: "Guides & Ideas",
@@ -973,10 +1021,15 @@ const buildMeta = async (path) => {
     // they exist, not just the main photo — mirrors ProductDetails.jsx's
     // productImages fallback (full gallery, or the single main image when
     // no gallery array is set).
-    const galleryImages = (p.images?.length ? p.images : [p.image])
+    // .length ? ... : [DEFAULT_IMAGE] guards productJsonLd's `image` below
+    // (schema.org requires a non-empty value there) for the edge case
+    // where a product has neither `images` nor a singular `image` set --
+    // both are schema-optional with an empty-string default.
+    const galleryImagesRaw = (p.images?.length ? p.images : [p.image])
       .filter(Boolean)
       .map(imgUrl);
-    const image = galleryImages[0] || DEFAULT_IMAGE;
+    const galleryImages = galleryImagesRaw.length ? galleryImagesRaw : [DEFAULT_IMAGE];
+    const image = galleryImages[0];
     // Self-heal to the product's *current* slug rather than echoing back
     // whatever slug the request happened to use — otherwise a renamed
     // product's stale URL (still reachable, since only the id is looked
@@ -1186,7 +1239,7 @@ const buildMeta = async (path) => {
       "@type": "VideoObject",
       name: isHindi ? p.nameHi : p.name,
       description: plainDescription,
-      thumbnailUrl: imgUrl(p.image),
+      thumbnailUrl: image,
       contentUrl: videoUrl,
       uploadDate: p.createdAt,
     }));
@@ -1427,7 +1480,7 @@ const buildMeta = async (path) => {
       url: `${SITE_URL}${path}`,
       ogType: "website",
       lang: staticPage.lang,
-      jsonLd: buildBreadcrumbJsonLd(staticBreadcrumbItems),
+      jsonLd: [buildBreadcrumbJsonLd(staticBreadcrumbItems), ...(staticPage.extraJsonLd || [])],
       bodyHtml: buildSimpleBodyHtml(staticBreadcrumbItems, staticPage.title, staticPage.description),
     };
   }
@@ -1471,7 +1524,7 @@ const buildMeta = async (path) => {
           "@type": "Article",
           headline: article.title,
           description: article.excerpt,
-          image: article.coverImage ? imgUrl(article.coverImage) : undefined,
+          image,
           datePublished: article.createdAt,
           dateModified: article.updatedAt,
           inLanguage: "en",
@@ -1536,7 +1589,7 @@ const buildMeta = async (path) => {
           "@type": "Article",
           headline: article.titleHi,
           description: article.excerptHi || article.excerpt,
-          image: article.coverImage ? imgUrl(article.coverImage) : undefined,
+          image,
           datePublished: article.createdAt,
           dateModified: article.updatedAt,
           inLanguage: "hi",
@@ -1565,6 +1618,53 @@ const buildMeta = async (path) => {
     };
   }
 
+  // Private/transactional/admin routes: the real SPA always renders its
+  // own <Seo noindex /> tag for every one of these (confirmed across
+  // client/src/pages/*) -- robots.txt's own comment documents the
+  // intent explicitly: a crawler is MEANT to see a normal 200 page with
+  // that tag, same as a real visitor, not be turned away. Without this
+  // branch every one of these fell through to the generic `return null`
+  // below, which the handler turns into a hard 404 -- confirmed live via
+  // curl. Net indexing effect is the same either way (none of these were
+  // ever going to be indexed), but a 404 for a perfectly working route is
+  // a bot-vs-user status mismatch that risks false "Not Found" noise in
+  // Search Console, and silently repeats for any future private route
+  // added without its own dedicated buildMeta branch.
+  const NOINDEX_ONLY_PATH_PATTERNS = [
+    /^\/cart$/,
+    /^\/checkout$/,
+    /^\/account$/,
+    /^\/addresses(\/.*)?$/,
+    /^\/wishlist$/,
+    /^\/compare$/,
+    /^\/login$/,
+    /^\/register$/,
+    /^\/forgot-password$/,
+    /^\/reset-password\/.*$/,
+    /^\/newsletter\/unsubscribe$/,
+    /^\/change-password$/,
+    /^\/loyalty-history$/,
+    /^\/edit-profile$/,
+    /^\/my-orders(\/.*)?$/,
+    /^\/tickets(\/.*)?$/,
+    /^\/returns$/,
+    /^\/notifications$/,
+    /^\/search$/,
+    /^\/price\/.*$/,
+    /^\/admin(\/.*)?$/,
+  ];
+
+  if (NOINDEX_ONLY_PATH_PATTERNS.some((re) => re.test(path))) {
+    return {
+      title: SITE_NAME,
+      description: "",
+      image: DEFAULT_IMAGE,
+      url: `${SITE_URL}${path}`,
+      ogType: "website",
+      noindex: true,
+    };
+  }
+
   return null;
 };
 
@@ -1580,6 +1680,7 @@ const injectMeta = (html, meta) => {
     <meta property="og:image:alt" content="${escapeHtml(meta.title)}" />
     <meta property="og:url" content="${escapeHtml(meta.url)}" />
     <link rel="canonical" href="${escapeHtml(meta.url)}" />
+    ${meta.noindex ? '<meta name="robots" content="noindex, nofollow" />' : ""}
     ${
       meta.alternateLangs
         ? meta.alternateLangs

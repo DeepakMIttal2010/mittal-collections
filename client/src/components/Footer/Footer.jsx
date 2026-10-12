@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import {
   FaFacebookF,
   FaInstagram,
@@ -27,6 +27,7 @@ const SOCIAL_ICONS = [
 function Footer() {
   const isGhaziabad = useIsGhaziabadVisitor();
   const { t } = useLanguage();
+  const isHindi = useLocation().pathname.startsWith("/hi/");
   const [categories, setCategories] = useState([]);
   const [subcategories, setSubcategories] = useState([]);
   const [settings, setSettings] = useState({});
@@ -74,7 +75,7 @@ function Footer() {
                     items.map((item) => (
                       <li key={item._id}>
                         <Link
-                          to={`/category/${category.slug}/${item.slug}`}
+                          to={`${isHindi ? "/hi" : ""}/category/${category.slug}/${item.slug}`}
                           className="text-slate-600 hover:text-amber-600 transition-colors"
                         >
                           {t(item.name, item.nameHi)}
@@ -84,7 +85,7 @@ function Footer() {
                   ) : (
                     <li>
                       <Link
-                        to={`/category/${category.slug}`}
+                        to={`${isHindi ? "/hi" : ""}/category/${category.slug}`}
                         className="text-slate-600 hover:text-amber-600 transition-colors"
                       >
                         {t("Shop All", "सभी खरीदें")}

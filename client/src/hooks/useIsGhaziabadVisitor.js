@@ -13,6 +13,34 @@ import { DEFAULT_ADDRESS_CHANGED_EVENT } from "../utils/addressEvents";
 const BOT_UA_PATTERN =
   /bot|facebookexternalhit|WhatsApp|Pinterest|embedly|Quora Link Preview|Slurp|ia_archiver|Discordbot|TelegramBot|redirectionio|Googlebot|Bingbot|DuckDuckBot|Baiduspider|YandexBot|Twitterbot|LinkedInBot/i;
 
+// Caches the last-resolved city match so DeliveryOfferBanner (which
+// renders a different-length text branch per value, in normal flow
+// above Header/Navbar/Hero via MainLayout) can render its final content
+// on the very first paint instead of popping in after this hook's async
+// lookup resolves — same CLS-cache pattern already used by
+// CouponBanner/Hero for the same reason (confirmed CLS bug, CWV audit
+// 2026-10-12). The city rarely changes between visits, so this is right
+// most of the time; checkCity below still re-resolves and self-corrects
+// (including the cache) every mount.
+const CACHE_KEY = "mc_is_ghaziabad_cache";
+
+const getCachedIsGhaziabad = () => {
+  try {
+    const cached = localStorage.getItem(CACHE_KEY);
+    return cached === null ? null : cached === "true";
+  } catch {
+    return null;
+  }
+};
+
+const setCachedIsGhaziabad = (value) => {
+  try {
+    localStorage.setItem(CACHE_KEY, String(value));
+  } catch {
+    /* private-mode/quota — cache is a best-effort optimization only */
+  }
+};
+
 // Shared by DeliveryOfferBanner and Footer's "We Deliver To" section — both
 // only make sense for customers actually near Ghaziabad. Mirrors the same
 // saved-address -> IP-geolocation fallback Header.jsx uses for "Deliver
@@ -25,7 +53,10 @@ const BOT_UA_PATTERN =
 // flips to false once we get a confident non-Ghaziabad city match.
 export function useIsGhaziabadVisitor() {
   const { isLoggedIn } = useAuth();
-  const [isGhaziabad, setIsGhaziabad] = useState(true);
+  const [isGhaziabad, setIsGhaziabad] = useState(() => {
+    const cached = getCachedIsGhaziabad();
+    return cached === null ? true : cached;
+  });
 
   const checkCity = useCallback(async () => {
     // Crawlers never get geo-gated — this content exists specifically for
@@ -43,7 +74,9 @@ export function useIsGhaziabadVisitor() {
           response.addresses[0];
 
         if (address.city) {
-          setIsGhaziabad(address.city.toLowerCase().includes("ghaziabad"));
+          const match = address.city.toLowerCase().includes("ghaziabad");
+          setIsGhaziabad(match);
+          setCachedIsGhaziabad(match);
         }
         return;
       }
@@ -53,7 +86,9 @@ export function useIsGhaziabadVisitor() {
     const { city } = response.location || {};
 
     if (city) {
-      setIsGhaziabad(city.toLowerCase().includes("ghaziabad"));
+      const match = city.toLowerCase().includes("ghaziabad");
+      setIsGhaziabad(match);
+      setCachedIsGhaziabad(match);
     }
   }, [isLoggedIn]);
 

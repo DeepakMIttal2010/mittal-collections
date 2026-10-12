@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import {
   FaTimes,
   FaChevronDown,
@@ -19,6 +19,7 @@ import { useLanguage } from "../context/LanguageContext";
 // separate copy of the categories/subcategories fetch and expand state.
 function MobileMenu({ isOpen, onClose }) {
   const { language, t } = useLanguage();
+  const isHindi = useLocation().pathname.startsWith("/hi/");
   const [categories, setCategories] = useState([]);
   const [subcategories, setSubcategories] = useState([]);
   const [openCategoryId, setOpenCategoryId] = useState(null);
@@ -117,7 +118,7 @@ function MobileMenu({ isOpen, onClose }) {
               <div key={category._id} className="border-t border-slate-100">
                 <div className="flex items-center">
                   <NavLink
-                    to={`/category/${category.slug}`}
+                    to={`${isHindi ? "/hi" : ""}/category/${category.slug}`}
                     onClick={close}
                     className="flex-1 px-5 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-amber-600"
                   >
@@ -157,7 +158,7 @@ function MobileMenu({ isOpen, onClose }) {
                             .map((item) => (
                               <li key={item._id}>
                                 <NavLink
-                                  to={`/category/${category.slug}/${item.slug}`}
+                                  to={`${isHindi ? "/hi" : ""}/category/${category.slug}/${item.slug}`}
                                   onClick={close}
                                   className="block py-1.5 text-sm text-slate-600 hover:text-amber-600"
                                 >
