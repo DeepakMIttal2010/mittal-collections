@@ -5,7 +5,7 @@ import { toast } from "react-toastify";
 import { getMyOrders } from "../services/orderService";
 import { getProductById } from "../services/productService";
 import { resumeOrderPayment } from "../utils/razorpay";
-import { useCart } from "../context/CartContext";
+import { useCartActions } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
 import ReturnRequestModal from "../components/ReturnRequestModal";
@@ -285,7 +285,7 @@ function MyOrders() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("orders");
   const [payingId, setPayingId] = useState(null);
-  const { addToCart } = useCart();
+  const { addToCart } = useCartActions();
   const { user } = useAuth();
   const { t } = useLanguage();
 

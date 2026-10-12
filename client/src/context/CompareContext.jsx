@@ -1,4 +1,12 @@
-import { createContext, useContext, useEffect, useRef, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { toast } from "react-toastify";
 
 import { readJsonFromStorage } from "../utils/safeLocalStorage";
@@ -15,6 +23,14 @@ export function CompareProvider({ children }) {
   );
   const { user } = useAuth();
   const { t } = useLanguage();
+
+  // Same reasoning as CartContext's cartItemsRef -- lets the handlers
+  // below be stable useCallbacks while still reading the current
+  // compare list for their membership checks.
+  const compareItemsRef = useRef(compareItems);
+  useEffect(() => {
+    compareItemsRef.current = compareItems;
+  }, [compareItems]);
 
   useEffect(() => {
     localStorage.setItem("compareItems", JSON.stringify(compareItems));
@@ -37,52 +53,71 @@ export function CompareProvider({ children }) {
     wasUserId.current = currentUserId;
   }, [user]);
 
-  const isInCompare = (productId) =>
-    compareItems.some((item) => item._id === productId);
+  const isInCompare = useCallback(
+    (productId) => compareItemsRef.current.some((item) => item._id === productId),
+    [],
+  );
 
-  const addToCompare = (product) => {
-    if (isInCompare(product._id)) return;
+  const addToCompare = useCallback(
+    (product) => {
+      const compareItems = compareItemsRef.current;
+      if (isInCompare(product._id)) return;
 
-    if (compareItems.length >= MAX_COMPARE_ITEMS) {
-      toast.error(
-        t(
-          `You can compare up to ${MAX_COMPARE_ITEMS} products`,
-          `आप अधिकतम ${MAX_COMPARE_ITEMS} प्रोडक्ट कंपेयर कर सकते हैं`,
-        ),
-      );
-      return;
-    }
+      if (compareItems.length >= MAX_COMPARE_ITEMS) {
+        toast.error(
+          t(
+            `You can compare up to ${MAX_COMPARE_ITEMS} products`,
+            `आप अधिकतम ${MAX_COMPARE_ITEMS} प्रोडक्ट कंपेयर कर सकते हैं`,
+          ),
+        );
+        return;
+      }
 
-    setCompareItems([...compareItems, product]);
-    toast.success(t("Added to compare", "कंपेयर में जोड़ा गया"));
-  };
+      setCompareItems([...compareItems, product]);
+      toast.success(t("Added to compare", "कंपेयर में जोड़ा गया"));
+    },
+    [isInCompare, t],
+  );
 
-  const removeFromCompare = (productId) => {
-    setCompareItems(compareItems.filter((item) => item._id !== productId));
-  };
+  const removeFromCompare = useCallback((productId) => {
+    setCompareItems(
+      compareItemsRef.current.filter((item) => item._id !== productId),
+    );
+  }, []);
 
-  const toggleCompare = (product) => {
-    if (isInCompare(product._id)) {
-      removeFromCompare(product._id);
-    } else {
-      addToCompare(product);
-    }
-  };
+  const toggleCompare = useCallback(
+    (product) => {
+      if (isInCompare(product._id)) {
+        removeFromCompare(product._id);
+      } else {
+        addToCompare(product);
+      }
+    },
+    [isInCompare, removeFromCompare, addToCompare],
+  );
 
-  const clearCompare = () => setCompareItems([]);
+  const clearCompare = useCallback(() => setCompareItems([]), []);
+
+  // compareItems legitimately changes whenever the list does -- this
+  // useMemo avoids a new value object (and the resulting re-render of
+  // every consumer, including every ProductCard subscribed for its
+  // compare-toggle state) when CompareProvider re-renders for a reason
+  // unrelated to the compare list itself.
+  const value = useMemo(
+    () => ({
+      compareItems,
+      isInCompare,
+      addToCompare,
+      removeFromCompare,
+      toggleCompare,
+      clearCompare,
+      maxCompareItems: MAX_COMPARE_ITEMS,
+    }),
+    [compareItems, isInCompare, addToCompare, removeFromCompare, toggleCompare, clearCompare],
+  );
 
   return (
-    <CompareContext.Provider
-      value={{
-        compareItems,
-        isInCompare,
-        addToCompare,
-        removeFromCompare,
-        toggleCompare,
-        clearCompare,
-        maxCompareItems: MAX_COMPARE_ITEMS,
-      }}
-    >
+    <CompareContext.Provider value={value}>
       {children}
     </CompareContext.Provider>
   );
