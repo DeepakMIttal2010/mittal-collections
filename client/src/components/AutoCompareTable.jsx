@@ -4,7 +4,7 @@ import { FaShoppingCart } from "react-icons/fa";
 
 import { imgUrl } from "../services/api";
 import { productUrl } from "../utils/productUrl";
-import { useCart } from "../context/CartContext";
+import { useCartActions } from "../context/CartContext";
 import { useLanguage } from "../context/LanguageContext";
 import { handleImageError } from "../utils/imageFallback";
 
@@ -25,7 +25,7 @@ function getSpecRows(t) {
 // Compare Products feature. Rows only appear if at least one of the
 // compared products actually has a value for it.
 function AutoCompareTable({ mainProduct, similarProducts, isHindi = false }) {
-  const { addToCart } = useCart();
+  const { addToCart } = useCartActions();
   const { t } = useLanguage();
   const navigate = useNavigate();
   const products = [mainProduct, ...similarProducts];

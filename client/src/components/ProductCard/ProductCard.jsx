@@ -1,5 +1,5 @@
 import { imgUrl, imgSrcSet } from "../../services/api";
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, memo, Suspense, useEffect, useState } from "react";
 import "./ProductCard.css";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
@@ -13,7 +13,7 @@ import {
   FaStar,
 } from "react-icons/fa";
 import { useWishlist } from "../../context/WishlistContext";
-import { useCart } from "../../context/CartContext";
+import { useCartActions } from "../../context/CartContext";
 import { useCompare } from "../../context/CompareContext";
 import { LOW_STOCK_THRESHOLD, getStockStatus } from "../../utils/stock";
 import { productUrl } from "../../utils/productUrl";
@@ -43,7 +43,7 @@ function ProductCard({ product }) {
   // -- linking to the right variant up front avoids recreating that bug
   // here for products.
   const isHindi = useLocation().pathname.startsWith("/hi/");
-  const { addToCart } = useCart();
+  const { addToCart } = useCartActions();
   const { wishlistItems, addToWishlist, removeFromWishlist } = useWishlist();
   const { toggleCompare, isInCompare } = useCompare();
   const { t } = useLanguage();
@@ -242,4 +242,13 @@ function ProductCard({ product }) {
   );
 }
 
-export default ProductCard;
+// Only prop is `product` -- callers (ProductGrid etc.) pass it from a
+// useState-held array that only changes identity on a real new fetch,
+// so the default shallow-equality check here correctly skips a
+// re-render whenever a PARENT re-renders without this specific
+// product's own data changing. Combined with useCartActions() above
+// (stable forever) and useWishlist()/useCompare() (only change when
+// wishlist/compare content actually changes), this is what makes an
+// unrelated Add to Cart click on a different card no longer force this
+// one to re-render too (CWV audit, 2026-10-12).
+export default memo(ProductCard);

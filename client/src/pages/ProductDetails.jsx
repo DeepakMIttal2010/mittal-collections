@@ -55,7 +55,7 @@ import {
   getProductById,
   getProductsByCategory,
 } from "../services/productService";
-import { useCart } from "../context/CartContext";
+import { useCartActions } from "../context/CartContext";
 import { useWishlist } from "../context/WishlistContext";
 import { useCompare } from "../context/CompareContext";
 import { useAuth } from "../context/AuthContext";
@@ -116,7 +116,7 @@ function ProductDetails() {
   const relatedScrollRef = useRef(null);
   const bundleScrollRef = useRef(null);
 
-  const { addToCart } = useCart();
+  const { addToCart } = useCartActions();
   const { toggleCompare, isInCompare } = useCompare();
   const { wishlistItems, addToWishlist, removeFromWishlist } = useWishlist();
   const { user, isLoggedIn } = useAuth();

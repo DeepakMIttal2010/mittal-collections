@@ -11,7 +11,7 @@ import {
   FaExchangeAlt,
 } from "react-icons/fa";
 
-import { useCart } from "../../context/CartContext";
+import { useCartActions } from "../../context/CartContext";
 import { useWishlist } from "../../context/WishlistContext";
 import { useCompare } from "../../context/CompareContext";
 import { getStockStatus } from "../../utils/stock";
@@ -23,7 +23,7 @@ import { useModalA11y } from "../../hooks/useModalA11y";
 
 function QuickViewModal({ product, onClose, isHindi = false }) {
   const navigate = useNavigate();
-  const { addToCart } = useCart();
+  const { addToCart } = useCartActions();
   const { wishlistItems, addToWishlist, removeFromWishlist } = useWishlist();
   const { toggleCompare, isInCompare } = useCompare();
   const { t } = useLanguage();

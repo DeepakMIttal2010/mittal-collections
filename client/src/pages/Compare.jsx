@@ -3,7 +3,7 @@ import { toast } from "react-toastify";
 import { FaTimes, FaShoppingCart } from "react-icons/fa";
 
 import { useCompare } from "../context/CompareContext";
-import { useCart } from "../context/CartContext";
+import { useCartActions } from "../context/CartContext";
 import { useLanguage } from "../context/LanguageContext";
 import { imgUrl } from "../services/api";
 import { productUrl } from "../utils/productUrl";
@@ -69,7 +69,7 @@ function getRows(t) {
 
 function Compare() {
   const { compareItems, removeFromCompare, clearCompare } = useCompare();
-  const { addToCart } = useCart();
+  const { addToCart } = useCartActions();
   const { t } = useLanguage();
   const navigate = useNavigate();
   // Spec rows (fabric, size, GSM, etc.) only show if at least one

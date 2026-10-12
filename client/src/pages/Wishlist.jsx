@@ -4,7 +4,7 @@ import { toast } from "react-toastify";
 import { FaTrash, FaShoppingCart } from "react-icons/fa";
 
 import { useWishlist } from "../context/WishlistContext";
-import { useCart } from "../context/CartContext";
+import { useCartActions } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
 import { productUrl } from "../utils/productUrl";
@@ -14,7 +14,7 @@ import Seo from "../components/Seo";
 function Wishlist() {
   const { wishlistItems, removeFromWishlist, clearWishlist } = useWishlist();
 
-  const { addToCart } = useCart();
+  const { addToCart } = useCartActions();
   const { isLoggedIn } = useAuth();
   const { t } = useLanguage();
   const navigate = useNavigate();
