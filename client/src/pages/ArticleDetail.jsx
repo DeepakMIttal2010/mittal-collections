@@ -148,6 +148,16 @@ function ArticleDetail() {
   const displayTitle = isHindi ? article.titleHi : article.title;
   const displayExcerpt = isHindi ? article.excerptHi || article.excerpt : article.excerpt;
   const displayContent = isHindi ? article.contentHi || article.content : article.content;
+  // Falls back to Seo.jsx's own DEFAULT_IMAGE value (not exported, so
+  // duplicated here) -- Seo's og:image/twitter:image tags apply this
+  // fallback internally via `image || DEFAULT_IMAGE`, but articleJsonLd
+  // below is a raw object Seo just serializes as-is, so without this the
+  // JSON-LD Article block's required `image` field went missing entirely
+  // for the one article with no coverImage (undefined is dropped by
+  // JSON.stringify) -- invalid markup, confirmed live.
+  const displayImage = article.coverImage
+    ? imgUrl(article.coverImage)
+    : "https://res.cloudinary.com/y2gghpvz/image/upload/w_1200,h_630,c_fill,g_auto,q_auto,f_auto/v1788778399/mittal-collections/b7qfxz8qsnqigmpttuyb.jpg";
 
   const enUrl = `${SITE_URL}/articles/${article.slug}`;
   const hiUrl = `${SITE_URL}/hi/articles/${article.slug}`;
@@ -158,7 +168,7 @@ function ArticleDetail() {
     "@type": "Article",
     headline: displayTitle,
     description: displayExcerpt,
-    image: article.coverImage ? imgUrl(article.coverImage) : undefined,
+    image: displayImage,
     datePublished: article.createdAt,
     dateModified: article.updatedAt,
     inLanguage: isHindi ? "hi" : "en",
@@ -200,7 +210,7 @@ function ArticleDetail() {
       <Seo
         title={displayTitle}
         description={(displayExcerpt || displayTitle).slice(0, 160)}
-        image={article.coverImage ? imgUrl(article.coverImage) : undefined}
+        image={displayImage}
         url={url}
         lang={isHindi ? "hi" : "en"}
         alternateLangs={alternateLangs}
@@ -232,10 +242,19 @@ function ArticleDetail() {
       </h1>
 
       {article.coverImage && (
+        // Fixed h-96 (not max-h-96) reserves this space on first paint,
+        // before the image downloads/decodes -- cover images vary wildly
+        // in native aspect ratio (checked live: from 500x500 square to
+        // 900x1600 portrait), so object-cover already crops every one of
+        // them down to this same ~384px envelope at this container's
+        // width regardless; switching max-height to a fixed height stops
+        // the box collapsing to 0 and snapping open once the image loads
+        // (confirmed CLS bug, CWV audit 2026-10-12) without changing the
+        // actual rendered crop for any real image in the catalog.
         <img
           src={imgUrl(article.coverImage, "w_1000,q_auto,f_auto")}
           alt={displayTitle}
-          className="w-full rounded-xl mb-8 object-cover max-h-96"
+          className="w-full rounded-xl mb-8 object-cover h-96"
         />
       )}
 
@@ -264,7 +283,7 @@ function ArticleDetail() {
       {article.category && (
         <div className="mt-10 pt-6 border-t border-slate-200">
           <Link
-            to={`/category/${article.category.slug}`}
+            to={`${isHindi ? "/hi" : ""}/category/${article.category.slug}`}
             className="inline-block bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-full px-6 py-3 transition-colors"
           >
             {t(

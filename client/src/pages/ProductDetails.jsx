@@ -308,9 +308,16 @@ function ProductDetails() {
 
   const THUMB_LIMIT = 5;
 
+  // Falls back to the same hero image Seo.jsx/render.js use when a
+  // product has neither `images` nor a singular `image` set (both
+  // schema-optional, empty-string default) -- without this, an empty
+  // array here fed straight into productJsonLd.image below, an empty
+  // schema.org Product.image, which Google requires non-empty.
   const productImages = product?.images?.length
     ? product.images
-    : [product?.image].filter(Boolean);
+    : product?.image
+      ? [product.image]
+      : ["https://res.cloudinary.com/y2gghpvz/image/upload/w_1200,h_630,c_fill,g_auto,q_auto,f_auto/v1788778399/mittal-collections/b7qfxz8qsnqigmpttuyb.jpg"];
   const productVideos = product?.videos || [];
 
   const mediaItems = [
@@ -718,7 +725,7 @@ function ProductDetails() {
     "@type": "VideoObject",
     name: isHindi ? product.nameHi : product.name,
     description: stripHtml(isHindi ? product.descriptionHi || product.description : product.description),
-    thumbnailUrl: imgUrl(product.image),
+    thumbnailUrl: imgUrl(productImages[0]),
     contentUrl: url,
     uploadDate: product.createdAt,
   }));
