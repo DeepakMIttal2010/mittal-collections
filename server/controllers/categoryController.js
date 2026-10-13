@@ -111,10 +111,19 @@ export const getAllCategoriesAdmin = async (req, res) => {
       : "displayOrder";
     const sortOrder = req.query.sortOrder === "desc" ? -1 : 1;
 
+    // displayOrder only has a meaningful value for pinned categories (see
+    // the model) — every unpinned one defaults to 0, so a tiebreak is
+    // required here specifically because this list is paginated with
+    // skip/limit: an undeterministic tie order can duplicate or skip a
+    // category across pages, not just look visually shuffled (2026-10-13
+    // ordering audit).
+    const sort = { [sortBy]: sortOrder };
+    if (sortBy !== "createdAt") sort.createdAt = 1;
+
     const total = await Category.countDocuments(filter);
 
     const categories = await Category.find(filter)
-      .sort({ [sortBy]: sortOrder })
+      .sort(sort)
       .skip((page - 1) * limit)
       .limit(limit);
 

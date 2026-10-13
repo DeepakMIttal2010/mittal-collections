@@ -59,11 +59,19 @@ export const getAllSubcategoriesAdmin = async (req, res) => {
       : "displayOrder";
     const sortOrder = req.query.sortOrder === "desc" ? -1 : 1;
 
+    // Same tiebreak reasoning as categoryController.js's admin list —
+    // displayOrder defaults to 0 for a subcategory unless an admin typed a
+    // distinct value (the add/edit form defaults to 0), and this list is
+    // paginated, so a tie with no deterministic order can duplicate/skip a
+    // row across pages (2026-10-13 ordering audit).
+    const sort = { [sortBy]: sortOrder };
+    if (sortBy !== "createdAt") sort.createdAt = 1;
+
     const total = await Subcategory.countDocuments(filter);
 
     const subcategories = await Subcategory.find(filter)
       .populate("category", "name nameHi slug")
-      .sort({ [sortBy]: sortOrder })
+      .sort(sort)
       .skip((page - 1) * limit)
       .limit(limit);
 

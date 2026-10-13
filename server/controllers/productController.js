@@ -255,11 +255,19 @@ export const getProducts = async (req, res) => {
       filter.price = { ...filter.price, $gte: Number(minPrice) };
     }
 
+    // `_id` as a secondary key (alongside the `createdAt` used below for
+    // the human-facing sorts) guarantees a deterministic order even when
+    // several products share the same createdAt — e.g. a CSV bulk import
+    // (AdminBulkImport.jsx) that creates many products in a tight loop.
+    // Without it, PriceRangePage's infinite-scroll grid (useInfiniteProducts.js)
+    // re-runs this whole query per page and ties with no stable order can
+    // surface the same product on two pages, or skip one — found in the
+    // 2026-10-13 sitewide ordering audit.
     let products = await Product.find(filter)
       .select(COST_FIELDS)
       .populate("category", "name nameHi slug image")
       .populate("subcategories", "name nameHi slug")
-      .sort({ createdAt: -1 })
+      .sort({ createdAt: -1, _id: -1 })
       .lean();
 
     const hasSearch = typeof search === "string" && search.trim();
@@ -273,13 +281,18 @@ export const getProducts = async (req, res) => {
       }).catch((error) => console.error("Search Log Error:", error));
     }
 
+    // Array.prototype.sort is stable, but that only helps if ties break
+    // the same way every time — comparing by `_id` (always unique, and
+    // monotonic with creation order) as a tiebreaker does that, same
+    // reasoning as the Mongo-level `_id` secondary sort above.
+    const byIdDesc = (a, b) => (a._id < b._id ? 1 : a._id > b._id ? -1 : 0);
     if (sortBy === "price_asc") {
-      products = [...products].sort((a, b) => a.price - b.price);
+      products = [...products].sort((a, b) => a.price - b.price || byIdDesc(a, b));
     } else if (sortBy === "price_desc") {
-      products = [...products].sort((a, b) => b.price - a.price);
+      products = [...products].sort((a, b) => b.price - a.price || byIdDesc(a, b));
     } else if (sortBy === "newest" || (!hasSearch && !sortBy)) {
       products = [...products].sort(
-        (a, b) => new Date(b.createdAt) - new Date(a.createdAt),
+        (a, b) => new Date(b.createdAt) - new Date(a.createdAt) || byIdDesc(a, b),
       );
     }
 
@@ -749,7 +762,7 @@ export const getTrendingProductsByCategory = async (req, res) => {
 
     const configuredSections = await TrendingSection.find({ isActive: true })
       .populate("category", "name nameHi slug isActive")
-      .sort({ displayOrder: 1 });
+      .sort({ displayOrder: 1, createdAt: 1 });
 
     const sections = await Promise.all(
       configuredSections
@@ -833,7 +846,7 @@ export const getNewArrivalProducts = async (req, res) => {
       .select(COST_FIELDS)
       .populate("category", "name nameHi slug image")
       .populate("subcategories", "name nameHi slug")
-      .sort({ createdAt: -1 })
+      .sort({ createdAt: -1, _id: -1 })
       .limit(limit);
 
     res.status(200).json({
@@ -936,7 +949,7 @@ export const getNewArrivalsByCategory = async (req, res) => {
       isActive: true,
     })
       .populate("category", "name nameHi slug isActive")
-      .sort({ displayOrder: 1 });
+      .sort({ displayOrder: 1, createdAt: 1 });
 
     const sections = await Promise.all(
       configuredSections
@@ -962,7 +975,7 @@ export const getNewArrivalsByCategory = async (req, res) => {
             .select(COST_FIELDS)
             .populate("category", "name nameHi slug image")
             .populate("subcategories", "name nameHi slug")
-            .sort({ createdAt: -1 })
+            .sort({ createdAt: -1, _id: -1 })
             .limit(perCategoryLimit);
 
           return {
