@@ -463,6 +463,23 @@ export const sendPriceDropAlerts = async (req, res) => {
         product.slug ? `/${product.slug}` : ""
       }`;
 
+      // Atomic claim before sending — two overlapping cron fires (the
+      // same "pingers like cron-job.org retry/double-fire" risk this
+      // route's sibling cron endpoints already guard against) would
+      // otherwise both run the aggregation above before either has
+      // updated lastAlertedPrice, and both send this customer a
+      // duplicate price-drop email for the same item (deep bug sweep,
+      // 2026-10-13). Scoping the filter to lastAlertedPrice's value AT
+      // AGGREGATION TIME (lastAlertedPrice has a schema default of null,
+      // never "missing", so this comparison is always well-defined) means
+      // a losing concurrent run's update simply matches nothing.
+      const claimed = await Wishlist.findOneAndUpdate(
+        { _id: item._id, lastAlertedPrice: item.lastAlertedPrice ?? null },
+        { $set: { lastAlertedPrice: product.price } },
+      );
+
+      if (!claimed) continue;
+
       try {
         await sendEmail({
           to: user.email,
@@ -484,15 +501,15 @@ export const sendPriceDropAlerts = async (req, res) => {
           link: `/product/${product._id}`,
         });
 
-        // item is now a plain aggregation result, not a Mongoose
-        // document (no .save() available) — a direct update by id.
-        await Wishlist.updateOne(
-          { _id: item._id },
-          { $set: { lastAlertedPrice: product.price } },
-        );
         sent += 1;
       } catch (error) {
         console.error(`Price drop email failed for ${user.email}:`, error);
+        // Release the claim so a genuine send failure (not a
+        // concurrent-run race) still gets retried on the next run.
+        await Wishlist.updateOne(
+          { _id: item._id },
+          { $set: { lastAlertedPrice: item.lastAlertedPrice ?? null } },
+        );
       }
     }
 

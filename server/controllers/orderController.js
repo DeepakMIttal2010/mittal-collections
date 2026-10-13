@@ -1133,7 +1133,7 @@ export const updateOrderStatus = async (req, res) => {
   try {
     const { status } = req.body;
 
-    const order = await Order.findById(req.params.id);
+    let order = await Order.findById(req.params.id);
 
     if (!order) {
       return res.status(404).json({
@@ -1156,26 +1156,56 @@ export const updateOrderStatus = async (req, res) => {
       });
     }
 
+    const originalStatus = order.orderStatus;
     const wasAlreadyCancelled = order.orderStatus === "Cancelled";
     const wasAlreadyCredited = order.pointsCredited;
 
-    order.orderStatus = status;
-    order.statusHistory.push({ status, changedAt: new Date() });
+    const setFields = { orderStatus: status };
 
     if (status === "Delivered") {
-      order.deliveredAt = Date.now();
+      setFields.deliveredAt = Date.now();
     }
 
     if (status === "Delivered" && !wasAlreadyCredited) {
       const loyaltySettings = await getLoyaltySettings();
-      order.pointsEarned = pointsEarnedFor(
+      setFields.pointsEarned = pointsEarnedFor(
         order.totalPrice,
         loyaltySettings.earnRate,
       );
-      order.pointsCredited = true;
+      setFields.pointsCredited = true;
     }
 
-    await order.save();
+    // Atomic claim, same mechanism this function already uses a few lines
+    // down for referralRewarded (see that comment for the fuller
+    // explanation) — but until now only applied to the referral payout,
+    // not to the status transition itself. Order has no
+    // optimisticConcurrency (unlike Product; confirmed via
+    // cancelStaleRazorpayOrders' own comment on the identical gap), so
+    // the plain findById-then-save this replaced gave two admin requests
+    // racing the same transition (double-click, two open tabs) no
+    // protection: both would read the same pre-update order, both pass
+    // the checks above, and both run the Cancelled branch's
+    // restoreStock/loyalty-refund/clawback side effects twice, or both
+    // credit Delivered's pointsEarned twice (deep bug sweep, 2026-10-13).
+    // Scoping the filter to the order's status AT READ TIME means a
+    // losing concurrent request's update simply matches nothing.
+    const claimed = await Order.findOneAndUpdate(
+      { _id: order._id, orderStatus: originalStatus },
+      {
+        $set: setFields,
+        $push: { statusHistory: { status, changedAt: new Date() } },
+      },
+      { new: true },
+    );
+
+    if (!claimed) {
+      return res.status(409).json({
+        success: false,
+        message: "This order's status was just changed elsewhere — refresh and try again.",
+      });
+    }
+
+    order = claimed;
 
     if (status === "Cancelled" && !wasAlreadyCancelled) {
       await restoreStock(order.orderItems);

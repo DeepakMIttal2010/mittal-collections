@@ -138,6 +138,23 @@ export const notifyStockAlertSubscribers = async (product) => {
   );
 
   for (const alert of alerts) {
+    // Atomic claim before sending — this function is called from two
+    // sites (updateProduct's plain findById-then-save restock path, and
+    // restoreStock's atomic $inc path), and either one can itself be
+    // double-fired (an admin double-clicking Save while bumping stock
+    // from 0, or restoreStock racing with another restoring event for
+    // the same product). Without this, both calls would read the same
+    // `notified: false` alert before either had flipped it, sending the
+    // "back in stock" email (and bell notification) twice to the same
+    // subscriber — same shape already fixed for the review-request and
+    // abandoned-cart cron senders (deep bug sweep, 2026-10-13).
+    const claimed = await StockAlert.findOneAndUpdate(
+      { _id: alert._id, notified: false },
+      { $set: { notified: true } },
+    );
+
+    if (!claimed) continue;
+
     try {
       await sendEmail({
         to: alert.email,
@@ -147,11 +164,11 @@ export const notifyStockAlertSubscribers = async (product) => {
           <p><a href="${productLink}">Shop it now</a> before it sells out again.</p>
         `,
       });
-
-      alert.notified = true;
-      await alert.save();
     } catch (error) {
       console.error(`Stock alert email failed for ${alert.email}:`, error);
+      // Release the claim so a genuine send failure (not a concurrent-
+      // call race) still gets retried on the next restock of this product.
+      await StockAlert.updateOne({ _id: alert._id }, { $set: { notified: false } });
     }
 
     // In-app notification is independent of email delivery — matches
