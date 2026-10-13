@@ -184,6 +184,20 @@ export const sendAbandonedCartReminders = async (req, res) => {
     for (const cart of abandoned) {
       if (!cart.user?.email || cart.items.length === 0) continue;
 
+      // Atomic claim before sending — without this, two overlapping cron
+      // runs (an external scheduler retry/double-fire, same risk this
+      // route's own header comment flags) can both fetch the same
+      // not-yet-reminded cart before either marks it, sending the
+      // customer a duplicate "you left something in your cart" email
+      // (deep bug sweep, 2026-10-13). A genuine send failure below
+      // releases the claim so it's still retried next run.
+      const claimed = await CartSnapshot.findOneAndUpdate(
+        { _id: cart._id, reminderSentAt: null },
+        { $set: { reminderSentAt: new Date() } },
+      );
+
+      if (!claimed) continue;
+
       // item.name comes straight from CartSnapshot.items, which syncCart
       // persists from req.body with no server-side re-derivation (unlike
       // order placement, which re-verifies every item against the DB) —
@@ -208,11 +222,13 @@ export const sendAbandonedCartReminders = async (req, res) => {
           `,
         });
 
-        cart.reminderSentAt = new Date();
-        await cart.save();
         sent += 1;
       } catch (error) {
         console.error(`Abandoned cart email failed for ${cart.user.email}:`, error);
+        await CartSnapshot.updateOne(
+          { _id: cart._id },
+          { $set: { reminderSentAt: null } },
+        );
       }
     }
 

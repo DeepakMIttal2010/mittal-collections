@@ -1483,10 +1483,25 @@ export const sendReviewRequestEmails = async (req, res) => {
       .populate("orderItems.product", "slug");
 
     let sent = 0;
-    const sentOrderIds = [];
 
     for (const order of orders) {
       if (!order.user?.email) continue;
+
+      // Atomic per-order claim before sending — the N+1 fix (2026-10-13)
+      // that batched this into one Order.updateMany AFTER the whole send
+      // loop finished widened the window two overlapping cron runs (the
+      // route comments elsewhere already acknowledge pingers like
+      // cron-job.org retry/double-fire) could both fetch the same
+      // not-yet-flagged order and send a duplicate "leave a review"
+      // email — found in the 2026-10-13 deep bug sweep. Claiming here,
+      // before the send, closes that; the catch block below releases the
+      // claim on a genuine send failure so it's still retried next run.
+      const claimed = await Order.findOneAndUpdate(
+        { _id: order._id, reviewRequestSent: { $ne: true } },
+        { $set: { reviewRequestSent: true } },
+      );
+
+      if (!claimed) continue;
 
       const itemsHtml = order.orderItems
         .map((item) => {
@@ -1531,22 +1546,18 @@ export const sendReviewRequestEmails = async (req, res) => {
           `,
         });
 
-        sentOrderIds.push(order._id);
         sent += 1;
       } catch (error) {
         console.error(`Review request email failed for ${order.user.email}:`, error);
+        // Release the claim made above so a genuine send failure (not a
+        // concurrent-run race) still gets retried on the next cron run,
+        // instead of being permanently marked "sent" with no email ever
+        // having gone out.
+        await Order.updateOne(
+          { _id: order._id },
+          { $set: { reviewRequestSent: false } },
+        );
       }
-    }
-
-    // One batched flag-update instead of a per-order .save() inside the
-    // loop above — each save was only ever flipping the same boolean
-    // field, so there's nothing order-specific that needs a separate
-    // round trip (N+1 audit, 2026-10-13).
-    if (sentOrderIds.length > 0) {
-      await Order.updateMany(
-        { _id: { $in: sentOrderIds } },
-        { $set: { reviewRequestSent: true } },
-      );
     }
 
     res.status(200).json({
@@ -1653,9 +1664,30 @@ export const cancelStaleRazorpayOrders = async (req, res) => {
       // every remaining stale order in this batch unprocessed with
       // nothing logged about which ones.
       try {
-        order.orderStatus = "Cancelled";
-        order.statusHistory.push({ status: "Cancelled", changedAt: new Date() });
-        await order.save();
+        // Atomic claim — the comment above this block already
+        // acknowledges "most external cron pingers... retry/double-fire,"
+        // but until now only the Razorpay-paid-recovery branch above was
+        // guarded against that; this cancel/restock/refund branch still
+        // read `order` once via the Order.find() above and saved it with
+        // no version check (Order has no optimisticConcurrency, unlike
+        // Product), so two overlapping runs could both pass this point
+        // for the same still-"Pending" order and both restore stock /
+        // refund loyalty points for it (deep bug sweep, 2026-10-13).
+        // Scoping the filter to `orderStatus: "Pending"` means a losing
+        // concurrent run's update simply matches nothing and `claimed`
+        // comes back null, same mechanism posController's
+        // void/delete-sale guards already use.
+        const claimed = await Order.findOneAndUpdate(
+          { _id: order._id, orderStatus: "Pending" },
+          {
+            $set: { orderStatus: "Cancelled" },
+            $push: { statusHistory: { status: "Cancelled", changedAt: new Date() } },
+          },
+        );
+
+        if (!claimed) {
+          continue;
+        }
 
         await restoreStock(order.orderItems);
 

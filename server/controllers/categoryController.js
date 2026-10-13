@@ -3,6 +3,7 @@ import Product from "../models/Product.js";
 import Subcategory from "../models/Subcategory.js";
 import TrendingSection from "../models/TrendingSection.js";
 import NewArrivalsSection from "../models/NewArrivalsSection.js";
+import SiteSettings from "../models/SiteSettings.js";
 import { deleteCloudinaryAssetsByUrl } from "../utils/cloudinaryCleanup.js";
 import { escapeRegex } from "../utils/escapeRegex.js";
 
@@ -421,6 +422,32 @@ export const permanentlyDeleteCategory = async (req, res) => {
         success: false,
         message:
           "This category is still used by a Trending or New Arrivals section and cannot be permanently deleted",
+      });
+    }
+
+    // Matches permanentlyDeleteSubcategory's own pricingRules.subcategory
+    // check (which was added with a comment claiming parity with this
+    // function — a parity that didn't actually exist until now).
+    // SiteSettings.bundleRules[].categoryA/categoryB and
+    // pricingRules[].category are both real cross-references a plain
+    // Product/Subcategory/Trending/NewArrivals check doesn't cover —
+    // without this, deleting a category still used by a "Complete the
+    // Look" bundle rule or a pricing rule leaves that rule pointing at a
+    // category that no longer exists, rendering with a blank/unselectable
+    // dropdown in AdminSettings.jsx instead of being caught here.
+    const usedInSiteSettings = await SiteSettings.exists({
+      $or: [
+        { "bundleRules.categoryA": category._id },
+        { "bundleRules.categoryB": category._id },
+        { "pricingRules.category": category._id },
+      ],
+    });
+
+    if (usedInSiteSettings) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "This category is used by a bundle or pricing rule and cannot be permanently deleted",
       });
     }
 

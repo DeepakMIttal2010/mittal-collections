@@ -167,13 +167,20 @@ export function CartProvider({ children }) {
           return;
         }
 
-        setCartItems(
-          cartItems.map((item) =>
+        // Functional updater, not the `cartItems`/`existingItem` read
+        // above — two rapid Add to Cart clicks (or a double-tap) can both
+        // fire before cartItemsRef has caught up from the first one's
+        // state update (the ref only refreshes in a useEffect, which runs
+        // after commit, not synchronously). Reading the ref for the
+        // decision above is fine (worst case a slightly stale stock-cap
+        // toast), but the actual mutation below must always build on
+        // React's real latest state, or the second click's update
+        // silently overwrites the first's instead of stacking (found in
+        // the 2026-10-13 deep bug sweep).
+        setCartItems((prev) =>
+          prev.map((item) =>
             item._id === lineId
-              ? {
-                  ...item,
-                  quantity: newQuantity,
-                }
+              ? { ...item, quantity: Math.min(item.quantity + qty, stock) }
               : item,
           ),
         );
@@ -199,7 +206,19 @@ export function CartProvider({ children }) {
           quantity: Math.min(qty, stock),
         };
 
-        setCartItems([...cartItems, newItem]);
+        setCartItems((prev) => {
+          // The stale `existingItem` check above could have missed a
+          // line item that a second rapid call for the SAME product just
+          // added — merge into it here instead of pushing a duplicate.
+          const alreadyAdded = prev.find((item) => item._id === lineId);
+          return alreadyAdded
+            ? prev.map((item) =>
+                item._id === lineId
+                  ? { ...item, quantity: Math.min(item.quantity + newItem.quantity, stock) }
+                  : item,
+              )
+            : [...prev, newItem];
+        });
 
         trackAddToCart(newItem, newItem.quantity);
         toast.success(t("Product added to cart 🛒", "प्रोडक्ट कार्ट में जोड़ा गया 🛒"));
@@ -212,10 +231,9 @@ export function CartProvider({ children }) {
 
   const removeFromCart = useCallback(
     (id) => {
-      const cartItems = cartItemsRef.current;
-      const item = cartItems.find((cartItem) => cartItem._id === id);
+      const item = cartItemsRef.current.find((cartItem) => cartItem._id === id);
 
-      setCartItems(cartItems.filter((item) => item._id !== id));
+      setCartItems((prev) => prev.filter((cartItem) => cartItem._id !== id));
 
       if (item) trackRemoveFromCart(item);
       toast.error(t("Product removed from cart", "प्रोडक्ट कार्ट से हटाया गया"));
@@ -225,21 +243,23 @@ export function CartProvider({ children }) {
 
   const increaseQty = useCallback(
     (id) => {
-      const cartItems = cartItemsRef.current;
-      const item = cartItems.find((cartItem) => cartItem._id === id);
+      const item = cartItemsRef.current.find((cartItem) => cartItem._id === id);
 
       if (item && item.quantity >= item.stock) {
         toast.error(t(`Only ${item.stock} in stock`, `केवल ${item.stock} स्टॉक में`));
         return;
       }
 
-      setCartItems(
-        cartItems.map((cartItem) =>
-          cartItem._id === id
-            ? {
-                ...cartItem,
-                quantity: cartItem.quantity + 1,
-              }
+      // Functional updater (not a plain array built from the ref read
+      // above) — see addToCart's comment on the same race. The `< stock`
+      // guard is repeated here against the functional updater's own
+      // fresh `cartItem`, not just the pre-check above, so the stock cap
+      // holds even if two rapid clicks both passed the pre-check against
+      // a stale ref.
+      setCartItems((prev) =>
+        prev.map((cartItem) =>
+          cartItem._id === id && cartItem.quantity < cartItem.stock
+            ? { ...cartItem, quantity: cartItem.quantity + 1 }
             : cartItem,
         ),
       );
@@ -251,8 +271,7 @@ export function CartProvider({ children }) {
 
   const decreaseQty = useCallback(
     (id) => {
-      const cartItems = cartItemsRef.current;
-      const item = cartItems.find((cartItem) => cartItem._id === id);
+      const item = cartItemsRef.current.find((cartItem) => cartItem._id === id);
 
       // Silently did nothing at quantity 1 before -- no toast, no disabled
       // state, unlike increaseQty above which already toasts when capped
@@ -270,13 +289,12 @@ export function CartProvider({ children }) {
         return;
       }
 
-      setCartItems(
-        cartItems.map((cartItem) =>
-          cartItem._id === id
-            ? {
-                ...cartItem,
-                quantity: cartItem.quantity - 1,
-              }
+      // Same functional-updater fix as increaseQty, floor re-checked
+      // against fresh state so two rapid "-" clicks can't drop below 1.
+      setCartItems((prev) =>
+        prev.map((cartItem) =>
+          cartItem._id === id && cartItem.quantity > 1
+            ? { ...cartItem, quantity: cartItem.quantity - 1 }
             : cartItem,
         ),
       );

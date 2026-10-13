@@ -728,21 +728,36 @@ export const deleteOfflineSale = async (req, res) => {
     }
 
     if (!sale.voided) {
-      await restoreStockForItems(
-        sale.items.map((item) => ({
-          productId: item.product,
-          quantity: item.quantity,
-          size: item.size,
-        })),
+      // Atomic claim, same mechanism voidOfflineSale/updateOfflineSale
+      // already use — stops a double-click or two open tabs from both
+      // restoring stock and clawing back loyalty points for the same
+      // sale (deep bug sweep, 2026-10-13: this function had the plain
+      // findById + in-memory `if (!sale.voided)` check the other two
+      // were deliberately changed away from). The delete itself below
+      // stays unconditional either way — only the restore/clawback side
+      // effects need to happen at most once.
+      const claimed = await OfflineSale.findOneAndUpdate(
+        { _id: sale._id, voided: false },
+        { $set: { voided: true } },
       );
 
-      if (sale.loyaltyPointsAwarded > 0 && sale.customerUser) {
-        await applyLoyaltyPointsChange({
-          userId: sale.customerUser,
-          type: "clawback",
-          points: -sale.loyaltyPointsAwarded,
-          description: `Reversed — sale deleted (${sale._id})`,
-        });
+      if (claimed) {
+        await restoreStockForItems(
+          sale.items.map((item) => ({
+            productId: item.product,
+            quantity: item.quantity,
+            size: item.size,
+          })),
+        );
+
+        if (sale.loyaltyPointsAwarded > 0 && sale.customerUser) {
+          await applyLoyaltyPointsChange({
+            userId: sale.customerUser,
+            type: "clawback",
+            points: -sale.loyaltyPointsAwarded,
+            description: `Reversed — sale deleted (${sale._id})`,
+          });
+        }
       }
     }
 

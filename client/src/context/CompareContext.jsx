@@ -73,16 +73,23 @@ export function CompareProvider({ children }) {
         return;
       }
 
-      setCompareItems([...compareItems, product]);
+      // Functional updater, not a plain array built from the ref — same
+      // reasoning as CartContext's addToCart (2026-10-13 deep bug sweep).
+      // The membership/length checks above can run against a stale ref on
+      // two rapid clicks; this re-guards against both a duplicate entry
+      // and exceeding MAX_COMPARE_ITEMS using React's actual latest state.
+      setCompareItems((prev) => {
+        if (prev.some((item) => item._id === product._id)) return prev;
+        if (prev.length >= MAX_COMPARE_ITEMS) return prev;
+        return [...prev, product];
+      });
       toast.success(t("Added to compare", "कंपेयर में जोड़ा गया"));
     },
     [isInCompare, t],
   );
 
   const removeFromCompare = useCallback((productId) => {
-    setCompareItems(
-      compareItemsRef.current.filter((item) => item._id !== productId),
-    );
+    setCompareItems((prev) => prev.filter((item) => item._id !== productId));
   }, []);
 
   const toggleCompare = useCallback(
