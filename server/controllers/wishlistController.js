@@ -15,13 +15,20 @@ const MAX_WISHLIST_ITEMS = 200;
 // GET /api/wishlist
 export const getWishlist = async (req, res) => {
   try {
-    const wishlist = await Wishlist.find({ user: req.user._id }).populate({
-      path: "product",
-      populate: {
-        path: "category",
-        select: "name slug",
-      },
-    });
+    // Without an explicit sort this fell back to Mongo's natural/insertion
+    // order, which isn't guaranteed stable — a shopper could see their own
+    // wishlist reorder itself between visits with no action on their part.
+    // Newest-added-first matches how every other "my saved items" list on
+    // the site behaves.
+    const wishlist = await Wishlist.find({ user: req.user._id })
+      .sort({ createdAt: -1 })
+      .populate({
+        path: "product",
+        populate: {
+          path: "category",
+          select: "name slug",
+        },
+      });
 
     res.status(200).json({
       success: true,
@@ -162,13 +169,15 @@ export const getGuestWishlist = async (req, res) => {
 
     const wishlist = await Wishlist.find({
       visitorId: req.params.visitorId,
-    }).populate({
-      path: "product",
-      populate: {
-        path: "category",
-        select: "name slug",
-      },
-    });
+    })
+      .sort({ createdAt: -1 })
+      .populate({
+        path: "product",
+        populate: {
+          path: "category",
+          select: "name slug",
+        },
+      });
 
     res.status(200).json({
       success: true,

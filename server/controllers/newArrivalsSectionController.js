@@ -11,9 +11,17 @@ export const getAllNewArrivalsSectionsAdmin = async (req, res) => {
       : "displayOrder";
     const sortOrder = req.query.sortOrder === "desc" ? -1 : 1;
 
+    // displayOrder defaults to 0 for every section unless an admin
+    // manually typed a distinct value — a secondary tiebreak keeps ties
+    // from falling back to arbitrary Mongo natural order (same bug class
+    // as the subcategory mega-menu, found in the 2026-10-13 ordering audit;
+    // this one is worse since it also controls the live homepage section order).
+    const sort = { [sortBy]: sortOrder };
+    if (sortBy !== "createdAt") sort.createdAt = 1;
+
     const sections = await NewArrivalsSection.find()
       .populate("category", "name nameHi slug image isActive")
-      .sort({ [sortBy]: sortOrder });
+      .sort(sort);
 
     res.status(200).json({
       success: true,

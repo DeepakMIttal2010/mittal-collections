@@ -11,9 +11,15 @@ export const getAllTrendingSectionsAdmin = async (req, res) => {
       : "displayOrder";
     const sortOrder = req.query.sortOrder === "desc" ? -1 : 1;
 
+    // Same tiebreak reasoning as newArrivalsSectionController.js — displayOrder
+    // defaults to 0 for every section unless an admin manually typed a
+    // distinct value (2026-10-13 ordering audit).
+    const sort = { [sortBy]: sortOrder };
+    if (sortBy !== "createdAt") sort.createdAt = 1;
+
     const sections = await TrendingSection.find()
       .populate("category", "name nameHi slug image isActive")
-      .sort({ [sortBy]: sortOrder });
+      .sort(sort);
 
     res.status(200).json({
       success: true,
