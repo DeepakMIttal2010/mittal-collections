@@ -274,12 +274,24 @@ function ProductDetails() {
   // own comment for the bug this fixes): the URL is authoritative on
   // first load (sync the toggle to match it, don't fight it), and only a
   // later, genuine toggle click triggers a navigate.
+  //
+  // The first-load branch below used to only force the toggle TO "hi"
+  // (`if (isHindi && language !== "hi")`), never back to "en" -- so a
+  // visitor arriving at an English /product/... URL with a stale "hi"
+  // toggle left over from browsing a /hi/ page earlier kept `language`
+  // stuck on "hi" forever on this page. Nearly all of this page's own
+  // visible content (name, description, specs, buttons -- everything
+  // except the canonical/JSON-LD bits that already read `isHindi`
+  // directly) is driven by `t()`, which reads this toggle, not the URL
+  // -- so the whole page rendered in Hindi on a plain English URL.
+  // Confirmed live by the user, 2026-10-13. Now syncs to match the URL
+  // in BOTH directions on first load, not just one.
   useEffect(() => {
     if (!product) return;
 
     if (!hasSyncedLanguageRef.current) {
       hasSyncedLanguageRef.current = true;
-      if (isHindi && language !== "hi") setLanguage("hi");
+      if ((language === "hi") !== isHindi) setLanguage(isHindi ? "hi" : "en");
       return;
     }
 

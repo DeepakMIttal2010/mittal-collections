@@ -71,12 +71,22 @@ function ArticleDetail() {
   // on this page navigate the URL to match.
   const hasSyncedRef = useRef(false);
 
+  // The first-load branch below used to only force the toggle TO "hi"
+  // (`if (isHindi && language !== "hi")`), never back to "en" -- so a
+  // visitor landing on a plain English /articles/:slug URL with a stale
+  // "hi" toggle left over from a /hi/ page browsed earlier kept
+  // `language` stuck on "hi" here, and this page's title/excerpt/body
+  // are driven by `isHindi` directly so those stayed correct, but the
+  // "Read in Hindi"/toggle-dependent chrome around it didn't. Confirmed
+  // live by the user, 2026-10-13 (same root cause on ProductDetails.jsx/
+  // CategoryPage.jsx, where it DOES affect the main content). Now syncs
+  // to match the URL in BOTH directions on first load.
   useEffect(() => {
     if (!article) return;
 
     if (!hasSyncedRef.current) {
       hasSyncedRef.current = true;
-      if (isHindi && language !== "hi") setLanguage("hi");
+      if ((language === "hi") !== isHindi) setLanguage(isHindi ? "hi" : "en");
       return;
     }
 

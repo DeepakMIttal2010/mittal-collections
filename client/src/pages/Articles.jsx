@@ -45,10 +45,17 @@ function Articles() {
   // first load, only navigate on a later genuine toggle click.
   const hasSyncedRef = useRef(false);
 
+  // The first-load branch below used to only force the toggle TO "hi"
+  // (`if (isHindi && language !== "hi")`), never back to "en" -- so a
+  // visitor landing on a plain English /articles URL with a stale "hi"
+  // toggle left over from a /hi/ page browsed earlier kept `language`
+  // stuck on "hi" here, same root cause confirmed live by the user on
+  // ProductDetails.jsx/CategoryPage.jsx, 2026-10-13. Now syncs to match
+  // the URL in BOTH directions on first load.
   useEffect(() => {
     if (!hasSyncedRef.current) {
       hasSyncedRef.current = true;
-      if (isHindi && language !== "hi") setLanguage("hi");
+      if ((language === "hi") !== isHindi) setLanguage(isHindi ? "hi" : "en");
       return;
     }
 

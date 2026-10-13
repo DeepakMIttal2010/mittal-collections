@@ -358,12 +358,21 @@ function CategoryPage() {
   // /hi/articles/:slug visitor straight back to English on load.
   const hasSyncedLanguageRef = useRef(false);
 
+  // The first-load branch below used to only force the toggle TO "hi"
+  // (`if (isHindi && language !== "hi")`), never back to "en" -- so a
+  // visitor landing on a plain English /category/... URL with a stale
+  // "hi" toggle left over from a /hi/ page browsed earlier kept
+  // `language` stuck on "hi" here, and most of this page's own visible
+  // content is driven by `t()` (the toggle), not `isHindi` (the URL) --
+  // so the page rendered in Hindi on an English URL. Confirmed live by
+  // the user, 2026-10-13 (same root cause on ProductDetails.jsx). Now
+  // syncs to match the URL in BOTH directions on first load.
   useEffect(() => {
     if (status !== "ready") return;
 
     if (!hasSyncedLanguageRef.current) {
       hasSyncedLanguageRef.current = true;
-      if (isHindi && language !== "hi") setLanguage("hi");
+      if ((language === "hi") !== isHindi) setLanguage(isHindi ? "hi" : "en");
       return;
     }
 
