@@ -97,15 +97,29 @@ export const expireInactivePoints = async () => {
     "name email loyaltyPoints",
   );
 
+  // One aggregation for every candidate's last positive-points date,
+  // instead of a separate LoyaltyTransaction.findOne().sort() per user
+  // in the loop below — that was a real N+1 (this collection only grows
+  // with the active user base, and this cron runs on a schedule, so the
+  // round-trip count used to scale linearly with it; N+1 audit, 2026-10-13).
+  const lastEarnByUser = await LoyaltyTransaction.aggregate([
+    {
+      $match: {
+        user: { $in: usersWithPoints.map((u) => u._id) },
+        points: { $gt: 0 },
+      },
+    },
+    { $sort: { createdAt: -1 } },
+    { $group: { _id: "$user", lastEarnDate: { $first: "$createdAt" } } },
+  ]);
+  const lastEarnMap = new Map(
+    lastEarnByUser.map((e) => [e._id.toString(), e.lastEarnDate]),
+  );
+
   let expiredCount = 0;
 
   for (const user of usersWithPoints) {
-    const lastEarn = await LoyaltyTransaction.findOne({
-      user: user._id,
-      points: { $gt: 0 },
-    }).sort({ createdAt: -1 });
-
-    const lastEarnDate = lastEarn?.createdAt;
+    const lastEarnDate = lastEarnMap.get(user._id.toString());
     const isStale = !lastEarnDate || lastEarnDate < cutoff;
 
     if (!isStale) continue;

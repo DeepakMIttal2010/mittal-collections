@@ -393,20 +393,56 @@ export const mergeGuestWishlist = async (req, res) => {
 export const sendPriceDropAlerts = async (req, res) => {
   try {
 
-    const candidates = await Wishlist.find({
-      priceWhenAdded: { $ne: null },
-    })
-      .populate("user", "name email")
-      .populate("product", "name slug price image");
-
-    // Only a drop below whatever price we last actually alerted for (or the
-    // price when added, if we've never alerted) counts — otherwise every
-    // run would re-notify for the same still-lower price forever.
-    const eligible = candidates.filter(({ user, product, lastAlertedPrice, priceWhenAdded }) => {
-      if (!user?.email || !product) return false;
-      const alertBaseline = lastAlertedPrice ?? priceWhenAdded;
-      return product.price < alertBaseline;
-    });
+    // Pushes the "has the price actually dropped below whatever we last
+    // alerted for" comparison into the DB via $lookup+$expr instead of
+    // fetching the ENTIRE Wishlist collection (every item any user has
+    // ever added, unbounded, every single run) into Node and filtering
+    // in memory — that fetch grows with total historical wishlist
+    // volume, not with how many alerts are actually due (N+1 audit,
+    // 2026-10-13: not classic N+1, but the same "scales with the wrong
+    // thing" cost problem).
+    const eligible = await Wishlist.aggregate([
+      { $match: { priceWhenAdded: { $ne: null } } },
+      {
+        $lookup: {
+          from: "products",
+          localField: "product",
+          foreignField: "_id",
+          as: "product",
+        },
+      },
+      { $unwind: "$product" },
+      {
+        $lookup: {
+          from: "users",
+          localField: "user",
+          foreignField: "_id",
+          as: "user",
+        },
+      },
+      { $unwind: "$user" },
+      {
+        $match: {
+          "user.email": { $exists: true, $nin: [null, ""] },
+          $expr: {
+            $lt: ["$product.price", { $ifNull: ["$lastAlertedPrice", "$priceWhenAdded"] }],
+          },
+        },
+      },
+      {
+        $project: {
+          lastAlertedPrice: 1,
+          priceWhenAdded: 1,
+          "user._id": 1,
+          "user.name": 1,
+          "user.email": 1,
+          "product._id": 1,
+          "product.name": 1,
+          "product.slug": 1,
+          "product.price": 1,
+        },
+      },
+    ]);
 
     let sent = 0;
 
@@ -439,8 +475,12 @@ export const sendPriceDropAlerts = async (req, res) => {
           link: `/product/${product._id}`,
         });
 
-        item.lastAlertedPrice = product.price;
-        await item.save();
+        // item is now a plain aggregation result, not a Mongoose
+        // document (no .save() available) — a direct update by id.
+        await Wishlist.updateOne(
+          { _id: item._id },
+          { $set: { lastAlertedPrice: product.price } },
+        );
         sent += 1;
       } catch (error) {
         console.error(`Price drop email failed for ${user.email}:`, error);

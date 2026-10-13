@@ -319,9 +319,12 @@ const reserveStock = async (orderItems) => {
         );
 
     if (!updated) {
-      for (const r of reserved) {
-        await restoreStock([r]);
-      }
+      // One batched call instead of one restoreStock() invocation per
+      // already-reserved item -- restoreStock already loops internally,
+      // so the per-item wrapping here only added N extra round trips on
+      // a path that can already have several items reserved before a
+      // later one runs out of stock (N+1 audit, 2026-10-13).
+      await restoreStock(reserved);
 
       return { success: false, failedItemName: item.name };
     }
@@ -336,28 +339,36 @@ const reserveStock = async (orderItems) => {
   return { success: true };
 };
 
+// Each order item is an independent atomic $inc on its own product doc
+// (or its own variant sub-document) -- unlike reserveStock below, there's
+// no early-exit-on-failure/rollback invariant linking one item to the
+// next, so firing all the updates concurrently is safe and cuts an
+// N-item order's restore from N sequential round trips to one wall-clock
+// round trip (N+1 audit, 2026-10-13).
 export const restoreStock = async (orderItems) => {
-  for (const item of orderItems) {
-    const product = item.size
-      ? await Product.findOneAndUpdate(
-          { _id: item.product, "variants.size": item.size },
-          { $inc: { stock: item.quantity, "variants.$[v].stock": item.quantity } },
-          { new: true, arrayFilters: [{ "v.size": item.size }] },
-        )
-      : await Product.findByIdAndUpdate(
-          item.product,
-          { $inc: { stock: item.quantity } },
-          { new: true },
+  await Promise.all(
+    orderItems.map(async (item) => {
+      const product = item.size
+        ? await Product.findOneAndUpdate(
+            { _id: item.product, "variants.size": item.size },
+            { $inc: { stock: item.quantity, "variants.$[v].stock": item.quantity } },
+            { new: true, arrayFilters: [{ "v.size": item.size }] },
+          )
+        : await Product.findByIdAndUpdate(
+            item.product,
+            { $inc: { stock: item.quantity } },
+            { new: true },
+          );
+
+      const wasOutOfStock = product && product.stock - item.quantity <= 0;
+
+      if (product && wasOutOfStock && product.stock > 0) {
+        notifyStockAlertSubscribers(product).catch((error) =>
+          console.error("Notify Stock Alert Subscribers Error:", error),
         );
-
-    const wasOutOfStock = product && product.stock - item.quantity <= 0;
-
-    if (product && wasOutOfStock && product.stock > 0) {
-      notifyStockAlertSubscribers(product).catch((error) =>
-        console.error("Notify Stock Alert Subscribers Error:", error),
-      );
-    }
-  }
+      }
+    }),
+  );
 };
 
 // ============================
@@ -1472,6 +1483,7 @@ export const sendReviewRequestEmails = async (req, res) => {
       .populate("orderItems.product", "slug");
 
     let sent = 0;
+    const sentOrderIds = [];
 
     for (const order of orders) {
       if (!order.user?.email) continue;
@@ -1519,12 +1531,22 @@ export const sendReviewRequestEmails = async (req, res) => {
           `,
         });
 
-        order.reviewRequestSent = true;
-        await order.save();
+        sentOrderIds.push(order._id);
         sent += 1;
       } catch (error) {
         console.error(`Review request email failed for ${order.user.email}:`, error);
       }
+    }
+
+    // One batched flag-update instead of a per-order .save() inside the
+    // loop above — each save was only ever flipping the same boolean
+    // field, so there's nothing order-specific that needs a separate
+    // round trip (N+1 audit, 2026-10-13).
+    if (sentOrderIds.length > 0) {
+      await Order.updateMany(
+        { _id: { $in: sentOrderIds } },
+        { $set: { reviewRequestSent: true } },
+      );
     }
 
     res.status(200).json({
