@@ -45,3 +45,34 @@ describe("fuzzySearch Hindi/Hinglish synonyms", () => {
     expect(rankProducts("रजाई", catalog)).toEqual([]);
   });
 });
+
+describe("fuzzySearch multi-word relevance (regression, 2026-10-13)", () => {
+  // Confirmed live: searching a specific 6-word product name returned
+  // the ENTIRE catalog (162/162 products), just reordered, because any
+  // product whose description happened to contain even one common word
+  // (e.g. "white") from the query scored > 0 and was included.
+  // SearchResults.jsx has no result cap, so a customer scrolling down a
+  // specific search would eventually see totally unrelated products.
+  const veebaComforter = {
+    name: "Veeba White Lilly Reversible Microfibre Comforter, Double Bed 90x72 inches - Blue Cream Paisley",
+    description: "A reversible double-bed comforter with a blue cream paisley print on one side.",
+  };
+  // Shares no real words with the query below except the single common
+  // word "soft" (bedsheet) / "with" (cushionCovers) buried in its own
+  // description -- exactly the coincidental-overlap shape that used to
+  // incorrectly pull unrelated products into a specific-name search.
+  const multiWordCatalog = [veebaComforter, doormat, bedsheet, cushionCovers];
+
+  it("only returns the genuinely matching product for a specific multi-word product-name query, not the whole catalog", () => {
+    const results = rankProducts(
+      "Veeba White Lilly Reversible Microfibre Comforter",
+      multiWordCatalog,
+    );
+    expect(results).toEqual([veebaComforter]);
+  });
+
+  it("still matches on a short query needing only one real word match (unchanged behavior)", () => {
+    expect(rankProducts("doormat", multiWordCatalog)).toEqual([doormat]);
+    expect(rankProducts("bedsheet", multiWordCatalog)).toEqual([bedsheet]);
+  });
+});

@@ -77,11 +77,15 @@ const expandSynonyms = (words) => {
   return expanded;
 };
 
-// Returns a match score for a query against a piece of text, or 0 if no
-// reasonable match (exact substrings score highest, near-typos score lower).
+// Returns a match score for a query against a piece of text (0 if no
+// reasonable match — exact substrings score highest, near-typos score
+// lower) AND which specific query words actually matched, so the caller
+// can require real coverage across a multi-word query rather than just
+// "at least one word matched somewhere" (see scoreProduct's comment).
 const scoreText = (queryWords, text) => {
   const textWords = normalize(text);
-  if (textWords.length === 0) return 0;
+  const matchedWords = new Set();
+  if (textWords.length === 0) return { score: 0, matchedWords };
 
   const joined = textWords.join(" ");
   let score = 0;
@@ -89,6 +93,7 @@ const scoreText = (queryWords, text) => {
   for (const qWord of queryWords) {
     if (joined.includes(qWord)) {
       score += qWord.length >= 3 ? 10 : 4;
+      matchedWords.add(qWord);
       continue;
     }
 
@@ -101,10 +106,11 @@ const scoreText = (queryWords, text) => {
     const tolerance = qWord.length <= 4 ? 1 : 2;
     if (bestDistance <= tolerance) {
       score += Math.max(1, 6 - bestDistance);
+      matchedWords.add(qWord);
     }
   }
 
-  return score;
+  return { score, matchedWords };
 };
 
 // Scores a product against a search query using its name (weighted higher)
@@ -113,10 +119,28 @@ export const scoreProduct = (query, product) => {
   const queryWords = expandSynonyms(normalize(query));
   if (queryWords.length === 0) return 0;
 
-  const nameScore = scoreText(queryWords, product.name) * 2;
-  const descScore = scoreText(queryWords, product.description);
+  const nameResult = scoreText(queryWords, product.name);
+  const descResult = scoreText(queryWords, product.description);
 
-  return nameScore + descScore;
+  // Requires a real fraction of the query's own words to actually be
+  // present (exact or typo-tolerant) somewhere on the product -- not
+  // just that at least ONE word happened to overlap somewhere in a long
+  // description. Before this, a specific multi-word product-name search
+  // (e.g. "Veeba White Lilly Reversible Microfibre Comforter") returned
+  // the ENTIRE catalog (confirmed live, 2026-10-13: 162/162 products),
+  // just reordered -- any product whose description happened to contain
+  // one common word like "white" anywhere scored > 0 and was included,
+  // and SearchResults.jsx has no result cap/pagination, so a customer
+  // scrolling down would eventually see totally unrelated products
+  // (doormats, towels) "matching" their search. ceil(n/2) leaves
+  // single/two-word queries (the typical real search, and the actual
+  // case the typo-tolerance exists for) needing only one real match,
+  // same as before -- it only tightens longer, more specific queries.
+  const matchedWords = new Set([...nameResult.matchedWords, ...descResult.matchedWords]);
+  const requiredMatches = Math.ceil(queryWords.length / 2);
+  if (matchedWords.size < requiredMatches) return 0;
+
+  return nameResult.score * 2 + descResult.score;
 };
 
 export const rankProducts = (query, products) =>
