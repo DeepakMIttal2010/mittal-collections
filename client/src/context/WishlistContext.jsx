@@ -81,7 +81,15 @@ export function WishlistProvider({ children }) {
         : await addToGuestWishlist(getVisitorId(), product._id);
 
       if (response.success) {
-        setWishlistItems([...wishlistItemsRef.current, product]);
+        // Functional updater, not a plain array built from the ref —
+        // same reasoning as CartContext's addToCart (2026-10-13 deep bug
+        // sweep): two rapid calls can both pass the `exists` check above
+        // against the same stale ref before either one's state update has
+        // landed. The `some(...)` guard below additionally stops a
+        // duplicate entry if that happens anyway.
+        setWishlistItems((prev) =>
+          prev.some((item) => item._id === product._id) ? prev : [...prev, product],
+        );
 
         toast.success(t("Added to wishlist ❤️", "विशलिस्ट में जोड़ा गया ❤️"));
       } else {
@@ -98,9 +106,7 @@ export function WishlistProvider({ children }) {
         : await removeFromGuestWishlist(getVisitorId(), productId);
 
       if (response.success) {
-        setWishlistItems(
-          wishlistItemsRef.current.filter((item) => item._id !== productId),
-        );
+        setWishlistItems((prev) => prev.filter((item) => item._id !== productId));
 
         toast.success(t("Removed from wishlist", "विशलिस्ट से हटाया गया"));
       } else {
