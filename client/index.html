@@ -5,7 +5,20 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" type="image/png" href="/favicon-32.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Bedsheets, Curtains, Home Decor Online | Mittal Collections</title>
+    <!-- No static <title> here on purpose, same reasoning as the missing
+         static <meta name="description"> below — react-helmet-async
+         (see <Seo>, client/src/components/Seo.jsx) only ever manages
+         tags it rendered itself; it has no mechanism to find and remove
+         a pre-existing static one. A hardcoded title here was never
+         replaced once Helmet mounted, just left in place alongside
+         Helmet's own — two <title> elements on every single page,
+         confirmed live 2026-10-14 via a "SEO code audit" bug report.
+         The handful of pages that don't render <Seo> (account/orders/
+         returns/tickets — all noindex anyway, see render.js's
+         NOINDEX_ONLY_PATH_PATTERNS) now show a blank tab title until a
+         future pass gives them their own <Seo title> call; previously
+         they showed this generic homepage title, which was already
+         wrong for those pages, just not blank. -->
 
     <!-- "Add to Home Screen" support (Android/Chrome + iOS/Safari) -->
     <link rel="manifest" href="/manifest.json" />

@@ -113,7 +113,7 @@ function Home() {
     <>
       <Seo
         title="Bedsheets, Curtains, Home Decor Online"
-        description="Shop bedsheets, comforters, curtains, towels, cushions & doormats online — pan-India delivery, fast 24-hr Ghaziabad delivery, easy returns."
+        description="Shop bedsheets, comforters, curtains and home furnishings online at Mittal Collections. Explore stylish designs, quality fabrics and home essentials for every room."
         url={`${SITE_URL}/`}
         jsonLd={[organizationJsonLd, websiteJsonLd, localBusinessJsonLd]}
       />
