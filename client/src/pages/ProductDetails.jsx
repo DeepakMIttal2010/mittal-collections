@@ -477,15 +477,58 @@ function ProductDetails() {
   }
 
   if (!product) {
+    // A fixed, well-known set rather than an API fetch — this is an
+    // error page (rare, and already renders with no product data to
+    // work from), not worth a network round-trip just to suggest where
+    // else to look. Mirrors the top-level categories the main nav
+    // itself leads with.
+    const suggestedCategories = [
+      { slug: "bedsheets", label: t("Bedsheets", "बेडशीट") },
+      { slug: "curtains", label: t("Curtains", "पर्दे") },
+      { slug: "comforters", label: t("Comforters", "कम्फर्टर") },
+      { slug: "cushion-covers", label: t("Cushion Covers", "कुशन कवर") },
+    ];
+
     return (
-      <div className="p-16 text-center">
+      <div className="max-w-2xl mx-auto px-4 py-16 text-center">
         <Seo title="Product Not Found" noindex />
+
+        <p className="text-sm font-semibold text-amber-600 mb-3">404</p>
+
         <h2 className="text-xl font-semibold text-slate-800 mb-4">
           {t("Product Not Found", "प्रोडक्ट नहीं मिला")}
         </h2>
-        <Link to="/" className="text-blue-600 hover:underline">
+
+        <p className="text-slate-600 mb-8">
+          {t(
+            "This product may have been removed, sold out permanently, or the link may be incorrect.",
+            "यह प्रोडक्ट हटाया जा चुका है, हमेशा के लिए खत्म हो गया है, या लिंक गलत हो सकता है।",
+          )}
+        </p>
+
+        <Link
+          to="/"
+          className="inline-block bg-blue-900 hover:bg-blue-950 text-white font-semibold rounded-full px-8 py-3.5 transition-colors mb-8"
+        >
           {t("Back to Home", "होम पर वापस जाएं")}
         </Link>
+
+        <div>
+          <p className="text-sm text-slate-500 mb-3">
+            {t("Or browse a category:", "या एक कैटेगरी देखें:")}
+          </p>
+          <div className="flex flex-wrap justify-center gap-2">
+            {suggestedCategories.map((category) => (
+              <Link
+                key={category.slug}
+                to={`${isHindi ? "/hi" : ""}/category/${category.slug}`}
+                className="text-sm bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-full px-4 py-2 transition-colors"
+              >
+                {category.label}
+              </Link>
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
