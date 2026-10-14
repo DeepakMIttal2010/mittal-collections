@@ -29,8 +29,20 @@ const ALLOWED_TAGS = [
 
 const ALLOWED_ATTR = ["href", "target", "rel", "src", "alt"];
 
+// Built from the char code (not a literal character in this source
+// file) so it can never accidentally be "cleaned up" away by a future
+// editor pass — same reasoning as sanitizeArticleContent.js's own copy
+// of this constant.
+const NBSP_PATTERN = new RegExp(String.fromCharCode(160), "g");
+
+// Same nbsp-normalization as the server-side sanitizeArticleContent.js —
+// see that file's comment for the full explanation (Quill converts plain
+// spaces to a non-breaking space on load, which never offers a line-wrap
+// point and overflows the container). Runs here too since this is also
+// the last line of defense for any article saved before the server-side
+// fix shipped, same reasoning as the rest of this file's own comment above.
 export const sanitizeArticleHtml = (html) =>
-  DOMPurify.sanitize(html || "", {
+  DOMPurify.sanitize((html || "").replace(NBSP_PATTERN, " "), {
     ALLOWED_TAGS,
     ALLOWED_ATTR,
   });
