@@ -102,6 +102,10 @@ function Home() {
   };
 
   const localBusinessJsonLd = buildLocalBusinessJsonLd(settings, {
+    // Same PIN code GhaziabadStore.jsx already passes explicitly —
+    // Google's Rich Results Test flagged this page's address as missing
+    // the optional postalCode field (2026-10-14).
+    postalCode: "201012",
     includeAreaServed: true,
   });
 
