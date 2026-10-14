@@ -115,6 +115,9 @@ const AdminArticleForm = lazyWithReload(
   () => import("../pages/admin/AdminArticleForm"),
 );
 const AdminSettings = lazyWithReload(() => import("../pages/admin/AdminSettings"));
+const AdminPricingRules = lazyWithReload(
+  () => import("../pages/admin/AdminPricingRules"),
+);
 const AdminNewsletter = lazyWithReload(() => import("../pages/admin/AdminNewsletter"));
 const AdminRewardsSettings = lazyWithReload(
   () => import("../pages/admin/AdminRewardsSettings"),
@@ -302,6 +305,7 @@ function AppRoutes() {
           <Route path="articles/add" element={<AdminArticleForm />} />
           <Route path="articles/edit/:id" element={<AdminArticleForm />} />
           <Route path="settings" element={<AdminSettings />} />
+          <Route path="pricing-rules" element={<AdminPricingRules />} />
           <Route path="newsletter" element={<AdminNewsletter />} />
           <Route path="rewards-settings" element={<AdminRewardsSettings />} />
           <Route path="messages" element={<AdminMessages />} />
