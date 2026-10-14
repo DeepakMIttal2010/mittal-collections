@@ -77,8 +77,11 @@
 }
 
 .qty-box button {
-  width: 36px;
-  height: 36px;
+  /* 44px (Google's tap-target guidance), same reasoning as
+     ProductCard.css's .wishlist-btn — was 36px, too small on mobile for
+     a control meant to be tapped repeatedly. */
+  width: 44px;
+  height: 44px;
   border: none;
   background: #111;
   color: white;
@@ -89,6 +92,15 @@
 
 .qty-box button:hover {
   background: #2e7d32;
+}
+
+.qty-box button:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+}
+
+.qty-box button:disabled:hover {
+  background: #9ca3af;
 }
 
 .qty-box span {

@@ -227,13 +227,21 @@ function Cart() {
                 </div>
 
                 <div className="qty-box">
-                  <button onClick={() => decreaseQty(item._id)}>
+                  <button
+                    onClick={() => decreaseQty(item._id)}
+                    disabled={item.quantity <= 1}
+                    aria-label={t("Decrease quantity", "मात्रा घटाएं")}
+                  >
                     <FaMinus />
                   </button>
 
                   <span>{item.quantity}</span>
 
-                  <button onClick={() => increaseQty(item._id)}>
+                  <button
+                    onClick={() => increaseQty(item._id)}
+                    disabled={item.quantity >= item.stock}
+                    aria-label={t("Increase quantity", "मात्रा बढ़ाएं")}
+                  >
                     <FaPlus />
                   </button>
                 </div>
@@ -243,6 +251,7 @@ function Cart() {
                 <button
                   className="delete-btn"
                   onClick={() => removeFromCart(item._id)}
+                  aria-label={t("Remove from cart", "कार्ट से हटाएं")}
                 >
                   <FaTrash />
                 </button>
