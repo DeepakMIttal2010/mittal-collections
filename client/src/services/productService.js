@@ -437,6 +437,21 @@ export const getProductById = async (id) => {
       return { success: false, notFound: true, product: null };
     }
 
+    // A malformed id (not a 24-char hex ObjectId — e.g. a stale/typo'd
+    // URL, a scanner probing random paths) hits server/middleware/
+    // validateObjectId.js's shared `router.param` guard and gets a 400
+    // "Invalid ID format" before this route's own controller ever runs
+    // — that's correct REST semantics for an API client, but from a
+    // product PAGE's point of view it means exactly the same thing a
+    // real 404 does: nothing to show here. Without this, a URL like
+    // /product/seo-test-invalid-404 fell through to the generic
+    // `!response.ok` branch below and rendered "Something went wrong
+    // loading this product" (a retry-and-hope message) instead of a
+    // real Not Found page — confirmed live, 2026-10-14.
+    if (response.status === 400) {
+      return { success: false, notFound: true, product: null };
+    }
+
     if (!response.ok) {
       throw new Error(`Failed to fetch product (status ${response.status})`);
     }
