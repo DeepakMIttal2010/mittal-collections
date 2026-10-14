@@ -37,6 +37,12 @@ const ALLOWED_ATTRIBUTES = {
   img: ["src", "alt"],
 };
 
+// Built from the char code (not a literal character in this source
+// file) so the non-breaking space this is specifically hunting for
+// can never accidentally be the thing a future editor's "clean up
+// whitespace" pass silently normalizes away in this very line.
+const NBSP_PATTERN = new RegExp(String.fromCharCode(160), "g");
+
 export const sanitizeArticleContent = (html) =>
   sanitizeHtml(html || "", {
     allowedTags: ALLOWED_TAGS,
@@ -46,4 +52,18 @@ export const sanitizeArticleContent = (html) =>
     // allowlist above.
     allowedSchemes: ["http", "https", "mailto"],
     allowedSchemesByTag: { img: ["http", "https"] },
+    // Quill (AdminArticleForm.jsx's editor) has a documented habit of
+    // converting plain spaces to a non-breaking space when it loads
+    // existing HTML into the editor via dangerouslyPasteHTML —
+    // confirmed live, 2026-10-14: an article re-saved after being
+    // opened for editing came back with EVERY space replaced (699 of
+    // them in one case). A non-breaking space is, by definition, never
+    // a valid line-wrap point, so a long run of nbsp-joined words
+    // becomes one unbreakable "word" the browser can't wrap — the
+    // paragraph overflows its container instead of flowing normally.
+    // Normalizing back to a regular space here, at the point every
+    // article's content is written, makes this whole bug class
+    // structurally impossible regardless of what upstream editor/paste
+    // path produces it.
+    textFilter: (text) => text.replace(NBSP_PATTERN, " "),
   });
