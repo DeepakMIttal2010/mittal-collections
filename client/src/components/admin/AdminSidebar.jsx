@@ -33,6 +33,7 @@ import {
   FaAngleDoubleRight,
   FaUserShield,
   FaUserLock,
+  FaCalculator,
 } from "react-icons/fa";
 
 import { logoutAdmin, getCurrentAdminUser } from "../../services/authService";
@@ -108,7 +109,14 @@ const NAV_GROUPS = [
   },
   {
     label: "Configuration",
-    items: [{ to: "/admin/settings", icon: FaCog, label: "Settings" }],
+    items: [
+      { to: "/admin/settings", icon: FaCog, label: "Settings" },
+      {
+        to: "/admin/pricing-rules",
+        icon: FaCalculator,
+        label: "Cost/Price Auto-Fill",
+      },
+    ],
   },
 ];
 
