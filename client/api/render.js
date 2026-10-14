@@ -975,7 +975,7 @@ const buildMeta = async (path) => {
       // Google's ~60-char truncation point.
       title: `Bedsheets, Curtains, Home Decor Online | ${SITE_NAME}`,
       description:
-        "Shop bedsheets, comforters, curtains, towels, cushions & doormats online — pan-India delivery, fast 24-hr Ghaziabad delivery, easy returns.",
+        "Shop bedsheets, comforters, curtains and home furnishings online at Mittal Collections. Explore stylish designs, quality fabrics and home essentials for every room.",
       image: DEFAULT_IMAGE,
       url: `${SITE_URL}/`,
       ogType: "website",
@@ -984,7 +984,7 @@ const buildMeta = async (path) => {
       ),
       bodyHtml: buildHomeBodyHtml(
         "Bedsheets, Curtains, Home Decor Online",
-        "Shop bedsheets, comforters, curtains, towels, cushions & doormats online — pan-India delivery, fast 24-hr Ghaziabad delivery, easy returns.",
+        "Shop bedsheets, comforters, curtains and home furnishings online at Mittal Collections. Explore stylish designs, quality fabrics and home essentials for every room.",
         homeCategories,
         homeSubcategories,
       ),
