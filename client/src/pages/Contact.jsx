@@ -88,7 +88,9 @@ function Contact() {
   // Same @id as Home.jsx's HomeGoodsStore block (buildLocalBusinessJsonLd
   // emits it identically everywhere) — tells Google it's the SAME
   // business entity referenced from the homepage, not a second one.
-  const localBusinessJsonLd = buildLocalBusinessJsonLd(settings);
+  const localBusinessJsonLd = buildLocalBusinessJsonLd(settings, {
+    postalCode: "201012",
+  });
 
   return (
     <div className="max-w-6xl mx-auto px-4 pt-16 pb-20">

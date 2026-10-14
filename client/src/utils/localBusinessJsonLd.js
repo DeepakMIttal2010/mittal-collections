@@ -1,6 +1,12 @@
 import { DELIVERY_AREAS } from "./deliveryAreas";
 import { SITE_URL } from "./siteUrl";
 
+// Same asset as client/src/components/Seo.jsx's own DEFAULT_IMAGE
+// (duplicated rather than imported, same reasoning as DELIVERY_AREAS
+// being duplicated against render.js above — keep both in sync).
+const DEFAULT_IMAGE =
+  "https://res.cloudinary.com/y2gghpvz/image/upload/w_1200,h_630,c_fill,g_auto,q_auto,f_auto/v1788778399/mittal-collections/b7qfxz8qsnqigmpttuyb.jpg";
+
 // Google treats every emission of this same @id as describing ONE
 // business entity, not several — so Home.jsx/Contact.jsx/
 // GhaziabadStore.jsx each hand-rolling their own HomeGoodsStore block
@@ -84,6 +90,10 @@ export const buildLocalBusinessJsonLd = (
     telephone: settings.phone || undefined,
     email: settings.email || undefined,
     priceRange: "₹₹",
+    // Google's Rich Results Test flags this as a missing optional field
+    // on the LocalBusiness item (2026-10-14) — same fallback image
+    // every og:image/meta image on the site already uses.
+    image: DEFAULT_IMAGE,
     ...(openingHoursSpecification && { openingHoursSpecification }),
     address: {
       "@type": "PostalAddress",

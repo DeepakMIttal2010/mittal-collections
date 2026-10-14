@@ -101,6 +101,11 @@ const buildLocalBusinessJsonLd = (
     telephone: settings.phone || undefined,
     email: settings.email || undefined,
     priceRange: "₹₹",
+    // Google's Rich Results Test flags this as a missing optional field
+    // on the LocalBusiness item — reusing the same hero-banner crop
+    // every other image/og:image on the site already falls back to,
+    // rather than adding a new asset (2026-10-14).
+    image: DEFAULT_IMAGE,
     ...(openingHoursSpecification && { openingHoursSpecification }),
     address: {
       "@type": "PostalAddress",
@@ -951,6 +956,13 @@ const buildMeta = async (path) => {
     };
 
     const localBusinessJsonLd = buildLocalBusinessJsonLd(settings, {
+      // Same PIN code /contact and the Ghaziabad store page already pass
+      // explicitly — the homepage's own call was the one place still
+      // relying on settings.address's plain text (which happens to end
+      // in the PIN but isn't parsed into a structured field), which
+      // Google's Rich Results Test flags as a missing optional field on
+      // the Organization/LocalBusiness address (2026-10-14).
+      postalCode: "201012",
       includeAreaServed: true,
     });
 
@@ -1347,7 +1359,9 @@ const buildMeta = async (path) => {
     const settingsData = await fetchJson(`${API_BASE}/api/settings`);
     const settings = settingsData.settings || {};
 
-    const localBusinessJsonLd = buildLocalBusinessJsonLd(settings);
+    const localBusinessJsonLd = buildLocalBusinessJsonLd(settings, {
+      postalCode: "201012",
+    });
 
     const contactBreadcrumbItems = [{ name: "Home", path: "/" }, { name: staticPage.breadcrumb }];
     // A bit richer than buildSimpleBodyHtml's single paragraph -- the
