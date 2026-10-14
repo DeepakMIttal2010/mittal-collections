@@ -104,6 +104,16 @@ function getSizeHelpLinks(t) {
         shortLabel: t("Buying Guide", "खरीद गाइड"),
       },
     ],
+    // Comforters was the one category with zero article coverage at all
+    // (not just a missing reverse-link) until the guide below was written
+    // — same reverse-direction gap as the 4 entries above, closed as soon
+    // as the article existed to link to (2026-10-14).
+    comforters: [
+      {
+        to: "/articles/comforter-size-guide-single-vs-double-what-gsm-actually-means",
+        shortLabel: t("Size Guide", "साइज़ गाइड"),
+      },
+    ],
   };
 }
 
