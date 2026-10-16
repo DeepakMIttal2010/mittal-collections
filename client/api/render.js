@@ -627,11 +627,12 @@ const buildArticleListBodyHtml = (breadcrumbItems, heading, intro, articles, isH
 // currently not indexed" with no other non-JS-discoverable link at all
 // (see buildCategoryBodyHtml's own subcategory-links addition, the
 // same day, for the other half of this fix).
-const buildHomeBodyHtml = (heading, description, categories, subcategories) => {
+const buildHomeBodyHtml = (heading, description, categories, subcategories, isHindi = false) => {
+  const urlPrefix = isHindi ? "/hi" : "";
   const categoryLinksHtml = categories
     .map(
       (c) =>
-        `<li><a href="${SITE_URL}/category/${c.slug}">${escapeHtml(c.name)}</a></li>`,
+        `<li><a href="${SITE_URL}${urlPrefix}/category/${c.slug}">${escapeHtml(isHindi ? c.nameHi || c.name : c.name)}</a></li>`,
     )
     .join("\n");
 
@@ -640,7 +641,7 @@ const buildHomeBodyHtml = (heading, description, categories, subcategories) => {
     .map((s) => {
       const category = categoryMap.get(s.category?._id);
       if (!category) return "";
-      return `<li><a href="${SITE_URL}/category/${category.slug}/${s.slug}">${escapeHtml(s.name)}</a></li>`;
+      return `<li><a href="${SITE_URL}${urlPrefix}/category/${category.slug}/${s.slug}">${escapeHtml(isHindi ? s.nameHi || s.name : s.name)}</a></li>`;
     })
     .join("\n");
 
@@ -648,7 +649,7 @@ const buildHomeBodyHtml = (heading, description, categories, subcategories) => {
     <h1>${escapeHtml(heading)}</h1>
     <p>${escapeHtml(description)}</p>
     <nav aria-label="Shop by category">
-      <h2>Shop by Category</h2>
+      <h2>${isHindi ? "कैटेगरी के अनुसार खरीदें" : "Shop by Category"}</h2>
       <ul>
         ${categoryLinksHtml}
       </ul>
@@ -656,7 +657,7 @@ const buildHomeBodyHtml = (heading, description, categories, subcategories) => {
     ${
       shopByNeedHtml
         ? `<nav aria-label="Shop by need">
-      <h2>Shop by Need</h2>
+      <h2>${isHindi ? "ज़रूरत के अनुसार खरीदें" : "Shop by Need"}</h2>
       <ul>
         ${shopByNeedHtml}
       </ul>
@@ -822,16 +823,28 @@ const buildBreadcrumbJsonLd = (items) => ({
 const buildMeta = async (path) => {
   const parts = path.split("/").filter(Boolean);
 
-  if (parts.length === 0) {
-    // Homepage — mirrors Home.jsx's <Seo> call and HomeGoodsStore schema.
-    // A bare "/" is unreachable through vercel.json's `rewrites` no matter
-    // the bot user-agent `has` condition — Vercel serves the static
-    // index.html straight from its filesystem/edge cache for an exact "/"
-    // match, ahead of `rewrites` (/category and /articles don't have this
-    // problem since no static file exists at those paths to collide with).
-    // /client/middleware.js is what actually routes a bot's "/" request
-    // here now, since Edge Middleware runs ahead of that static-file
-    // lookup — this branch is what it lands on.
+  if (parts.length === 0 || (parts.length === 1 && parts[0] === "hi")) {
+    // Homepage (English "/" and Hindi "/hi") — mirrors Home.jsx's <Seo>
+    // call and HomeGoodsStore schema. A bare "/" is unreachable through
+    // vercel.json's `rewrites` no matter the bot user-agent `has`
+    // condition — Vercel serves the static index.html straight from its
+    // filesystem/edge cache for an exact "/" match, ahead of `rewrites`
+    // (/category and /articles don't have this problem since no static
+    // file exists at those paths to collide with). /client/middleware.js
+    // is what actually routes a bot's "/" request here now, since Edge
+    // Middleware runs ahead of that static-file lookup — this branch is
+    // what it lands on. "/hi" has no such static-file collision, so
+    // vercel.json's own bot `has` rewrite (added alongside this) routes
+    // it here directly, same as every other bot-prerendered route.
+    //
+    // "/hi" previously had no branch here at all (buildMeta fell through
+    // to the generic 404) and no matching <Route> in AppRoutes.jsx either
+    // — a real-browser visit to the bare Hindi homepage landed on the
+    // client-side NotFound page (200, noindexed, "Page Not Found") while
+    // Googlebot got a real 404 for the same URL. Found via a live-DOM
+    // Playwright audit (2026-10-16), fixed here plus AppRoutes.jsx,
+    // vercel.json and sitemap.js together.
+    const isHindi = parts.length === 1;
     const [settingsData, categoriesData, subcategoriesData, rewardsData] = await Promise.all([
       fetchJson(`${API_BASE}/api/settings`),
       fetchJson(`${API_BASE}/api/categories`),
@@ -966,28 +979,37 @@ const buildMeta = async (path) => {
       includeAreaServed: true,
     });
 
+    // Kept in sync with Home.jsx's <Seo title>/description (both
+    // languages) — this is the version Googlebot actually sees (it's
+    // always routed here, never to the real React app), so a mismatch
+    // here is the real SEO bug, not the client-side one. Bare title must
+    // stay short enough that appending " | SITE_NAME" doesn't push the
+    // final <title> past Google's ~60-char truncation point.
+    const homeTitle = isHindi
+      ? "बेडशीट, पर्दे, होम डेकोर ऑनलाइन"
+      : "Bedsheets, Curtains, Home Decor Online";
+    const homeDescription = isHindi
+      ? "Mittal Collections पर बेडशीट, कम्फर्टर, पर्दे और होम फर्निशिंग ऑनलाइन खरीदें। हर कमरे के लिए स्टाइलिश डिज़ाइन और क्वालिटी फैब्रिक एक्सप्लोर करें।"
+      : "Shop bedsheets, comforters, curtains and home furnishings online at Mittal Collections. Explore stylish designs, quality fabrics and home essentials for every room.";
+    const enHomeUrl = `${SITE_URL}/`;
+    const hiHomeUrl = `${SITE_URL}/hi`;
+
     return {
-      // Kept in sync with Home.jsx's <Seo title> — this is the version
-      // Googlebot actually sees (it's always routed here, never to the
-      // real React app), so a length mismatch here is the real SEO bug,
-      // not the client-side one. Bare title must stay short enough that
-      // appending " | SITE_NAME" doesn't push the final <title> past
-      // Google's ~60-char truncation point.
-      title: `Bedsheets, Curtains, Home Decor Online | ${SITE_NAME}`,
-      description:
-        "Shop bedsheets, comforters, curtains and home furnishings online at Mittal Collections. Explore stylish designs, quality fabrics and home essentials for every room.",
+      title: `${homeTitle} | ${SITE_NAME}`,
+      description: homeDescription,
       image: DEFAULT_IMAGE,
-      url: `${SITE_URL}/`,
+      url: isHindi ? hiHomeUrl : enHomeUrl,
+      lang: isHindi ? "hi" : "en",
+      alternateLangs: [
+        { lang: "en", url: enHomeUrl },
+        { lang: "hi", url: hiHomeUrl },
+        { lang: "x-default", url: enHomeUrl },
+      ],
       ogType: "website",
       jsonLd: [organizationJsonLd, websiteJsonLd, localBusinessJsonLd, faqJsonLd].filter(
         Boolean,
       ),
-      bodyHtml: buildHomeBodyHtml(
-        "Bedsheets, Curtains, Home Decor Online",
-        "Shop bedsheets, comforters, curtains and home furnishings online at Mittal Collections. Explore stylish designs, quality fabrics and home essentials for every room.",
-        homeCategories,
-        homeSubcategories,
-      ),
+      bodyHtml: buildHomeBodyHtml(homeTitle, homeDescription, homeCategories, homeSubcategories, isHindi),
     };
   }
 
@@ -1688,6 +1710,7 @@ const injectMeta = (html, meta) => {
     <meta name="description" content="${escapeHtml(meta.description)}" />
     <meta property="og:type" content="${meta.ogType}" />
     <meta property="og:site_name" content="${SITE_NAME}" />
+    <meta property="og:locale" content="${meta.lang === "hi" ? "hi_IN" : "en_US"}" />
     <meta property="og:title" content="${escapeHtml(meta.title)}" />
     <meta property="og:description" content="${escapeHtml(meta.description)}" />
     <meta property="og:image" content="${escapeHtml(meta.image)}" />
