@@ -1,6 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import Seo from "../components/Seo";
+import { useLanguage } from "../context/LanguageContext";
 import LazyMount from "../components/LazyMount";
 import Hero from "../components/Hero/Hero";
 import CategoryQuickLinks from "../components/CategoryQuickLinks/CategoryQuickLinks";
@@ -72,6 +74,10 @@ const websiteJsonLd = {
 
 function Home() {
   const [settings, setSettings] = useState({});
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { language, setLanguage } = useLanguage();
+  const isHindi = location.pathname === "/hi";
 
   useEffect(() => {
     const loadSettings = async () => {
@@ -82,6 +88,25 @@ function Home() {
 
     loadSettings();
   }, []);
+
+  // Same first-load-syncs-both-directions pattern as CategoryPage.jsx/
+  // ProductDetails.jsx (PR #279) — a visitor landing directly on "/hi"
+  // must see the toggle flip to Hindi immediately (not wait for a click),
+  // and a stale "hi" toggle left over from browsing a /hi/ page earlier
+  // must not leak Hindi content onto this plain "/" visit. Only a later,
+  // genuine toggle click (after the ref is set) navigates the URL.
+  const hasSyncedLanguageRef = useRef(false);
+  useEffect(() => {
+    if (!hasSyncedLanguageRef.current) {
+      hasSyncedLanguageRef.current = true;
+      if ((language === "hi") !== isHindi) setLanguage(isHindi ? "hi" : "en");
+      return;
+    }
+
+    const wantHindi = language === "hi";
+    if (wantHindi === isHindi) return;
+    navigate(wantHindi ? "/hi" : "/", { replace: true });
+  }, [isHindi, language, navigate, setLanguage]);
 
   // Base fields always present (see baseOrganizationJsonLd's comment);
   // sameAs only gets added once settings load, same social links
@@ -109,12 +134,34 @@ function Home() {
     includeAreaServed: true,
   });
 
+  // Kept in sync with render.js's buildMeta homepage branch by hand (that
+  // serverless function doesn't share a bundle with client/src) — see
+  // its own comment for why a mismatch here is the bot-visible bug, not
+  // this one.
+  const enHomeUrl = `${SITE_URL}/`;
+  const hiHomeUrl = `${SITE_URL}/hi`;
+  const alternateLangs = [
+    { lang: "en", url: enHomeUrl },
+    { lang: "hi", url: hiHomeUrl },
+    { lang: "x-default", url: enHomeUrl },
+  ];
+
   return (
     <>
       <Seo
-        title="Bedsheets, Curtains, Home Decor Online"
-        description="Shop bedsheets, comforters, curtains and home furnishings online at Mittal Collections. Explore stylish designs, quality fabrics and home essentials for every room."
-        url={`${SITE_URL}/`}
+        title={
+          isHindi
+            ? "बेडशीट, पर्दे, होम डेकोर ऑनलाइन"
+            : "Bedsheets, Curtains, Home Decor Online"
+        }
+        description={
+          isHindi
+            ? "Mittal Collections पर बेडशीट, कम्फर्टर, पर्दे और होम फर्निशिंग ऑनलाइन खरीदें। हर कमरे के लिए स्टाइलिश डिज़ाइन और क्वालिटी फैब्रिक एक्सप्लोर करें।"
+            : "Shop bedsheets, comforters, curtains and home furnishings online at Mittal Collections. Explore stylish designs, quality fabrics and home essentials for every room."
+        }
+        url={isHindi ? hiHomeUrl : enHomeUrl}
+        lang={isHindi ? "hi" : "en"}
+        alternateLangs={alternateLangs}
         jsonLd={[organizationJsonLd, websiteJsonLd, localBusinessJsonLd]}
       />
       <Hero />
