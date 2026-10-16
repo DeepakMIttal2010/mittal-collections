@@ -70,6 +70,10 @@ function Seo({
 
       <meta property="og:type" content={ogType} />
       <meta property="og:site_name" content={SITE_NAME} />
+      {/* Facebook/WhatsApp default a missing og:locale to en_US — wrong
+          on every /hi/ page, which previously declared no locale at all
+          (found via a bot-rendered structured-data audit, 2026-10-16). */}
+      <meta property="og:locale" content={htmlLang === "hi" ? "hi_IN" : "en_US"} />
       <meta property="og:title" content={fullTitle} />
       {description && <meta property="og:description" content={description} />}
       <meta property="og:image" content={image || DEFAULT_IMAGE} />

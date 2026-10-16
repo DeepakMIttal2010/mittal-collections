@@ -164,6 +164,12 @@ function AppRoutes() {
       <Routes>
         <Route element={<MainLayout />}>
           <Route path="/" element={<Home />} />
+          {/* Hindi homepage — same component, self-detects the /hi prefix
+              via useLocation() and syncs the language toggle on first
+              load, same pattern as the category/article/product Hindi
+              routes below. Previously missing entirely: a visit to bare
+              "/hi" fell through to the catch-all NotFound route. */}
+          <Route path="/hi" element={<Home />} />
           {/* These 6 routes mirror vercel.json's top-level "redirects"
               array exactly. In production/preview, Vercel's edge-level
               301 always resolves the request before the SPA ever loads,

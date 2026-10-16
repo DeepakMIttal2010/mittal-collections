@@ -15,8 +15,11 @@ function ProductGrid({ products = [] }) {
 
   return (
     <div className="product-grid">
-      {products.map((product) => (
-        <ProductCard key={product._id} product={product} />
+      {products.map((product, index) => (
+        // First 4 cards = above the fold on every real breakpoint this
+        // grid uses (2 cols mobile, more on desktop) -- see
+        // ProductCard.jsx's own comment for why this matters for LCP.
+        <ProductCard key={product._id} product={product} priority={index < 4} />
       ))}
     </div>
   );
