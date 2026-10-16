@@ -31,7 +31,7 @@ import { useLanguage } from "../../context/LanguageContext";
 // ~40ms to ~900ms).
 const QuickViewModal = lazy(() => import("./QuickViewModal"));
 
-function ProductCard({ product }) {
+function ProductCard({ product, priority = false }) {
   const navigate = useNavigate();
   // Self-detected, not a prop -- this card renders inside both English
   // and Hindi category grids (and ProductDetails.jsx's own related-
@@ -80,7 +80,16 @@ function ProductCard({ product }) {
             srcSet={imgSrcSet(product.image, [200, 400, 600])}
             sizes="(min-width: 1024px) 270px, (min-width: 768px) 29vw, 45vw"
             alt={t(product.name, product.nameHi)}
-            loading="lazy"
+            // Every card used to hardcode loading="lazy", including the
+            // first few above-the-fold ones -- on a category/listing page
+            // whose LCP element is almost always one of those first card
+            // images, lazy-loading delays the browser even starting that
+            // fetch until layout/intersection is known, directly hurting
+            // LCP (Lighthouse mobile: category 9.4s, product-page related-
+            // products row less critical). Callers that know a card is
+            // above the fold (ProductGrid, by index) pass `priority`.
+            loading={priority ? "eager" : "lazy"}
+            fetchPriority={priority ? "high" : undefined}
             onError={handleImageError}
           />
 

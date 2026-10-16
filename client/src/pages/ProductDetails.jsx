@@ -19,7 +19,7 @@ import { sanitizeDescriptionHtml } from "../utils/sanitizeDescriptionHtml";
 import { handleImageError } from "../utils/imageFallback";
 import { toast } from "react-toastify";
 import { trackViewItem } from "../utils/analytics";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useParams, useNavigate, useLocation, Link, Navigate } from "react-router-dom";
 import {
   FaStar,
@@ -120,6 +120,17 @@ function ProductDetails() {
   const { toggleCompare, isInCompare } = useCompare();
   const { wishlistItems, addToWishlist, removeFromWishlist } = useWishlist();
   const { user, isLoggedIn } = useAuth();
+
+  // Removes render.js's server-rendered prepaint (a plain DOM sibling of
+  // #root, never inside it -- see render.js's buildProductPrepaintHtml
+  // for why) synchronously before the browser's next paint, same pattern
+  // as Hero.jsx's own cleanup for the homepage's SSR hero placeholder. A
+  // no-op on every page except a first load of a product page (the only
+  // route render.js prepaints for real users today) and on any later
+  // remount once it's already gone.
+  useLayoutEffect(() => {
+    document.getElementById("product-ssr-placeholder")?.remove();
+  }, []);
 
   useEffect(() => {
     getPublicRewardsInfo().then((response) => {
