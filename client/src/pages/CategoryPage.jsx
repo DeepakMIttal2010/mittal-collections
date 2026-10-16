@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Link, Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
 import { getCategories } from "../services/categoryService";
 import { getSubcategories } from "../services/subcategoryService";
@@ -260,12 +260,41 @@ function CategoryPage() {
   const [minRating, setMinRating] = useState(null);
   const [draftMinRating, setDraftMinRating] = useState(null);
 
+  // Removes render.js's server-rendered prepaint (a plain DOM sibling of
+  // #root, never inside it) synchronously before the browser's next
+  // paint, same pattern as Hero.jsx/ProductDetails.jsx's own cleanup for
+  // their SSR placeholders. A no-op on every route except a first load
+  // of a category page and on any later remount once it's already gone.
+  useLayoutEffect(() => {
+    document.getElementById("category-ssr-placeholder")?.remove();
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
 
     const load = async () => {
+      // render.js's buildCategoryMeta already fetched categories/
+      // subcategories/products for this exact category+subcategory to
+      // build the page's meta tags server-side (real-user category pages
+      // route through it too now, not just bots — see vercel.json/
+      // render.js's 2026-10-16 LCP-prepaint work, same pattern already
+      // shipped for ProductDetails.jsx). Reusing it here skips 2-3
+      // redundant round trips on first load. Checked against the CURRENT
+      // categorySlug/subcategorySlug (not just existence) so a client-
+      // side SPA navigation to a different category never reuses a
+      // stale preload — single-use, cleared immediately either way, same
+      // safety pattern as productService.js's getProductById.
+      const preloaded = window.__PRELOADED_CATEGORY__;
+      const hasMatchingPreload =
+        !!preloaded &&
+        preloaded.categorySlug === categorySlug &&
+        (preloaded.subcategorySlug || null) === (subcategorySlug || null);
+      window.__PRELOADED_CATEGORY__ = undefined;
+
       const [catRes, settingsRes] = await Promise.all([
-        getCategories(),
+        hasMatchingPreload
+          ? Promise.resolve({ success: true, categories: preloaded.categories })
+          : getCategories(),
         getSiteSettings(),
       ]);
 
@@ -289,7 +318,9 @@ function CategoryPage() {
         return;
       }
 
-      const subRes = await getSubcategories();
+      const subRes = hasMatchingPreload
+        ? { success: true, subcategories: preloaded.subcategories }
+        : await getSubcategories();
       const categorySubcategories = subRes.subcategories
         .filter((s) => s.category?._id === matchedCategory._id)
         .sort((a, b) => a.displayOrder - b.displayOrder);
@@ -298,9 +329,11 @@ function CategoryPage() {
         ? categorySubcategories.find((s) => s.slug === subcategorySlug)
         : null;
 
-      const productsRes = matchedSubcategory
-        ? await getProductsBySubcategory(matchedSubcategory._id)
-        : await getProductsByCategory(matchedCategory._id);
+      const productsRes = hasMatchingPreload
+        ? { success: true, products: preloaded.products }
+        : matchedSubcategory
+          ? await getProductsBySubcategory(matchedSubcategory._id)
+          : await getProductsByCategory(matchedCategory._id);
 
       // Same bundle-discount rules the product-detail page's "Complete
       // the Look" banner uses (see ProductDetails.jsx) — surfaced here

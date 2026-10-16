@@ -18,6 +18,7 @@ const API_BASE =
 
 const STATIC_ROUTES = [
   "/",
+  "/hi",
   "/trending",
   "/clearance-sale",
   "/new-arrivals",
@@ -126,17 +127,26 @@ const urlEntry = (loc, alternates, lastmod, images, imageTitle) => {
   return `  <url><loc>${SITE_URL}${loc}</loc>${lastmodTag}${altLinks}${imageTags}</url>`;
 };
 
-// "/articles" and "/hi/articles" are the one real URL pair among
-// STATIC_ROUTES (every other static route has no Hindi counterpart at
-// all) -- every per-article pair below already gets its alternates
-// wired up correctly, but these two LISTING pages were being built via
-// the plain `urlEntry(loc)` call just below with no alternates arg, so
-// Google saw zero declared relationship between them despite the
-// per-article pages getting it right.
+// "/articles" and "/hi/articles" are a real URL pair among STATIC_ROUTES
+// (every other static route has no Hindi counterpart) -- every
+// per-article pair below already gets its alternates wired up correctly,
+// but these two LISTING pages were being built via the plain
+// `urlEntry(loc)` call just below with no alternates arg, so Google saw
+// zero declared relationship between them despite the per-article pages
+// getting it right.
 const ARTICLES_LISTING_ALTERNATES = [
   { lang: "en", href: "/articles" },
   { lang: "hi", href: "/hi/articles" },
   { lang: "x-default", href: "/articles" },
+];
+
+// "/" and "/hi" — the homepage pair. Added alongside the "/hi" route/
+// render.js branch fix (2026-10-16); previously "/hi" wasn't even in
+// STATIC_ROUTES, so it had no sitemap entry at all.
+const HOME_ALTERNATES = [
+  { lang: "en", href: "/" },
+  { lang: "hi", href: "/hi" },
+  { lang: "x-default", href: "/" },
 ];
 
 export default async function handler(req, res) {
@@ -144,7 +154,9 @@ export default async function handler(req, res) {
     ...STATIC_ROUTES.map((loc) =>
       urlEntry(
         loc,
-        loc === "/articles" || loc === "/hi/articles"
+        loc === "/" || loc === "/hi"
+          ? HOME_ALTERNATES
+          : loc === "/articles" || loc === "/hi/articles"
           ? ARTICLES_LISTING_ALTERNATES
           : undefined,
       ),

@@ -18,8 +18,20 @@ import sanitizeHtml from "sanitize-html";
 // the database here. Extend both together if the toolbar ever changes.
 const ALLOWED_TAGS = ["p", "br", "strong", "em", "ol", "ul", "li"];
 
+// Built from the char code, not a literal character, for the same
+// reason sanitizeArticleContent.js's own copy of this pattern is — see
+// that file's comment for the full story (Quill converts plain spaces
+// to nbsp when loading existing HTML into the editor for a re-save,
+// which makes a long run of words unbreakable and overflows its
+// container). Confirmed live in PRODUCT descriptions too, 2026-10-16
+// (4 Diwan Bedsheet products, every space replaced) — this sanitizer
+// was never given the same fix when the article one was, despite
+// sharing the identical Quill-editor-round-trip root cause.
+const NBSP_PATTERN = new RegExp(String.fromCharCode(160), "g");
+
 export const sanitizeProductDescription = (html) =>
   sanitizeHtml(html || "", {
     allowedTags: ALLOWED_TAGS,
     allowedAttributes: {},
+    textFilter: (text) => text.replace(NBSP_PATTERN, " "),
   });
