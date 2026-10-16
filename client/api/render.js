@@ -237,8 +237,20 @@ const isCloudinaryUploadUrl = (p) => {
   }
 };
 
+// Mirrors client/src/services/api.js's imgUrl EXACTLY, including its
+// f_auto -> f_webp rewrite (that file's own comment explains why: f_auto
+// content-negotiation wasn't reliably varying by Accept at Vercel's edge
+// cache, confirmed live in Deep SEO Round 6). A prepaint image must
+// resolve to the IDENTICAL URL the real component requests once it
+// mounts, or the browser treats them as two different resources and
+// downloads the same photo twice instead of reusing the prepaint's
+// already-in-flight/cached request -- found and fixed here, 2026-10-16,
+// after the product-page prepaint shipped with a literal "f_auto" that
+// never got this rewrite.
 const cloudinaryTransform = (p, transform) =>
-  isCloudinaryUploadUrl(p) ? p.replace("/upload/", `/upload/${transform}/`) : p;
+  isCloudinaryUploadUrl(p)
+    ? p.replace("/upload/", `/upload/${transform.replace(/f_auto\b/, "f_webp")}/`)
+    : p;
 
 // A plain DOM sibling of #root (same "never place inside #root" rule
 // scripts/build-home-html.mjs's own header comment explains in full --
@@ -276,6 +288,61 @@ function buildProductPrepaintHtml(mainImage) {
               fetchpriority="high"
               class="w-full h-full object-cover"
             />
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+
+// Same reconciliation-safe sibling-of-#root technique as
+// buildProductPrepaintHtml above -- CategoryPage.jsx's own
+// useLayoutEffect removes `#category-ssr-placeholder` on mount. Only
+// reproduces the product-image GRID (the actual LCP element on a
+// listing page, same conclusion ProductGrid.jsx's own `priority` prop
+// comment reaches), using ProductGrid.css/ProductCard.css's real class
+// names (.product-grid/.product-card/.product-image) -- unlike
+// ProductDetails' Tailwind-based layout, this grid's CSS is bespoke,
+// but it's loaded in the same blocking stylesheet either way, so reusing
+// the real classes works the same way. Wraps it in the same
+// `lg:flex lg:gap-8` + hidden-below-lg `<aside>` CategoryPage.jsx uses,
+// so desktop reserves the sidebar's width instead of the grid jumping
+// sideways once the real page mounts -- on mobile (where this fix
+// actually matters most, per the Lighthouse numbers that motivated it)
+// that `<aside>` is `hidden` and takes no space, so the grid is already
+// full-width exactly like the real one will be.
+function buildCategoryPrepaintHtml(products) {
+  const priorityProducts = products.slice(0, 4).filter((p) => p.image);
+  if (priorityProducts.length === 0) return "";
+
+  const cards = priorityProducts
+    .map((p, i) => {
+      const src = cloudinaryTransform(imgUrl(p.image), "w_400,q_auto,f_auto");
+      const srcset = isCloudinaryUploadUrl(imgUrl(p.image))
+        ? [200, 400, 600]
+            .map((w) => `${cloudinaryTransform(imgUrl(p.image), `w_${w},q_auto,f_auto`)} ${w}w`)
+            .join(", ")
+        : "";
+      return `<div class="product-card">
+        <div class="product-image">
+          <img
+            src="${escapeHtml(src)}"
+            ${srcset ? `srcset="${escapeHtml(srcset)}"` : ""}
+            sizes="(min-width: 1024px) 270px, (min-width: 768px) 29vw, 45vw"
+            alt=""
+            ${i === 0 ? 'fetchpriority="high"' : ""}
+            class="w-full h-full object-cover"
+          />
+        </div>
+      </div>`;
+    })
+    .join("\n");
+
+  return `<div id="category-ssr-placeholder" class="max-w-7xl mx-auto px-4 py-8" aria-hidden="true">
+      <div class="lg:flex lg:gap-8 lg:items-start">
+        <aside class="hidden lg:block w-64 shrink-0"></aside>
+        <div class="flex-1 min-w-0">
+          <div class="product-grid">
+            ${cards}
           </div>
         </div>
       </div>
@@ -614,6 +681,24 @@ async function buildCategoryMeta({ categorySlug, subcategorySlug, isHindi }) {
       categorySubcategories,
       isHindi,
     ),
+    // Real-user-only, same pattern as buildProductMeta's own preloadData/
+    // prepaintHtml (see its comment) -- categorySlug/subcategorySlug ride
+    // along so CategoryPage.jsx can confirm this preload actually matches
+    // the page it landed on before using it, same safety check
+    // productService.js's getProductById does by `_id`. Deliberately NOT
+    // including settings/bundleRules here (CategoryPage.jsx's own
+    // Promise.all also fetches those) -- the bundle-discount banner isn't
+    // the LCP element and isn't worth replicating render.js's reach into
+    // settings just to shave one more parallel fetch.
+    preloadData: {
+      categorySlug: category.slug,
+      subcategorySlug: subcategory?.slug || null,
+      categories: data.categories,
+      subcategories: subRes.subcategories || [],
+      products: categoryProducts,
+    },
+    preloadKey: "__PRELOADED_CATEGORY__",
+    prepaintHtml: buildCategoryPrepaintHtml(categoryProducts),
   };
 }
 
