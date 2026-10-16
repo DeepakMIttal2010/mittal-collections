@@ -421,6 +421,24 @@ export const subscribeStockAlert = async (productId, email) => {
 };
 
 export const getProductById = async (id) => {
+  // render.js's buildProductMeta already fetched this exact product to
+  // build the page's meta tags server-side (real-user product pages now
+  // route through it too, not just bots — see vercel.json/render.js's
+  // 2026-10-16 LCP-prepaint work) — re-fetching it here would be a
+  // wasted round trip on first load. Single-use: cleared immediately so
+  // a later client-side SPA navigation to a DIFFERENT product (e.g.
+  // clicking a related product) always does a real fetch instead of
+  // reusing stale data left over from the page's initial server render.
+  // The `_id` check guards the (unlikely but possible) case where this
+  // runs for an id other than the one the global was preloaded for.
+  if (typeof window !== "undefined" && window.__PRELOADED_PRODUCT__) {
+    const preloaded = window.__PRELOADED_PRODUCT__;
+    window.__PRELOADED_PRODUCT__ = undefined;
+    if (preloaded._id === id) {
+      return { success: true, notFound: false, product: preloaded };
+    }
+  }
+
   try {
     const response = await fetch(`${API_BASE_URL}/products/${id}`);
 

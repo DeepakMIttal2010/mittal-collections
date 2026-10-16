@@ -7,8 +7,12 @@
 // the actual page.
 //
 // Routed here only for known bot user-agents (see vercel.json `has`
-// rules); real visitors always get the normal SPA and never touch this
-// function.
+// rules) for every page type EXCEPT product pages, which route every
+// visitor here — bot or real browser alike (2026-10-16, for LCP: see
+// buildProductPrepaintHtml/getProductById's own comments). This
+// function's own isBot check (BOT_USER_AGENT_RE, inside the handler)
+// is what actually tells the two apart now that vercel.json's routing
+// layer no longer always does.
 
 const SITE_NAME = "Mittal Collections";
 const SITE_URL = "https://www.mittalcollections.com";
@@ -218,6 +222,65 @@ const imgUrl = (path) => {
   if (!path) return path;
   return path.startsWith("http") ? path : `${API_BASE}${path}`;
 };
+
+// Same standalone Cloudinary-transform helpers as
+// scripts/build-home-html.mjs's hero-snippet builder (duplicated rather
+// than imported for the same reason documented there: that script runs
+// as plain Node outside Vite, and this file is a separate Vercel
+// serverless function — neither shares a bundle with client/src).
+const isCloudinaryUploadUrl = (p) => {
+  try {
+    const u = new URL(p);
+    return u.hostname === "res.cloudinary.com" && u.pathname.includes("/upload/");
+  } catch {
+    return false;
+  }
+};
+
+const cloudinaryTransform = (p, transform) =>
+  isCloudinaryUploadUrl(p) ? p.replace("/upload/", `/upload/${transform}/`) : p;
+
+// A plain DOM sibling of #root (same "never place inside #root" rule
+// scripts/build-home-html.mjs's own header comment explains in full --
+// client/src/main.jsx uses createRoot().render(), not hydrateRoot(), so
+// anything placed INSIDE #root survives mounting as orphaned, duplicate
+// markup instead of being reconciled away). ProductDetails.jsx's own
+// useLayoutEffect removes `#product-ssr-placeholder` synchronously
+// before the browser's next paint -- a no-op once this is already gone.
+// Deliberately only reproduces the single image block (the actual LCP
+// element), using the exact Tailwind classes ProductDetails.jsx's own
+// gallery container already uses (compiled CSS loads before body
+// content either way, so these are already styled) -- not the full
+// gallery/thumbnails/zoom UI, which would mean hand-maintaining a
+// second copy of a page that changes far more often than the simple,
+// stable homepage hero this same pattern was first built for.
+function buildProductPrepaintHtml(mainImage) {
+  if (!mainImage) return "";
+
+  const src = cloudinaryTransform(mainImage, "w_1600,q_auto,f_auto");
+  const srcset = isCloudinaryUploadUrl(mainImage)
+    ? [400, 800, 1200, 1600]
+        .map((w) => `${cloudinaryTransform(mainImage, `w_${w},q_auto,f_auto`)} ${w}w`)
+        .join(", ")
+    : "";
+
+  return `<div id="product-ssr-placeholder" class="w-full min-w-0 max-w-6xl mx-auto px-4 py-12" aria-hidden="true">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-12">
+        <div class="min-w-0">
+          <div class="relative overflow-hidden rounded-xl border border-slate-200 bg-white aspect-square">
+            <img
+              src="${escapeHtml(src)}"
+              ${srcset ? `srcset="${escapeHtml(srcset)}"` : ""}
+              sizes="(min-width: 1024px) 50vw, 100vw"
+              alt=""
+              fetchpriority="high"
+              class="w-full h-full object-cover"
+            />
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
 
 // Shared by every buildXBodyHtml helper below — a real <nav> a crawler's
 // non-JS first pass can read, not just the JSON-LD BreadcrumbList
@@ -627,11 +690,12 @@ const buildArticleListBodyHtml = (breadcrumbItems, heading, intro, articles, isH
 // currently not indexed" with no other non-JS-discoverable link at all
 // (see buildCategoryBodyHtml's own subcategory-links addition, the
 // same day, for the other half of this fix).
-const buildHomeBodyHtml = (heading, description, categories, subcategories) => {
+const buildHomeBodyHtml = (heading, description, categories, subcategories, isHindi = false) => {
+  const urlPrefix = isHindi ? "/hi" : "";
   const categoryLinksHtml = categories
     .map(
       (c) =>
-        `<li><a href="${SITE_URL}/category/${c.slug}">${escapeHtml(c.name)}</a></li>`,
+        `<li><a href="${SITE_URL}${urlPrefix}/category/${c.slug}">${escapeHtml(isHindi ? c.nameHi || c.name : c.name)}</a></li>`,
     )
     .join("\n");
 
@@ -640,7 +704,7 @@ const buildHomeBodyHtml = (heading, description, categories, subcategories) => {
     .map((s) => {
       const category = categoryMap.get(s.category?._id);
       if (!category) return "";
-      return `<li><a href="${SITE_URL}/category/${category.slug}/${s.slug}">${escapeHtml(s.name)}</a></li>`;
+      return `<li><a href="${SITE_URL}${urlPrefix}/category/${category.slug}/${s.slug}">${escapeHtml(isHindi ? s.nameHi || s.name : s.name)}</a></li>`;
     })
     .join("\n");
 
@@ -648,7 +712,7 @@ const buildHomeBodyHtml = (heading, description, categories, subcategories) => {
     <h1>${escapeHtml(heading)}</h1>
     <p>${escapeHtml(description)}</p>
     <nav aria-label="Shop by category">
-      <h2>Shop by Category</h2>
+      <h2>${isHindi ? "कैटेगरी के अनुसार खरीदें" : "Shop by Category"}</h2>
       <ul>
         ${categoryLinksHtml}
       </ul>
@@ -656,7 +720,7 @@ const buildHomeBodyHtml = (heading, description, categories, subcategories) => {
     ${
       shopByNeedHtml
         ? `<nav aria-label="Shop by need">
-      <h2>Shop by Need</h2>
+      <h2>${isHindi ? "ज़रूरत के अनुसार खरीदें" : "Shop by Need"}</h2>
       <ul>
         ${shopByNeedHtml}
       </ul>
@@ -822,16 +886,28 @@ const buildBreadcrumbJsonLd = (items) => ({
 const buildMeta = async (path) => {
   const parts = path.split("/").filter(Boolean);
 
-  if (parts.length === 0) {
-    // Homepage — mirrors Home.jsx's <Seo> call and HomeGoodsStore schema.
-    // A bare "/" is unreachable through vercel.json's `rewrites` no matter
-    // the bot user-agent `has` condition — Vercel serves the static
-    // index.html straight from its filesystem/edge cache for an exact "/"
-    // match, ahead of `rewrites` (/category and /articles don't have this
-    // problem since no static file exists at those paths to collide with).
-    // /client/middleware.js is what actually routes a bot's "/" request
-    // here now, since Edge Middleware runs ahead of that static-file
-    // lookup — this branch is what it lands on.
+  if (parts.length === 0 || (parts.length === 1 && parts[0] === "hi")) {
+    // Homepage (English "/" and Hindi "/hi") — mirrors Home.jsx's <Seo>
+    // call and HomeGoodsStore schema. A bare "/" is unreachable through
+    // vercel.json's `rewrites` no matter the bot user-agent `has`
+    // condition — Vercel serves the static index.html straight from its
+    // filesystem/edge cache for an exact "/" match, ahead of `rewrites`
+    // (/category and /articles don't have this problem since no static
+    // file exists at those paths to collide with). /client/middleware.js
+    // is what actually routes a bot's "/" request here now, since Edge
+    // Middleware runs ahead of that static-file lookup — this branch is
+    // what it lands on. "/hi" has no such static-file collision, so
+    // vercel.json's own bot `has` rewrite (added alongside this) routes
+    // it here directly, same as every other bot-prerendered route.
+    //
+    // "/hi" previously had no branch here at all (buildMeta fell through
+    // to the generic 404) and no matching <Route> in AppRoutes.jsx either
+    // — a real-browser visit to the bare Hindi homepage landed on the
+    // client-side NotFound page (200, noindexed, "Page Not Found") while
+    // Googlebot got a real 404 for the same URL. Found via a live-DOM
+    // Playwright audit (2026-10-16), fixed here plus AppRoutes.jsx,
+    // vercel.json and sitemap.js together.
+    const isHindi = parts.length === 1;
     const [settingsData, categoriesData, subcategoriesData, rewardsData] = await Promise.all([
       fetchJson(`${API_BASE}/api/settings`),
       fetchJson(`${API_BASE}/api/categories`),
@@ -966,28 +1042,37 @@ const buildMeta = async (path) => {
       includeAreaServed: true,
     });
 
+    // Kept in sync with Home.jsx's <Seo title>/description (both
+    // languages) — this is the version Googlebot actually sees (it's
+    // always routed here, never to the real React app), so a mismatch
+    // here is the real SEO bug, not the client-side one. Bare title must
+    // stay short enough that appending " | SITE_NAME" doesn't push the
+    // final <title> past Google's ~60-char truncation point.
+    const homeTitle = isHindi
+      ? "बेडशीट, पर्दे, होम डेकोर ऑनलाइन"
+      : "Bedsheets, Curtains, Home Decor Online";
+    const homeDescription = isHindi
+      ? "Mittal Collections पर बेडशीट, कम्फर्टर, पर्दे और होम फर्निशिंग ऑनलाइन खरीदें। हर कमरे के लिए स्टाइलिश डिज़ाइन और क्वालिटी फैब्रिक एक्सप्लोर करें।"
+      : "Shop bedsheets, comforters, curtains and home furnishings online at Mittal Collections. Explore stylish designs, quality fabrics and home essentials for every room.";
+    const enHomeUrl = `${SITE_URL}/`;
+    const hiHomeUrl = `${SITE_URL}/hi`;
+
     return {
-      // Kept in sync with Home.jsx's <Seo title> — this is the version
-      // Googlebot actually sees (it's always routed here, never to the
-      // real React app), so a length mismatch here is the real SEO bug,
-      // not the client-side one. Bare title must stay short enough that
-      // appending " | SITE_NAME" doesn't push the final <title> past
-      // Google's ~60-char truncation point.
-      title: `Bedsheets, Curtains, Home Decor Online | ${SITE_NAME}`,
-      description:
-        "Shop bedsheets, comforters, curtains and home furnishings online at Mittal Collections. Explore stylish designs, quality fabrics and home essentials for every room.",
+      title: `${homeTitle} | ${SITE_NAME}`,
+      description: homeDescription,
       image: DEFAULT_IMAGE,
-      url: `${SITE_URL}/`,
+      url: isHindi ? hiHomeUrl : enHomeUrl,
+      lang: isHindi ? "hi" : "en",
+      alternateLangs: [
+        { lang: "en", url: enHomeUrl },
+        { lang: "hi", url: hiHomeUrl },
+        { lang: "x-default", url: enHomeUrl },
+      ],
       ogType: "website",
       jsonLd: [organizationJsonLd, websiteJsonLd, localBusinessJsonLd, faqJsonLd].filter(
         Boolean,
       ),
-      bodyHtml: buildHomeBodyHtml(
-        "Bedsheets, Curtains, Home Decor Online",
-        "Shop bedsheets, comforters, curtains and home furnishings online at Mittal Collections. Explore stylish designs, quality fabrics and home essentials for every room.",
-        homeCategories,
-        homeSubcategories,
-      ),
+      bodyHtml: buildHomeBodyHtml(homeTitle, homeDescription, homeCategories, homeSubcategories, isHindi),
     };
   }
 
@@ -1303,6 +1388,19 @@ const buildMeta = async (path) => {
         galleryImages,
         isHindi,
       ),
+      // Real-user-only fields (bots never run JS, so these are wasted
+      // bytes for them, but injectMeta writes them unconditionally since
+      // it has no reliable way to tell a bot request from a real one at
+      // this point -- the vercel.json rewrite that reaches this function
+      // no longer gates on user-agent for product pages, see that file).
+      // preloadData lets client/src/services/productService.js's
+      // getProductById skip its own redundant fetch on first load --
+      // this function already did that exact fetch above. prepaintHtml
+      // paints the real hero image before React/JS has even executed,
+      // same technique as the homepage hero (see buildProductPrepaintHtml).
+      preloadData: p,
+      preloadKey: "__PRELOADED_PRODUCT__",
+      prepaintHtml: buildProductPrepaintHtml(image),
     };
   }
 
@@ -1682,12 +1780,40 @@ const buildMeta = async (path) => {
   return null;
 };
 
-const injectMeta = (html, meta) => {
-  const tags = `
+// Same bot-detection regex as vercel.json's `has` rewrite conditions and
+// client/middleware.js's BOT_USER_AGENT — kept identical across all
+// three by convention (see middleware.js's own comment on this). Needed
+// HERE too now that product pages route real users to this same
+// function as well (see vercel.json): the vercel.json `has` condition
+// that used to gate bots vs real users at the routing layer no longer
+// does that job for product pages, so this function has to tell them
+// apart itself to decide whether bodyHtml is safe to inject.
+const BOT_USER_AGENT_RE =
+  /([bB]ot|Google|facebookexternalhit|WhatsApp|Pinterest|embedly|Quora Link Preview|Slurp|ia_archiver|Discordbot|TelegramBot|redirectionio|[Cc]hat[Gg][Pp][Tt]-[Uu]ser|[Pp]erplexity-[Uu]ser|[Cc]laude-[Uu]ser|[Mm]eta-[Ee]xternal[Aa]gent|Bytespider|[Aa]nthropic-[Aa][Ii]|[Cc]ohere-[Aa][Ii])/;
+
+const injectMeta = (html, meta, isBot) => {
+  let result = html;
+
+  // Bots never execute JS, so this whole block (title/meta/og/canonical/
+  // hreflang/JSON-LD) is the ONLY version of these tags they ever see,
+  // same as before this file started also routing real users here (for
+  // product pages). A real browser must NOT get this same string
+  // injected server-side: react-helmet-async (Seo.jsx) sets every one of
+  // these tags client-side already, the exact same way every other page
+  // on the site always has, and it has no mechanism to find/remove a
+  // pre-existing tag it didn't render itself — a server-injected
+  // <title> here plus Helmet's own <title> once React mounts is exactly
+  // the site-wide duplicate-<title> bug fixed in PR #290, just
+  // reintroduced through a new path. Real users instead get ONLY
+  // prepaintHtml/preloadData below — the actual <head> tags are left
+  // untouched for Helmet to set, same as it always has.
+  if (isBot) {
+    const tags = `
     <title>${escapeHtml(meta.title)}</title>
     <meta name="description" content="${escapeHtml(meta.description)}" />
     <meta property="og:type" content="${meta.ogType}" />
     <meta property="og:site_name" content="${SITE_NAME}" />
+    <meta property="og:locale" content="${meta.lang === "hi" ? "hi_IN" : "en_US"}" />
     <meta property="og:title" content="${escapeHtml(meta.title)}" />
     <meta property="og:description" content="${escapeHtml(meta.description)}" />
     <meta property="og:image" content="${escapeHtml(meta.image)}" />
@@ -1712,18 +1838,52 @@ const injectMeta = (html, meta) => {
     ${meta.jsonLd ? `<script type="application/ld+json">${safeJsonLdStringify(meta.jsonLd)}</script>` : ""}
   `;
 
-  let result = html
-    .replace(/<title>.*?<\/title>/i, "")
-    .replace(/<meta name="description"[^>]*>/i, "")
-    .replace("</head>", `${tags}\n  </head>`);
+    result = result
+      .replace(/<title>.*?<\/title>/i, "")
+      .replace(/<meta name="description"[^>]*>/i, "")
+      .replace("</head>", `${tags}\n  </head>`);
 
-  // Only set for category pages so far (see buildCategoryBodyHtml) — every
-  // other branch keeps the empty shell it always has, unchanged.
-  if (meta.bodyHtml) {
-    result = result.replace(
-      '<div id="root"></div>',
-      `<div id="root">${meta.bodyHtml}</div>`,
-    );
+    // Bots never execute JS, so content placed INSIDE #root is simply
+    // what they read — no React ever mounts to reconcile against it.
+    if (meta.bodyHtml) {
+      result = result.replace(
+        '<div id="root"></div>',
+        `<div id="root">${meta.bodyHtml}</div>`,
+      );
+    }
+  } else {
+    // Real browser: client/src/main.jsx mounts React via
+    // createRoot(#root).render(), which does NOT clear pre-existing
+    // children of its container on first commit — anything placed
+    // INSIDE #root here would survive as orphaned, duplicate markup
+    // sitting next to (not replaced by) the real client-rendered page
+    // (see scripts/build-home-html.mjs's header comment, which this
+    // mirrors). prepaintHtml is built specifically to go OUTSIDE #root
+    // as a sibling instead, same as the homepage hero placeholder — the
+    // page's own component removes it via useLayoutEffect on mount.
+    if (meta.prepaintHtml) {
+      result = result.replace(
+        '<div id="root"></div>',
+        `${meta.prepaintHtml}\n    <div id="root"></div>`,
+      );
+    }
+
+    // Lets the client skip its own redundant fetch for data this
+    // function already fetched to build the meta tags above — see each
+    // preloadData-producing branch's own comment for which global this
+    // lands on. safeJsonLdStringify's "<" escaping guards the same
+    // stored-XSS vector a review's text could hit in the JSON-LD script
+    // above (a raw "</script>" sequence inside product/description text
+    // would otherwise close this tag early).
+    if (meta.preloadData) {
+      // meta.preloadKey is always one of this file's own hardcoded
+      // constants (e.g. "__PRELOADED_PRODUCT__"), never derived from
+      // request/API data -- safe to interpolate as a bare identifier.
+      result = result.replace(
+        "</head>",
+        `<script>window.${meta.preloadKey} = ${safeJsonLdStringify(meta.preloadData)};</script>\n  </head>`,
+      );
+    }
   }
 
   if (meta.lang) {
@@ -1744,6 +1904,21 @@ export default async function handler(req, res) {
   // consumer, so a stray slash never leaks into a canonical URL again.
   const path =
     rawPath.length > 1 ? rawPath.replace(/\/+$/, "") : rawPath;
+
+  // Product pages route BOTH bots and real users here now (see
+  // vercel.json) -- every other page type still only ever reaches this
+  // function via a bot-gated rewrite, so isBot is always true for them
+  // and this check is a no-op. Tells injectMeta whether it's safe to put
+  // bodyHtml inside #root (bots only, see that function's own comment).
+  const isBot = BOT_USER_AGENT_RE.test(req.headers["user-agent"] || "");
+  // This function now returns a genuinely different body for the same
+  // URL depending on isBot (bot gets bodyHtml-in-#root, real user gets a
+  // sibling prepaint + preloaded data instead) -- Vary tells any cache
+  // (Vercel's edge CDN included) to key on User-Agent too, not just the
+  // URL, or a bot's cached response could be served to a real browser
+  // (reintroducing the exact orphaned-duplicate-content bug this whole
+  // split exists to avoid) or vice versa.
+  res.setHeader("Vary", "User-Agent");
 
   const origin = `https://${req.headers.host}`;
   const shellHtml = await fetch(`${origin}/index.html`).then((r) => r.text());
@@ -1779,7 +1954,7 @@ export default async function handler(req, res) {
       "Cache-Control",
       "public, max-age=300, s-maxage=3600, stale-while-revalidate=86400",
     );
-    res.status(200).send(injectMeta(shellHtml, meta));
+    res.status(200).send(injectMeta(shellHtml, meta, isBot));
   } catch (error) {
     console.error("Bot prerender error:", error);
 
