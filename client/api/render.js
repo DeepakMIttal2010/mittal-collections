@@ -310,8 +310,31 @@ function buildProductPrepaintHtml(mainImage) {
 // actually matters most, per the Lighthouse numbers that motivated it)
 // that `<aside>` is `hidden` and takes no space, so the grid is already
 // full-width exactly like the real one will be.
+// Mirrors CategoryPage.jsx's sortProducts() default case exactly -- same
+// two sequential STABLE sorts (JS Array.sort is stable, ES2019+), not a
+// single combined comparator, so the tie-breaking behavior (in-stock is
+// the effective primary key once both passes run; featured is the
+// secondary key, inherited from the first pass; original array order is
+// the final tie-breaker) matches byte-for-byte rather than approximating
+// it. Needed because a visitor's actual first paint always starts at
+// sortBy="featured" (CategoryPage.jsx's useState initial value, no URL
+// param overrides it) -- the prepaint was previously taking products in
+// raw API order instead, so the 4 cards it painted could be a visibly
+// DIFFERENT set/order than the real page's first 4 (confirmed live,
+// 2026-10-17, curtains/satin: prepaint showed Champagne/Teal/Navy/Purple,
+// the real sorted page shows Navy/Purple/Red/Champagne -- Teal and Red
+// swap into/out of the visible set entirely, not just reordered).
+function sortProductsLikeDefaultView(products) {
+  const sorted = [...products];
+  sorted.sort((a, b) => (b.featured === true) - (a.featured === true));
+  sorted.sort((a, b) => Number(b.stock > 0) - Number(a.stock > 0));
+  return sorted;
+}
+
 function buildCategoryPrepaintHtml(products) {
-  const priorityProducts = products.slice(0, 4).filter((p) => p.image);
+  const priorityProducts = sortProductsLikeDefaultView(products)
+    .slice(0, 4)
+    .filter((p) => p.image);
   if (priorityProducts.length === 0) return "";
 
   const cards = priorityProducts
