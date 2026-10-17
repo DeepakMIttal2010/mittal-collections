@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
 
 import Header from "../components/Header/Header";
@@ -9,6 +9,7 @@ import CouponBanner from "../components/CouponBanner";
 import DeliveryOfferBanner from "../components/DeliveryOfferBanner";
 import WelcomeBenefitsPopup from "../components/WelcomeBenefitsPopup";
 import ErrorBoundary from "../components/ErrorBoundary";
+import PageLoader from "../components/PageLoader";
 import MobileMenu from "../components/MobileMenu";
 import MobileAccountMenu from "../components/AccountMenu/MobileAccountMenu";
 import BottomNav from "../components/BottomNav/BottomNav";
@@ -49,7 +50,9 @@ function MainLayout() {
           real text/controls on Cart, Category, Search and Login at
           360-412px, on Cart even overlapping the Checkout button itself. */}
       <main className="pb-20 md:pb-0">
-        <Outlet />
+        <Suspense fallback={<PageLoader />}>
+          <Outlet />
+        </Suspense>
       </main>
 
       <Footer />
