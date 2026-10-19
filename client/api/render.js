@@ -192,6 +192,26 @@ const fetchJson = async (url) => {
   return res.json();
 };
 
+// For a fetch whose data is genuinely non-essential to the page (reviews,
+// Q&A, the rewards teaser) -- every caller already has a `.success ?  ...
+// : fallback` branch for the case where the API itself returns
+// `{success:false}`, but that branch was unreachable for the MORE common
+// real-world failure (a timeout, a network blip, non-JSON output), since
+// those make fetchJson's promise REJECT rather than resolve. Sitting
+// inside the same `Promise.all` as the page's actual primary data (the
+// product/category/homepage content), one flaky secondary fetch rejecting
+// took the whole batch down with it, degrading a perfectly fine page to
+// the generic fail-open shell. This never throws -- same `{success:
+// false}` shape every caller already handles.
+const safeFetchJson = async (url) => {
+  try {
+    return await fetchJson(url);
+  } catch (error) {
+    console.error(`safeFetchJson failed for ${url}:`, error.message);
+    return { success: false };
+  }
+};
+
 // Mirrors client/src/utils/stripHtml.js's intent (plain text for a meta
 // description / JSON-LD description, not markup) but can't reuse that
 // file as-is -- it goes through DOMPurify and a real `document`, neither
@@ -405,7 +425,7 @@ const buildBreadcrumbHtml = (breadcrumbItems) =>
   breadcrumbItems
     .map((item) =>
       item.path
-        ? `<a href="${SITE_URL}${item.path}">${escapeHtml(item.name)}</a>`
+        ? `<a href="${escapeHtml(`${SITE_URL}${item.path}`)}">${escapeHtml(item.name)}</a>`
         : `<span>${escapeHtml(item.name)}</span>`,
     )
     .join(" &gt; ");
@@ -516,7 +536,7 @@ const buildCategoryBodyHtml = (
               ${items
                 .map(
                   (s) =>
-                    `<li><a href="${categoryUrlPrefix}/category/${categorySlug}/${s.slug}">${escapeHtml(isHindi ? s.nameHi || s.name : s.name)}</a></li>`,
+                    `<li><a href="${escapeHtml(`${categoryUrlPrefix}/category/${categorySlug}/${s.slug}`)}">${escapeHtml(isHindi ? s.nameHi || s.name : s.name)}</a></li>`,
                 )
                 .join("\n")}
             </ul>
@@ -828,7 +848,7 @@ const buildHomeBodyHtml = (heading, description, categories, subcategories, isHi
   const categoryLinksHtml = categories
     .map(
       (c) =>
-        `<li><a href="${SITE_URL}${urlPrefix}/category/${c.slug}">${escapeHtml(isHindi ? c.nameHi || c.name : c.name)}</a></li>`,
+        `<li><a href="${escapeHtml(`${SITE_URL}${urlPrefix}/category/${c.slug}`)}">${escapeHtml(isHindi ? c.nameHi || c.name : c.name)}</a></li>`,
     )
     .join("\n");
 
@@ -837,7 +857,7 @@ const buildHomeBodyHtml = (heading, description, categories, subcategories, isHi
     .map((s) => {
       const category = categoryMap.get(s.category?._id);
       if (!category) return "";
-      return `<li><a href="${SITE_URL}${urlPrefix}/category/${category.slug}/${s.slug}">${escapeHtml(isHindi ? s.nameHi || s.name : s.name)}</a></li>`;
+      return `<li><a href="${escapeHtml(`${SITE_URL}${urlPrefix}/category/${category.slug}/${s.slug}`)}">${escapeHtml(isHindi ? s.nameHi || s.name : s.name)}</a></li>`;
     })
     .join("\n");
 
@@ -1045,7 +1065,7 @@ const buildMeta = async (path) => {
       fetchJson(`${API_BASE}/api/settings`),
       fetchJson(`${API_BASE}/api/categories`),
       fetchJson(`${API_BASE}/api/subcategories`),
-      fetchJson(`${API_BASE}/api/rewards/public`),
+      safeFetchJson(`${API_BASE}/api/rewards/public`),
     ]);
     const settings = settingsData.settings || {};
     const homeCategories = categoriesData.success ? categoriesData.categories || [] : [];
@@ -1228,8 +1248,8 @@ const buildMeta = async (path) => {
     const [data, settingsData, reviewsData, questionsData] = await Promise.all([
       fetchJson(`${API_BASE}/api/products/${productId}`),
       fetchJson(`${API_BASE}/api/settings`),
-      fetchJson(`${API_BASE}/api/reviews/product/${productId}`),
-      fetchJson(`${API_BASE}/api/questions/product/${productId}`),
+      safeFetchJson(`${API_BASE}/api/reviews/product/${productId}`),
+      safeFetchJson(`${API_BASE}/api/questions/product/${productId}`),
     ]);
 
     if (!data.success) return null;
@@ -1921,8 +1941,17 @@ const buildMeta = async (path) => {
 // that used to gate bots vs real users at the routing layer no longer
 // does that job for product pages, so this function has to tell them
 // apart itself to decide whether bodyHtml is safe to inject.
+// Baiduspider added (deep bug sweep, 2026-10-19) -- unlike every other
+// crawler listed here, its name contains neither "bot"/"Bot" nor any
+// other already-matched token, so it fell through entirely: for
+// category/product pages (routed to every visitor, not just bots) it
+// got the prepaintHtml-only real-user path instead of real bodyHtml --
+// a non-JS crawler seeing a near-empty #root, the exact soft-404 risk
+// this whole bot/real-user split exists to prevent. Keep this string
+// identical across render.js/middleware.js/vercel.json (all 3 are
+// confirmed in sync as of this fix).
 const BOT_USER_AGENT_RE =
-  /([bB]ot|Google|facebookexternalhit|WhatsApp|Pinterest|embedly|Quora Link Preview|Slurp|ia_archiver|Discordbot|TelegramBot|redirectionio|[Cc]hat[Gg][Pp][Tt]-[Uu]ser|[Pp]erplexity-[Uu]ser|[Cc]laude-[Uu]ser|[Mm]eta-[Ee]xternal[Aa]gent|Bytespider|[Aa]nthropic-[Aa][Ii]|[Cc]ohere-[Aa][Ii])/;
+  /([bB]ot|Google|facebookexternalhit|WhatsApp|Pinterest|embedly|Quora Link Preview|Slurp|ia_archiver|Discordbot|TelegramBot|redirectionio|[Cc]hat[Gg][Pp][Tt]-[Uu]ser|[Pp]erplexity-[Uu]ser|[Cc]laude-[Uu]ser|[Mm]eta-[Ee]xternal[Aa]gent|Bytespider|[Aa]nthropic-[Aa][Ii]|[Cc]ohere-[Aa][Ii]|Baiduspider)/;
 
 const injectMeta = (html, meta, isBot) => {
   let result = html;
@@ -2054,7 +2083,25 @@ export default async function handler(req, res) {
   res.setHeader("Vary", "User-Agent");
 
   const origin = `https://${req.headers.host}`;
-  const shellHtml = await fetch(`${origin}/index.html`).then((r) => r.text());
+  // Was a bare, un-timed-out, un-caught fetch -- every OTHER network call
+  // in this file (fetchJson above) has a 6s timeout specifically to fail
+  // fast into its own catch rather than hang/throw uncaught. This one had
+  // neither, and sat OUTSIDE the try block below, so any transient
+  // failure (DNS blip, cold-start lag, an unexpected Host header) threw
+  // past the whole handler as a raw, unhandled 500 with zero HTML --
+  // exactly the "no fallback" failure mode every other code path here
+  // exists to avoid. The catch block below also falls back to this same
+  // shellHtml on ITS OWN failures, so a minimal hardcoded shell is kept
+  // here too, for when even this fetch can't succeed.
+  let shellHtml;
+  try {
+    const res = await fetch(`${origin}/index.html`, { signal: AbortSignal.timeout(6000) });
+    shellHtml = await res.text();
+  } catch (shellError) {
+    console.error("Bot prerender shell fetch error:", shellError);
+    shellHtml =
+      '<!doctype html><html lang="en"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /></head><body><div id="root"></div></body></html>';
+  }
 
   try {
     const meta = await buildMeta(path);

@@ -17,6 +17,18 @@ class ErrorBoundary extends Component {
   componentDidCatch(error, info) {
     console.error("ErrorBoundary caught an error:", error, info);
     Sentry.captureException(error, { extra: { componentStack: info?.componentStack } });
+
+    // render.js's SSR placeholders (#product-ssr-placeholder/
+    // #category-ssr-placeholder) are plain DOM siblings of #root, never
+    // React-managed -- each page's own useLayoutEffect removes them on
+    // its first successful commit. If that page throws during render
+    // instead (landing here), that commit never happens and the effect
+    // never fires, leaving an aria-hidden placeholder (a visible
+    // duplicate image block) stuck in the DOM indefinitely next to this
+    // fallback, until a full reload. Harmless no-op on every other
+    // crash, since `?.remove()` on a missing element does nothing.
+    document.getElementById("product-ssr-placeholder")?.remove();
+    document.getElementById("category-ssr-placeholder")?.remove();
   }
 
   componentDidUpdate(prevProps) {
