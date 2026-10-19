@@ -180,6 +180,16 @@ function ProductDetails() {
 
     const loadProduct = async () => {
       setLoading(true);
+      // Was never reset here -- navigating from a successfully-loaded
+      // product A to a product B whose fetch then fails (a real 404, or
+      // a transient error) left `product` holding A's stale data, since
+      // setProduct() only ever runs inside the success branch below.
+      // Render is gated on `!product`, so with a stale truthy product
+      // the page silently rendered A's full page (images, price, Add
+      // to Cart/Buy Now targets) under B's URL instead of either error
+      // branch -- both of which were effectively unreachable once any
+      // product had ever loaded successfully in this session.
+      setProduct(null);
       setRelatedProducts([]);
       setBundleProducts([]);
       setBundleCategory(null);

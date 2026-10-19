@@ -6,7 +6,7 @@
         {
           "type": "header",
           "key": "user-agent",
-          "value": ".*([bB]ot|Google|facebookexternalhit|WhatsApp|Pinterest|embedly|Quora Link Preview|Slurp|ia_archiver|Discordbot|TelegramBot|redirectionio|[Cc]hat[Gg][Pp][Tt]-[Uu]ser|[Pp]erplexity-[Uu]ser|[Cc]laude-[Uu]ser|[Mm]eta-[Ee]xternal[Aa]gent|Bytespider|[Aa]nthropic-[Aa][Ii]|[Cc]ohere-[Aa][Ii]).*"
+          "value": ".*([bB]ot|Google|facebookexternalhit|WhatsApp|Pinterest|embedly|Quora Link Preview|Slurp|ia_archiver|Discordbot|TelegramBot|redirectionio|[Cc]hat[Gg][Pp][Tt]-[Uu]ser|[Pp]erplexity-[Uu]ser|[Cc]laude-[Uu]ser|[Mm]eta-[Ee]xternal[Aa]gent|Bytespider|[Aa]nthropic-[Aa][Ii]|[Cc]ohere-[Aa][Ii]|Baiduspider).*"
         }
       ],
       "headers": [
@@ -71,7 +71,7 @@
         {
           "type": "header",
           "key": "user-agent",
-          "value": ".*([bB]ot|Google|facebookexternalhit|WhatsApp|Pinterest|embedly|Quora Link Preview|Slurp|ia_archiver|Discordbot|TelegramBot|redirectionio|[Cc]hat[Gg][Pp][Tt]-[Uu]ser|[Pp]erplexity-[Uu]ser|[Cc]laude-[Uu]ser|[Mm]eta-[Ee]xternal[Aa]gent|Bytespider|[Aa]nthropic-[Aa][Ii]|[Cc]ohere-[Aa][Ii]).*"
+          "value": ".*([bB]ot|Google|facebookexternalhit|WhatsApp|Pinterest|embedly|Quora Link Preview|Slurp|ia_archiver|Discordbot|TelegramBot|redirectionio|[Cc]hat[Gg][Pp][Tt]-[Uu]ser|[Pp]erplexity-[Uu]ser|[Cc]laude-[Uu]ser|[Mm]eta-[Ee]xternal[Aa]gent|Bytespider|[Aa]nthropic-[Aa][Ii]|[Cc]ohere-[Aa][Ii]|Baiduspider).*"
         }
       ],
       "destination": "/api/render?path=/articles/:slug"
@@ -82,7 +82,7 @@
         {
           "type": "header",
           "key": "user-agent",
-          "value": ".*([bB]ot|Google|facebookexternalhit|WhatsApp|Pinterest|embedly|Quora Link Preview|Slurp|ia_archiver|Discordbot|TelegramBot|redirectionio|[Cc]hat[Gg][Pp][Tt]-[Uu]ser|[Pp]erplexity-[Uu]ser|[Cc]laude-[Uu]ser|[Mm]eta-[Ee]xternal[Aa]gent|Bytespider|[Aa]nthropic-[Aa][Ii]|[Cc]ohere-[Aa][Ii]).*"
+          "value": ".*([bB]ot|Google|facebookexternalhit|WhatsApp|Pinterest|embedly|Quora Link Preview|Slurp|ia_archiver|Discordbot|TelegramBot|redirectionio|[Cc]hat[Gg][Pp][Tt]-[Uu]ser|[Pp]erplexity-[Uu]ser|[Cc]laude-[Uu]ser|[Mm]eta-[Ee]xternal[Aa]gent|Bytespider|[Aa]nthropic-[Aa][Ii]|[Cc]ohere-[Aa][Ii]|Baiduspider).*"
         }
       ],
       "destination": "/api/render?path=/hi/articles/:slug"
@@ -93,7 +93,7 @@
         {
           "type": "header",
           "key": "user-agent",
-          "value": ".*([bB]ot|Google|facebookexternalhit|WhatsApp|Pinterest|embedly|Quora Link Preview|Slurp|ia_archiver|Discordbot|TelegramBot|redirectionio|[Cc]hat[Gg][Pp][Tt]-[Uu]ser|[Pp]erplexity-[Uu]ser|[Cc]laude-[Uu]ser|[Mm]eta-[Ee]xternal[Aa]gent|Bytespider|[Aa]nthropic-[Aa][Ii]|[Cc]ohere-[Aa][Ii]).*"
+          "value": ".*([bB]ot|Google|facebookexternalhit|WhatsApp|Pinterest|embedly|Quora Link Preview|Slurp|ia_archiver|Discordbot|TelegramBot|redirectionio|[Cc]hat[Gg][Pp][Tt]-[Uu]ser|[Pp]erplexity-[Uu]ser|[Cc]laude-[Uu]ser|[Mm]eta-[Ee]xternal[Aa]gent|Bytespider|[Aa]nthropic-[Aa][Ii]|[Cc]ohere-[Aa][Ii]|Baiduspider).*"
         }
       ],
       "destination": "/api/render?path=/policies/:slug"
@@ -104,7 +104,7 @@
         {
           "type": "header",
           "key": "user-agent",
-          "value": ".*([bB]ot|Google|facebookexternalhit|WhatsApp|Pinterest|embedly|Quora Link Preview|Slurp|ia_archiver|Discordbot|TelegramBot|redirectionio|[Cc]hat[Gg][Pp][Tt]-[Uu]ser|[Pp]erplexity-[Uu]ser|[Cc]laude-[Uu]ser|[Mm]eta-[Ee]xternal[Aa]gent|Bytespider|[Aa]nthropic-[Aa][Ii]|[Cc]ohere-[Aa][Ii]).*"
+          "value": ".*([bB]ot|Google|facebookexternalhit|WhatsApp|Pinterest|embedly|Quora Link Preview|Slurp|ia_archiver|Discordbot|TelegramBot|redirectionio|[Cc]hat[Gg][Pp][Tt]-[Uu]ser|[Pp]erplexity-[Uu]ser|[Cc]laude-[Uu]ser|[Mm]eta-[Ee]xternal[Aa]gent|Bytespider|[Aa]nthropic-[Aa][Ii]|[Cc]ohere-[Aa][Ii]|Baiduspider).*"
         }
       ],
       "destination": "/api/render?path=/about"
@@ -115,7 +115,7 @@
         {
           "type": "header",
           "key": "user-agent",
-          "value": ".*([bB]ot|Google|facebookexternalhit|WhatsApp|Pinterest|embedly|Quora Link Preview|Slurp|ia_archiver|Discordbot|TelegramBot|redirectionio|[Cc]hat[Gg][Pp][Tt]-[Uu]ser|[Pp]erplexity-[Uu]ser|[Cc]laude-[Uu]ser|[Mm]eta-[Ee]xternal[Aa]gent|Bytespider|[Aa]nthropic-[Aa][Ii]|[Cc]ohere-[Aa][Ii]).*"
+          "value": ".*([bB]ot|Google|facebookexternalhit|WhatsApp|Pinterest|embedly|Quora Link Preview|Slurp|ia_archiver|Discordbot|TelegramBot|redirectionio|[Cc]hat[Gg][Pp][Tt]-[Uu]ser|[Pp]erplexity-[Uu]ser|[Cc]laude-[Uu]ser|[Mm]eta-[Ee]xternal[Aa]gent|Bytespider|[Aa]nthropic-[Aa][Ii]|[Cc]ohere-[Aa][Ii]|Baiduspider).*"
         }
       ],
       "destination": "/api/render?path=/contact"
@@ -126,7 +126,7 @@
         {
           "type": "header",
           "key": "user-agent",
-          "value": ".*([bB]ot|Google|facebookexternalhit|WhatsApp|Pinterest|embedly|Quora Link Preview|Slurp|ia_archiver|Discordbot|TelegramBot|redirectionio|[Cc]hat[Gg][Pp][Tt]-[Uu]ser|[Pp]erplexity-[Uu]ser|[Cc]laude-[Uu]ser|[Mm]eta-[Ee]xternal[Aa]gent|Bytespider|[Aa]nthropic-[Aa][Ii]|[Cc]ohere-[Aa][Ii]).*"
+          "value": ".*([bB]ot|Google|facebookexternalhit|WhatsApp|Pinterest|embedly|Quora Link Preview|Slurp|ia_archiver|Discordbot|TelegramBot|redirectionio|[Cc]hat[Gg][Pp][Tt]-[Uu]ser|[Pp]erplexity-[Uu]ser|[Cc]laude-[Uu]ser|[Mm]eta-[Ee]xternal[Aa]gent|Bytespider|[Aa]nthropic-[Aa][Ii]|[Cc]ohere-[Aa][Ii]|Baiduspider).*"
         }
       ],
       "destination": "/api/render?path=/rewards"
@@ -137,7 +137,7 @@
         {
           "type": "header",
           "key": "user-agent",
-          "value": ".*([bB]ot|Google|facebookexternalhit|WhatsApp|Pinterest|embedly|Quora Link Preview|Slurp|ia_archiver|Discordbot|TelegramBot|redirectionio|[Cc]hat[Gg][Pp][Tt]-[Uu]ser|[Pp]erplexity-[Uu]ser|[Cc]laude-[Uu]ser|[Mm]eta-[Ee]xternal[Aa]gent|Bytespider|[Aa]nthropic-[Aa][Ii]|[Cc]ohere-[Aa][Ii]).*"
+          "value": ".*([bB]ot|Google|facebookexternalhit|WhatsApp|Pinterest|embedly|Quora Link Preview|Slurp|ia_archiver|Discordbot|TelegramBot|redirectionio|[Cc]hat[Gg][Pp][Tt]-[Uu]ser|[Pp]erplexity-[Uu]ser|[Cc]laude-[Uu]ser|[Mm]eta-[Ee]xternal[Aa]gent|Bytespider|[Aa]nthropic-[Aa][Ii]|[Cc]ohere-[Aa][Ii]|Baiduspider).*"
         }
       ],
       "destination": "/api/render?path=/trending"
@@ -148,7 +148,7 @@
         {
           "type": "header",
           "key": "user-agent",
-          "value": ".*([bB]ot|Google|facebookexternalhit|WhatsApp|Pinterest|embedly|Quora Link Preview|Slurp|ia_archiver|Discordbot|TelegramBot|redirectionio|[Cc]hat[Gg][Pp][Tt]-[Uu]ser|[Pp]erplexity-[Uu]ser|[Cc]laude-[Uu]ser|[Mm]eta-[Ee]xternal[Aa]gent|Bytespider|[Aa]nthropic-[Aa][Ii]|[Cc]ohere-[Aa][Ii]).*"
+          "value": ".*([bB]ot|Google|facebookexternalhit|WhatsApp|Pinterest|embedly|Quora Link Preview|Slurp|ia_archiver|Discordbot|TelegramBot|redirectionio|[Cc]hat[Gg][Pp][Tt]-[Uu]ser|[Pp]erplexity-[Uu]ser|[Cc]laude-[Uu]ser|[Mm]eta-[Ee]xternal[Aa]gent|Bytespider|[Aa]nthropic-[Aa][Ii]|[Cc]ohere-[Aa][Ii]|Baiduspider).*"
         }
       ],
       "destination": "/api/render?path=/clearance-sale"
@@ -159,7 +159,7 @@
         {
           "type": "header",
           "key": "user-agent",
-          "value": ".*([bB]ot|Google|facebookexternalhit|WhatsApp|Pinterest|embedly|Quora Link Preview|Slurp|ia_archiver|Discordbot|TelegramBot|redirectionio|[Cc]hat[Gg][Pp][Tt]-[Uu]ser|[Pp]erplexity-[Uu]ser|[Cc]laude-[Uu]ser|[Mm]eta-[Ee]xternal[Aa]gent|Bytespider|[Aa]nthropic-[Aa][Ii]|[Cc]ohere-[Aa][Ii]).*"
+          "value": ".*([bB]ot|Google|facebookexternalhit|WhatsApp|Pinterest|embedly|Quora Link Preview|Slurp|ia_archiver|Discordbot|TelegramBot|redirectionio|[Cc]hat[Gg][Pp][Tt]-[Uu]ser|[Pp]erplexity-[Uu]ser|[Cc]laude-[Uu]ser|[Mm]eta-[Ee]xternal[Aa]gent|Bytespider|[Aa]nthropic-[Aa][Ii]|[Cc]ohere-[Aa][Ii]|Baiduspider).*"
         }
       ],
       "destination": "/api/render?path=/new-arrivals"
@@ -170,7 +170,7 @@
         {
           "type": "header",
           "key": "user-agent",
-          "value": ".*([bB]ot|Google|facebookexternalhit|WhatsApp|Pinterest|embedly|Quora Link Preview|Slurp|ia_archiver|Discordbot|TelegramBot|redirectionio|[Cc]hat[Gg][Pp][Tt]-[Uu]ser|[Pp]erplexity-[Uu]ser|[Cc]laude-[Uu]ser|[Mm]eta-[Ee]xternal[Aa]gent|Bytespider|[Aa]nthropic-[Aa][Ii]|[Cc]ohere-[Aa][Ii]).*"
+          "value": ".*([bB]ot|Google|facebookexternalhit|WhatsApp|Pinterest|embedly|Quora Link Preview|Slurp|ia_archiver|Discordbot|TelegramBot|redirectionio|[Cc]hat[Gg][Pp][Tt]-[Uu]ser|[Pp]erplexity-[Uu]ser|[Cc]laude-[Uu]ser|[Mm]eta-[Ee]xternal[Aa]gent|Bytespider|[Aa]nthropic-[Aa][Ii]|[Cc]ohere-[Aa][Ii]|Baiduspider).*"
         }
       ],
       "destination": "/api/render?path=/gifting"
@@ -181,7 +181,7 @@
         {
           "type": "header",
           "key": "user-agent",
-          "value": ".*([bB]ot|Google|facebookexternalhit|WhatsApp|Pinterest|embedly|Quora Link Preview|Slurp|ia_archiver|Discordbot|TelegramBot|redirectionio|[Cc]hat[Gg][Pp][Tt]-[Uu]ser|[Pp]erplexity-[Uu]ser|[Cc]laude-[Uu]ser|[Mm]eta-[Ee]xternal[Aa]gent|Bytespider|[Aa]nthropic-[Aa][Ii]|[Cc]ohere-[Aa][Ii]).*"
+          "value": ".*([bB]ot|Google|facebookexternalhit|WhatsApp|Pinterest|embedly|Quora Link Preview|Slurp|ia_archiver|Discordbot|TelegramBot|redirectionio|[Cc]hat[Gg][Pp][Tt]-[Uu]ser|[Pp]erplexity-[Uu]ser|[Cc]laude-[Uu]ser|[Mm]eta-[Ee]xternal[Aa]gent|Bytespider|[Aa]nthropic-[Aa][Ii]|[Cc]ohere-[Aa][Ii]|Baiduspider).*"
         }
       ],
       "destination": "/api/render?path=/curtain-size-calculator"
@@ -192,7 +192,7 @@
         {
           "type": "header",
           "key": "user-agent",
-          "value": ".*([bB]ot|Google|facebookexternalhit|WhatsApp|Pinterest|embedly|Quora Link Preview|Slurp|ia_archiver|Discordbot|TelegramBot|redirectionio|[Cc]hat[Gg][Pp][Tt]-[Uu]ser|[Pp]erplexity-[Uu]ser|[Cc]laude-[Uu]ser|[Mm]eta-[Ee]xternal[Aa]gent|Bytespider|[Aa]nthropic-[Aa][Ii]|[Cc]ohere-[Aa][Ii]).*"
+          "value": ".*([bB]ot|Google|facebookexternalhit|WhatsApp|Pinterest|embedly|Quora Link Preview|Slurp|ia_archiver|Discordbot|TelegramBot|redirectionio|[Cc]hat[Gg][Pp][Tt]-[Uu]ser|[Pp]erplexity-[Uu]ser|[Cc]laude-[Uu]ser|[Mm]eta-[Ee]xternal[Aa]gent|Bytespider|[Aa]nthropic-[Aa][Ii]|[Cc]ohere-[Aa][Ii]|Baiduspider).*"
         }
       ],
       "destination": "/api/render?path=/articles"
@@ -203,7 +203,7 @@
         {
           "type": "header",
           "key": "user-agent",
-          "value": ".*([bB]ot|Google|facebookexternalhit|WhatsApp|Pinterest|embedly|Quora Link Preview|Slurp|ia_archiver|Discordbot|TelegramBot|redirectionio|[Cc]hat[Gg][Pp][Tt]-[Uu]ser|[Pp]erplexity-[Uu]ser|[Cc]laude-[Uu]ser|[Mm]eta-[Ee]xternal[Aa]gent|Bytespider|[Aa]nthropic-[Aa][Ii]|[Cc]ohere-[Aa][Ii]).*"
+          "value": ".*([bB]ot|Google|facebookexternalhit|WhatsApp|Pinterest|embedly|Quora Link Preview|Slurp|ia_archiver|Discordbot|TelegramBot|redirectionio|[Cc]hat[Gg][Pp][Tt]-[Uu]ser|[Pp]erplexity-[Uu]ser|[Cc]laude-[Uu]ser|[Mm]eta-[Ee]xternal[Aa]gent|Bytespider|[Aa]nthropic-[Aa][Ii]|[Cc]ohere-[Aa][Ii]|Baiduspider).*"
         }
       ],
       "destination": "/api/render?path=/hi/articles"
@@ -214,7 +214,7 @@
         {
           "type": "header",
           "key": "user-agent",
-          "value": ".*([bB]ot|Google|facebookexternalhit|WhatsApp|Pinterest|embedly|Quora Link Preview|Slurp|ia_archiver|Discordbot|TelegramBot|redirectionio|[Cc]hat[Gg][Pp][Tt]-[Uu]ser|[Pp]erplexity-[Uu]ser|[Cc]laude-[Uu]ser|[Mm]eta-[Ee]xternal[Aa]gent|Bytespider|[Aa]nthropic-[Aa][Ii]|[Cc]ohere-[Aa][Ii]).*"
+          "value": ".*([bB]ot|Google|facebookexternalhit|WhatsApp|Pinterest|embedly|Quora Link Preview|Slurp|ia_archiver|Discordbot|TelegramBot|redirectionio|[Cc]hat[Gg][Pp][Tt]-[Uu]ser|[Pp]erplexity-[Uu]ser|[Cc]laude-[Uu]ser|[Mm]eta-[Ee]xternal[Aa]gent|Bytespider|[Aa]nthropic-[Aa][Ii]|[Cc]ohere-[Aa][Ii]|Baiduspider).*"
         }
       ],
       "destination": "/api/render?path=/hi"
@@ -225,7 +225,7 @@
         {
           "type": "header",
           "key": "user-agent",
-          "value": ".*([bB]ot|Google|facebookexternalhit|WhatsApp|Pinterest|embedly|Quora Link Preview|Slurp|ia_archiver|Discordbot|TelegramBot|redirectionio|[Cc]hat[Gg][Pp][Tt]-[Uu]ser|[Pp]erplexity-[Uu]ser|[Cc]laude-[Uu]ser|[Mm]eta-[Ee]xternal[Aa]gent|Bytespider|[Aa]nthropic-[Aa][Ii]|[Cc]ohere-[Aa][Ii]).*"
+          "value": ".*([bB]ot|Google|facebookexternalhit|WhatsApp|Pinterest|embedly|Quora Link Preview|Slurp|ia_archiver|Discordbot|TelegramBot|redirectionio|[Cc]hat[Gg][Pp][Tt]-[Uu]ser|[Pp]erplexity-[Uu]ser|[Cc]laude-[Uu]ser|[Mm]eta-[Ee]xternal[Aa]gent|Bytespider|[Aa]nthropic-[Aa][Ii]|[Cc]ohere-[Aa][Ii]|Baiduspider).*"
         }
       ],
       "destination": "/api/render?path=/$1"
