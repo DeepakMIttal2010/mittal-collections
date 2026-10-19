@@ -145,6 +145,31 @@ const escapeHtml = (value) =>
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
 
+// Mirrors Seo.jsx's own `fullTitle` logic exactly -- some STATIC_PAGES
+// entries' `title` doubles as the visible <h1>/body heading text (see
+// buildSimpleBodyHtml/buildArticleListBodyHtml/the /contact handler
+// below), so the brand suffix is appended here, only at the actual
+// <title>-tag consumption points, rather than baked into the shared
+// string itself (which would leak "| Mittal Collections" into those
+// headings too -- confirmed 9 of these entries were missing the
+// suffix in the live <title> tag, a real mismatch against what a real
+// visitor's browser tab shows for the same URL, 2026-10-19 audit).
+const withBrandSuffix = (title) =>
+  title && !title.includes(SITE_NAME) ? `${title} | ${SITE_NAME}` : title || SITE_NAME;
+
+// Mirrors client/src/utils/truncateMetaDescription.js exactly -- a
+// plain `.slice(0, 160)` cuts mid-word on this catalog's real
+// description lengths roughly 2 out of 3 times (confirmed via a
+// live-DOM audit, 2026-10-19), and this is the version Google actually
+// indexes (bots get this file's output, not the client-rendered one).
+function truncateAtWordBoundary(text, maxLength = 160) {
+  if (!text || text.length <= maxLength) return text || "";
+  const sliced = text.slice(0, maxLength);
+  const lastSpace = sliced.lastIndexOf(" ");
+  const safe = lastSpace > 0 ? sliced.slice(0, lastSpace) : sliced;
+  return safe.replace(/[\s,.;:—-]+$/, "");
+}
+
 // Mirrors client/src/components/Seo.jsx's safeJsonLdStringify exactly —
 // see that file's comment for why plain JSON.stringify is unsafe here:
 // a review's content (productJsonLd.review[].reviewBody, sourced from
@@ -642,9 +667,9 @@ async function buildCategoryMeta({ categorySlug, subcategorySlug, isHindi }) {
   const bodyText = subcategory
     ? subcategory.subtitle || ""
     : category.description || "";
-  const description = `${pageTitle}: pan-India delivery, 24hr in Ghaziabad. ${bodyText}`
-    .trim()
-    .slice(0, 160);
+  const description = truncateAtWordBoundary(
+    `${pageTitle}: pan-India delivery, 24hr in Ghaziabad. ${bodyText}`.trim(),
+  );
 
   // Mirrors CategoryPage.jsx's itemListJsonLd -- same endpoints/params it
   // uses (getProductsByCategory / getProductsBySubcategory), capped the
@@ -1307,11 +1332,11 @@ const buildMeta = async (path) => {
     // rather than inventing new phrasing for the same fact.
     const description = isHindi
       ? plainDescription
-        ? `₹${offerPrice}। पूरे भारत में डिलीवरी, ग़ाज़ियाबाद में 24 घंटे में तेज़ डिलीवरी। ${plainDescription}`.slice(0, 160)
-        : `₹${offerPrice} — ${p.nameHi}, पूरे भारत में डिलीवरी, ग़ाज़ियाबाद में 24 घंटे में तेज़ डिलीवरी`.slice(0, 160)
+        ? truncateAtWordBoundary(`₹${offerPrice}। पूरे भारत में डिलीवरी, ग़ाज़ियाबाद में 24 घंटे में तेज़ डिलीवरी। ${plainDescription}`)
+        : truncateAtWordBoundary(`₹${offerPrice} — ${p.nameHi}, पूरे भारत में डिलीवरी, ग़ाज़ियाबाद में 24 घंटे में तेज़ डिलीवरी`)
       : p.description
-        ? `₹${offerPrice}. Pan-India delivery, 24hr in Ghaziabad. ${plainDescription}`.slice(0, 160)
-        : `₹${offerPrice} — ${p.name}, pan-India delivery, fast 24-hour delivery in Ghaziabad`.slice(0, 160);
+        ? truncateAtWordBoundary(`₹${offerPrice}. Pan-India delivery, 24hr in Ghaziabad. ${plainDescription}`)
+        : truncateAtWordBoundary(`₹${offerPrice} — ${p.name}, pan-India delivery, fast 24-hour delivery in Ghaziabad`);
 
     // Mirrors ProductDetails.jsx's effectiveReturnDaysForSeo/shippingFeeForSeo
     // — these unlock the enhanced free-listing treatment in Google
@@ -1545,7 +1570,7 @@ const buildMeta = async (path) => {
       // the meta description -- a policy page starting with so much as a
       // leading <p> showed a literal "<p>" in the search snippet. Found
       // while adding real body content below (2026-10-02).
-      description: (stripHtml(page.content) || page.title).slice(0, 160),
+      description: truncateAtWordBoundary(stripHtml(page.content) || page.title),
       image: DEFAULT_IMAGE,
       url,
       ogType: "website",
@@ -1584,7 +1609,7 @@ const buildMeta = async (path) => {
     `;
 
     return {
-      title: staticPage.title,
+      title: withBrandSuffix(staticPage.title),
       description: staticPage.description,
       image: DEFAULT_IMAGE,
       url: `${SITE_URL}${path}`,
@@ -1630,7 +1655,7 @@ const buildMeta = async (path) => {
     `;
 
     return {
-      title: staticPage.title,
+      title: withBrandSuffix(staticPage.title),
       description: staticPage.description,
       image: DEFAULT_IMAGE,
       url: `${SITE_URL}${path}`,
@@ -1677,7 +1702,7 @@ const buildMeta = async (path) => {
     ];
 
     return {
-      title: staticPage.title,
+      title: withBrandSuffix(staticPage.title),
       description: staticPage.description,
       image: DEFAULT_IMAGE,
       url: `${SITE_URL}${path}`,
@@ -1694,7 +1719,7 @@ const buildMeta = async (path) => {
     const staticBreadcrumbItems = [{ name: "Home", path: "/" }, { name: staticPage.breadcrumb }];
 
     return {
-      title: staticPage.title,
+      title: withBrandSuffix(staticPage.title),
       description: staticPage.description,
       image: DEFAULT_IMAGE,
       url: `${SITE_URL}${path}`,
@@ -1724,7 +1749,7 @@ const buildMeta = async (path) => {
 
     return {
       title: `${article.title} | ${SITE_NAME}`,
-      description: (article.excerpt || article.title).slice(0, 160),
+      description: truncateAtWordBoundary(article.excerpt || article.title),
       image,
       url,
       ogType: "article",
@@ -1793,7 +1818,7 @@ const buildMeta = async (path) => {
 
     return {
       title: `${article.titleHi} | ${SITE_NAME}`,
-      description: (article.excerptHi || article.excerpt || article.titleHi).slice(0, 160),
+      description: truncateAtWordBoundary(article.excerptHi || article.excerpt || article.titleHi),
       image,
       url: hiUrl,
       ogType: "article",

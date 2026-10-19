@@ -106,8 +106,18 @@ function VirtualizedProductGrid({
               transform: `translateY(${virtualRow.start}px)`,
             }}
           >
-            {rows[virtualRow.index].map((product) => (
-              <ProductCard key={product._id} product={product} />
+            {rows[virtualRow.index].map((product, columnIndex) => (
+              <ProductCard
+                key={product._id}
+                product={product}
+                // Mirrors ProductGrid.jsx's own index<4 rule -- this
+                // was never passed here at all, so every card through
+                // this virtualized path (currently only
+                // PriceRangePage.jsx) always got ProductCard's
+                // priority=false default, including the first,
+                // above-the-fold row.
+                priority={virtualRow.index * columns + columnIndex < 4}
+              />
             ))}
           </div>
         ))}

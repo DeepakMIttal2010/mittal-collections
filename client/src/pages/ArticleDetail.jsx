@@ -9,6 +9,7 @@ import { buildBreadcrumbJsonLd } from "../utils/breadcrumbJsonLd";
 import { useLanguage } from "../context/LanguageContext";
 import { SITE_URL } from "../utils/siteUrl";
 import { sanitizeArticleHtml } from "../utils/sanitizeArticleHtml";
+import { truncateAtWordBoundary } from "../utils/truncateMetaDescription";
 
 function ArticleDetail() {
   const { slug } = useParams();
@@ -219,7 +220,7 @@ function ArticleDetail() {
     <div className="max-w-3xl mx-auto px-4 py-12">
       <Seo
         title={displayTitle}
-        description={(displayExcerpt || displayTitle).slice(0, 160)}
+        description={truncateAtWordBoundary(displayExcerpt || displayTitle)}
         image={displayImage}
         url={url}
         lang={isHindi ? "hi" : "en"}

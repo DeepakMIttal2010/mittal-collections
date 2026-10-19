@@ -15,6 +15,7 @@ import { buildBreadcrumbJsonLd } from "../utils/breadcrumbJsonLd";
 import { getSiteSettings } from "../services/settingsService";
 import { SITE_URL } from "../utils/siteUrl";
 import { productUrl } from "../utils/productUrl";
+import { truncateAtWordBoundary } from "../utils/truncateMetaDescription";
 import { useLanguage } from "../context/LanguageContext";
 import { FaGift, FaFilter, FaTimes } from "react-icons/fa";
 import { trackFilter } from "../utils/analytics";
@@ -787,7 +788,14 @@ function CategoryPage() {
     itemListElement: products.slice(0, 50).map((p, i) => ({
       "@type": "ListItem",
       position: i + 1,
-      url: `${SITE_URL}${productUrl(p)}`,
+      // isHindi was previously dropped here entirely, so every Hindi
+      // category page's ItemList advertised English product URLs even
+      // though this is the ONLY ItemList JSON-LD a real visitor ever
+      // gets for a category page (render.js's bot-only tags block never
+      // reaches real users here). Still gated per-product on nameHi --
+      // same "don't advertise an untranslated /hi/ URL" guard used
+      // elsewhere -- though every current product has one.
+      url: `${SITE_URL}${productUrl(p, isHindi && !!p.nameHi)}`,
     })),
   };
 
@@ -804,7 +812,7 @@ function CategoryPage() {
         // A subcategory's own subtitle (same priority as the body text
         // below) is more specific than the parent category's description
         // — used it here too, which this previously missed entirely.
-        description={`${pageTitle}: pan-India delivery, 24hr in Ghaziabad. ${activeSubcategory?.subtitle || category.description || ""}`.trim().slice(0, 160)}
+        description={truncateAtWordBoundary(`${pageTitle}: pan-India delivery, 24hr in Ghaziabad. ${activeSubcategory?.subtitle || category.description || ""}`.trim())}
         url={canonicalCategoryUrl}
         lang={isHindi ? "hi" : "en"}
         alternateLangs={alternateLangs}

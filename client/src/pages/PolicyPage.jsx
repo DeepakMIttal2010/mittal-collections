@@ -4,6 +4,7 @@ import { getPageBySlug } from "../services/pageService";
 import Seo from "../components/Seo";
 import { useLanguage } from "../context/LanguageContext";
 import { SITE_URL } from "../utils/siteUrl";
+import { truncateAtWordBoundary } from "../utils/truncateMetaDescription";
 
 function PolicyPage() {
   const { slug } = useParams();
@@ -94,7 +95,7 @@ function PolicyPage() {
           no change here. */}
       <Seo
         title={displayTitle}
-        description={displayContent.slice(0, 160)}
+        description={truncateAtWordBoundary(displayContent)}
         url={`${SITE_URL}/policies/${slug}`}
       />
 

@@ -15,6 +15,7 @@ import { getSiteSettings } from "../services/settingsService";
 import { calculateDeliveryFee } from "../utils/shipping";
 import { toWhatsAppNumber } from "../utils/whatsapp";
 import { stripHtml } from "../utils/stripHtml";
+import { truncateAtWordBoundary } from "../utils/truncateMetaDescription";
 import { sanitizeDescriptionHtml } from "../utils/sanitizeDescriptionHtml";
 import { handleImageError } from "../utils/imageFallback";
 import { toast } from "react-toastify";
@@ -669,9 +670,14 @@ function ProductDetails() {
     // where the pre-hydration one had it — a conflicting-data signal for
     // the same URL rather than a clean duplicate.
     sku: product._id,
+    // Was hardcoded to the site name unconditionally, silently
+    // overwriting the real product.brand for every branded product --
+    // contradicted both the page's own visible "Brand: ..." row and
+    // render.js's bot-rendered JSON-LD for the same URL, which already
+    // got this right (see render.js's own comment on this exact fix).
     brand: {
       "@type": "Brand",
-      name: "Mittal Collections",
+      name: product.brand || "Mittal Collections",
     },
     offers: {
       "@type": "Offer",
@@ -911,11 +917,11 @@ function ProductDetails() {
           // rather than inventing new phrasing for the same fact.
           isHindi
             ? product.descriptionHi || product.description
-              ? `₹${displayPrice}। पूरे भारत में डिलीवरी, ग़ाज़ियाबाद में 24 घंटे में तेज़ डिलीवरी। ${stripHtml(product.descriptionHi || product.description)}`.slice(0, 160)
-              : `₹${displayPrice} — ${product.nameHi}, पूरे भारत में डिलीवरी, ग़ाज़ियाबाद में 24 घंटे में तेज़ डिलीवरी`.slice(0, 160)
+              ? truncateAtWordBoundary(`₹${displayPrice}। पूरे भारत में डिलीवरी, ग़ाज़ियाबाद में 24 घंटे में तेज़ डिलीवरी। ${stripHtml(product.descriptionHi || product.description)}`)
+              : truncateAtWordBoundary(`₹${displayPrice} — ${product.nameHi}, पूरे भारत में डिलीवरी, ग़ाज़ियाबाद में 24 घंटे में तेज़ डिलीवरी`)
             : product.description
-              ? `₹${displayPrice}. Pan-India delivery, 24hr in Ghaziabad. ${stripHtml(product.description)}`.slice(0, 160)
-              : `₹${displayPrice} — ${product.name}, pan-India delivery, fast 24-hour delivery in Ghaziabad`.slice(0, 160)
+              ? truncateAtWordBoundary(`₹${displayPrice}. Pan-India delivery, 24hr in Ghaziabad. ${stripHtml(product.description)}`)
+              : truncateAtWordBoundary(`₹${displayPrice} — ${product.name}, pan-India delivery, fast 24-hour delivery in Ghaziabad`)
         }
         image={imgUrl(product.image)}
         url={canonicalUrl}
