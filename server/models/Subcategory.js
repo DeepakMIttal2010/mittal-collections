@@ -49,6 +49,16 @@ const subcategorySchema = new mongoose.Schema(
       trim: true,
     },
 
+    // Previously had no Hindi equivalent at all -- every Hindi
+    // subcategory page fell back to this English subtitle (or rendered
+    // blank) regardless of the URL's language, same gap as Category's
+    // own descriptionHi (SEO/conversion audit, 2026-10-20).
+    subtitleHi: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
     displayOrder: {
       type: Number,
       default: 0,

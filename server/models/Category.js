@@ -31,6 +31,19 @@ const categorySchema = new mongoose.Schema(
       trim: true,
     },
 
+    // Previously had no Hindi equivalent at all -- every Hindi category
+    // page (the highest-authority page type on the site) rendered blank
+    // or fell back to this English description regardless of the URL's
+    // language, a real contributor to why Hindi pages are so much more
+    // under-indexed than their English equivalents (SEO/conversion
+    // audit, 2026-10-20). Falls back to `description` the same way
+    // `nameHi` falls back to `name` above.
+    descriptionHi: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
     image: {
       type: String,
       required: [true, "Category image is required"],

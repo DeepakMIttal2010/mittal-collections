@@ -39,7 +39,20 @@ export const imgUrl = (path, transform) => {
     // supported modern format instead of asking Cloudinary to guess per
     // request -- confirmed via the same live check that forcing an
     // explicit format (f_avif there) reliably returns that format.
-    const resolvedTransform = transform.replace(/f_auto\b/, "f_webp");
+    let resolvedTransform = transform.replace(/f_auto\b/, "f_webp");
+
+    // Ensures a `w_` request never upscales past the source image's real
+    // resolution -- without an explicit crop mode, Cloudinary's default
+    // scale behavior stretches a smaller original up to fill the
+    // requested width, producing visibly blurry images. Found live (Deep
+    // SEO round 6, 2026-10-20): 40 of 44 recently-added products had
+    // source photos under 1600px, all silently upscaled 1.5x-2.5x by the
+    // fixed w_1600 main-image request. c_limit only ever shrinks, never
+    // grows, an image.
+    if (/\bw_\d+/.test(resolvedTransform) && !/\bc_/.test(resolvedTransform)) {
+      resolvedTransform = resolvedTransform.replace(/\bw_\d+/, (w) => `c_limit,${w}`);
+    }
+
     return path.replace("/upload/", `/upload/${resolvedTransform}/`);
   }
 

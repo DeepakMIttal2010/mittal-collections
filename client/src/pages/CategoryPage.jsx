@@ -812,7 +812,10 @@ function CategoryPage() {
         // A subcategory's own subtitle (same priority as the body text
         // below) is more specific than the parent category's description
         // — used it here too, which this previously missed entirely.
-        description={truncateAtWordBoundary(`${pageTitle}: pan-India delivery, 24hr in Ghaziabad. ${activeSubcategory?.subtitle || category.description || ""}`.trim())}
+        // descriptionHi/subtitleHi now exist (SEO/conversion audit,
+        // 2026-10-20) -- t() falls back to the English text on its own
+        // when a given category/subcategory hasn't been backfilled yet.
+        description={truncateAtWordBoundary(`${pageTitle}: pan-India delivery, 24hr in Ghaziabad. ${t(activeSubcategory?.subtitle, activeSubcategory?.subtitleHi) || t(category.description, category.descriptionHi) || ""}`.trim())}
         url={canonicalCategoryUrl}
         lang={isHindi ? "hi" : "en"}
         alternateLangs={alternateLangs}
@@ -830,16 +833,19 @@ function CategoryPage() {
           never actually shown to a visitor or a crawler — the page had no
           unique body text of its own, just breadcrumbs + pills + a
           product grid, which reads as thin/near-duplicate content across
-          every category and subcategory URL. No Hindi field exists on
-          Category/Subcategory yet (unlike name/nameHi), so this stays
-          English-only for now, same as the structured data.
+          every category and subcategory URL. descriptionHi/subtitleHi now
+          exist (SEO/conversion audit, 2026-10-20) -- t() falls back to
+          English on its own wherever a given category/subcategory hasn't
+          been backfilled with real Hindi text yet.
           A subcategory's own subtitle (Subcategory.subtitle) is more
           specific to that exact page than the parent category's
           description — e.g. "Madrasi Towel" gets its own text instead of
           reusing generic Towels copy — so it takes priority when present. */}
-      {(activeSubcategory?.subtitle || category.description) && (
+      {(t(activeSubcategory?.subtitle, activeSubcategory?.subtitleHi) ||
+        t(category.description, category.descriptionHi)) && (
         <p className="text-sm text-slate-600 mb-4 max-w-3xl">
-          {activeSubcategory?.subtitle || category.description}
+          {t(activeSubcategory?.subtitle, activeSubcategory?.subtitleHi) ||
+            t(category.description, category.descriptionHi)}
         </p>
       )}
 

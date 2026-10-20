@@ -105,7 +105,12 @@ function Register() {
           subscribeToNewsletter(formData.email);
         }
 
-        navigate(`/login?redirect=${encodeURIComponent(redirectTo)}`);
+        // verify-otp now returns a token (same shape as login/Google
+        // sign-in), so this logs the new account straight in instead of
+        // bouncing them to /login to re-type the password they just
+        // chose seconds earlier (SEO/conversion audit, 2026-10-20).
+        login(data.user, data.token);
+        navigate(redirectTo);
       } else {
         toast.error(data.message);
       }

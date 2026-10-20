@@ -32,12 +32,16 @@ function SubcategoryRow({ category, groupLabel, items, activeSubcategory }) {
           )}
         </h3>
 
+        {/* 44px (w-11 h-11) -- these were 32px and, unlike the near-
+            identical arrows in TrendingSection.jsx (already 36px and
+            hidden below sm), visible at every width including mobile
+            (mobile usability audit, 2026-10-20). */}
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={() => scroll("prev")}
             aria-label={t("Previous", "पिछला")}
-            className="w-8 h-8 rounded-full border border-slate-300 text-slate-500 hover:bg-slate-50 flex items-center justify-center"
+            className="w-11 h-11 rounded-full border border-slate-300 text-slate-500 hover:bg-slate-50 flex items-center justify-center"
           >
             <FaChevronLeft className="text-xs" />
           </button>
@@ -45,7 +49,7 @@ function SubcategoryRow({ category, groupLabel, items, activeSubcategory }) {
             type="button"
             onClick={() => scroll("next")}
             aria-label={t("Next", "अगला")}
-            className="w-8 h-8 rounded-full border border-slate-300 text-slate-500 hover:bg-slate-50 flex items-center justify-center"
+            className="w-11 h-11 rounded-full border border-slate-300 text-slate-500 hover:bg-slate-50 flex items-center justify-center"
           >
             <FaChevronRight className="text-xs" />
           </button>

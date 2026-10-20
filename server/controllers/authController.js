@@ -208,15 +208,32 @@ export const verifyRegisterOtp = async (req, res) => {
       console.error("Welcome Email Error:", error);
     }
 
+    // Registration never issued a token, so Register.jsx had to bounce a
+    // brand-new customer to a separate /login screen to re-type the
+    // password they'd just chosen seconds earlier -- an avoidable step
+    // right at the start of a first-time organic buyer's checkout
+    // journey (SEO/conversion audit, 2026-10-20). Mirrors login()'s own
+    // token shape exactly, including tokenVersion, so this account
+    // immediately works the same way a normal login would.
+    const token = jwt.sign(
+      { id: user._id, role: user.role, tokenVersion: user.tokenVersion },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" },
+    );
+
     res.status(201).json({
       success: true,
       message: "User registered successfully",
+      token,
       user: {
         id: user._id,
         name: user.name,
         email: user.email,
         mobile: user.mobile,
+        role: user.role,
+        loyaltyPoints: user.loyaltyPoints,
         referralCode: user.referralCode,
+        adminRole: null,
       },
     });
   } catch (error) {
