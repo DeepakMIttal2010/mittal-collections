@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import Ticket from "../models/Ticket.js";
 import Order from "../models/Order.js";
 import SiteSettings from "../models/SiteSettings.js";
@@ -68,8 +69,15 @@ export const createTicket = async (req, res) => {
     // silently not link, rather than erroring the whole ticket out --
     // a wrong/stale order ID shouldn't block submitting a support
     // request.
+    // CodeQL flagged `order` flowing straight into the query filter below
+    // as a "database query built from user-controlled sources" -- a
+    // non-string value (e.g. {"$ne": null}) would be passed through by
+    // Mongoose as a raw query operator instead of being cast to an
+    // ObjectId, so this validates its shape before it ever reaches the
+    // query, same pattern already used throughout this codebase (PR #307
+    // CI, 2026-10-20).
     let verifiedOrderId = null;
-    if (order) {
+    if (order && mongoose.Types.ObjectId.isValid(order)) {
       const ownedOrder = await Order.findOne({ _id: order, user: req.user._id }).select("_id");
       verifiedOrderId = ownedOrder?._id || null;
     }
