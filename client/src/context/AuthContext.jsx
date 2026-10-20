@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 
 import { readJsonFromStorage } from "../utils/safeLocalStorage";
+import API_BASE_URL from "../services/api";
 
 const AuthContext = createContext();
 
@@ -34,7 +35,22 @@ export const AuthProvider = ({ children }) => {
   const markJustRegistered = () => setJustRegistered(true);
   const clearJustRegistered = () => setJustRegistered(false);
 
+  // Best-effort server-side revocation (see authMiddleware.js's
+  // tokenVersion check) before clearing local storage -- previously
+  // logout was purely client-side, so a captured/leaked token stayed
+  // valid for its full 7-day life regardless of the user "logging out"
+  // (deep bug sweep, 2026-10-20). Fire-and-forget: a network hiccup here
+  // shouldn't block the user from clearing their own browser session.
   const logout = () => {
+    const token = localStorage.getItem("token");
+
+    if (token) {
+      fetch(`${API_BASE_URL}/auth/logout`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      }).catch(() => {});
+    }
+
     localStorage.removeItem("token");
     localStorage.removeItem("user");
 

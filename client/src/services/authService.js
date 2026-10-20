@@ -218,7 +218,22 @@ export const saveLogin = (data) => {
 
 // ================= LOGOUT =================
 
+// Best-effort server-side revocation (see authMiddleware.js's tokenVersion
+// check) before clearing local storage -- previously logout was purely
+// client-side, so a captured/leaked token stayed valid for its full 7-day
+// life regardless of the user "logging out" (deep bug sweep, 2026-10-20).
+// Fire-and-forget: a network hiccup here shouldn't block the user from
+// clearing their own browser session, which is the part they can see.
 export const logoutUser = () => {
+  const token = getToken();
+
+  if (token) {
+    fetch(`${API_BASE_URL}/auth/logout`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    }).catch(() => {});
+  }
+
   localStorage.removeItem("token");
   localStorage.removeItem("user");
 };
@@ -261,7 +276,18 @@ export const saveAdminLogin = (data) => {
   localStorage.setItem("adminUser", JSON.stringify(data.user));
 };
 
+// Same server-side revocation as logoutUser above -- admin/staff tokens
+// are the higher-value target, so this matters even more here.
 export const logoutAdmin = () => {
+  const token = getAdminToken();
+
+  if (token) {
+    fetch(`${API_BASE_URL}/auth/logout`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    }).catch(() => {});
+  }
+
   localStorage.removeItem("adminToken");
   localStorage.removeItem("adminUser");
 };

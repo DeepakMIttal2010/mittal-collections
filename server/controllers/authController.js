@@ -303,6 +303,7 @@ export const login = async (req, res) => {
       {
         id: user._id,
         role: user.role,
+        tokenVersion: user.tokenVersion,
       },
       process.env.JWT_SECRET,
       {
@@ -424,7 +425,7 @@ export const googleAuth = async (req, res) => {
     }
 
     const token = jwt.sign(
-      { id: user._id, role: user.role },
+      { id: user._id, role: user.role, tokenVersion: user.tokenVersion },
       process.env.JWT_SECRET,
       { expiresIn: "7d" },
     );
@@ -675,6 +676,11 @@ export const resetPassword = async (req, res) => {
     user.password = await bcrypt.hash(password, 10);
     user.resetPasswordToken = null;
     user.resetPasswordExpire = null;
+    // Invalidates any already-issued token for this account (see User
+    // model's tokenVersion comment) -- if this reset is the real owner
+    // locking out someone who'd gained access via a leaked token, the
+    // leaked token needs to stop working here, not just the password.
+    user.tokenVersion += 1;
 
     await user.save();
 
@@ -765,6 +771,11 @@ export const changePassword = async (req, res) => {
     }
 
     user.password = await bcrypt.hash(newPassword, 10);
+    // Invalidates any OTHER already-issued token for this account (see
+    // User model's tokenVersion comment) -- a fresh token carrying the
+    // new version is issued below so the request that just made this
+    // change doesn't immediately lock itself out too.
+    user.tokenVersion += 1;
 
     await user.save();
 
@@ -798,12 +809,47 @@ export const changePassword = async (req, res) => {
       }
     }
 
+    const token = jwt.sign(
+      { id: user._id, role: user.role, tokenVersion: user.tokenVersion },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" },
+    );
+
     res.status(200).json({
       success: true,
       message: "Password changed successfully",
+      token,
     });
   } catch (error) {
     console.error("Change Password Error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};
+
+// ============================
+// Logout
+// ============================
+// Previously there was no server-side logout at all -- the client just
+// deleted its own copy of the token, so a captured/leaked JWT stayed
+// fully valid for its whole 7-day life regardless of "logging out"
+// (deep bug sweep, 2026-10-20). Bumping tokenVersion here invalidates
+// THIS token (and every other currently-valid one for this account --
+// there's no per-device session tracking, so this is account-wide) the
+// next time authMiddleware checks it.
+export const logout = async (req, res) => {
+  try {
+    await User.findByIdAndUpdate(req.user.id, { $inc: { tokenVersion: 1 } });
+
+    res.status(200).json({
+      success: true,
+      message: "Logged out successfully",
+    });
+  } catch (error) {
+    console.error("Logout Error:", error);
 
     res.status(500).json({
       success: false,

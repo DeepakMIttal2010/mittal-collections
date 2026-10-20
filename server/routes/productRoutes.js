@@ -6,6 +6,8 @@ import authMiddleware from "../middleware/authMiddleware.js";
 import adminMiddleware from "../middleware/adminMiddleware.js";
 import requirePermission from "../middleware/requirePermission.js";
 import requireWriteAccess from "../middleware/requireWriteAccess.js";
+import { searchLimiter, suggestionsLimiter } from "../middleware/searchLimiter.js";
+import { emailTriggerLimiter } from "../middleware/emailTriggerLimiter.js";
 
 import {
   getProducts,
@@ -38,7 +40,7 @@ const canCreate = requireWriteAccess("products", "new");
 const canModify = requireWriteAccess("products", "modified");
 
 // Public routes — koi bhi dekh sakta hai
-router.get("/", getProducts);
+router.get("/", searchLimiter, getProducts);
 router.get("/trending", getTrendingProducts);
 router.get("/trending-by-category", getTrendingProductsByCategory);
 router.get("/new-arrivals", getNewArrivalProducts);
@@ -46,7 +48,7 @@ router.get("/new-arrivals-by-category", getNewArrivalsByCategory);
 router.get("/gifting", getGiftingProductsByCategory);
 router.get("/best-sellers", getBestSellers);
 router.get("/big-savings", getBigSavingsProducts);
-router.get("/suggestions", getSearchSuggestions);
+router.get("/suggestions", suggestionsLimiter, getSearchSuggestions);
 
 // Admin-only routes — login + admin role dono zaroori (must come before /:id)
 router.get("/admin", authMiddleware, adminMiddleware, perm, getAllProductsAdmin);
@@ -60,7 +62,13 @@ router.get(
 
 router.get("/:id", getProductById);
 router.get("/:id/admin", authMiddleware, adminMiddleware, perm, getProductByIdAdmin);
-router.post("/:id/notify", subscribeStockAlert);
+// Reuses emailTriggerLimiter (see its own header comment) -- this stores
+// an alert for a FUTURE back-in-stock email rather than sending one
+// immediately, but it's the same public, unauthenticated, no-ownership-
+// check shape as the routes that limiter already covers: unthrottled, a
+// script could mass-subscribe scraped/guessed third-party emails to
+// unsolicited "back in stock" mail (deep bug sweep, 2026-10-20).
+router.post("/:id/notify", emailTriggerLimiter, subscribeStockAlert);
 
 const productMediaFields = uploadProductMedia.fields([
   { name: "images", maxCount: 6 },

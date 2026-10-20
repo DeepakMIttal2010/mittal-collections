@@ -506,17 +506,54 @@ export const createOrder = async (req, res) => {
       }
     }
 
-    const bundleDiscountAmount = bundleResult.discountAmount;
+    // Coupon, bundle, and points discounts used to each be capped
+    // independently against the same original `subtotal` -- calculateDiscount
+    // caps a coupon at the full subtotal, calculateBundleDiscount caps bundle
+    // separately at its own eligible-category subtotal, and points were
+    // capped at maxRedeemPercent of the ORIGINAL subtotal too. None of the
+    // three was aware of the others, so legitimately combining all three
+    // (no tampering needed) could discount well past 100% of the order's
+    // real value -- e.g. a 30% coupon + a 40% bundle rule + a 50%-of-subtotal
+    // points redemption on the same ~order could sum past the subtotal
+    // entirely, and the final Math.max(...,0) floor silently absorbed the
+    // rest as a free order (deep bug sweep, 2026-10-20). Clamping each
+    // discount against what's actually still owed after the ones already
+    // applied (rather than the pristine subtotal) means the three can never
+    // collectively exceed the subtotal, without changing how any single
+    // discount is itself calculated.
+    let remainingAfterDiscounts = subtotal;
+
+    discountAmount = Math.min(discountAmount, remainingAfterDiscounts);
+    remainingAfterDiscounts -= discountAmount;
+
+    const bundleDiscountAmount = Math.min(
+      bundleResult.discountAmount,
+      remainingAfterDiscounts,
+    );
+    remainingAfterDiscounts -= bundleDiscountAmount;
 
     // Loyalty points redemption — capped to what the user actually holds
-    // and to half the subtotal, so points can never fully zero an order.
+    // and to half of whatever's left after the coupon/bundle discounts
+    // above, so points can never fully zero an order on their own or in
+    // combination with the other two.
     let pointsRedeemed = 0;
     let pointsDiscount = 0;
 
-    if (redeemPoints && Number(redeemPoints) > 0) {
+    // minRedeemPoints (an admin-configured floor, e.g. "must hold at
+    // least 50 to redeem any") existed on LoyaltySettings and was
+    // editable in admin, but was never actually checked here -- a
+    // customer could redeem e.g. 1 point via a direct API call
+    // regardless of the configured minimum, bypassing a rule that was
+    // presumably only ever enforced client-side (deep bug sweep,
+    // 2026-10-20).
+    if (
+      redeemPoints &&
+      Number(redeemPoints) > 0 &&
+      (currentUser?.loyaltyPoints || 0) >= loyaltySettings.minRedeemPoints
+    ) {
       const requestedPoints = Math.floor(Number(redeemPoints));
       const allowed = maxRedeemablePoints(
-        subtotal,
+        remainingAfterDiscounts,
         currentUser?.loyaltyPoints || 0,
         loyaltySettings,
       );
@@ -830,12 +867,45 @@ export const resumeRazorpayPayment = async (req, res) => {
     // Payment actually succeeded on Razorpay's side but our own
     // verification step never ran (e.g. the browser closed right after
     // the bank redirect) — reopening the modal here would let the
-    // customer pay a second time for the same order.
+    // customer pay a second time for the same order. This used to just
+    // detect that and tell the customer to wait, throwing away proof
+    // of payment it had already fetched -- the order stayed "Pending"/
+    // unpaid until cancelStaleRazorpayOrders eventually caught it, up to
+    // 45+ minutes later. Self-heals immediately instead, using the same
+    // atomic claim as that cron's own recovery branch (two tabs hitting
+    // "Pay Now" at once shouldn't both fire the notification below)
+    // (deep bug sweep, 2026-10-20).
     if (razorpayOrder.status === "paid") {
+      const { items: payments } = await getRazorpay().orders.fetchPayments(
+        order.razorpayOrderId,
+      );
+      const captured = payments.find((p) => p.status === "captured");
+
+      const claimed = await Order.findOneAndUpdate(
+        { _id: order._id, isPaid: { $ne: true } },
+        {
+          $set: {
+            isPaid: true,
+            paidAt: new Date(),
+            razorpayPaymentId: captured?.id || "",
+          },
+        },
+      );
+
+      if (claimed) {
+        notifyUser({
+          userId: order.user,
+          type: "order_status",
+          title: "Payment confirmed",
+          message: `We've confirmed your payment for order ${order._id} — it's now being processed.`,
+          link: `/my-orders/${order._id}`,
+        });
+      }
+
       return res.status(400).json({
         success: false,
         message:
-          "This order appears to already be paid. Please refresh in a moment, or contact support if this persists.",
+          "This order has already been paid — we've updated it, please refresh the page.",
       });
     }
 

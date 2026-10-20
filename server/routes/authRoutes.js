@@ -9,6 +9,7 @@ import {
   changePassword,
   forgotPassword,
   resetPassword,
+  logout,
 } from "../controllers/authController.js";
 import authMiddleware from "../middleware/authMiddleware.js";
 
@@ -23,5 +24,6 @@ router.post("/reset-password", resetPassword);
 router.get("/profile", authMiddleware, getProfile);
 router.put("/profile", authMiddleware, updateProfile);
 router.put("/change-password", authMiddleware, changePassword);
+router.post("/logout", authMiddleware, logout);
 
 export default router;
