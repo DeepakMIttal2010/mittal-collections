@@ -169,6 +169,22 @@ export const answerQuestion = async (req, res) => {
     const isNewAnswer = answer !== undefined && answer.trim() !== "" && !question.answer;
 
     if (answer !== undefined) question.answer = answer;
+
+    // When the caller explicitly sends isPublished, that bypassed the
+    // safe `Boolean(answer)` fallback entirely with no check that
+    // question.answer (the field actually shown on the public product
+    // page) is non-empty — today's admin UI happens to disable its
+    // "Publish" button until answerText is non-blank, but the endpoint
+    // itself had zero validation, so a direct API call (or any future
+    // client) could publish a blank answer box (deep bug sweep,
+    // 2026-10-19).
+    if (isPublished === true && !String(question.answer || "").trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot publish a question with a blank answer",
+      });
+    }
+
     question.isPublished =
       isPublished === undefined ? Boolean(answer) : isPublished;
 

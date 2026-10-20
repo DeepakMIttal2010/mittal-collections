@@ -84,7 +84,20 @@ export const getDashboardData = async (req, res) => {
       // exclusion already used for the Reports page's revenue figure
       // (see revenueOrdersFilter below), just not previously applied here.
       { $match: { orderStatus: { $ne: "Cancelled" } } },
-      { $group: { _id: null, totalSales: { $sum: "$totalPrice" } } },
+      {
+        $group: {
+          _id: null,
+          // A partial item-level return (returnController.js) never
+          // changes orderStatus -- only a full-order cancellation does
+          // -- so this previously kept counting an order's entire
+          // totalPrice forever, even after some of its items were
+          // refunded (deep bug sweep, 2026-10-19). $ifNull guards
+          // orders saved before refundedAmount existed on the schema.
+          totalSales: {
+            $sum: { $subtract: ["$totalPrice", { $ifNull: ["$refundedAmount", 0] }] },
+          },
+        },
+      },
     ]);
 
     // In-store POS sales (OfflineSale) were completely invisible to this
@@ -414,6 +427,7 @@ export const getReportsData = async (req, res) => {
 
     const [
       totalOrders,
+      revenueOrderCount,
       totalCustomers,
       revenueAgg,
       prevRevenueAgg,
@@ -447,18 +461,47 @@ export const getReportsData = async (req, res) => {
     ] = await Promise.all([
       Order.countDocuments({ createdAt: dateRange }),
 
+      // Scoped to the SAME revenueOrdersInRange filter as totalRevenue's
+      // own aggregation below -- avgOrderValue divides totalRevenue by
+      // (this + posSalesCount), and totalRevenue already excludes
+      // Cancelled orders. Dividing by totalOrders (which counts every
+      // order placed, Cancelled included) instead understated
+      // avgOrderValue by inflating the denominator with zero-revenue
+      // orders (deep bug sweep, 2026-10-19) -- totalOrders itself is
+      // left unchanged since "Orders Placed" is a legitimate, distinct
+      // volume metric from revenue.
+      Order.countDocuments(revenueOrdersInRange),
+
       User.countDocuments({ role: "user" }),
 
       Order.aggregate([
         { $match: revenueOrdersInRange },
-        { $group: { _id: null, total: { $sum: "$totalPrice" } } },
+        {
+          $group: {
+            _id: null,
+            // See Order.js's refundedAmount comment -- a partial return
+            // never changes orderStatus, so this previously kept
+            // counting an order's full totalPrice forever even after
+            // some items were refunded (deep bug sweep, 2026-10-19).
+            total: {
+              $sum: { $subtract: ["$totalPrice", { $ifNull: ["$refundedAmount", 0] }] },
+            },
+          },
+        },
       ]),
 
       Order.aggregate([
         {
           $match: { ...revenueOrdersFilter, createdAt: prevDateRange },
         },
-        { $group: { _id: null, total: { $sum: "$totalPrice" } } },
+        {
+          $group: {
+            _id: null,
+            total: {
+              $sum: { $subtract: ["$totalPrice", { $ifNull: ["$refundedAmount", 0] }] },
+            },
+          },
+        },
       ]),
 
       Order.countDocuments({ createdAt: prevDateRange }),
@@ -497,7 +540,9 @@ export const getReportsData = async (req, res) => {
                 timezone: "+05:30",
               },
             },
-            revenue: { $sum: "$totalPrice" },
+            revenue: {
+              $sum: { $subtract: ["$totalPrice", { $ifNull: ["$refundedAmount", 0] }] },
+            },
             orders: { $sum: 1 },
           },
         },
@@ -537,7 +582,17 @@ export const getReportsData = async (req, res) => {
             as: "productInfo",
           },
         },
-        { $unwind: "$productInfo" },
+        // preserveNullAndEmptyArrays matters here specifically: a plain
+        // $unwind silently DROPS the whole order-item document when the
+        // $lookup finds no match (e.g. the product was later deleted —
+        // this catalog has had real product/category churn), so that
+        // item's revenue would vanish from this category breakdown
+        // while still being counted in totalRevenue/topProducts, which
+        // key off orderItems' own denormalized product/name fields, not
+        // a live join (deep bug sweep, 2026-10-19). Falls through to
+        // the same "Uncategorized" bucket the downstream categoryInfo
+        // lookup below already uses for a missing category.
+        { $unwind: { path: "$productInfo", preserveNullAndEmptyArrays: true } },
         {
           $group: {
             _id: "$productInfo.category",
@@ -786,11 +841,13 @@ export const getReportsData = async (req, res) => {
     const totalRevenue = (revenueAgg[0]?.total || 0) + posRevenue;
     // Denominator includes POS sales alongside online orders so this stays
     // a true average now that the numerator (totalRevenue) includes both
-    // — using just totalOrders here would inflate it once POS revenue is
-    // folded in above.
+    // — using totalOrders here (which counts every order placed,
+    // Cancelled included) would understate this by inflating the
+    // denominator with zero-revenue orders; revenueOrderCount matches
+    // totalRevenue's own Cancelled-excluding filter.
     const avgOrderValue =
-      totalOrders + posSalesCount > 0
-        ? totalRevenue / (totalOrders + posSalesCount)
+      revenueOrderCount + posSalesCount > 0
+        ? totalRevenue / (revenueOrderCount + posSalesCount)
         : 0;
 
     const prevRevenue = (prevRevenueAgg[0]?.total || 0) + prevPosRevenue;

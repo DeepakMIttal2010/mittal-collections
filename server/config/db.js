@@ -3,6 +3,7 @@ import * as Sentry from "@sentry/node";
 
 import CartSnapshot from "../models/CartSnapshot.js";
 import Wishlist from "../models/Wishlist.js";
+import StockAlert from "../models/StockAlert.js";
 
 // Previously had zero visibility into connection drops/reconnects — on
 // Render's free tier (the instance idles down and cold-starts) and
@@ -61,6 +62,14 @@ const connectDB = async () => {
     // let a guest's wishlist item (keyed by visitorId instead) exist
     // alongside others without colliding on an absent user.
     await Wishlist.syncIndexes();
+    // Same story again — StockAlert's unique index went from
+    // {product,email} to {product,email,size}, so a customer can
+    // subscribe to more than one size of the same product independently
+    // (deep bug sweep, 2026-10-19). Without this, the OLD index stays on
+    // the live collection forever (autoIndex only adds) and would reject
+    // a second subscription for a different size of the same product as
+    // a duplicate key.
+    await StockAlert.syncIndexes();
   } catch (error) {
     console.error("❌ MongoDB Connection Failed");
     console.error(error.message);

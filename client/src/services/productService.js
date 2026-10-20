@@ -401,14 +401,14 @@ export const getProductsBySubcategory = async (subcategoryId) => {
 // ==========================
 // Get Product By ID
 // ==========================
-export const subscribeStockAlert = async (productId, email) => {
+export const subscribeStockAlert = async (productId, email, size) => {
   try {
     const response = await fetch(
       `${API_BASE_URL}/products/${productId}/notify`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, size }),
       },
     );
 

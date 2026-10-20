@@ -91,6 +91,21 @@ const orderSchema = new mongoose.Schema(
       required: true,
     },
 
+    // Running total of item-level returns refunded against this order
+    // (see returnController.js's updateReturnStatus, "Refunded" branch)
+    // -- a partial return never changes orderStatus/totalPrice (only a
+    // full-order cancellation does, via updateOrderStatus's Cancelled
+    // branch), so every revenue aggregation that only excludes
+    // Cancelled orders previously kept counting an order's ENTIRE
+    // totalPrice even after some of its items were refunded, overstating
+    // revenue by exactly the refunded amount, permanently (deep bug
+    // sweep, 2026-10-19). Revenue aggregations now subtract this.
+    refundedAmount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
     deliveryFee: {
       type: Number,
       default: 0,

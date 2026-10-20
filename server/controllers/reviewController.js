@@ -26,17 +26,44 @@ const MAX_REVIEW_VIDEO_SECONDS = 20;
 // ============================
 export const getProductReviews = async (req, res) => {
   try {
+    // Every other list endpoint in this area caps its result (
+    // getProductQuestions at 500, getShowcaseReviews at 12,
+    // getAllReviewsAdmin at 2000) -- this one didn't, so a single
+    // heavily-reviewed product returned its entire approved-review set,
+    // photo/video URLs included, on every page load (deep bug sweep,
+    // 2026-10-19). 500 matches getProductQuestions' own per-product
+    // public-list cap.
     const reviews = await Review.find({
       product: req.params.productId,
       isApproved: true,
     })
       .populate("user", "name")
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .limit(500);
 
-    const totalReviews = reviews.length;
-    const averageRating = totalReviews
-      ? reviews.reduce((sum, r) => sum + r.rating, 0) / totalReviews
-      : 0;
+    // totalReviews/averageRating are the real aggregate stats shown as
+    // the product's star-rating summary -- computed from the FULL
+    // approved set via aggregation (same source of truth
+    // productController.js's batched review-stats query already uses),
+    // not from the capped `reviews` list above, so the cap above can
+    // never understate them.
+    const statsAgg = await Review.aggregate([
+      {
+        $match: {
+          product: new mongoose.Types.ObjectId(req.params.productId),
+          isApproved: true,
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          averageRating: { $avg: "$rating" },
+          totalReviews: { $sum: 1 },
+        },
+      },
+    ]);
+    const totalReviews = statsAgg[0]?.totalReviews || 0;
+    const averageRating = statsAgg[0]?.averageRating || 0;
 
     res.status(200).json({
       success: true,
