@@ -356,9 +356,14 @@
     font-size: 14px;
   }
 
+  /* 44px (Google's tap-target guidance) -- was deliberately shrunk
+     further than the 40px desktop default for this breakpoint; both
+     arrows are position:absolute against .hero-split-media with no
+     document-flow neighbors, so growing them carries no overlap risk
+     (mobile usability audit, 2026-10-20). */
   .hero-arrow {
-    width: 36px;
-    height: 36px;
-    font-size: 13px;
+    width: 44px;
+    height: 44px;
+    font-size: 15px;
   }
 }

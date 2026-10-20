@@ -1134,6 +1134,24 @@ function ProductDetails() {
             )}
           </div>
 
+          {/* Delivery cost used to be invisible until the cart page --
+              shippingSettings was already being fetched on this page
+              (see shippingFeeForSeo above, built for JSON-LD only) but
+              never shown to the actual shopper, who'd only find out
+              whether delivery was free or ₹49+ after adding to cart --
+              a classic abandonment trigger (SEO/conversion audit,
+              2026-10-20). */}
+          {shippingSettings && (
+            <p className="text-sm text-slate-600 mb-4">
+              {calculateDeliveryFee(displayPrice, shippingSettings) === 0
+                ? t("Free delivery on this order", "इस ऑर्डर पर मुफ़्त डिलीवरी")
+                : t(
+                    `Delivery: ₹${calculateDeliveryFee(displayPrice, shippingSettings)} (free above ₹${shippingSettings.freeShippingThreshold ?? 499})`,
+                    `डिलीवरी: ₹${calculateDeliveryFee(displayPrice, shippingSettings)} (₹${shippingSettings.freeShippingThreshold ?? 499} से ऊपर मुफ़्त)`,
+                  )}
+            </p>
+          )}
+
           {hasVariants && (
             <div className="mb-5">
               <p className="text-sm font-medium text-slate-700 mb-2">
@@ -1309,11 +1327,15 @@ function ProductDetails() {
 
           <div className="flex items-center gap-3 mb-6">
             <span className="text-sm font-medium text-slate-700">{t("Qty:", "मात्रा:")}</span>
+            {/* 44px (w-11 h-11) -- the one qty stepper on the site that
+                was still ~33x36px; Cart.css and CartDrawer.jsx's own qty
+                buttons were already fixed to this exact size (mobile
+                usability audit, 2026-10-20). */}
             <div className="flex items-center border border-slate-300 rounded-lg">
               <button
                 type="button"
                 onClick={() => setQuantity((q) => Math.max(q - 1, 1))}
-                className="px-3 py-1.5 text-slate-600 hover:bg-slate-50"
+                className="w-11 h-11 flex items-center justify-center text-slate-600 hover:bg-slate-50"
               >
                 −
               </button>
@@ -1341,7 +1363,7 @@ function ProductDetails() {
 
                   setQuantity((q) => Math.min(q + 1, displayStock));
                 }}
-                className="px-3 py-1.5 text-slate-600 hover:bg-slate-50"
+                className="w-11 h-11 flex items-center justify-center text-slate-600 hover:bg-slate-50"
               >
                 +
               </button>
@@ -1426,7 +1448,16 @@ function ProductDetails() {
               },
               {
                 icon: <FaMoneyBillWave />,
-                label: t("Pay on Delivery", "डिलीवरी पर भुगतान"),
+                // The ₹50 COD handling charge was only ever revealed at
+                // checkout once COD was selected -- a shopper who picked
+                // this option expecting it to be free only found out at
+                // the last step (SEO/conversion audit, 2026-10-20).
+                label: shippingSettings?.codCharge
+                  ? t(
+                      `Pay on Delivery (+₹${shippingSettings.codCharge})`,
+                      `डिलीवरी पर भुगतान (+₹${shippingSettings.codCharge})`,
+                    )
+                  : t("Pay on Delivery", "डिलीवरी पर भुगतान"),
               },
               product.isReturnable
                 ? {
@@ -1688,6 +1719,37 @@ function ProductDetails() {
           )}
         </div>
       )}
+
+      {/* No sticky/persistent Add to Cart existed anywhere on mobile --
+          the real button sits well below the fold (hero image, gallery,
+          title, price, variants, stock line all come first), so a
+          scrolling shopper loses the primary action entirely (SEO/
+          conversion audit, 2026-10-20). Sits above BottomNav rather than
+          replacing it, offset by BottomNav's own real rendered height
+          (~49-56px of content: py-2 + text-lg icon + gap-0.5 + 11px
+          label) PLUS the identical env(safe-area-inset-bottom) BottomNav
+          itself pads with -- a plain bottom-16 (fixed 64px) would have
+          undershot that on a notched/home-indicator phone, where
+          BottomNav's real height grows well past 64px, and the two bars
+          would overlap. Stays clear of the WhatsApp/BackToTop round
+          buttons which float at bottom-20 on the left/right edges --
+          this bar is full-width but only as tall as its own content, so
+          it doesn't reach that high. lg:hidden matches ProductDetails'
+          own single-column breakpoint (desktop already shows the real
+          button inline, already-visible, no fold problem there). */}
+      <div className="lg:hidden fixed bottom-[calc(56px+env(safe-area-inset-bottom,0px))] inset-x-0 z-40 bg-white border-t border-slate-200 px-4 py-2.5 flex items-center gap-3 shadow-[0_-2px_8px_rgba(0,0,0,0.06)]">
+        <span className="text-lg font-bold text-[#2e7d32] shrink-0">
+          ₹{displayPrice}
+        </span>
+        <button
+          onClick={handleAddToCart}
+          disabled={displayStock <= 0}
+          className="flex-1 flex items-center justify-center gap-2 bg-blue-900 hover:bg-blue-950 text-white font-semibold rounded-full px-5 py-2.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <FaShoppingCart />
+          {t("Add to Cart", "कार्ट में डालें")}
+        </button>
+      </div>
     </div>
   );
 }

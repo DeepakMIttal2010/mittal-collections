@@ -183,6 +183,7 @@ export const addCategory = async (req, res) => {
       name,
       nameHi,
       description,
+      descriptionHi,
       featured,
       displayOrder,
       isActive,
@@ -219,6 +220,7 @@ export const addCategory = async (req, res) => {
       nameHi: nameHi || "",
       slug,
       description: description || "",
+      descriptionHi: descriptionHi || "",
       image: req.file.path,
       featured: featured === "true" || featured === true,
       displayOrder: displayOrder || 0,
@@ -267,6 +269,7 @@ export const updateCategory = async (req, res) => {
       name,
       nameHi,
       description,
+      descriptionHi,
       featured,
       displayOrder,
       isActive,
@@ -280,6 +283,7 @@ export const updateCategory = async (req, res) => {
 
     if (nameHi !== undefined) category.nameHi = nameHi;
     if (description !== undefined) category.description = description;
+    if (descriptionHi !== undefined) category.descriptionHi = descriptionHi;
     if (featured !== undefined)
       category.featured = featured === "true" || featured === true;
     if (displayOrder !== undefined) category.displayOrder = displayOrder;

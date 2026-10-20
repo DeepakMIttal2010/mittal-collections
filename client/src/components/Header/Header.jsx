@@ -553,12 +553,15 @@ function Header() {
 
         {/* Right Icons */}
         <div className="flex items-center gap-1 lg:gap-2 min-[1440px]:gap-6 ml-auto shrink-0">
-          {/* Language toggle */}
+          {/* Language toggle -- min-h-11 (44px) on each button; was
+              ~24px tall with no competing neighbor at mobile widths to
+              justify the smaller size (mobile usability audit,
+              2026-10-20). */}
           <div className="flex items-center rounded-full border border-slate-200 text-xs font-medium overflow-hidden shrink-0">
             <button
               type="button"
               onClick={() => setLanguage("en")}
-              className={`px-2.5 py-1 transition-colors ${
+              className={`px-3 min-h-11 transition-colors ${
                 language === "en"
                   ? "bg-amber-700 text-white"
                   : "text-slate-500 hover:bg-slate-50"
@@ -569,7 +572,7 @@ function Header() {
             <button
               type="button"
               onClick={() => setLanguage("hi")}
-              className={`px-2.5 py-1 transition-colors ${
+              className={`px-3 min-h-11 transition-colors ${
                 language === "hi"
                   ? "bg-amber-700 text-white"
                   : "text-slate-500 hover:bg-slate-50"
@@ -634,7 +637,11 @@ function Header() {
           <button
             type="button"
             onClick={openCart}
-            className="flex items-center gap-1.5 text-slate-600 hover:text-blue-700 transition-colors"
+            // min-w/min-h-11 (44px, Google's tap-target guidance) -- this
+            // was a bare ~18-20px icon with zero padding, the smallest
+            // control on the page despite being in the sticky header on
+            // every single page (mobile usability audit, 2026-10-20).
+            className="flex items-center justify-center gap-1.5 min-w-11 min-h-11 text-slate-600 hover:text-blue-700 transition-colors"
           >
             <span className="relative">
               <FaShoppingCart className="text-lg" />

@@ -104,6 +104,7 @@ export const addSubcategory = async (req, res) => {
       name,
       nameHi,
       subtitle,
+      subtitleHi,
       displayOrder,
       isActive,
     } = req.body;
@@ -124,6 +125,7 @@ export const addSubcategory = async (req, res) => {
       nameHi: nameHi || "",
       slug,
       subtitle: subtitle || "",
+      subtitleHi: subtitleHi || "",
       image: req.file ? req.file.path : "",
       displayOrder: displayOrder || 0,
       isActive: isActive === undefined ? true : isActive === "true",
@@ -175,6 +177,7 @@ export const updateSubcategory = async (req, res) => {
       name,
       nameHi,
       subtitle,
+      subtitleHi,
       displayOrder,
       isActive,
     } = req.body;
@@ -189,6 +192,7 @@ export const updateSubcategory = async (req, res) => {
 
     if (nameHi !== undefined) subcategory.nameHi = nameHi;
     if (subtitle !== undefined) subcategory.subtitle = subtitle;
+    if (subtitleHi !== undefined) subcategory.subtitleHi = subtitleHi;
     if (displayOrder !== undefined) subcategory.displayOrder = displayOrder;
     if (isActive !== undefined) subcategory.isActive = isActive === "true";
 

@@ -292,10 +292,23 @@ const isCloudinaryUploadUrl = (p) => {
 // already-in-flight/cached request -- found and fixed here, 2026-10-16,
 // after the product-page prepaint shipped with a literal "f_auto" that
 // never got this rewrite.
-const cloudinaryTransform = (p, transform) =>
-  isCloudinaryUploadUrl(p)
-    ? p.replace("/upload/", `/upload/${transform.replace(/f_auto\b/, "f_webp")}/`)
-    : p;
+const cloudinaryTransform = (p, transform) => {
+  if (!isCloudinaryUploadUrl(p)) return p;
+
+  let resolved = transform.replace(/f_auto\b/, "f_webp");
+
+  // Mirrors client/src/services/api.js's imgUrl c_limit fix exactly (see
+  // that file's comment) -- without this, a smaller-than-requested source
+  // photo gets upscaled and shipped blurry. Keeping both in sync matters
+  // doubly here: a prepaint URL that doesn't match what the real
+  // component requests once it mounts makes the browser download the
+  // same photo twice instead of reusing the prepaint's request.
+  if (/\bw_\d+/.test(resolved) && !/\bc_/.test(resolved)) {
+    resolved = resolved.replace(/\bw_\d+/, (w) => `c_limit,${w}`);
+  }
+
+  return p.replace("/upload/", `/upload/${resolved}/`);
+};
 
 // A plain DOM sibling of #root (same "never place inside #root" rule
 // scripts/build-home-html.mjs's own header comment explains in full --
@@ -446,6 +459,7 @@ const buildProductBodyHtml = (
   breadcrumbItems,
   galleryImages,
   isHindi = false,
+  relatedProducts = [],
 ) => {
   const breadcrumbHtml = buildBreadcrumbHtml(breadcrumbItems);
   const displayName = isHindi ? product.nameHi : product.name;
@@ -481,6 +495,29 @@ const buildProductBodyHtml = (
     )
     .join("\n");
 
+  // Same card markup as buildCategoryBodyHtml's productsHtml -- a
+  // product page was otherwise a dead end beyond one breadcrumb link
+  // for a non-JS crawler, despite ProductDetails.jsx already building
+  // this exact related-products list client-side (SEO/conversion
+  // audit, 2026-10-20).
+  const relatedProductsHtml = relatedProducts
+    .map((rp) => {
+      const slug = rp.slug || "";
+      const productPath = slug ? `/product/${rp._id}/${slug}` : `/product/${rp._id}`;
+      const href = `${SITE_URL}${isHindi && rp.nameHi ? `/hi${productPath}` : productPath}`;
+      const relatedDisplayName = isHindi && rp.nameHi ? rp.nameHi : rp.name;
+      const relatedImg = imgUrl(rp.image);
+
+      return `<li>
+        <a href="${escapeHtml(href)}">
+          ${relatedImg ? `<img src="${escapeHtml(relatedImg)}" alt="${escapeHtml(relatedDisplayName)}" />` : ""}
+          <span>${escapeHtml(relatedDisplayName)}</span>
+          <span>₹${escapeHtml(rp.price)}</span>
+        </a>
+      </li>`;
+    })
+    .join("\n");
+
   return `
     <nav aria-label="breadcrumb">${breadcrumbHtml}</nav>
     <h1>${escapeHtml(displayName)}</h1>
@@ -488,6 +525,16 @@ const buildProductBodyHtml = (
     <p>₹${escapeHtml(offerPrice)} — ${offerStock > 0 ? (isHindi ? "उपलब्ध" : "In Stock") : isHindi ? "स्टॉक में नहीं" : "Out of Stock"}</p>
     ${specs.length > 0 ? `<ul>${specsHtml}</ul>` : ""}
     ${plainDescription ? `<p>${escapeHtml(plainDescription)}</p>` : ""}
+    ${
+      relatedProductsHtml
+        ? `<nav aria-label="${isHindi ? "संबंधित उत्पाद" : "Related products"}">
+      <h2>${isHindi ? "संबंधित उत्पाद" : "Related Products"}</h2>
+      <ul>
+        ${relatedProductsHtml}
+      </ul>
+    </nav>`
+        : ""
+    }
   `;
 };
 
@@ -502,6 +549,92 @@ const buildProductBodyHtml = (
 // from a genuinely-empty/removed page to that classifier. This gives
 // Googlebot's first-pass (non-JS) crawl the same product list a real
 // visitor's browser renders, not just a head-only shell.
+// Duplicated from client/src/pages/CategoryPage.jsx's getSizeHelpLinks()
+// rather than imported (same reason as this file's other standalone
+// data/helper duplicates -- this is a separate serverless function, not
+// part of the client bundle). That client-side map already links each
+// category to its matching guide article for real human visitors, but
+// bots never ran the JS that renders it -- a category page was a dead
+// end with no path to the content Mittal Collections had already
+// written for it (SEO/conversion audit, 2026-10-20).
+const CATEGORY_GUIDE_LINKS = {
+  bedsheets: [
+    {
+      path: "/articles/bedsheet-size-guide-which-size-fits-single-double-queen-king-beds",
+      label: "Size Guide",
+      labelHi: "साइज़ गाइड",
+    },
+  ],
+  doormats: [
+    {
+      path: "/articles/doormat-size-guide-which-size-for-entrance-bedroom-bathroom-kitchen",
+      label: "Size Guide",
+      labelHi: "साइज़ गाइड",
+    },
+    {
+      path: "/articles/how-to-choose-the-right-doormat",
+      label: "Buying Guide",
+      labelHi: "खरीद गाइड",
+    },
+  ],
+  towels: [
+    {
+      path: "/articles/towel-size-guide-which-size-for-face-hand-bath-cleaning",
+      label: "Size Guide",
+      labelHi: "साइज़ गाइड",
+    },
+  ],
+  "cushion-covers": [
+    {
+      path: "/articles/cushion-cover-size-guide-standard-sizes-what-we-stock",
+      label: "Size Guide",
+      labelHi: "साइज़ गाइड",
+    },
+  ],
+  cushions: [
+    {
+      path: "/articles/pillows-vs-cushions-fill-and-firmness-guide",
+      label: "Fill Guide",
+      labelHi: "फिल गाइड",
+    },
+  ],
+  "mattress-covers": [
+    {
+      path: "/articles/mattress-cover-guide-pvc-waterproof-vs-cotton-which-one-do-you-need",
+      label: "Buying Guide",
+      labelHi: "खरीद गाइड",
+    },
+  ],
+  "table-covers": [
+    {
+      path: "/articles/table-cover-guide-pvc-lace-vs-clear-vinyl-vs-cotton-which-one-fits-your-table",
+      label: "Buying Guide",
+      labelHi: "खरीद गाइड",
+    },
+  ],
+  "table-runners": [
+    {
+      path: "/articles/table-runner-guide-cotton-velvet-jacquard-lace-which-one-for-which-occasion",
+      label: "Buying Guide",
+      labelHi: "खरीद गाइड",
+    },
+  ],
+  "hotel-linen": [
+    {
+      path: "/articles/hotel-bedsheet-buying-guide-gsm-fabric-what-hotels-should-look-for",
+      label: "Buying Guide",
+      labelHi: "खरीद गाइड",
+    },
+  ],
+  comforters: [
+    {
+      path: "/articles/comforter-size-guide-single-vs-double-what-gsm-actually-means",
+      label: "Size Guide",
+      labelHi: "साइज़ गाइड",
+    },
+  ],
+};
+
 const buildCategoryBodyHtml = (
   heading,
   bodyText,
@@ -569,11 +702,20 @@ const buildCategoryBodyHtml = (
     })
     .join("\n");
 
+  const guideLinks = CATEGORY_GUIDE_LINKS[categorySlug] || [];
+  const guideLinksHtml = guideLinks
+    .map(
+      (g) =>
+        `<li><a href="${escapeHtml(`${categoryUrlPrefix}${g.path}`)}">${escapeHtml(isHindi ? g.labelHi : g.label)}</a></li>`,
+    )
+    .join("\n");
+
   return `
     <nav aria-label="breadcrumb">${breadcrumbHtml}</nav>
     <h1>${escapeHtml(heading)}</h1>
     ${bodyText ? `<p>${escapeHtml(bodyText)}</p>` : ""}
     ${subcategoryLinksHtml}
+    ${guideLinksHtml ? `<ul>${guideLinksHtml}</ul>` : ""}
     <ul>
       ${productsHtml}
     </ul>
@@ -589,11 +731,12 @@ const buildCategoryBodyHtml = (
 // of this logic is exactly the kind of easy-to-miss index-shift bug this
 // factoring exists to rule out by construction).
 //
-// Category/Subcategory have `nameHi` but no description/subtitle Hindi
-// field yet (unlike Product) -- the Hindi branch's body text and meta
-// description fall back to the English description/subtitle rather than
-// blocking on a full Category/Subcategory Hindi-text backfill, same
-// partial-translation convention already used elsewhere on this site.
+// Category/Subcategory now have descriptionHi/subtitleHi alongside
+// nameHi (added 2026-10-20 -- see bodyText below), content backfill
+// in progress. Until every category/subcategory has real Hindi text,
+// the Hindi branch's body text and meta description fall back to the
+// English description/subtitle, same partial-translation convention
+// already used elsewhere on this site.
 async function buildCategoryMeta({ categorySlug, subcategorySlug, isHindi }) {
   const data = await fetchJson(`${API_BASE}/api/categories`);
 
@@ -684,9 +827,15 @@ async function buildCategoryMeta({ categorySlug, subcategorySlug, isHindi }) {
   const pageTitle = subcategory
     ? `${displaySubcategoryName} - ${displayCategoryName}`
     : displayCategoryName;
+  // descriptionHi/subtitleHi now exist (see Category.js/Subcategory.js --
+  // SEO/conversion audit, 2026-10-20) -- still falls back to the English
+  // text if a given category/subcategory hasn't been backfilled yet,
+  // same partial-translation convention this file already uses
+  // elsewhere, but no longer permanently blocked on a full backfill
+  // before ANY Hindi hub page gets real body text.
   const bodyText = subcategory
-    ? subcategory.subtitle || ""
-    : category.description || "";
+    ? (isHindi ? subcategory.subtitleHi : "") || subcategory.subtitle || ""
+    : (isHindi ? category.descriptionHi : "") || category.description || "";
   const description = truncateAtWordBoundary(
     `${pageTitle}: pan-India delivery, 24hr in Ghaziabad. ${bodyText}`.trim(),
   );
@@ -880,6 +1029,7 @@ const buildHomeBodyHtml = (heading, description, categories, subcategories, isHi
     </nav>`
         : ""
     }
+    <p><a href="${escapeHtml(`${SITE_URL}${urlPrefix}/articles`)}">${isHindi ? "गाइड और आइडियाज़ देखें" : "Browse our guides & ideas"}</a></p>
   `;
 };
 
@@ -1397,66 +1547,106 @@ const buildMeta = async (path) => {
       // that is exactly what Google's guidelines flag, and a real
       // Merchant Center risk for anything actually branded.
       brand: { "@type": "Brand", name: p.brand || SITE_NAME },
-      offers: {
-        "@type": "Offer",
-        priceCurrency: "INR",
-        price: offerPrice,
-        availability:
-          offerStock > 0
-            ? "https://schema.org/InStock"
-            : "https://schema.org/OutOfStock",
-        url,
-        shippingDetails: {
-          "@type": "OfferShippingDetails",
-          shippingRate: {
-            "@type": "MonetaryAmount",
-            value: shippingFee,
-            currency: "INR",
-          },
-          shippingDestination: {
-            "@type": "DefinedRegion",
-            addressCountry: "IN",
-          },
-          // Matches the "Usually delivered in 3-7 business days" promise
-          // shown elsewhere on the site (Footer, delivery-info banners) —
-          // same-day Ghaziabad express delivery is a separate Google
-          // Merchant Center delivery policy, not this one.
-          deliveryTime: {
-            "@type": "ShippingDeliveryTime",
-            handlingTime: {
-              "@type": "QuantitativeValue",
-              minValue: 0,
-              maxValue: 0,
-              unitCode: "DAY",
+      // Shared by every Offer below (single or per-variant) -- shipping
+      // and return terms don't vary by size, only price/availability do.
+      ...(() => {
+        const sharedOfferTerms = {
+          shippingDetails: {
+            "@type": "OfferShippingDetails",
+            shippingRate: {
+              "@type": "MonetaryAmount",
+              value: shippingFee,
+              currency: "INR",
             },
-            transitTime: {
-              "@type": "QuantitativeValue",
-              minValue: 3,
-              maxValue: 7,
-              unitCode: "DAY",
+            shippingDestination: {
+              "@type": "DefinedRegion",
+              addressCountry: "IN",
+            },
+            // Matches the "Usually delivered in 3-7 business days" promise
+            // shown elsewhere on the site (Footer, delivery-info banners) —
+            // same-day Ghaziabad express delivery is a separate Google
+            // Merchant Center delivery policy, not this one.
+            deliveryTime: {
+              "@type": "ShippingDeliveryTime",
+              handlingTime: {
+                "@type": "QuantitativeValue",
+                minValue: 0,
+                maxValue: 0,
+                unitCode: "DAY",
+              },
+              transitTime: {
+                "@type": "QuantitativeValue",
+                minValue: 3,
+                maxValue: 7,
+                unitCode: "DAY",
+              },
             },
           },
-        },
-        hasMerchantReturnPolicy: p.isReturnable
-          ? {
-              "@type": "MerchantReturnPolicy",
-              applicableCountry: "IN",
-              returnPolicyCategory: "https://schema.org/MerchantReturnFiniteReturnWindow",
-              merchantReturnDays: effectiveReturnDays,
-              returnFees: "https://schema.org/FreeReturn",
-              // Flagged by Search Console (2026-10-03, "Merchant listings
-              // structured data issues") as a missing recommended field.
-              // ReturnByMail matches how a return actually happens here --
-              // a courier pickup/return shipment, not a customer walking
-              // into the Ghaziabad shop with the item.
-              returnMethod: "https://schema.org/ReturnByMail",
-            }
-          : {
-              "@type": "MerchantReturnPolicy",
-              applicableCountry: "IN",
-              returnPolicyCategory: "https://schema.org/MerchantReturnNotPermitted",
-            },
-      },
+          hasMerchantReturnPolicy: p.isReturnable
+            ? {
+                "@type": "MerchantReturnPolicy",
+                applicableCountry: "IN",
+                returnPolicyCategory: "https://schema.org/MerchantReturnFiniteReturnWindow",
+                merchantReturnDays: effectiveReturnDays,
+                returnFees: "https://schema.org/FreeReturn",
+                // Flagged by Search Console (2026-10-03, "Merchant listings
+                // structured data issues") as a missing recommended field.
+                // ReturnByMail matches how a return actually happens here --
+                // a courier pickup/return shipment, not a customer walking
+                // into the Ghaziabad shop with the item.
+                returnMethod: "https://schema.org/ReturnByMail",
+              }
+            : {
+                "@type": "MerchantReturnPolicy",
+                applicableCountry: "IN",
+                returnPolicyCategory: "https://schema.org/MerchantReturnNotPermitted",
+              },
+        };
+
+        // Sized products (curtains etc.) used to report only
+        // variants[0]'s price/stock here, same as the page's own
+        // default-selected display -- but unlike the visible page (where
+        // a visitor can click another size), Google only ever sees this
+        // one static snapshot. If variants[0] sells out while a 9x4 ft
+        // size is still in stock, Google kept being told OutOfStock for
+        // an item that was actually purchasable -- a real Merchant
+        // Center risk, confirmed live on multiple curtain products (SEO/
+        // conversion audit, 2026-10-20). An array of Offers, one per
+        // variant, is a standard, Rich-Results-Test-valid way to
+        // represent several purchasable options at the same URL without
+        // a larger ProductGroup/hasVariant rearchitecture.
+        if (p.variants?.length > 1) {
+          return {
+            offers: p.variants.map((variant) => ({
+              "@type": "Offer",
+              priceCurrency: "INR",
+              price: variant.price,
+              availability:
+                variant.stock > 0
+                  ? "https://schema.org/InStock"
+                  : "https://schema.org/OutOfStock",
+              url,
+              sku: `${p._id}-${variant.size}`,
+              name: `${isHindi ? p.nameHi : p.name} - ${variant.size}`,
+              ...sharedOfferTerms,
+            })),
+          };
+        }
+
+        return {
+          offers: {
+            "@type": "Offer",
+            priceCurrency: "INR",
+            price: offerPrice,
+            availability:
+              offerStock > 0
+                ? "https://schema.org/InStock"
+                : "https://schema.org/OutOfStock",
+            url,
+            ...sharedOfferTerms,
+          },
+        };
+      })(),
       ...(totalReviews > 0 && {
         aggregateRating: {
           "@type": "AggregateRating",
@@ -1518,6 +1708,19 @@ const buildMeta = async (path) => {
         ]
       : undefined;
 
+    // Related products -- a product page was otherwise a dead end beyond
+    // one breadcrumb link for a non-JS crawler. ProductDetails.jsx
+    // already builds this same same-category list client-side via this
+    // exact endpoint, but bots never run that JS (SEO/conversion audit,
+    // 2026-10-20). safeFetchJson never throws, so a failure here just
+    // means an empty related-products section, never a broken page.
+    const relatedProductsData = p.category
+      ? await safeFetchJson(`${API_BASE}/api/products?category=${p.category._id}`)
+      : null;
+    const relatedProducts = (relatedProductsData?.products || [])
+      .filter((rp) => rp._id !== p._id)
+      .slice(0, 10);
+
     return {
       title: `${seoTitle} | ${SITE_NAME}`,
       description,
@@ -1540,6 +1743,7 @@ const buildMeta = async (path) => {
         breadcrumbItems,
         galleryImages,
         isHindi,
+        relatedProducts,
       ),
       // Real-user-only fields (bots never run JS, so these are wasted
       // bytes for them, but injectMeta writes them unconditionally since
@@ -2139,8 +2343,18 @@ export default async function handler(req, res) {
     console.error("Bot prerender error:", error);
 
     // Fail open — a plain SPA shell is still a valid page, just without
-    // the enriched meta tags this function exists to add.
+    // the enriched meta tags this function exists to add. This path
+    // fires on a Render.com backend cold-start/timeout (the 6s fetchJson
+    // budget, see its own comment) — unlike the two branches above, it
+    // never set any Cache-Control header at all, so a degraded, content-
+    // free response hit during exactly that kind of transient blip could
+    // sit in Vercel's edge cache under its own default policy and keep
+    // being served to the NEXT crawl too, long after the backend
+    // recovered. no-store means every request -- including a crawler's
+    // very next attempt -- gets a genuine fresh try instead of a cached
+    // miss (SEO/conversion audit, 2026-10-20).
     res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.setHeader("Cache-Control", "no-store");
     res.status(200).send(shellHtml);
   }
 }
