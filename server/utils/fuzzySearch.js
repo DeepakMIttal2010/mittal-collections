@@ -143,9 +143,25 @@ export const scoreProduct = (query, product) => {
   return nameResult.score * 2 + descResult.score;
 };
 
-export const rankProducts = (query, products) =>
-  products
-    .map((p) => ({ product: p, score: scoreProduct(query, p) }))
+// No caller (getProducts' public ?search=, getSearchSuggestions' public
+// autocomplete hit on every keystroke) ever capped query length before
+// this reached scoreProduct -> levenshtein, which is O(word-length ×
+// word-length) per catalog word with no early exit. A single ~50-80KB
+// request body containing one giant whitespace-free "word" (so
+// normalize() can't split it) turns into tens of thousands of large
+// Levenshtein calls against the full, unfiltered catalog -- easily
+// seconds of synchronous CPU blocking Node's single event loop for
+// EVERY request site-wide, with no auth and no rate limiter on either
+// endpoint (deep bug sweep, 2026-10-20). A real product/catalog search
+// term is never remotely this long, so truncating is safe and
+// invisible to a genuine shopper.
+const MAX_QUERY_LENGTH = 100;
+
+export const rankProducts = (query, products) => {
+  const safeQuery = String(query || "").slice(0, MAX_QUERY_LENGTH);
+  return products
+    .map((p) => ({ product: p, score: scoreProduct(safeQuery, p) }))
     .filter(({ score }) => score > 0)
     .sort((a, b) => b.score - a.score)
     .map(({ product }) => product);
+};

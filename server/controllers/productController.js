@@ -1472,6 +1472,19 @@ export const addProduct = async (req, res) => {
 // UPDATE PRODUCT
 // ============================
 export const updateProduct = async (req, res) => {
+  // Declared outside the try block (and assigned, not re-declared,
+  // inside it) so BOTH the version-conflict early return below AND the
+  // catch block can reach whatever imageOptimizer already uploaded to
+  // Cloudinary before this handler ran -- same pattern addProduct
+  // already uses. This function never had that: a 409 on an edit that
+  // included new photos (the exact "stale form" scenario the version
+  // check exists to catch) orphaned those uploads immediately and
+  // deterministically, every time, and a save() failure after they were
+  // read (declared inside the try) couldn't reach them either (deep bug
+  // sweep, 2026-10-20).
+  let newImages = [];
+  let newVideos = [];
+
   try {
     const product = await Product.findById(req.params.id);
 
@@ -1481,6 +1494,9 @@ export const updateProduct = async (req, res) => {
         message: "Product not found",
       });
     }
+
+    newImages = (req.files?.images || []).map((file) => file.path);
+    newVideos = (req.files?.videos || []).map((file) => file.path);
 
     // The admin's form was loaded from a specific version of this product;
     // if someone else has saved changes since then, this submission is
@@ -1493,6 +1509,7 @@ export const updateProduct = async (req, res) => {
       req.body.version !== undefined &&
       Number(req.body.version) !== product.__v
     ) {
+      await deleteCloudinaryAssetsByUrl([...newImages, ...newVideos]);
       return sendVersionConflictResponse(res);
     }
 
@@ -1623,8 +1640,6 @@ export const updateProduct = async (req, res) => {
       }
     }
 
-    const newImages = (req.files?.images || []).map((file) => file.path);
-
     const finalImages = [...existingImages, ...newImages];
 
     if (finalImages.length === 0) {
@@ -1662,11 +1677,15 @@ export const updateProduct = async (req, res) => {
       }
     }
 
-    const newVideos = (req.files?.videos || []).map((file) => file.path);
-
     product.videos = [...existingVideos, ...newVideos];
 
     await product.save();
+    // From here on, newImages/newVideos are legitimately part of the
+    // saved product -- if anything below throws, the catch block below
+    // must NOT delete them (they're no longer orphaned uploads, they're
+    // live content on a product that successfully saved).
+    newImages = [];
+    newVideos = [];
 
     const removedAssets = [
       ...oldImages.filter((url) => !finalImages.includes(url)),
@@ -1698,6 +1717,15 @@ export const updateProduct = async (req, res) => {
       product,
     });
   } catch (error) {
+    // Safe unconditionally: newImages/newVideos are reset to [] the
+    // moment product.save() succeeds (see above), so by the time ANY
+    // error reaches here -- including Mongoose's own VersionError below
+    // from two saves racing at the exact same instant -- either the
+    // save never happened (these are still-orphaned new uploads, must
+    // delete) or it already succeeded and there's nothing left to
+    // delete (empty arrays, harmless no-op).
+    await deleteCloudinaryAssetsByUrl([...newImages, ...newVideos]);
+
     if (isVersionConflict(error)) {
       return sendVersionConflictResponse(res);
     }
@@ -1816,12 +1844,24 @@ export const permanentlyDeleteProduct = async (req, res) => {
       });
     }
 
+    // Fetched before the bulk delete below so their photo/video Cloudinary
+    // uploads can be cleaned up -- reviewController.js's own single-review
+    // delete already does this (deleteCloudinaryAssetsByUrl before removing
+    // the doc), but this bulk Review.deleteMany skipped it entirely, leaking
+    // review media forever. Reviews don't require a completed order, so a
+    // never-ordered, now-discontinued product can still have review photos
+    // attached (deep bug sweep, 2026-10-20).
+    const reviews = await Review.find({ product: product._id }).select(
+      "images video",
+    );
+
     await product.deleteOne();
 
     await deleteCloudinaryAssetsByUrl([
       product.image,
       ...product.images,
       ...product.videos,
+      ...reviews.flatMap((review) => [...review.images, review.video]),
     ]);
 
     // Clean up dangling references — none of these block the delete

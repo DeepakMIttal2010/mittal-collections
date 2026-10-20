@@ -245,6 +245,14 @@ export const addCategory = async (req, res) => {
 // Update Category (Admin)
 // ============================
 export const updateCategory = async (req, res) => {
+  // Declared outside the try block (and assigned, not re-declared, inside
+  // it) so the catch block can reach whatever imageOptimizer already
+  // uploaded to Cloudinary before this handler ran, if category.save()
+  // below throws -- same pattern productController.js's updateProduct
+  // uses. Without it, a validation error on an edit that included a new
+  // photo orphaned that upload immediately and deterministically (deep
+  // bug sweep, 2026-10-20).
+  let newImage = null;
   try {
     const category = await Category.findById(req.params.id);
 
@@ -283,10 +291,16 @@ export const updateCategory = async (req, res) => {
     let oldImage = null;
     if (req.file) {
       oldImage = category.image;
+      newImage = req.file.path;
       category.image = req.file.path;
     }
 
     await category.save();
+
+    // Saved successfully -- newImage is now legitimately part of the
+    // category, so the catch block below must not delete it if anything
+    // after this point throws.
+    newImage = null;
 
     if (oldImage) {
       await deleteCloudinaryAssetsByUrl([oldImage]);
@@ -299,6 +313,10 @@ export const updateCategory = async (req, res) => {
     });
   } catch (error) {
     console.error("Update Category Error:", error);
+
+    if (newImage) {
+      await deleteCloudinaryAssetsByUrl([newImage]);
+    }
 
     res.status(500).json({
       success: false,

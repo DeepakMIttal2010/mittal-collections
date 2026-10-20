@@ -62,7 +62,7 @@ export const addAddress = async (req, res) => {
       isActive: true,
     });
 
-    const newAddress = await Address.create({
+    const addressData = {
       user: req.user.id,
       fullName,
       mobile,
@@ -71,8 +71,26 @@ export const addAddress = async (req, res) => {
       city,
       state,
       pincode,
-      isDefault: isDefault || existingCount === 0,
-    });
+    };
+
+    let newAddress;
+    try {
+      newAddress = await Address.create({
+        ...addressData,
+        isDefault: isDefault || existingCount === 0,
+      });
+    } catch (error) {
+      // Lost a race to another request setting a different address
+      // default for this user at the same instant -- Address's unique
+      // partial index (see the model) caught it before two addresses
+      // could both end up isDefault:true. This address is still worth
+      // creating, just not as the default (deep bug sweep, 2026-10-20).
+      if (error.code === 11000) {
+        newAddress = await Address.create({ ...addressData, isDefault: false });
+      } else {
+        throw error;
+      }
+    }
 
     res.status(201).json({
       success: true,
@@ -135,7 +153,22 @@ export const updateAddress = async (req, res) => {
     existing.pincode = pincode ?? existing.pincode;
     if (isDefault !== undefined) existing.isDefault = isDefault;
 
-    await existing.save();
+    try {
+      await existing.save();
+    } catch (error) {
+      // Another request set a different address default for this user
+      // at the same instant and committed first -- Address's unique
+      // partial index (see the model) caught it before two addresses
+      // could both end up isDefault:true (deep bug sweep, 2026-10-20).
+      if (error.code === 11000) {
+        return res.status(409).json({
+          success: false,
+          message:
+            "Another address was just set as default — please try again.",
+        });
+      }
+      throw error;
+    }
 
     if (isUnsettingOwnDefault) {
       const another = await Address.findOne({
@@ -241,7 +274,23 @@ export const setDefaultAddress = async (req, res) => {
     );
 
     existing.isDefault = true;
-    await existing.save();
+
+    try {
+      await existing.save();
+    } catch (error) {
+      // Another request set a different address default for this user
+      // at the same instant and committed first -- Address's unique
+      // partial index (see the model) caught it before two addresses
+      // could both end up isDefault:true (deep bug sweep, 2026-10-20).
+      if (error.code === 11000) {
+        return res.status(409).json({
+          success: false,
+          message:
+            "Another address was just set as default — please try again.",
+        });
+      }
+      throw error;
+    }
 
     res.status(200).json({
       success: true,

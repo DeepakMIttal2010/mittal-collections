@@ -76,6 +76,20 @@ const addressSchema = new mongoose.Schema(
   },
 );
 
+// Enforces "at most one default address per user" at the DB level —
+// the controller logic unsets every other address's isDefault before
+// setting the new one, but that's still two separate writes with a gap
+// between them, so two near-simultaneous requests (double-click, two
+// tabs) could otherwise both pass the "unset others" step and both end
+// up isDefault:true. This partial unique index makes the second write
+// to commit fail with a duplicate-key error instead of silently leaving
+// two defaults, so the controllers can catch that specific case rather
+// than relying on write ordering alone (deep bug sweep, 2026-10-20).
+addressSchema.index(
+  { user: 1 },
+  { unique: true, partialFilterExpression: { isDefault: true, isActive: true } },
+);
+
 const Address = mongoose.model("Address", addressSchema);
 
 export default Address;

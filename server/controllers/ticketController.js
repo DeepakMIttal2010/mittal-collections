@@ -1,4 +1,6 @@
+import mongoose from "mongoose";
 import Ticket from "../models/Ticket.js";
+import Order from "../models/Order.js";
 import SiteSettings from "../models/SiteSettings.js";
 import { sendEmail } from "../config/mailer.js";
 import { notifyUser } from "../utils/notify.js";
@@ -56,10 +58,34 @@ export const createTicket = async (req, res) => {
       });
     }
 
+    // Was trusted straight from req.body with no ownership check -- the
+    // UI's order dropdown only ever offers the customer's own orders,
+    // but a direct API call could attach ANY guessed/incremented order
+    // ID. getTicketById later populates this field with totalPrice/
+    // orderStatus/createdAt and returns it to the ticket's owner, so an
+    // unverified order here was a real cross-customer data leak, not
+    // just a UI inconsistency (deep bug sweep, 2026-10-20). Scoping the
+    // lookup to req.user._id makes an order that isn't the caller's own
+    // silently not link, rather than erroring the whole ticket out --
+    // a wrong/stale order ID shouldn't block submitting a support
+    // request.
+    // CodeQL flagged `order` flowing straight into the query filter below
+    // as a "database query built from user-controlled sources" -- a
+    // non-string value (e.g. {"$ne": null}) would be passed through by
+    // Mongoose as a raw query operator instead of being cast to an
+    // ObjectId, so this validates its shape before it ever reaches the
+    // query, same pattern already used throughout this codebase (PR #307
+    // CI, 2026-10-20).
+    let verifiedOrderId = null;
+    if (order && mongoose.Types.ObjectId.isValid(order)) {
+      const ownedOrder = await Order.findOne({ _id: order, user: req.user._id }).select("_id");
+      verifiedOrderId = ownedOrder?._id || null;
+    }
+
     const ticket = await Ticket.create({
       user: req.user._id,
       subject: subject.trim(),
-      order: order || null,
+      order: verifiedOrderId,
       messages: [
         {
           sender: "customer",

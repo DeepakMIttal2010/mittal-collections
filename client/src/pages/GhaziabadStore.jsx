@@ -37,7 +37,7 @@ function GhaziabadStore() {
   // page exists to surface (the admin-configured settings.address is a
   // plainer "Sector 3, Vasundhara..." with no landmark).
   const localBusinessJsonLd = buildLocalBusinessJsonLd(settings, {
-    streetAddress: "Near Vanasthali Public School, Sector-3, Vasundhara",
+    streetAddress: "Near Vanasthali Public School, Sector 3, Vasundhara",
     postalCode: "201012",
     includeAreaServed: true,
   });
@@ -51,7 +51,7 @@ function GhaziabadStore() {
     <div className="max-w-4xl mx-auto px-4 pt-16 pb-20">
       <Seo
         title="Home Furnishing Store in Ghaziabad — Mittal Collections"
-        description="Mittal Collections is a home furnishing store in Sector-3, Vasundhara, Ghaziabad, near Vanasthali Public School — bedsheets, curtains, towels & more with 24-hour local delivery across Vasundhara, Vaishali, Indirapuram and nearby areas."
+        description="Mittal Collections is a home furnishing store in Sector 3, Vasundhara, Ghaziabad, near Vanasthali Public School — bedsheets, curtains, towels & more with 24-hour local delivery across Vasundhara, Vaishali, Indirapuram and nearby areas."
         url={`${SITE_URL}/ghaziabad-home-furnishing-store`}
         jsonLd={[localBusinessJsonLd, buildBreadcrumbJsonLd(breadcrumbItems)]}
       />
@@ -79,7 +79,7 @@ function GhaziabadStore() {
 
       <p className="text-slate-600 leading-relaxed mb-8">
         {t(
-          "Mittal Collections is based in Sector-3, Vasundhara, Ghaziabad — a home furnishing store offering bedsheets, curtains, towels, cushions and doormats, with same-day local delivery across Ghaziabad and pan-India shipping everywhere else.",
+          "Mittal Collections is based in Sector 3, Vasundhara, Ghaziabad — a home furnishing store offering bedsheets, curtains, towels, cushions and doormats, with same-day local delivery across Ghaziabad and pan-India shipping everywhere else.",
           "मित्तल कलेक्शंस ग़ाज़ियाबाद के सेक्टर-3, वसुंधरा में स्थित एक होम फर्निशिंग स्टोर है — बेडशीट, पर्दे, तौलिए, कुशन और डोरमैट, ग़ाज़ियाबाद में उसी दिन डिलीवरी के साथ और बाकी जगहों पर पूरे भारत में शिपिंग।",
         )}
       </p>
@@ -131,7 +131,7 @@ function GhaziabadStore() {
             </h2>
             <p className="text-slate-700">
               {t(
-                "Near Vanasthali Public School, Sector-3, Vasundhara, Ghaziabad, Uttar Pradesh 201012",
+                "Near Vanasthali Public School, Sector 3, Vasundhara, Ghaziabad, Uttar Pradesh 201012",
                 "वनस्थली पब्लिक स्कूल के पास, सेक्टर-3, वसुंधरा, ग़ाज़ियाबाद, उत्तर प्रदेश 201012",
               )}
             </p>

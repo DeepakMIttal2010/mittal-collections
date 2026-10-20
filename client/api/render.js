@@ -916,7 +916,7 @@ const STATIC_PAGES = {
   "/ghaziabad-home-furnishing-store": {
     title: "Home Furnishing Store in Ghaziabad — Mittal Collections",
     description:
-      "Mittal Collections is a home furnishing store in Sector-3, Vasundhara, Ghaziabad, near Vanasthali Public School — bedsheets, curtains, towels & more with 24-hour local delivery across Vasundhara, Vaishali, Indirapuram and nearby areas.",
+      "Mittal Collections is a home furnishing store in Sector 3, Vasundhara, Ghaziabad, near Vanasthali Public School — bedsheets, curtains, towels & more with 24-hour local delivery across Vasundhara, Vaishali, Indirapuram and nearby areas.",
     breadcrumb: "Home Furnishing Store in Ghaziabad",
   },
   "/rewards": {
@@ -1652,7 +1652,7 @@ const buildMeta = async (path) => {
     const settings = settingsData.settings || {};
 
     const localBusinessJsonLd = buildLocalBusinessJsonLd(settings, {
-      streetAddress: "Near Vanasthali Public School, Sector-3, Vasundhara",
+      streetAddress: "Near Vanasthali Public School, Sector 3, Vasundhara",
       postalCode: "201012",
       includeAreaServed: true,
     });
@@ -1667,7 +1667,7 @@ const buildMeta = async (path) => {
       <nav aria-label="breadcrumb">${buildBreadcrumbHtml(ghaziabadBreadcrumbItems)}</nav>
       <h1>${escapeHtml(staticPage.title)}</h1>
       <p>${escapeHtml(staticPage.description)}</p>
-      <p>Near Vanasthali Public School, Sector-3, Vasundhara, Ghaziabad, Uttar Pradesh 201012</p>
+      <p>Near Vanasthali Public School, Sector 3, Vasundhara, Ghaziabad, Uttar Pradesh 201012</p>
       <p>24-hour delivery available in:</p>
       <ul>
         ${DELIVERY_AREAS.map((area) => `<li>${escapeHtml(area)}, Ghaziabad</li>`).join("\n")}
