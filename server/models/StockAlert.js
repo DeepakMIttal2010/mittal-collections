@@ -15,6 +15,18 @@ const stockAlertSchema = new mongoose.Schema(
       trim: true,
     },
 
+    // Empty string for a non-variant product (its only "size"); a real
+    // variant size (e.g. "7x4") for a variant product. Lets the same
+    // customer subscribe to multiple sizes of one product independently,
+    // and lets notifyStockAlertSubscribers tell which size they actually
+    // want instead of treating the product's whole (summed-across-sizes)
+    // stock as one undifferentiated signal (deep bug sweep, 2026-10-19).
+    size: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
     notified: {
       type: Boolean,
       default: false,
@@ -25,7 +37,7 @@ const stockAlertSchema = new mongoose.Schema(
   },
 );
 
-stockAlertSchema.index({ product: 1, email: 1 }, { unique: true });
+stockAlertSchema.index({ product: 1, email: 1, size: 1 }, { unique: true });
 
 // TTL index — auto-deletes alerts a year after they were created, same
 // retention pattern as Notification.js. A subscriber's alert for a

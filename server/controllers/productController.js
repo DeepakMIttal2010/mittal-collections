@@ -70,7 +70,7 @@ const parseVariants = (raw) => {
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
 
-    return parsed
+    const variants = parsed
       .filter((v) => v && String(v.size || "").trim() && v.price !== "" && v.price !== undefined)
       .map((v) => ({
         size: String(v.size).trim(),
@@ -79,6 +79,22 @@ const parseVariants = (raw) => {
         stock: Math.max(Number(v.stock) || 0, 0),
         purchasePrice: Math.max(Number(v.purchasePrice) || 0, 0),
       }));
+
+    // Server-side backstop for the same dedup the admin forms now
+    // validate client-side -- a direct API call could otherwise still
+    // create two rows for the same size (case/whitespace-insensitive),
+    // making the second one's stock permanently unreachable dead stock
+    // (variant lookups elsewhere always match the FIRST row by size)
+    // while still counted in the top-level summed stock (deep bug
+    // sweep, 2026-10-19). Keeps the first occurrence of each size, same
+    // "first match wins" behavior already relied on elsewhere.
+    const seenSizes = new Set();
+    return variants.filter((v) => {
+      const key = v.size.toLowerCase();
+      if (seenSizes.has(key)) return false;
+      seenSizes.add(key);
+      return true;
+    });
   } catch {
     return [];
   }
@@ -107,7 +123,26 @@ const parseSubcategories = (raw) => {
     .filter(Boolean);
 };
 
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// Was a single regex (/^[^\s@]+@[^\s@]+\.[^\s@]+$/) with 3 quantified
+// groups over overlapping character classes -- CodeQL correctly flagged
+// this as polynomial-backtracking-prone on adversarial input (e.g. many
+// repetitions of "!." right after the "@"), since the engine has to try
+// many different ways to split the string across the 3 groups before
+// concluding a match/non-match. Splitting on the LAST "@" with a plain
+// string op first, then checking each side separately, does the same
+// structural validation (has an "@", non-empty/no-whitespace local and
+// domain parts, domain has a dot) with no backtracking possible at all.
+const isValidEmail = (email) => {
+  if (!email || typeof email !== "string" || email.length > 254) return false;
+  const atIndex = email.lastIndexOf("@");
+  if (atIndex <= 0 || atIndex === email.length - 1) return false;
+  const localPart = email.slice(0, atIndex);
+  const domainPart = email.slice(atIndex + 1);
+  if (/\s/.test(localPart) || /\s/.test(domainPart)) return false;
+  if (!domainPart.includes(".")) return false;
+  if (domainPart.startsWith(".") || domainPart.endsWith(".")) return false;
+  return true;
+};
 
 const slugify = (text) =>
   (text || "")
@@ -116,10 +151,28 @@ const slugify = (text) =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)/g, "");
 
-// Emails every unnotified StockAlert subscriber for a product, then
-// marks them notified. Fire-and-forget — never blocks the caller.
-export const notifyStockAlertSubscribers = async (product) => {
-  const alerts = await StockAlert.find({ product: product._id, notified: false });
+// Emails every unnotified StockAlert subscriber for a product (or, for a
+// variant product, specifically the subscribers who asked for THIS
+// size), then marks them notified. Fire-and-forget — never blocks the
+// caller.
+//
+// `size` must always be passed for a variant product, and omitted for a
+// non-variant one -- StockAlert.size defaults to "" for exactly this
+// case, so the two never cross-match. Previously this only ever checked
+// the product's TOP-LEVEL (summed-across-sizes) stock, which both
+// under- and over-notified for variant products: a size restocking from
+// 0 while a SIBLING size already had stock never crossed the summed
+// total through zero, so that subscriber was never emailed; and a
+// DIFFERENT size restocking from 0 (while the one a subscriber actually
+// wanted stayed at 0) crossed the summed total through zero anyway,
+// emailing every subscriber of the product regardless of which size
+// they asked for (deep bug sweep, 2026-10-19).
+export const notifyStockAlertSubscribers = async (product, size) => {
+  const alerts = await StockAlert.find({
+    product: product._id,
+    notified: false,
+    size: size || "",
+  });
 
   if (alerts.length === 0) return;
 
@@ -193,9 +246,9 @@ export const notifyStockAlertSubscribers = async (product) => {
 // ============================
 export const subscribeStockAlert = async (req, res) => {
   try {
-    const { email } = req.body;
+    const { email, size } = req.body;
 
-    if (!email || !EMAIL_REGEX.test(email)) {
+    if (!isValidEmail(email)) {
       return res.status(400).json({
         success: false,
         message: "Please enter a valid email address",
@@ -211,8 +264,28 @@ export const subscribeStockAlert = async (req, res) => {
       });
     }
 
+    // A size is required for a variant product (and must be one of its
+    // real sizes) so notifyStockAlertSubscribers can tell which size
+    // this subscriber actually wants -- otherwise a customer who
+    // subscribed on the "7x4" page could get emailed when only "9x4"
+    // restocks, or never get emailed at all if a SIBLING size already
+    // had stock (deep bug sweep, 2026-10-19). Ignored (forced to "") for
+    // a non-variant product, same as StockAlert.size's own default.
+    const hasVariants = product.variants?.length > 0;
+    const normalizedSize = hasVariants ? String(size || "").trim() : "";
+    if (hasVariants && !product.variants.some((v) => v.size === normalizedSize)) {
+      return res.status(400).json({
+        success: false,
+        message: "Please select a valid size",
+      });
+    }
+
     await StockAlert.findOneAndUpdate(
-      { product: product._id, email: email.toLowerCase().trim() },
+      {
+        product: product._id,
+        email: email.toLowerCase().trim(),
+        size: normalizedSize,
+      },
       { notified: false },
       { upsert: true, setDefaultsOnInsert: true },
     );
@@ -1424,6 +1497,14 @@ export const updateProduct = async (req, res) => {
     }
 
     const wasOutOfStock = product.stock <= 0;
+    // Snapshot of each variant's stock before this edit overwrites it,
+    // so a specific size's own 0->positive transition can be detected
+    // below (a product-level restock notification was firing/missing
+    // based only on the SUMMED stock across sizes — see this file's
+    // notifyStockAlertSubscribers for the full explanation).
+    const oldVariantStockBySize = new Map(
+      (product.variants || []).map((v) => [v.size, v.stock]),
+    );
 
     product.name = req.body.name;
     product.slug = generateSlug(req.body.name);
@@ -1595,7 +1676,17 @@ export const updateProduct = async (req, res) => {
       await deleteCloudinaryAssetsByUrl(removedAssets);
     }
 
-    if (wasOutOfStock && product.stock > 0) {
+    if (hasVariants) {
+      for (const v of product.variants) {
+        const oldStock = oldVariantStockBySize.get(v.size);
+        const wasVariantOutOfStock = oldStock === undefined || oldStock <= 0;
+        if (wasVariantOutOfStock && v.stock > 0) {
+          notifyStockAlertSubscribers(product, v.size).catch((error) =>
+            console.error("Notify Stock Alert Subscribers Error:", error),
+          );
+        }
+      }
+    } else if (wasOutOfStock && product.stock > 0) {
       notifyStockAlertSubscribers(product).catch((error) =>
         console.error("Notify Stock Alert Subscribers Error:", error),
       );

@@ -309,7 +309,7 @@ export const updateReturnStatus = async (req, res) => {
       });
     }
 
-    const returnRequest = await ReturnRequest.findById(req.params.id).populate(
+    let returnRequest = await ReturnRequest.findById(req.params.id).populate(
       "user",
       "name email",
     );
@@ -321,16 +321,42 @@ export const updateReturnStatus = async (req, res) => {
       });
     }
 
-    const allowedNext = RETURN_STATUS_TRANSITIONS[returnRequest.status] || [];
+    const originalStatus = returnRequest.status;
+    const allowedNext = RETURN_STATUS_TRANSITIONS[originalStatus] || [];
     if (!allowedNext.includes(status)) {
       return res.status(400).json({
         success: false,
-        message: `Cannot move a return from "${returnRequest.status}" to "${status}"`,
+        message: `Cannot move a return from "${originalStatus}" to "${status}"`,
       });
     }
 
-    returnRequest.status = status;
-    if (adminNote !== undefined) returnRequest.adminNote = adminNote;
+    // Claims the transition atomically (scoped to the status AT READ
+    // TIME), same pattern as orderController.js's updateOrderStatus —
+    // two concurrent requests for the same return (a double-click on
+    // the admin <select>, which has no disabled-while-saving guard, or
+    // two admin tabs) previously both passed the checks above, both
+    // wrote via a plain .save() below, and both fired the customer
+    // email/notification unconditionally (deep bug sweep, 2026-10-19).
+    // A losing concurrent request's update now matches nothing.
+    const claimedStatus = await ReturnRequest.findOneAndUpdate(
+      { _id: returnRequest._id, status: originalStatus },
+      {
+        $set: {
+          status,
+          ...(adminNote !== undefined ? { adminNote } : {}),
+        },
+      },
+      { new: true },
+    ).populate("user", "name email");
+
+    if (!claimedStatus) {
+      return res.status(409).json({
+        success: false,
+        message: "This return's status was just changed elsewhere — refresh and try again.",
+      });
+    }
+
+    returnRequest = claimedStatus;
 
     // Stock comes back the moment the item is physically back in hand —
     // "Picked Up" normally, but also covers an admin jumping straight to
@@ -373,14 +399,21 @@ export const updateReturnStatus = async (req, res) => {
 
       if (claimedPoints) {
         const order = await Order.findById(returnRequest.order);
+        const orderItem = order?.orderItems.find(
+          (item) => item.product.toString() === returnRequest.product.toString(),
+        );
 
-        if (order?.pointsCredited && order.pointsEarned > 0 && order.totalPrice > 0) {
-          const orderItem = order.orderItems.find(
-            (item) => item.product.toString() === returnRequest.product.toString(),
+        if (order && orderItem) {
+          const returnedValue = orderItem.price * returnRequest.quantity;
+
+          // Revenue tracking — independent of whether this order ever
+          // earned loyalty points. See Order.js's refundedAmount comment.
+          await Order.updateOne(
+            { _id: order._id },
+            { $inc: { refundedAmount: returnedValue } },
           );
 
-          if (orderItem) {
-            const returnedValue = orderItem.price * returnRequest.quantity;
+          if (order.pointsCredited && order.pointsEarned > 0 && order.totalPrice > 0) {
             const pointsToClawback = Math.min(
               Math.round(
                 order.pointsEarned * (returnedValue / order.totalPrice),
@@ -404,16 +437,27 @@ export const updateReturnStatus = async (req, res) => {
       }
     }
 
-    await returnRequest.save();
+    // status/adminNote are already persisted via the atomic claim above;
+    // stockRestored/pointsClawedBack (if touched) are each already
+    // persisted via their own atomic claims above too — nothing left
+    // needing a plain .save() here.
 
-    notifyCustomer(returnRequest, returnRequest.user.email).catch(() => {});
-    notifyUser({
-      userId: returnRequest.user._id,
-      type: "return_status",
-      title: `Your return request is now "${returnRequest.status}"`,
-      message: returnRequest.productName,
-      link: "/returns",
-    });
+    // Self-loops (Requested->Requested etc.) are deliberately allowed by
+    // RETURN_STATUS_TRANSITIONS so a double-click/UI retry stays a
+    // harmless no-op -- but "harmless" previously still meant re-sending
+    // "Your return request is now X" on every save, including an admin
+    // just editing adminNote with the status unchanged. Only notify on
+    // an actual transition.
+    if (status !== originalStatus) {
+      notifyCustomer(returnRequest, returnRequest.user.email).catch(() => {});
+      notifyUser({
+        userId: returnRequest.user._id,
+        type: "return_status",
+        title: `Your return request is now "${returnRequest.status}"`,
+        message: returnRequest.productName,
+        link: "/returns",
+      });
+    }
 
     res.status(200).json({
       success: true,

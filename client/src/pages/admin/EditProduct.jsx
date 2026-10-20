@@ -464,6 +464,27 @@ function EditProduct() {
       return;
     }
 
+    // Nothing previously stopped two rows both named e.g. "7x4" -- the
+    // size-picker on the real product page would then render two
+    // identical buttons, and checkout/stock logic always matches the
+    // FIRST row by size, making the second row's stock permanently
+    // unreachable dead stock while still counted in the top-level sum
+    // (deep bug sweep, 2026-10-19). Case/whitespace-insensitive, since
+    // "7x4" and " 7X4 " are the same size to a shopper.
+    if (hasVariants) {
+      const seenSizes = new Set();
+      const dupeSize = cleanVariants.find((v) => {
+        const key = v.size.trim().toLowerCase();
+        if (seenSizes.has(key)) return true;
+        seenSizes.add(key);
+        return false;
+      });
+      if (dupeSize) {
+        alert(`Two size variants are both "${dupeSize.size.trim()}" — each size must be unique`);
+        return;
+      }
+    }
+
     setSaving(true);
 
     const data = new FormData();

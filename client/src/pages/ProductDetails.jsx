@@ -599,7 +599,15 @@ function ProductDetails() {
     e.preventDefault();
 
     setNotifySending(true);
-    const response = await subscribeStockAlert(product._id, notifyEmail);
+    // The specific size this shopper is looking at, not just the
+    // product -- otherwise the server has no way to tell which size
+    // they actually want notified (see notifyStockAlertSubscribers'
+    // own comment, deep bug sweep, 2026-10-19).
+    const response = await subscribeStockAlert(
+      product._id,
+      notifyEmail,
+      selectedVariant?.size,
+    );
     setNotifySending(false);
 
     if (response.success) {
@@ -1142,6 +1150,13 @@ function ProductDetails() {
                     onClick={() => {
                       setSelectedVariant(variant);
                       setQuantity(1);
+                      // The back-in-stock subscription is now per-size
+                      // (see subscribeStockAlert's own comment) -- a
+                      // submitted/confirmed state from a DIFFERENT size
+                      // would otherwise keep showing "we'll email you"
+                      // for this size too, even though nothing was ever
+                      // subscribed for it.
+                      setNotifySubmitted(false);
                     }}
                     disabled={variant.stock <= 0}
                     className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
