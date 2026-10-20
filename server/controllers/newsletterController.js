@@ -2,7 +2,22 @@ import Subscriber from "../models/Subscriber.js";
 import { sendEmail } from "../config/mailer.js";
 import { createUnsubscribeToken, isValidUnsubscribeToken } from "../utils/unsubscribeToken.js";
 
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// Was a single regex with 3 quantified groups over overlapping character
+// classes -- CodeQL flagged this as polynomial-backtracking-prone on
+// adversarial input (see productController.js's isValidEmail, same fix
+// mirrored here). Splitting on the LAST "@" with a plain string op first
+// does the same structural check with no backtracking possible.
+const isValidEmail = (email) => {
+  if (!email || typeof email !== "string" || email.length > 254) return false;
+  const atIndex = email.lastIndexOf("@");
+  if (atIndex <= 0 || atIndex === email.length - 1) return false;
+  const localPart = email.slice(0, atIndex);
+  const domainPart = email.slice(atIndex + 1);
+  if (/\s/.test(localPart) || /\s/.test(domainPart)) return false;
+  if (!domainPart.includes(".")) return false;
+  if (domainPart.startsWith(".") || domainPart.endsWith(".")) return false;
+  return true;
+};
 
 // ============================
 // SUBSCRIBE TO NEWSLETTER
@@ -11,7 +26,7 @@ export const subscribe = async (req, res) => {
   try {
     const { email } = req.body;
 
-    if (!email || !EMAIL_REGEX.test(email)) {
+    if (!isValidEmail(email)) {
       return res.status(400).json({
         success: false,
         message: "Please enter a valid email address",

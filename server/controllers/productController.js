@@ -123,7 +123,26 @@ const parseSubcategories = (raw) => {
     .filter(Boolean);
 };
 
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// Was a single regex (/^[^\s@]+@[^\s@]+\.[^\s@]+$/) with 3 quantified
+// groups over overlapping character classes -- CodeQL correctly flagged
+// this as polynomial-backtracking-prone on adversarial input (e.g. many
+// repetitions of "!." right after the "@"), since the engine has to try
+// many different ways to split the string across the 3 groups before
+// concluding a match/non-match. Splitting on the LAST "@" with a plain
+// string op first, then checking each side separately, does the same
+// structural validation (has an "@", non-empty/no-whitespace local and
+// domain parts, domain has a dot) with no backtracking possible at all.
+const isValidEmail = (email) => {
+  if (!email || typeof email !== "string" || email.length > 254) return false;
+  const atIndex = email.lastIndexOf("@");
+  if (atIndex <= 0 || atIndex === email.length - 1) return false;
+  const localPart = email.slice(0, atIndex);
+  const domainPart = email.slice(atIndex + 1);
+  if (/\s/.test(localPart) || /\s/.test(domainPart)) return false;
+  if (!domainPart.includes(".")) return false;
+  if (domainPart.startsWith(".") || domainPart.endsWith(".")) return false;
+  return true;
+};
 
 const slugify = (text) =>
   (text || "")
@@ -229,7 +248,7 @@ export const subscribeStockAlert = async (req, res) => {
   try {
     const { email, size } = req.body;
 
-    if (!email || !EMAIL_REGEX.test(email)) {
+    if (!isValidEmail(email)) {
       return res.status(400).json({
         success: false,
         message: "Please enter a valid email address",
