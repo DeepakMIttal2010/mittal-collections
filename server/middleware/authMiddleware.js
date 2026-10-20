@@ -31,6 +31,21 @@ const authMiddleware = async (req, res, next) => {
       });
     }
 
+    // The only actual server-side token-revocation mechanism this app
+    // has (see User model's tokenVersion comment) — logout and password
+    // change/reset bump the stored value, which immediately invalidates
+    // every token issued before that point once it next hits this check.
+    // A token signed before tokenVersion existed carries no claim at all
+    // (undefined), treated as version 0 so already-issued sessions don't
+    // all break on deploy — only diverge once the user's version actually
+    // changes (deep bug sweep, 2026-10-20).
+    if ((decoded.tokenVersion || 0) !== (user.tokenVersion || 0)) {
+      return res.status(401).json({
+        success: false,
+        message: "Session expired. Please log in again.",
+      });
+    }
+
     // login() already rejects a blocked account, but that only stops
     // future logins — without this, an already-issued token (valid for
     // up to 7 days) keeps working normally after the block, since this

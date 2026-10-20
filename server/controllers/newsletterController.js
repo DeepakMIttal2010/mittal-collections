@@ -173,12 +173,33 @@ export const getSubscribers = async (req, res) => {
   }
 };
 
+// A double-click or a retried POST (slow network, admin impatience) used
+// to loop over the full subscriber list twice with nothing stopping it —
+// unlike every cron-driven sender in this codebase, this admin-triggered
+// send had no idempotency guard at all, so the entire mailing list could
+// get the same campaign emailed twice. There's no persisted "Campaign"
+// record this could key an atomic DB claim against (subject/html are
+// passed in ad-hoc, not saved first), so this is a simple in-process
+// lock instead -- sufficient for the actual double-click/retry scenario
+// on this single-instance deployment, without building out a full
+// campaign-tracking feature for it (deep bug sweep, 2026-10-20).
+let campaignInProgress = false;
+
 // ============================
 // SEND NEWSLETTER CAMPAIGN (Admin)
 // Emails every subscriber one by one. Failures are collected and
 // reported back rather than aborting the whole send.
 // ============================
 export const sendCampaign = async (req, res) => {
+  if (campaignInProgress) {
+    return res.status(409).json({
+      success: false,
+      message: "A campaign is already being sent. Please wait for it to finish.",
+    });
+  }
+
+  campaignInProgress = true;
+
   try {
     const { subject, html } = req.body;
 
@@ -231,5 +252,7 @@ export const sendCampaign = async (req, res) => {
       success: false,
       message: "Server Error",
     });
+  } finally {
+    campaignInProgress = false;
   }
 };

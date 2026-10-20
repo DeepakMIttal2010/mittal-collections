@@ -130,6 +130,22 @@ const userSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+
+    // Embedded in every JWT at sign time and checked against this stored
+    // value on every request (authMiddleware.js) — the only mechanism
+    // that actually revokes an already-issued token server-side. Bumped
+    // on logout and on password change/reset (authController.js), which
+    // invalidates every other currently-valid token for this account
+    // from that moment on (there's no per-device session tracking here,
+    // so this is account-wide, not per-session). An old token with no
+    // tokenVersion claim at all (issued before this field existed) is
+    // treated as version 0 by authMiddleware, so existing sessions keep
+    // working until the user's version actually changes (deep bug
+    // sweep, 2026-10-20).
+    tokenVersion: {
+      type: Number,
+      default: 0,
+    },
   },
   {
     timestamps: true,
