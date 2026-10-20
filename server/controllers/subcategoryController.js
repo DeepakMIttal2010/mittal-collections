@@ -155,6 +155,10 @@ export const addSubcategory = async (req, res) => {
 // Update Subcategory (Admin)
 // ============================
 export const updateSubcategory = async (req, res) => {
+  // See categoryController.js's updateCategory for why this is declared
+  // outside the try block -- the same orphaned-Cloudinary-upload bug
+  // existed here too (deep bug sweep, 2026-10-20).
+  let newImage = null;
   try {
     const subcategory = await Subcategory.findById(req.params.id);
 
@@ -191,10 +195,16 @@ export const updateSubcategory = async (req, res) => {
     let oldImage = null;
     if (req.file) {
       oldImage = subcategory.image;
+      newImage = req.file.path;
       subcategory.image = req.file.path;
     }
 
     await subcategory.save();
+
+    // Saved successfully -- newImage is now legitimately part of the
+    // subcategory, so the catch block below must not delete it if
+    // anything after this point throws.
+    newImage = null;
 
     if (oldImage) {
       await deleteCloudinaryAssetsByUrl([oldImage]);
@@ -206,6 +216,10 @@ export const updateSubcategory = async (req, res) => {
       subcategory,
     });
   } catch (error) {
+    if (newImage) {
+      await deleteCloudinaryAssetsByUrl([newImage]);
+    }
+
     if (error.code === 11000) {
       return res.status(400).json({
         success: false,

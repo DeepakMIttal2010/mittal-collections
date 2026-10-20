@@ -1655,10 +1655,26 @@ export const cancelStaleRazorpayOrders = async (req, res) => {
           );
           const captured = payments.find((p) => p.status === "captured");
 
-          order.isPaid = true;
-          order.paidAt = new Date();
-          order.razorpayPaymentId = captured?.id || "";
-          await order.save();
+          // Atomic claim, same reasoning as the cancel branch below: two
+          // overlapping cron fires could otherwise both read isPaid:false
+          // here and both send the "Payment confirmed" notification for
+          // the same order. This branch never actually had that guard
+          // despite a since-corrected comment on the cancel branch below
+          // claiming it did (deep bug sweep, 2026-10-20).
+          const claimed = await Order.findOneAndUpdate(
+            { _id: order._id, isPaid: { $ne: true } },
+            {
+              $set: {
+                isPaid: true,
+                paidAt: new Date(),
+                razorpayPaymentId: captured?.id || "",
+              },
+            },
+          );
+
+          if (!claimed) {
+            continue;
+          }
 
           // Nothing else in this flow tells the customer their payment
           // actually went through — verifyRazorpayPayment (the normal
@@ -1694,15 +1710,13 @@ export const cancelStaleRazorpayOrders = async (req, res) => {
       // every remaining stale order in this batch unprocessed with
       // nothing logged about which ones.
       try {
-        // Atomic claim — the comment above this block already
-        // acknowledges "most external cron pingers... retry/double-fire,"
-        // but until now only the Razorpay-paid-recovery branch above was
-        // guarded against that; this cancel/restock/refund branch still
-        // read `order` once via the Order.find() above and saved it with
-        // no version check (Order has no optimisticConcurrency, unlike
-        // Product), so two overlapping runs could both pass this point
-        // for the same still-"Pending" order and both restore stock /
-        // refund loyalty points for it (deep bug sweep, 2026-10-13).
+        // Atomic claim — this branch still read `order` once via the
+        // Order.find() above and saved it with no version check (Order has
+        // no optimisticConcurrency, unlike Product), so two overlapping
+        // runs could both pass this point for the same still-"Pending"
+        // order and both restore stock / refund loyalty points for it
+        // (deep bug sweep, 2026-10-13). The Razorpay-paid-recovery branch
+        // above has its own separate atomic claim for the same reason.
         // Scoping the filter to `orderStatus: "Pending"` means a losing
         // concurrent run's update simply matches nothing and `claimed`
         // comes back null, same mechanism posController's

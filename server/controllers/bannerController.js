@@ -146,6 +146,10 @@ export const addBanner = async (req, res) => {
 // UPDATE BANNER (Admin)
 // ============================
 export const updateBanner = async (req, res) => {
+  // See categoryController.js's updateCategory for why this is declared
+  // outside the try block -- the same orphaned-Cloudinary-upload bug
+  // existed here too (deep bug sweep, 2026-10-20).
+  let newImage = null;
   try {
     const banner = await Banner.findById(req.params.id);
 
@@ -201,10 +205,16 @@ export const updateBanner = async (req, res) => {
     let oldImage = null;
     if (req.file) {
       oldImage = banner.image;
+      newImage = req.file.path;
       banner.image = req.file.path;
     }
 
     await banner.save();
+
+    // Saved successfully -- newImage is now legitimately part of the
+    // banner, so the catch block below must not delete it if anything
+    // after this point throws.
+    newImage = null;
 
     if (oldImage) {
       await deleteCloudinaryAssetsByUrl([oldImage]);
@@ -216,6 +226,10 @@ export const updateBanner = async (req, res) => {
       banner,
     });
   } catch (error) {
+    if (newImage) {
+      await deleteCloudinaryAssetsByUrl([newImage]);
+    }
+
     console.error("Update Banner Error:", error);
 
     res.status(500).json({

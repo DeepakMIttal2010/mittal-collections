@@ -4,6 +4,7 @@ import * as Sentry from "@sentry/node";
 import CartSnapshot from "../models/CartSnapshot.js";
 import Wishlist from "../models/Wishlist.js";
 import StockAlert from "../models/StockAlert.js";
+import Address from "../models/Address.js";
 
 // Previously had zero visibility into connection drops/reconnects — on
 // Render's free tier (the instance idles down and cold-starts) and
@@ -70,6 +71,28 @@ const connectDB = async () => {
     // a second subscription for a different size of the same product as
     // a duplicate key.
     await StockAlert.syncIndexes();
+
+    // Self-healing migration for Address's new default-address unique
+    // partial index (see the model). If any user already has more than
+    // one isDefault:true address — the exact race that index exists to
+    // prevent going forward — building it would fail with a duplicate-
+    // key error and crash the whole boot. Keep each user's most
+    // recently updated default, unset the rest, before syncing.
+    const duplicateDefaults = await Address.aggregate([
+      { $match: { isDefault: true, isActive: true } },
+      { $sort: { updatedAt: -1 } },
+      { $group: { _id: "$user", ids: { $push: "$_id" } } },
+      { $match: { "ids.1": { $exists: true } } },
+    ]);
+
+    for (const { ids } of duplicateDefaults) {
+      await Address.updateMany(
+        { _id: { $in: ids.slice(1) } },
+        { $set: { isDefault: false } },
+      );
+    }
+
+    await Address.syncIndexes();
   } catch (error) {
     console.error("❌ MongoDB Connection Failed");
     console.error(error.message);
