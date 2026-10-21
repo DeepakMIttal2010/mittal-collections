@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
 import {
@@ -17,6 +17,18 @@ import { getSubcategories } from "../../services/subcategoryService";
 // that endpoint only ever touches fields actually present in the request
 // body, so this page never needs to know about or resend the rest of
 // SiteSettings.
+// Sortable columns. `type` decides how values compare.
+const COLUMNS = [
+  { key: "category", label: "Category", type: "text" },
+  { key: "subcategory", label: "Subcategory", type: "text" },
+  { key: "miscExpensesPercent", label: "Misc Exps (% of Purchase)", type: "number" },
+  { key: "mrpMultiplier", label: "MRP (× Purchase)", type: "number" },
+  { key: "priceDiscountPercent", label: "Price (% off MRP)", type: "number" },
+  { key: "isActive", label: "Active", type: "number" },
+];
+
+const NO_FILTERS = { category: "", subcategory: "", active: "" };
+
 function AdminPricingRules() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -24,6 +36,10 @@ function AdminPricingRules() {
   const [pricingRules, setPricingRules] = useState([]);
   const [categories, setCategories] = useState([]);
   const [subcategories, setSubcategories] = useState([]);
+
+  // View controls only: they never change the saved rules or their order.
+  const [sortKeys, setSortKeys] = useState([]); // [{ key, dir }], first = primary
+  const [filters, setFilters] = useState(NO_FILTERS);
 
   const loadSettings = async () => {
     setLoading(true);
@@ -73,6 +89,7 @@ function AdminPricingRules() {
   };
 
   const handleAddPricingRule = () => {
+    setFilters(NO_FILTERS);
     setPricingRules((prev) => [
       ...prev,
       {
@@ -89,6 +106,79 @@ function AdminPricingRules() {
   const handleRemovePricingRule = (index) => {
     setPricingRules((prev) => prev.filter((_, i) => i !== index));
   };
+
+  // Which rules to show and in what order. Recomputed when the sort/filter
+  // controls change or a rule is added/removed -- deliberately NOT on every
+  // keystroke, so editing a value in a sorted or filtered row doesn't make
+  // the row jump away (or vanish) under the cursor while you type.
+  const visibleRules = useMemo(() => {
+    const nameOf = (list, id) => list.find((x) => x._id === id)?.name || "";
+    const sortValue = (rule, key) => {
+      if (key === "category") return nameOf(categories, rule.category).toLowerCase();
+      if (key === "subcategory") return nameOf(subcategories, rule.subcategory).toLowerCase();
+      if (key === "isActive") return rule.isActive ? 1 : 0;
+      return rule[key];
+    };
+
+    const rows = pricingRules
+      .map((rule, index) => ({ rule, index }))
+      .filter(
+        ({ rule }) =>
+          (!filters.category || rule.category === filters.category) &&
+          (!filters.subcategory ||
+            (filters.subcategory === "__category-wide__"
+              ? !rule.subcategory
+              : rule.subcategory === filters.subcategory)) &&
+          (!filters.active || (filters.active === "active") === !!rule.isActive),
+      );
+
+    rows.sort((a, b) => {
+      for (const { key, dir } of sortKeys) {
+        const x = sortValue(a.rule, key);
+        const y = sortValue(b.rule, key);
+        const c = typeof x === "string" ? x.localeCompare(y) : x - y;
+        if (c) return dir === "asc" ? c : -c;
+      }
+      return a.index - b.index; // stable: original order breaks ties
+    });
+
+    // Only the ORDER is frozen. Each row's values are read fresh from state
+    // at render time (see rowsToRender), otherwise typed characters would
+    // not appear.
+    return rows.map(({ index }) => index);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sortKeys, filters, pricingRules.length, categories, subcategories]);
+
+  const rowsToRender = visibleRules.map((index) => ({ rule: pricingRules[index], index }));
+
+  // Click: sort by that column (asc, then desc, then off).
+  // Shift+click: add it as another sort column (first one stays primary).
+  const toggleSort = (key, additive) => {
+    setSortKeys((prev) => {
+      const i = prev.findIndex((k) => k.key === key);
+
+      if (!additive) {
+        if (i === 0 && prev.length === 1) {
+          return prev[0].dir === "asc" ? [{ key, dir: "desc" }] : [];
+        }
+        return [{ key, dir: "asc" }];
+      }
+
+      if (i === -1) return [...prev, { key, dir: "asc" }];
+      if (prev[i].dir === "asc") return prev.map((k, j) => (j === i ? { key, dir: "desc" } : k));
+      return prev.filter((_, j) => j !== i);
+    });
+  };
+
+  const setFilter = (field, value) =>
+    setFilters((prev) => ({
+      ...prev,
+      [field]: value,
+      // A subcategory filter only makes sense inside its category.
+      ...(field === "category" ? { subcategory: "" } : {}),
+    }));
+
+  const filtersActive = Object.values(filters).some(Boolean);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -147,21 +237,120 @@ function AdminPricingRules() {
         </p>
 
         {pricingRules.length > 0 && (
+          <div className="flex flex-wrap items-end gap-3 border border-slate-200 rounded-lg bg-slate-50 p-3">
+            <label className="text-xs text-slate-600">
+              <span className="block mb-1 font-semibold">Category</span>
+              <select
+                value={filters.category}
+                onChange={(e) => setFilter("category", e.target.value)}
+                className="border border-slate-300 rounded-lg px-2 py-1.5 text-sm bg-white"
+              >
+                <option value="">All categories</option>
+                {categories.map((c) => (
+                  <option key={c._id} value={c._id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="text-xs text-slate-600">
+              <span className="block mb-1 font-semibold">Subcategory</span>
+              <select
+                value={filters.subcategory}
+                onChange={(e) => setFilter("subcategory", e.target.value)}
+                className="border border-slate-300 rounded-lg px-2 py-1.5 text-sm bg-white"
+              >
+                <option value="">All</option>
+                <option value="__category-wide__">Category-wide rules only</option>
+                {subcategories
+                  .filter((s) => !filters.category || (s.category?._id || s.category) === filters.category)
+                  .map((s) => (
+                    <option key={s._id} value={s._id}>
+                      {filters.category ? s.name : `${s.name} (${s.category?.name || ""})`}
+                    </option>
+                  ))}
+              </select>
+            </label>
+
+            <label className="text-xs text-slate-600">
+              <span className="block mb-1 font-semibold">Status</span>
+              <select
+                value={filters.active}
+                onChange={(e) => setFilter("active", e.target.value)}
+                className="border border-slate-300 rounded-lg px-2 py-1.5 text-sm bg-white"
+              >
+                <option value="">All</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </label>
+
+            {(filtersActive || sortKeys.length > 0) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setFilters(NO_FILTERS);
+                  setSortKeys([]);
+                }}
+                className="text-sm text-blue-700 hover:underline pb-1.5"
+              >
+                Clear filters &amp; sort
+              </button>
+            )}
+
+            <p className="text-xs text-slate-500 pb-1.5 ml-auto">
+              Showing {visibleRules.length} of {pricingRules.length} rules. Click a column heading to
+              sort; Shift+click adds a second sort column.
+            </p>
+          </div>
+        )}
+
+        {pricingRules.length > 0 && (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-xs font-semibold text-slate-500 border-b border-slate-200">
-                  <th className="py-2 pr-3">Category</th>
-                  <th className="py-2 pr-3">Subcategory</th>
-                  <th className="py-2 pr-3 whitespace-nowrap">Misc Exps (% of Purchase)</th>
-                  <th className="py-2 pr-3 whitespace-nowrap">MRP (× Purchase)</th>
-                  <th className="py-2 pr-3 whitespace-nowrap">Price (% off MRP)</th>
-                  <th className="py-2 pr-3">Active</th>
+                  {COLUMNS.map((col) => {
+                    const position = sortKeys.findIndex((k) => k.key === col.key);
+                    const active = position !== -1;
+                    const dir = active ? sortKeys[position].dir : null;
+
+                    return (
+                      <th
+                        key={col.key}
+                        aria-sort={active ? (dir === "asc" ? "ascending" : "descending") : "none"}
+                        className="py-2 pr-3 whitespace-nowrap"
+                      >
+                        <button
+                          type="button"
+                          onClick={(e) => toggleSort(col.key, e.shiftKey)}
+                          title="Click to sort. Shift+click to add another sort column."
+                          className={`inline-flex items-center gap-1 font-semibold hover:text-slate-800 ${
+                            active ? "text-slate-800" : ""
+                          }`}
+                        >
+                          {col.label}
+                          <span aria-hidden="true" className={active ? "" : "text-slate-300"}>
+                            {active ? (dir === "asc" ? "▲" : "▼") : "↕"}
+                            {active && sortKeys.length > 1 ? position + 1 : ""}
+                          </span>
+                        </button>
+                      </th>
+                    );
+                  })}
                   <th className="py-2" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {pricingRules.map((rule, index) => (
+                {visibleRules.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="py-6 text-center text-slate-400">
+                      No rules match these filters.
+                    </td>
+                  </tr>
+                )}
+                {rowsToRender.map(({ rule, index }) => (
                   <tr key={index}>
                     <td className="py-2 pr-3">
                       <select
