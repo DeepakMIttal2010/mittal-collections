@@ -232,12 +232,14 @@ export async function fetchImageBlob(url) {
   return new Blob([buf], { type: "image/jpeg" });
 }
 
-export async function createSubcategory(base, token, { category, groupLabel, name, nameHi, imageUrl, isActive = true }) {
+export async function createSubcategory(base, token, { category, groupLabel, name, nameHi, subtitle, subtitleHi, imageUrl, isActive = true }) {
   const fd = new FormData();
   fd.append("category", category);
   fd.append("groupLabel", groupLabel);
   fd.append("name", name);
   if (nameHi) fd.append("nameHi", nameHi);
+  if (subtitle) fd.append("subtitle", subtitle);
+  if (subtitleHi) fd.append("subtitleHi", subtitleHi);
   fd.append("isActive", String(isActive));
   if (imageUrl) fd.append("image", await fetchImageBlob(imageUrl), "thumb.jpg");
 
