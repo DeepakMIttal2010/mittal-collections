@@ -102,25 +102,7 @@ export const getGoogleProductFeed = async (req, res) => {
       .populate("category", "name nameHi");
 
     const items = products
-      .map((product) => {
-        // For a variant product, the landing page defaults to showing
-        // the FIRST variant's own stock (see ProductDetails.jsx), not
-        // the summed total across all sizes - the feed has to match
-        // that exact default view, or Google flags a price/availability
-        // mismatch between the feed and what the page actually shows.
-        const availabilityStock = product.variants?.length
-          ? product.variants[0].stock
-          : product.stock;
-        const availability =
-          availabilityStock > 0 ? "in stock" : "out of stock";
-
-        const salePrice =
-          product.oldPrice > product.price
-            ? `      <g:sale_price>${product.price.toFixed(2)} INR</g:sale_price>\n`
-            : "";
-        const listPrice =
-          product.oldPrice > product.price ? product.oldPrice : product.price;
-
+      .flatMap((product) => {
         const brand = escapeXml(product.brand || BRAND_NAME);
         // Only emit these when actually filled in — an empty <g:color>
         // tag is worse than no tag at all (Merchant Center flags it as
@@ -139,22 +121,73 @@ export const getGoogleProductFeed = async (req, res) => {
           .slice(0, 10)
           .map((url) => `      <g:additional_image_link>${escapeXml(url)}</g:additional_image_link>`)
           .join("\n");
-
-        return `    <item>
-      <g:id>${product._id}</g:id>
-      <title>${escapeXml(product.name)}</title>
-      <description>${escapeXml(feedDescription(product.description))}</description>
-      <link>${escapeXml(productUrl(product))}</link>
-      <g:image_link>${escapeXml(product.image)}</g:image_link>
+        const description = escapeXml(feedDescription(product.description));
+        const link = escapeXml(productUrl(product));
+        const sharedTags = `      <g:image_link>${escapeXml(product.image)}</g:image_link>
 ${extraImages}
-      <g:availability>${availability}</g:availability>
-      <g:price>${listPrice.toFixed(2)} INR</g:price>
-${salePrice}      <g:condition>new</g:condition>
+      <g:condition>new</g:condition>
       <g:brand>${brand}</g:brand>
       <g:identifier_exists>no</g:identifier_exists>
       <g:product_type>${escapeXml(product.category?.name || "")}</g:product_type>
       <g:ships_from_country>IN</g:ships_from_country>
-${colorTag}${materialTag}${patternTag}    </item>`;
+${colorTag}${materialTag}${patternTag}`;
+
+        // A sized product (curtains etc.) used to emit ONE <item>, built
+        // entirely from variants[0]'s price/stock -- the 9x4 ft size (or
+        // whichever size wasn't variants[0]) was completely invisible to
+        // Google Shopping, both in price and in availability. A false
+        // "out of stock" the moment variants[0] specifically sold out
+        // (while the other size was still purchasable) is a real
+        // disapproval/broken-ad risk, not just a missed listing (same
+        // root cause as the JSON-LD Offer fix, same audit, 2026-10-20).
+        // One <item> per variant, sharing a g:item_group_id, is the
+        // standard Shopping-feed pattern for representing size/colour
+        // variants of the same product.
+        if (product.variants?.length > 1) {
+          return product.variants.map((variant) => {
+            const availability = variant.stock > 0 ? "in stock" : "out of stock";
+            // Each variant carries its own oldPrice (see Product.js --
+            // different sizes can have different markdowns), not the
+            // top-level product.oldPrice -- mirrors ProductDetails.jsx's
+            // own displayOldPrice (selectedVariant.oldPrice), same bug
+            // class as the price/availability fix above, caught before
+            // shipping.
+            const salePrice =
+              variant.oldPrice > variant.price
+                ? `      <g:sale_price>${variant.price.toFixed(2)} INR</g:sale_price>\n`
+                : "";
+            const listPrice =
+              variant.oldPrice > variant.price ? variant.oldPrice : variant.price;
+
+            return `    <item>
+      <g:id>${product._id}-${slugify(variant.size)}</g:id>
+      <g:item_group_id>${product._id}</g:item_group_id>
+      <title>${escapeXml(`${product.name} - ${variant.size}`)}</title>
+      <description>${description}</description>
+      <link>${link}</link>
+${sharedTags}      <g:size>${escapeXml(variant.size)}</g:size>
+      <g:availability>${availability}</g:availability>
+      <g:price>${listPrice.toFixed(2)} INR</g:price>
+${salePrice}    </item>`;
+          });
+        }
+
+        const availability = product.stock > 0 ? "in stock" : "out of stock";
+        const salePrice =
+          product.oldPrice > product.price
+            ? `      <g:sale_price>${product.price.toFixed(2)} INR</g:sale_price>\n`
+            : "";
+        const listPrice =
+          product.oldPrice > product.price ? product.oldPrice : product.price;
+
+        return [`    <item>
+      <g:id>${product._id}</g:id>
+      <title>${escapeXml(product.name)}</title>
+      <description>${description}</description>
+      <link>${link}</link>
+${sharedTags}      <g:availability>${availability}</g:availability>
+      <g:price>${listPrice.toFixed(2)} INR</g:price>
+${salePrice}    </item>`];
       })
       .join("\n");
 
