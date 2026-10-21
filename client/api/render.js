@@ -752,6 +752,19 @@ const buildCategoryBodyHtml = (
 // the Hindi branch's body text and meta description fall back to the
 // English description/subtitle, same partial-translation convention
 // already used elsewhere on this site.
+// Mirrors client/src/utils/subcategorySeoName.js (render.js can't import
+// client ESM) -- keep both in sync. See that file for the reasoning.
+const SEO_PHRASE_GROUPS = new Set(["By Material", "By Brand"]);
+function subcategorySeoName(subcategoryName, groupLabel, categoryName) {
+  const sub = (subcategoryName || "").trim();
+  const category = (categoryName || "").trim();
+  if (!sub || !category || !SEO_PHRASE_GROUPS.has(groupLabel)) return null;
+  if (/\s/.test(sub)) return null;
+  const stem = category.toLowerCase().replace(/s$/, "");
+  if (sub.toLowerCase().includes(stem)) return null;
+  return `${sub} ${category}`;
+}
+
 async function buildCategoryMeta({ categorySlug, subcategorySlug, isHindi }) {
   const data = await fetchJson(`${API_BASE}/api/categories`);
 
@@ -836,11 +849,17 @@ async function buildCategoryMeta({ categorySlug, subcategorySlug, isHindi }) {
   // Same lead-in CategoryPage.jsx's <Seo> uses, extended with the
   // subcategory's own name so it isn't just the parent category's copy
   // repeated verbatim.
+  const seoPhrase =
+    subcategory && !isHindi
+      ? subcategorySeoName(subcategory.name, subcategory.groupLabel, category.name)
+      : null;
   const title = subcategory
-    ? `${displaySubcategoryName} | ${displayCategoryName} | ${SITE_NAME}`
+    ? seoPhrase
+      ? `${seoPhrase} | ${SITE_NAME}`
+      : `${displaySubcategoryName} | ${displayCategoryName} | ${SITE_NAME}`
     : `${displayCategoryName} | ${SITE_NAME}`;
   const pageTitle = subcategory
-    ? `${displaySubcategoryName} - ${displayCategoryName}`
+    ? seoPhrase || `${displaySubcategoryName} - ${displayCategoryName}`
     : displayCategoryName;
   // descriptionHi/subtitleHi now exist (see Category.js/Subcategory.js --
   // SEO/conversion audit, 2026-10-20) -- still falls back to the English

@@ -16,6 +16,7 @@ import { getSiteSettings } from "../services/settingsService";
 import { SITE_URL } from "../utils/siteUrl";
 import { productUrl } from "../utils/productUrl";
 import { truncateAtWordBoundary } from "../utils/truncateMetaDescription";
+import { subcategorySeoName } from "../utils/subcategorySeoName";
 import { useLanguage } from "../context/LanguageContext";
 import { FaGift, FaFilter, FaTimes } from "react-icons/fa";
 import { trackFilter } from "../utils/analytics";
@@ -697,12 +698,19 @@ function CategoryPage() {
     ? activeSubcategory?.nameHi || activeSubcategory?.name
     : activeSubcategory?.name;
 
+  // English-only natural search phrase ("Satin Curtains") for the few
+  // single-word material/brand subcategories -- see subcategorySeoName.js.
+  const seoPhrase =
+    activeSubcategory && !isHindi
+      ? subcategorySeoName(activeSubcategory.name, activeSubcategory.groupLabel, category.name)
+      : null;
+
   const pageTitle = isCottonDoubleBedsheets
     ? isHindi
       ? "कॉटन डबल बेडशीट"
       : "Cotton Double Bedsheets"
     : activeSubcategory
-      ? `${displaySubcategoryName} - ${displayCategoryName}`
+      ? seoPhrase || `${displaySubcategoryName} - ${displayCategoryName}`
       : displayCategoryName;
 
   const categoryPath = `${isHindi ? "/hi" : ""}/category/${categorySlug}`;
@@ -823,10 +831,14 @@ function CategoryPage() {
       />
       <Breadcrumbs items={breadcrumbItems} />
       <h1 className="text-xl font-semibold text-slate-800 mb-4">
-        {t(category.name, category.nameHi)}
-        {activeSubcategory
-          ? ` / ${t(activeSubcategory.name, activeSubcategory.nameHi)}`
-          : ""}
+        {seoPhrase || (
+          <>
+            {t(category.name, category.nameHi)}
+            {activeSubcategory
+              ? ` / ${t(activeSubcategory.name, activeSubcategory.nameHi)}`
+              : ""}
+          </>
+        )}
       </h1>
 
       {/* Already written (used in the <meta description> above) but was
