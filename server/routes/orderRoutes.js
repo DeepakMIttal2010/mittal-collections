@@ -23,6 +23,7 @@ import {
   resendOrderStatusEmail,
   resumeRazorpayPayment,
 } from "../controllers/orderController.js";
+import { getOrderCost, setOrderCost } from "../controllers/orderCostController.js";
 
 const router = express.Router();
 
@@ -59,6 +60,13 @@ router.get("/:id", authMiddleware, getOrderById);
 // (owner-checked inside the controller), re-opens the same Razorpay
 // order rather than creating a new one.
 router.post("/:id/resume-payment", authMiddleware, resumeRazorpayPayment);
+
+// Order cost snapshot + courier charge -- internal profit data, so gated
+// by the "reports" permission (not just "orders"): a staff account that
+// can manage orders but not see financials must not read purchase prices.
+const costPerm = requirePermission("reports");
+router.get("/:id/cost", authMiddleware, adminMiddleware, costPerm, getOrderCost);
+router.put("/:id/cost", authMiddleware, adminMiddleware, costPerm, canModify, setOrderCost);
 
 // Update Order Status — sirf Admin
 router.put("/:id/status", authMiddleware, adminMiddleware, perm, canModify, updateOrderStatus);

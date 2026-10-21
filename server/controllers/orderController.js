@@ -28,6 +28,7 @@ import { notifyUser } from "../utils/notify.js";
 import { hasAdminPermission } from "../utils/adminAccess.js";
 import { REVIEW_BONUS_POINTS } from "./reviewController.js";
 import { escapeHtml } from "../utils/escapeHtml.js";
+import OrderCost from "../models/OrderCost.js";
 
 // Lazily constructed so a missing/blank key in dev doesn't crash the
 // whole server at import time — only Razorpay-paid checkouts need it.
@@ -284,6 +285,13 @@ const verifyOrderItems = async (rawItems) => {
       quantity,
       size: item.size || "",
       localDeliveryOnly: product.localDeliveryOnly,
+      // Not part of Order.orderItems' schema (Mongoose strict mode drops
+      // them from the Order document); read only by the OrderCost
+      // snapshot taken right after Order.create() in createOrder.
+      unitPurchasePrice: item.size
+        ? product.variants.find((v) => v.size === item.size)?.purchasePrice || 0
+        : product.purchasePrice || 0,
+      unitMiscExpenses: product.miscExpenses || 0,
     });
   }
 
@@ -624,6 +632,25 @@ export const createOrder = async (req, res) => {
       }
 
       throw orderError;
+    }
+
+    // Cost snapshot for profit reporting -- a separate admin-only
+    // collection (see OrderCost.js for why it is not on the Order). A
+    // failure here must never fail or roll back a real customer order;
+    // a missing record is detectable later and can be backfilled.
+    try {
+      await OrderCost.create({
+        order: order._id,
+        items: verifiedItems.map((item) => ({
+          product: item.product,
+          size: item.size,
+          quantity: item.quantity,
+          unitPurchasePrice: item.unitPurchasePrice,
+          unitMiscExpenses: item.unitMiscExpenses,
+        })),
+      });
+    } catch (costError) {
+      console.error("Order cost snapshot failed for order", order._id, costError);
     }
 
     // Tracks whether points were actually deducted below (not just
