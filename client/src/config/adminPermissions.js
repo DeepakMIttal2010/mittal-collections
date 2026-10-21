@@ -16,6 +16,7 @@ export const PERMISSION_GROUPS = [
     items: [
       { key: "dashboard", label: "Dashboard", to: "/admin" },
       { key: "reports", label: "Reports", to: "/admin/reports" },
+      { key: "expenses", label: "Expenses", to: "/admin/expenses" },
       { key: "walkthrough", label: "Product Walkthrough", to: "/admin/walkthrough" },
     ],
   },
