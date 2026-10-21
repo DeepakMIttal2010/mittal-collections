@@ -174,3 +174,48 @@ export const permanentlyDeleteOrder = async (id) => {
     };
   }
 };
+
+// ==============================
+// ORDER COST SNAPSHOT + COURIER CHARGE (Admin, "reports" permission)
+// ==============================
+// `status` is passed through so the caller can tell "no permission to
+// see financials" (403 -> hide the panel) from a real failure.
+export const getOrderCost = async (id) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/orders/${id}/cost`, {
+      headers: { Authorization: `Bearer ${getToken()}` },
+    });
+    const data = await response.json();
+
+    return { success: data.success, status: response.status, cost: data.cost || null };
+  } catch (error) {
+    console.error("Get Order Cost Error:", error);
+
+    return { success: false, status: 0, cost: null };
+  }
+};
+
+export const setOrderCost = async (id, body) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/orders/${id}/cost`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${getToken()}`,
+      },
+      body: JSON.stringify(body),
+    });
+    const data = await response.json();
+
+    return {
+      success: data.success,
+      status: response.status,
+      cost: data.cost || null,
+      message: data.message,
+    };
+  } catch (error) {
+    console.error("Set Order Cost Error:", error);
+
+    return { success: false, status: 0, cost: null, message: "Unable to save" };
+  }
+};
