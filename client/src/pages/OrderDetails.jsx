@@ -10,6 +10,8 @@ import { useLanguage } from "../context/LanguageContext";
 import OrderStatusTimeline from "../components/OrderStatusTimeline";
 import { handleImageError } from "../utils/imageFallback";
 import { dateLocale } from "../utils/dateLocale";
+import { getSiteSettings } from "../services/settingsService";
+import { toWhatsAppNumber } from "../utils/whatsapp";
 
 const STATUS_COLORS = {
   Pending: "bg-slate-100 text-slate-700",
@@ -38,6 +40,15 @@ function OrderDetails() {
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [paying, setPaying] = useState(false);
+  const [supportPhone, setSupportPhone] = useState("");
+
+  useEffect(() => {
+    getSiteSettings().then((response) => {
+      if (response?.success && response.settings?.phone) {
+        setSupportPhone(response.settings.phone);
+      }
+    });
+  }, []);
 
   const load = async () => {
     setLoading(true);
@@ -205,6 +216,41 @@ function OrderDetails() {
               <br />
               {t("Phone: ", "फ़ोन: ")}{order.shippingAddress.mobile}
             </p>
+          </div>
+
+          <div className="border border-slate-200 rounded-xl bg-white p-5 mt-6">
+            <h2 className="font-semibold text-slate-800 mb-1">
+              {t("Need help with this order?", "इस ऑर्डर में मदद चाहिए?")}
+            </h2>
+            <p className="text-sm text-slate-600 mb-3">
+              {t(
+                "Questions about delivery, changes, cancellation or returns - message us and we will help.",
+                "डिलीवरी, बदलाव, कैंसिलेशन या रिटर्न के बारे में हमें मैसेज करें, हम मदद करेंगे।",
+              )}
+            </p>
+            <div className="flex flex-wrap gap-3">
+              {supportPhone && (
+                <a
+                  href={`https://wa.me/${toWhatsAppNumber(supportPhone)}?text=${encodeURIComponent(
+                    t(
+                      `Hi, I need help with my order #${order._id.slice(-8).toUpperCase()}.`,
+                      `नमस्ते, मुझे मेरे ऑर्डर #${order._id.slice(-8).toUpperCase()} में मदद चाहिए।`,
+                    ),
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center bg-[#25D366] hover:bg-[#1ebe5a] text-white text-sm font-semibold rounded-full px-5 py-2.5 transition-colors"
+                >
+                  {t("Chat on WhatsApp", "WhatsApp पर चैट करें")}
+                </a>
+              )}
+              <Link
+                to="/contact"
+                className="inline-flex items-center border border-slate-300 text-slate-700 hover:bg-slate-50 text-sm font-semibold rounded-full px-5 py-2.5 transition-colors"
+              >
+                {t("Contact us", "संपर्क करें")}
+              </Link>
+            </div>
           </div>
         </div>
 
