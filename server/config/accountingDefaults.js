@@ -67,7 +67,7 @@ export const SUB_GROUPS = [
 // is a normal editable ledger.
 export const SEED_LEDGERS = [
   { name: "Cash", group: "Cash-in-Hand", systemKey: "cash" },
-  { name: "SBI A/C", group: "Bank Accounts" },
+  { name: "SBI A/C", group: "Bank Accounts", systemKey: "bank-main" },
   { name: "Stock in Hand", group: "Stock-in-Hand", systemKey: "stock" },
   { name: "Razorpay A/c", group: "Sundry Debtors", systemKey: "razorpay" },
   { name: "COD Receivable (Couriers)", group: "Sundry Debtors", systemKey: "cod-receivable" },
@@ -90,6 +90,23 @@ export const SEED_LEDGERS = [
   { name: "Rent & Utilities", group: "Rent & Utilities", systemKey: "rent" },
   { name: "Other Expenses", group: "Indirect Expenses", systemKey: "other-expense" },
 ];
+
+// Bump when SEED_LEDGERS/groups gain entries or system keys.
+export const SEED_VERSION = 2;
+
+// Expense category (server/config/expenseCategories.js) -> the ledger its
+// payment voucher debits.
+export const EXPENSE_CATEGORY_LEDGER = {
+  "Courier & Shipping": "courier",
+  Packaging: "packaging",
+  "Software & Subscriptions": "software",
+  "Domain & Hosting": "domain",
+  "Payment Gateway Fees": "gateway-fees",
+  "Marketing & Ads": "marketing",
+  "Salary & Wages": "salary",
+  "Rent & Utilities": "rent",
+  Other: "other-expense",
+};
 
 // Books begin on the first day of the financial year the user chose.
 export const DEFAULT_BOOKS_START = "2026-04-01";

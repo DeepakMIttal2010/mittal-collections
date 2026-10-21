@@ -39,6 +39,9 @@ const voucherSchema = new mongoose.Schema(
     source: {
       kind: { type: String, default: undefined },
       id: { type: String, default: undefined },
+      // Hash of the figures the voucher was built from -- lets the sync
+      // tell "unchanged" from "the order/expense was edited, rebuild it".
+      hash: { type: String, default: undefined },
     },
 
     // A deleted voucher is kept (audit trail) but voided: excluded from

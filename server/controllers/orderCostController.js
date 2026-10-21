@@ -1,5 +1,6 @@
 import Order from "../models/Order.js";
 import OrderCost from "../models/OrderCost.js";
+import { syncOrder, postSafely } from "../utils/accountingPosting.js";
 
 const MAX_AMOUNT = 1000000;
 
@@ -122,6 +123,9 @@ export const setOrderCost = async (req, res) => {
       returnDocument: "after",
       runValidators: true,
     }).lean();
+
+    // Courier charge / backfilled costs change what the books should say.
+    await postSafely(syncOrder, order._id);
 
     res.status(200).json({ success: true, cost: shapeCost(cost) });
   } catch (error) {

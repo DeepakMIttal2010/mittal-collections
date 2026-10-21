@@ -19,6 +19,7 @@ import {
   fyOf,
 } from "../utils/accounting.js";
 import { parseIstDate, toIstDateString } from "../utils/recurringExpenses.js";
+import { reconcileAll } from "../utils/accountingPosting.js";
 
 const fail = (res, status, message) => res.status(status).json({ success: false, message });
 const serverError = (res, label, error) => {
@@ -36,6 +37,32 @@ export const seedMiddleware = async (req, res, next) => {
     next();
   } catch (error) {
     serverError(res, "Accounting seed error", error);
+  }
+};
+
+// ------------------------------------------------------------------ sync
+// Brings the books in line with orders, returns, POS sales, expenses and
+// the live stock valuation. Idempotent; the Accounts page calls it on open.
+export const syncBooks = async (req, res) => {
+  try {
+    const result = await reconcileAll();
+
+    if (result.busy) return res.status(202).json({ success: true, busy: true, message: "Another sync is already running." });
+
+    res.status(200).json({
+      success: true,
+      result: {
+        created: result.created,
+        updated: result.updated,
+        voided: result.voided,
+        unchanged: result.unchanged,
+        skipped: result.skipped,
+        missingCost: result.missingCost,
+        stockAdjustment: rupeesFromPaise(result.stock?.diffPaise || 0),
+      },
+    });
+  } catch (error) {
+    serverError(res, "Sync books", error);
   }
 };
 

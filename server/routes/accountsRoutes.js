@@ -7,6 +7,7 @@ import requirePermission from "../middleware/requirePermission.js";
 
 import {
   seedMiddleware,
+  syncBooks,
   getAccountingSettings,
   updateAccountingSettings,
   getGroups,
@@ -31,6 +32,8 @@ router.param("id", validateObjectId);
 // The books are business financials: their own "accounts" permission, so a
 // staff role can run orders/products without ever seeing them.
 router.use(authMiddleware, adminMiddleware, requirePermission("accounts"), seedMiddleware);
+
+router.post("/sync", syncBooks);
 
 router.get("/settings", getAccountingSettings);
 router.put("/settings", updateAccountingSettings);

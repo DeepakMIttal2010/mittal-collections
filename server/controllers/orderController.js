@@ -29,6 +29,7 @@ import { hasAdminPermission } from "../utils/adminAccess.js";
 import { REVIEW_BONUS_POINTS } from "./reviewController.js";
 import { escapeHtml } from "../utils/escapeHtml.js";
 import OrderCost from "../models/OrderCost.js";
+import { syncOrder, postSafely } from "../utils/accountingPosting.js";
 
 // Lazily constructed so a missing/blank key in dev doesn't crash the
 // whole server at import time — only Razorpay-paid checkouts need it.
@@ -1440,6 +1441,9 @@ export const updateOrderStatus = async (req, res) => {
       }
     }
 
+    // Shipped/Delivered orders post their sale; a cancel voids it.
+    await postSafely(syncOrder, order._id);
+
     sendOrderStatusNotification(order, status);
 
     res.status(200).json({
@@ -1474,6 +1478,7 @@ export const restoreOrder = async (req, res) => {
 
     order.isActive = true;
     await order.save();
+    await postSafely(syncOrder, order._id);
 
     res.json({
       success: true,
@@ -1514,6 +1519,7 @@ export const deleteOrder = async (req, res) => {
 
     order.isActive = false;
     await order.save();
+    await postSafely(syncOrder, order._id);
 
     res.json({
       success: true,
@@ -1572,6 +1578,7 @@ export const permanentlyDeleteOrder = async (req, res) => {
     }
 
     await order.deleteOne();
+    await postSafely(syncOrder, order._id);
 
     res.json({
       success: true,

@@ -1,4 +1,5 @@
 import Expense from "../models/Expense.js";
+import { syncExpense, syncAllExpenses, postSafely } from "../utils/accountingPosting.js";
 import RecurringExpense from "../models/RecurringExpense.js";
 import { EXPENSE_CATEGORIES, PAYMENT_MODES } from "../config/expenseCategories.js";
 import { generateDueRecurringExpenses, parseIstDate, round2 } from "../utils/recurringExpenses.js";
@@ -83,7 +84,7 @@ export const getExpenses = async (req, res) => {
     }
 
     // Opening the ledger is what materialises due subscription entries.
-    await generateDueRecurringExpenses();
+    if ((await generateDueRecurringExpenses()) > 0) await postSafely(syncAllExpenses);
 
     const [expenses, byCategory] = await Promise.all([
       Expense.find(filter).sort({ date: -1, _id: -1 }).limit(LIST_LIMIT).lean(),
@@ -120,6 +121,7 @@ export const createExpense = async (req, res) => {
     if (date.error) return fail(res, 400, date.error);
 
     const expense = await Expense.create({ ...common.value, date: date.value });
+    await postSafely(syncExpense, expense._id);
 
     res.status(201).json({ success: true, expense });
   } catch (error) {
@@ -150,6 +152,7 @@ export const updateExpense = async (req, res) => {
     );
 
     if (!expense) return fail(res, 404, "Expense not found");
+    await postSafely(syncExpense, expense._id);
 
     res.status(200).json({ success: true, expense });
   } catch (error) {
@@ -172,6 +175,7 @@ export const deleteExpense = async (req, res) => {
     } else {
       await Expense.deleteOne({ _id: expense._id });
     }
+    await postSafely(syncExpense, expense._id);
 
     res.status(200).json({ success: true });
   } catch (error) {
@@ -246,7 +250,7 @@ export const createRecurringExpense = async (req, res) => {
 
     // Backfill immediately so e.g. "Claude from 28 Jul" shows its past
     // months right away instead of at the next ledger open.
-    await generateDueRecurringExpenses();
+    if ((await generateDueRecurringExpenses()) > 0) await postSafely(syncAllExpenses);
 
     res.status(201).json({ success: true, template });
   } catch (error) {

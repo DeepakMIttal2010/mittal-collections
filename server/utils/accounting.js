@@ -10,6 +10,7 @@ import {
   SEED_LEDGERS,
   VOUCHER_TYPES,
   DEFAULT_BOOKS_START,
+  SEED_VERSION,
 } from "../config/accountingDefaults.js";
 import { istParts, parseIstDate, toIstDateString } from "./recurringExpenses.js";
 
@@ -48,7 +49,8 @@ const isDup = (error) => error?.code === 11000;
 // exists (so an admin's renames/edits survive). Settings are created LAST,
 // so a crash half-way leaves "not seeded" and the next call finishes the job.
 export const ensureAccountingSeed = async () => {
-  if (await AccountingSettings.exists({ key: "main" })) return;
+  const current = await AccountingSettings.findOne({ key: "main" }).select("seedVersion").lean();
+  if (current && (current.seedVersion || 1) >= SEED_VERSION) return;
 
   const upsert = async (Model, filter, doc) => {
     try {
@@ -83,6 +85,18 @@ export const ensureAccountingSeed = async () => {
 
   for (const l of SEED_LEDGERS) {
     const group = await AccountGroup.findOne({ nameKey: nameKey(l.group) });
+
+    // A ledger created by an older seed under this name (before it had a
+    // system key) adopts the key instead of being duplicated.
+    if (l.systemKey && !(await Ledger.exists({ systemKey: l.systemKey }))) {
+      await Ledger.updateOne(
+        { nameKey: nameKey(l.name), systemKey: { $exists: false } },
+        { $set: { systemKey: l.systemKey } },
+      ).catch((error) => {
+        if (!isDup(error)) throw error;
+      });
+    }
+
     await upsert(Ledger, l.systemKey ? { systemKey: l.systemKey } : { nameKey: nameKey(l.name) }, {
       name: l.name,
       nameKey: nameKey(l.name),
@@ -95,6 +109,8 @@ export const ensureAccountingSeed = async () => {
     key: "main",
     booksStartDate: parseIstDate(DEFAULT_BOOKS_START),
   });
+
+  await AccountingSettings.updateOne({ key: "main" }, { $set: { seedVersion: SEED_VERSION } });
 };
 
 export const getSettings = async () => {
@@ -198,12 +214,9 @@ const nextSeq = async (counterId) => {
   return null;
 };
 
-export const createVoucher = async (input, { userId, source } = {}) => {
-  const settings = await getSettings();
-  const parsed = await validateVoucherInput(input, settings);
-  if (parsed.error) return parsed;
-
-  const { value } = parsed;
+// Stores an already-validated voucher value (shared by hand-entered and
+// automatic vouchers): atomic numbering, then the insert.
+export const insertVoucher = async (value, { userId, source } = {}) => {
   const fy = fyOf(value.date);
   const prefix = VOUCHER_TYPES[value.type];
   const seq = await nextSeq(`${prefix}/${fy}`);
@@ -230,6 +243,14 @@ export const createVoucher = async (input, { userId, source } = {}) => {
   await logAction("create", "voucher", voucher._id, userId, { number: voucher.number });
 
   return { voucher };
+};
+
+export const createVoucher = async (input, { userId, source } = {}) => {
+  const settings = await getSettings();
+  const parsed = await validateVoucherInput(input, settings);
+  if (parsed.error) return parsed;
+
+  return insertVoucher(parsed.value, { userId, source });
 };
 
 export const updateVoucher = async (id, input, { userId } = {}) => {
@@ -271,6 +292,11 @@ export const voidVoucher = async (id, { userId } = {}) => {
   const existing = await Voucher.findOne({ _id: id, voided: false }).lean();
 
   if (!existing) return { status: 404, error: "Voucher not found." };
+  // An automatic voucher mirrors its order/expense/sale: deleting it by hand
+  // would just be undone by the next sync, so change the source instead.
+  if (existing.source?.kind) {
+    return { status: 400, error: "This voucher was created automatically. Change or cancel the original order, sale or expense instead." };
+  }
   if (settings.lockedThrough && toIstDateString(existing.date) <= toIstDateString(settings.lockedThrough)) {
     return { status: 400, error: "This voucher is in a locked period." };
   }
@@ -322,4 +348,91 @@ export const getLedgerBalances = async (asOf = new Date()) => {
       netPaise: net, // + = Dr, - = Cr
     };
   });
+};
+
+// ------------------------------------------------- automatic vouchers
+// Used by utils/accountingPosting.js. Amounts are already integer paise and
+// ledgers already resolved, so none of the hand-entry parsing applies, but
+// the same invariants do: >= 2 lines, positive integer paise, Dr = Cr.
+
+// systemKey -> ledger _id (e.g. "razorpay", "sales-online").
+export const getSystemLedgerMap = async () => {
+  const ledgers = await Ledger.find({ systemKey: { $type: "string" } }).select("systemKey").lean();
+  return new Map(ledgers.map((l) => [l.systemKey, l._id]));
+};
+
+// Posting day for an automatic voucher: the preferred date, or -- when
+// that period is locked -- the first open day after the lock. null when it
+// is before the books start (such a document cannot be posted at all).
+export const resolvePostingDate = (preferred, settings) => {
+  const day = toIstDateString(preferred);
+
+  if (day < toIstDateString(settings.booksStartDate)) return null;
+
+  if (settings.lockedThrough && day <= toIstDateString(settings.lockedThrough)) {
+    return parseIstDate(toIstDateString(new Date(settings.lockedThrough.getTime() + 24 * 60 * 60 * 1000)));
+  }
+
+  return preferred;
+};
+
+export const buildAutoValue = ({ type, date, narration, entries }) => {
+  if (!Object.keys(VOUCHER_TYPES).includes(type)) throw new Error(`Unknown voucher type ${type}`);
+  if (!Array.isArray(entries) || entries.length < 2) throw new Error("An automatic voucher needs two lines");
+
+  let dr = 0;
+  let cr = 0;
+  for (const e of entries) {
+    if (!Number.isInteger(e.amountPaise) || e.amountPaise < 1) throw new Error("Automatic voucher line must be positive whole paise");
+    if (e.side === "Dr") dr += e.amountPaise;
+    else if (e.side === "Cr") cr += e.amountPaise;
+    else throw new Error("Automatic voucher line side must be Dr or Cr");
+  }
+  if (dr !== cr || dr < 1) throw new Error(`Automatic voucher does not balance (Dr ${dr} vs Cr ${cr})`);
+
+  return { type, date, narration: (narration || "").slice(0, 500), entries, totalPaise: dr };
+};
+
+const isLockedDay = (date, settings) =>
+  !!settings.lockedThrough && toIstDateString(date) <= toIstDateString(settings.lockedThrough);
+
+export const createAutoVoucher = async (desired, source, settings) => {
+  const date = resolvePostingDate(desired.date, settings);
+  if (!date) return { skipped: "before-books-start" };
+
+  const result = await insertVoucher(buildAutoValue({ ...desired, date }), { source });
+  return result.duplicate ? { duplicate: true } : { created: true, voucher: result.voucher };
+};
+
+// Brings an existing automatic voucher in line with new figures: edited in
+// place (same number) when the financial year is unchanged, otherwise the
+// caller voids it and creates a fresh one.
+export const rebuildAutoVoucher = async (existing, desired, hash, settings) => {
+  if (isLockedDay(existing.date, settings)) return { skipped: "locked" };
+
+  const date = resolvePostingDate(desired.date, settings);
+  if (!date) return { skipped: "before-books-start" };
+  if (fyOf(date) !== existing.fy) return { recreate: true };
+
+  const value = buildAutoValue({ ...desired, type: existing.type, date });
+
+  await Voucher.updateOne(
+    { _id: existing._id, voided: false },
+    { $set: { date: value.date, narration: value.narration, entries: value.entries, totalPaise: value.totalPaise, "source.hash": hash } },
+  );
+  await logAction("auto-update", "voucher", existing._id, undefined, {
+    number: existing.number,
+    previous: { date: existing.date, entries: existing.entries, totalPaise: existing.totalPaise },
+  });
+
+  return { updated: true };
+};
+
+export const voidAutoVoucher = async (existing, settings) => {
+  if (isLockedDay(existing.date, settings)) return { skipped: "locked" };
+
+  await Voucher.updateOne({ _id: existing._id, voided: false }, { $set: { voided: true, voidedAt: new Date() } });
+  await logAction("auto-void", "voucher", existing._id, undefined, { number: existing.number });
+
+  return { voided: true };
 };

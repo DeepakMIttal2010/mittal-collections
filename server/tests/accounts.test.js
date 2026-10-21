@@ -80,7 +80,7 @@ describe("accounts: seed", () => {
     const ledgers = (await request(app).get(`${A}/ledgers`).set(auth)).body.ledgers;
     for (const l of SEED_LEDGERS) expect(ledgers.map((x) => x.name)).toContain(l.name);
     expect(ledgers.find((l) => l.name === "SBI A/C").group.name).toBe("Bank Accounts");
-    expect(ledgers.find((l) => l.name === "SBI A/C").systemKey).toBeNull();
+    expect(ledgers.find((l) => l.name === "SBI A/C").systemKey).toBe("bank-main");
     expect(ledgers.find((l) => l.name === "Razorpay A/c").systemKey).toBe("razorpay");
 
     const settings = (await request(app).get(`${A}/settings`).set(auth)).body.settings;
@@ -106,6 +106,24 @@ describe("accounts: seed", () => {
     expect(await AccountGroup.countDocuments({})).toBe(groupCount);
     expect(await Ledger.countDocuments({})).toBe(ledgerCount);
     expect((await Ledger.findOne({ systemKey: "cash" })).name).toBe("Cash (shop drawer)");
+  });
+});
+
+describe("accounts: seed upgrade", () => {
+  it("lets a ledger seeded by an older version adopt its system key instead of duplicating it", async () => {
+    await ensureAccountingSeed();
+
+    // Simulate a database seeded before SBI A/C had a system key.
+    await Ledger.updateOne({ systemKey: "bank-main" }, { $unset: { systemKey: 1 } });
+    await AccountingSettings.updateOne({ key: "main" }, { $set: { seedVersion: 1 } });
+    const before = await Ledger.countDocuments({});
+
+    await ensureAccountingSeed();
+
+    expect(await Ledger.countDocuments({})).toBe(before);
+    const sbi = await Ledger.findOne({ nameKey: "sbi a/c" });
+    expect(sbi.systemKey).toBe("bank-main");
+    expect((await AccountingSettings.findOne({ key: "main" })).seedVersion).toBeGreaterThanOrEqual(2);
   });
 });
 
