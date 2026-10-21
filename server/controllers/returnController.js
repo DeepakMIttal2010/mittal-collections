@@ -5,9 +5,11 @@ import Product from "../models/Product.js";
 import SiteSettings from "../models/SiteSettings.js";
 import { sendEmail } from "../config/mailer.js";
 import { notifyUser } from "../utils/notify.js";
+import { returnedValueFor } from "../utils/returnValue.js";
 import { restoreStock } from "./orderController.js";
 import { applyLoyaltyPointsChange } from "../utils/loyaltyPoints.js";
 import { escapeHtml } from "../utils/escapeHtml.js";
+import { syncReturn, postSafely } from "../utils/accountingPosting.js";
 
 const notifyAdmin = async (returnRequest) => {
   try {
@@ -404,30 +406,8 @@ export const updateReturnStatus = async (req, res) => {
         );
 
         if (order && orderItem) {
-          const rawItemValue = orderItem.price * returnRequest.quantity;
-
-          // Prorate this item's share of whatever discount applied to
-          // the WHOLE order -- this used to be the raw, undiscounted
-          // item price, which overstated refundedAmount (and so
-          // understated revenue, since every aggregation subtracts it)
-          // on any order that had a coupon/bundle/points discount
-          // applied. E.g. a ₹500 item on an order with a 10% overall
-          // discount actually cost the customer ~₹450; refunding the
-          // full ₹500 as "returned value" counted ₹50 more than was
-          // ever collected (deep bug sweep, 2026-10-20).
-          const orderSubtotal = order.orderItems.reduce(
-            (sum, item) => sum + item.price * item.quantity,
-            0,
-          );
-          const totalDiscount =
-            (order.discountAmount || 0) +
-            (order.bundleDiscountAmount || 0) +
-            (order.pointsDiscount || 0);
-          const discountRatio =
-            orderSubtotal > 0
-              ? Math.min(1, Math.max(0, totalDiscount / orderSubtotal))
-              : 0;
-          const returnedValue = rawItemValue * (1 - discountRatio);
+          // Same prorated-discount figure the books post -- see utils/returnValue.js.
+          const returnedValue = returnedValueFor(order, orderItem, returnRequest.quantity);
 
           // Revenue tracking — independent of whether this order ever
           // earned loyalty points. See Order.js's refundedAmount comment.
@@ -481,6 +461,9 @@ export const updateReturnStatus = async (req, res) => {
         link: "/returns",
       });
     }
+
+    // Refund / restocked item -> sales-return and stock vouchers.
+    await postSafely(syncReturn, returnRequest._id);
 
     res.status(200).json({
       success: true,

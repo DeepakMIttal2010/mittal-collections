@@ -338,7 +338,9 @@ function VouchersTab({ ledgers, notify, onChanged }) {
                     {!v.source && (
                       <button type="button" onClick={() => startEdit(v)} className="text-blue-700 hover:underline mr-3">Edit</button>
                     )}
-                    <button type="button" onClick={() => remove(v)} className="text-red-600 hover:underline">Delete</button>
+                    {!v.source && (
+                      <button type="button" onClick={() => remove(v)} className="text-red-600 hover:underline">Delete</button>
+                    )}
                   </td>
                 </tr>
               ))

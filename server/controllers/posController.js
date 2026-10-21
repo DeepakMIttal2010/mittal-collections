@@ -2,12 +2,14 @@ import mongoose from "mongoose";
 import Product from "../models/Product.js";
 import User from "../models/User.js";
 import OfflineSale from "../models/OfflineSale.js";
+import OfflineSaleCost from "../models/OfflineSaleCost.js";
 import {
   getLoyaltySettings,
   pointsEarnedFor,
   applyLoyaltyPointsChange,
 } from "../utils/loyaltyPoints.js";
 import { istDayStart, istDayEnd } from "../utils/istDate.js";
+import { syncPosSale, postSafely } from "../utils/accountingPosting.js";
 
 // Shared by recordOfflineSale and updateOfflineSale — validates and
 // normalizes the raw cart payload into plain objects with real
@@ -71,6 +73,30 @@ const parseSafeItems = (rawItems) => {
 // deviation outright — it just requires a reason, the same
 // accountability `adjustLoyaltyPoints` already requires for its own
 // manual override, creating an audit trail where there was none.
+// Cost snapshot for the books (see models/OfflineSaleCost.js). Best-effort:
+// a failure here must never fail or roll back a real sale; a sale with no
+// snapshot is simply skipped by the cost-of-goods posting.
+const saveSaleCost = async (saleId, safeItems, products) => {
+  try {
+    const items = safeItems.map((item, i) => {
+      const product = products[i];
+      const variant = item.size ? product.variants?.find((v) => v.size === item.size) : null;
+
+      return {
+        product: product._id,
+        size: item.size || "",
+        quantity: item.quantity,
+        unitPurchasePrice: (variant ? variant.purchasePrice : product.purchasePrice) || 0,
+        unitMiscExpenses: product.miscExpenses || 0,
+      };
+    });
+
+    await OfflineSaleCost.findOneAndUpdate({ sale: saleId }, { $set: { items } }, { upsert: true });
+  } catch (error) {
+    console.error("POS cost snapshot failed for sale", saleId, error);
+  }
+};
+
 const buildSaleItems = (safeItems, products) => {
   const saleItems = [];
 
@@ -362,6 +388,8 @@ export const recordOfflineSale = async (req, res) => {
       throw saleError;
     }
 
+    await saveSaleCost(sale._id, safeItems, stockResult.products);
+
     if (loyaltyPointsAwarded > 0) {
       await applyLoyaltyPointsChange({
         userId: customerUser._id,
@@ -370,6 +398,8 @@ export const recordOfflineSale = async (req, res) => {
         description: "Earned on in-store purchase",
       });
     }
+
+    await postSafely(syncPosSale, sale._id);
 
     res.status(201).json({
       success: true,
@@ -687,6 +717,8 @@ export const updateOfflineSale = async (req, res) => {
     sale.voided = false;
 
     await sale.save();
+    await saveSaleCost(sale._id, safeItems, stockResult.products);
+    await postSafely(syncPosSale, sale._id);
 
     res.status(200).json({
       success: true,
@@ -762,6 +794,7 @@ export const deleteOfflineSale = async (req, res) => {
     }
 
     await OfflineSale.findByIdAndDelete(req.params.id);
+    await postSafely(syncPosSale, req.params.id);
 
     res.status(200).json({
       success: true,
@@ -829,6 +862,7 @@ export const voidOfflineSale = async (req, res) => {
     sale.voidReason =
       typeof req.body.reason === "string" ? req.body.reason.trim() : "";
     await sale.save();
+    await postSafely(syncPosSale, sale._id);
 
     res.status(200).json({
       success: true,

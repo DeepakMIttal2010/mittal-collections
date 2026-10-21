@@ -32,6 +32,10 @@ const qs = (params) => {
   return s ? `?${s}` : "";
 };
 
+// Brings the books in line with orders, returns, POS sales, expenses and
+// the live stock value. Idempotent; safe to call whenever.
+export const syncBooks = () => call("/sync", { method: "POST" });
+
 export const getAccountingSettings = () => call("/settings");
 export const updateAccountingSettings = (body) => call("/settings", { method: "PUT", body });
 

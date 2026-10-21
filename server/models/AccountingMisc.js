@@ -18,6 +18,14 @@ const settingsSchema = new mongoose.Schema(
     // No voucher dated on or before this day can be created, edited or
     // voided -- the period is closed. null = nothing locked.
     lockedThrough: { type: Date, default: null },
+
+    // Bumped when the seed gains ledgers/keys; ensureAccountingSeed re-runs
+    // (idempotently) for any database seeded by an older version.
+    seedVersion: { type: Number, default: 1 },
+
+    // Serialises "sync books" runs so two simultaneous runs can't both
+    // post the same stock-valuation difference.
+    syncLockUntil: { type: Date, default: null },
   },
   { timestamps: true },
 );
