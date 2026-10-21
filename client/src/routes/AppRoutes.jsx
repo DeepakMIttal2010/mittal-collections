@@ -144,6 +144,7 @@ const CustomerDetails = lazyWithReload(
   () => import("../pages/admin/CustomerDetails"),
 );
 const AdminReports = lazyWithReload(() => import("../pages/admin/AdminReports"));
+const AdminExpenses = lazyWithReload(() => import("../pages/admin/AdminExpenses"));
 const AdminTickets = lazyWithReload(() => import("../pages/admin/AdminTickets"));
 const AdminTicketDetail = lazyWithReload(
   () => import("../pages/admin/AdminTicketDetail"),
@@ -327,6 +328,7 @@ function AppRoutes() {
           <Route path="customers" element={<AdminCustomers />} />
           <Route path="customers/:id" element={<CustomerDetails />} />
           <Route path="reports" element={<AdminReports />} />
+          <Route path="expenses" element={<AdminExpenses />} />
           <Route path="tickets" element={<AdminTickets />} />
           <Route path="tickets/:id" element={<AdminTicketDetail />} />
           <Route path="returns" element={<AdminReturns />} />

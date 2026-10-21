@@ -7,6 +7,7 @@ import {
   FaShoppingCart,
   FaUsers,
   FaChartLine,
+  FaRupeeSign,
   FaCog,
   FaSignOutAlt,
   FaCommentDots,
@@ -47,6 +48,7 @@ const NAV_GROUPS = [
     items: [
       { to: "/admin", end: true, icon: FaTachometerAlt, label: "Dashboard" },
       { to: "/admin/reports", icon: FaChartLine, label: "Reports" },
+      { to: "/admin/expenses", icon: FaRupeeSign, label: "Expenses" },
       { to: "/admin/walkthrough", icon: FaBook, label: "Product Walkthrough" },
     ],
   },

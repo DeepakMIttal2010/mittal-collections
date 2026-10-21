@@ -14,6 +14,7 @@ export const PERMISSION_GROUPS = [
     items: [
       { key: "dashboard", label: "Dashboard" },
       { key: "reports", label: "Reports" },
+      { key: "expenses", label: "Expenses" },
       { key: "walkthrough", label: "Product Walkthrough" },
     ],
   },
