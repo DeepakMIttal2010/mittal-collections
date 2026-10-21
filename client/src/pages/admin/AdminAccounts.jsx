@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import ChartOfAccounts from "../../components/admin/accounts/ChartOfAccounts";
 import VouchersTab from "../../components/admin/accounts/VouchersTab";
+import ReportsTab from "../../components/admin/accounts/ReportsTab";
 import AccountingSettingsTab from "../../components/admin/accounts/AccountingSettingsTab";
 import {
   getAccountingSettings,
@@ -14,6 +15,7 @@ import { rupees } from "../../components/admin/accounts/helpers";
 const TABS = [
   { key: "chart", label: "Chart of Accounts" },
   { key: "vouchers", label: "Vouchers" },
+  { key: "reports", label: "Reports" },
   { key: "settings", label: "Settings" },
 ];
 
@@ -40,7 +42,8 @@ const describeSync = (r, { always } = {}) => {
 // Tally-style books: groups -> sub-groups -> ledgers, and vouchers that
 // must balance (Dr = Cr). Orders (when shipped), returns, POS sales and
 // expenses post themselves; the page syncs on open and has a Sync button.
-// Reports (Trial Balance, Trading/P&L, Balance Sheet) come next.
+// The Reports tab has Trading & P&L, Balance Sheet, Trial Balance, Group
+// Summary, Ledger statement and Day Book.
 function AdminAccounts() {
   const [tab, setTab] = useState("chart");
   const [groups, setGroups] = useState([]);
@@ -77,7 +80,9 @@ function AdminAccounts() {
       if (!res.success) {
         setMessage(res.message || "Could not sync the books.");
       } else if (res.busy) {
-        setMessage(res.message);
+        // Another sync (another tab, or this page's own earlier one) is
+        // already doing the work. Only worth mentioning if you clicked Sync.
+        if (!quiet) setMessage(res.message);
       } else {
         const text = describeSync(res.result, { always: !quiet });
         if (text) setMessage(text);
@@ -149,6 +154,7 @@ function AdminAccounts() {
             />
           )}
           {tab === "vouchers" && <VouchersTab ledgers={ledgers} notify={notify} onChanged={load} />}
+          {tab === "reports" && settings && <ReportsTab ledgers={ledgers} settings={settings} notify={notify} />}
           {tab === "settings" && settings && (
             <AccountingSettingsTab settings={settings} onChanged={load} notify={notify} />
           )}

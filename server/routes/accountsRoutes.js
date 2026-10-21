@@ -24,6 +24,14 @@ import {
   putVoucher,
   removeVoucher,
 } from "../controllers/accountsController.js";
+import {
+  getTrialBalance,
+  getBalanceSheet,
+  getTradingPL,
+  getGroupSummary,
+  getLedgerStatement,
+  getDayBook,
+} from "../controllers/accountsReportsController.js";
 
 const router = express.Router();
 
@@ -47,6 +55,13 @@ router.get("/ledgers", getLedgers);
 router.post("/ledgers", createLedger);
 router.put("/ledgers/:id", updateLedger);
 router.delete("/ledgers/:id", deleteLedger);
+
+router.get("/reports/trial-balance", getTrialBalance);
+router.get("/reports/balance-sheet", getBalanceSheet);
+router.get("/reports/trading-pl", getTradingPL);
+router.get("/reports/group-summary", getGroupSummary);
+router.get("/reports/ledger/:id", getLedgerStatement);
+router.get("/reports/day-book", getDayBook);
 
 router.get("/vouchers", getVouchers);
 router.get("/vouchers/:id", getVoucher);

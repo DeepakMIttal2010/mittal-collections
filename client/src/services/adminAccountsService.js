@@ -36,6 +36,10 @@ const qs = (params) => {
 // the live stock value. Idempotent; safe to call whenever.
 export const syncBooks = () => call("/sync", { method: "POST" });
 
+// name: "trial-balance" | "balance-sheet" | "trading-pl" | "group-summary" |
+// "day-book" | "ledger/<id>"; params: { from, to } or { asOf } (+ filters).
+export const getReport = (name, params = {}) => call(`/reports/${name}${qs(params)}`);
+
 export const getAccountingSettings = () => call("/settings");
 export const updateAccountingSettings = (body) => call("/settings", { method: "PUT", body });
 

@@ -4,8 +4,41 @@ export const VOUCHER_TYPES = ["Sales", "Purchase", "Payment", "Receipt", "Journa
 
 export const istToday = () => new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
 
-export const rupees = (n) =>
-  `₹${Number(n).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+export const rupees = (n) => {
+  const abs = Math.abs(Number(n)).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return `${Number(n) < 0 ? "-" : ""}₹${abs}`;
+};
+
+// Plain number for tables where the ₹ would be noise on every cell.
+export const num = (n) =>
+  Number(n).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+// Spreadsheet apps run a cell starting with = + - @ as a formula; a ledger
+// or narration typed that way would execute when the CSV is opened.
+// (Plain negative numbers are left alone.)
+const csvCell = (value) => {
+  let text = String(value ?? "");
+  if (/^[=+\-@\t\r]/.test(text) && Number.isNaN(Number(text))) text = `'${text}`;
+  return `"${text.replace(/"/g, '""')}"`;
+};
+
+export const downloadCsv = (filename, rows) => {
+  const csv = rows.map((r) => r.map(csvCell).join(",")).join("\r\n");
+  // The BOM makes Excel read the file as UTF-8 (Hindi/₹ stay intact).
+  const url = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+};
+
+// 1 April of the current financial year, never before the books start.
+export const defaultFyStart = (booksStart) => {
+  const [y, m] = istToday().split("-").map(Number);
+  const start = `${m >= 4 ? y : y - 1}-04-01`;
+  return start < booksStart ? booksStart : start;
+};
 
 // "₹1,234.50 Dr" -- empty balances show a dash, like Tally.
 export const drCr = (amount, side) => (amount ? `${rupees(amount)} ${side}` : "—");
