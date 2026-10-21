@@ -565,6 +565,21 @@ const CATEGORY_GUIDE_LINKS = {
       labelHi: "साइज़ गाइड",
     },
   ],
+  // Missed when this map was first built -- CategoryPage.jsx's own
+  // getSizeHelpLinks() links curtains to the interactive size
+  // calculator (not an article, unlike every other category here), so
+  // this category's guide link was never ported into the bot-facing
+  // map at all, leaving the curtains category page with zero guide
+  // link for a non-JS crawler (found live, 2026-10-20 verification
+  // pass -- the other 10 categories in this map were all confirmed
+  // working, this one entry was simply never added).
+  curtains: [
+    {
+      path: "/curtain-size-calculator",
+      label: "Size Calculator",
+      labelHi: "साइज़ कैलकुलेटर",
+    },
+  ],
   doormats: [
     {
       path: "/articles/doormat-size-guide-which-size-for-entrance-bedroom-bathroom-kitchen",
