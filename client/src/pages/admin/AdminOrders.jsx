@@ -13,6 +13,7 @@ import {
 } from "../../services/adminOrderService";
 import { getCurrentAdminUser } from "../../services/authService";
 import { hasWriteAccess } from "../../config/adminPermissions";
+import OrderCostPanel from "../../components/admin/OrderCostPanel";
 
 const STATUS_OPTIONS = [
   "Pending",
@@ -579,6 +580,8 @@ function AdminOrders() {
                       </div>
                     </div>
                   </div>
+
+                  <OrderCostPanel order={order} canEdit={canModify} />
 
                   {/* Order History */}
                   <div className="mt-6 pt-4 border-t border-slate-200">
