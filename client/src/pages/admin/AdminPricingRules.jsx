@@ -135,7 +135,7 @@ function AdminPricingRules() {
 
       <form
         onSubmit={handleSubmit}
-        className="bg-white border border-slate-200 rounded-xl p-6 max-w-3xl space-y-4"
+        className="bg-white border border-slate-200 rounded-xl p-6 w-full space-y-4"
       >
         <p className="text-sm text-slate-500">
           Controls the Add/Edit Product form's auto-fill: admin enters
@@ -147,125 +147,130 @@ function AdminPricingRules() {
         </p>
 
         {pricingRules.length > 0 && (
-          <div className="space-y-2 mb-2">
-            {pricingRules.map((rule, index) => (
-              <div key={index} className="flex items-center gap-2 flex-wrap">
-                <select
-                  value={rule.category}
-                  onChange={(e) => {
-                    handlePricingRuleChange(index, "category", e.target.value);
-                    handlePricingRuleChange(index, "subcategory", "");
-                  }}
-                  className="border border-slate-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">Category</option>
-                  {categories.map((c) => (
-                    <option key={c._id} value={c._id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-xs font-semibold text-slate-500 border-b border-slate-200">
+                  <th className="py-2 pr-3">Category</th>
+                  <th className="py-2 pr-3">Subcategory</th>
+                  <th className="py-2 pr-3 whitespace-nowrap">Misc Exps (% of Purchase)</th>
+                  <th className="py-2 pr-3 whitespace-nowrap">MRP (× Purchase)</th>
+                  <th className="py-2 pr-3 whitespace-nowrap">Price (% off MRP)</th>
+                  <th className="py-2 pr-3">Active</th>
+                  <th className="py-2" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {pricingRules.map((rule, index) => (
+                  <tr key={index}>
+                    <td className="py-2 pr-3">
+                      <select
+                        value={rule.category}
+                        onChange={(e) => {
+                          handlePricingRuleChange(index, "category", e.target.value);
+                          handlePricingRuleChange(index, "subcategory", "");
+                        }}
+                        className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">Category</option>
+                        {categories.map((c) => (
+                          <option key={c._id} value={c._id}>
+                            {c.name}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
 
-                <select
-                  value={rule.subcategory}
-                  onChange={(e) =>
-                    handlePricingRuleChange(index, "subcategory", e.target.value)
-                  }
-                  className="border border-slate-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">All subcategories</option>
-                  {subcategories
-                    .filter(
-                      (s) =>
-                        (s.category?._id || s.category) === rule.category,
-                    )
-                    .map((s) => (
-                      <option key={s._id} value={s._id}>
-                        {s.name}
-                      </option>
-                    ))}
-                </select>
+                    <td className="py-2 pr-3">
+                      <select
+                        value={rule.subcategory}
+                        onChange={(e) =>
+                          handlePricingRuleChange(index, "subcategory", e.target.value)
+                        }
+                        className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">All subcategories</option>
+                        {subcategories
+                          .filter(
+                            (s) =>
+                              (s.category?._id || s.category) === rule.category,
+                          )
+                          .map((s) => (
+                            <option key={s._id} value={s._id}>
+                              {s.name}
+                            </option>
+                          ))}
+                      </select>
+                    </td>
 
-                <span className="text-xs text-slate-500 shrink-0">
-                  Misc Exps
-                </span>
-                <input
-                  type="number"
-                  min="0"
-                  max="100"
-                  value={rule.miscExpensesPercent}
-                  onChange={(e) =>
-                    handlePricingRuleChange(
-                      index,
-                      "miscExpensesPercent",
-                      e.target.value,
-                    )
-                  }
-                  className="w-16 border border-slate-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                <span className="text-xs text-slate-500 shrink-0">%</span>
+                    <td className="py-2 pr-3">
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        aria-label="Misc Exps percent"
+                        value={rule.miscExpensesPercent}
+                        onChange={(e) =>
+                          handlePricingRuleChange(index, "miscExpensesPercent", e.target.value)
+                        }
+                        className="w-24 border border-slate-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </td>
 
-                <span className="text-xs text-slate-500 shrink-0">
-                  MRP ×
-                </span>
-                <input
-                  type="number"
-                  min="0.1"
-                  step="any"
-                  value={rule.mrpMultiplier}
-                  onChange={(e) =>
-                    handlePricingRuleChange(
-                      index,
-                      "mrpMultiplier",
-                      e.target.value,
-                    )
-                  }
-                  className="w-16 border border-slate-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
+                    <td className="py-2 pr-3">
+                      <input
+                        type="number"
+                        min="0.1"
+                        step="any"
+                        aria-label="MRP multiplier"
+                        value={rule.mrpMultiplier}
+                        onChange={(e) =>
+                          handlePricingRuleChange(index, "mrpMultiplier", e.target.value)
+                        }
+                        className="w-24 border border-slate-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </td>
 
-                <span className="text-xs text-slate-500 shrink-0">
-                  Price = MRP −
-                </span>
-                <input
-                  type="number"
-                  min="0"
-                  max="99"
-                  value={rule.priceDiscountPercent}
-                  onChange={(e) =>
-                    handlePricingRuleChange(
-                      index,
-                      "priceDiscountPercent",
-                      e.target.value,
-                    )
-                  }
-                  className="w-16 border border-slate-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                <span className="text-xs text-slate-500 shrink-0">%</span>
+                    <td className="py-2 pr-3">
+                      <input
+                        type="number"
+                        min="0"
+                        max="99"
+                        aria-label="Price discount percent"
+                        value={rule.priceDiscountPercent}
+                        onChange={(e) =>
+                          handlePricingRuleChange(index, "priceDiscountPercent", e.target.value)
+                        }
+                        className="w-24 border border-slate-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </td>
 
-                <label className="flex items-center gap-1.5 text-xs text-slate-600 shrink-0">
-                  <input
-                    type="checkbox"
-                    checked={rule.isActive}
-                    onChange={(e) =>
-                      handlePricingRuleChange(
-                        index,
-                        "isActive",
-                        e.target.checked,
-                      )
-                    }
-                  />
-                  Active
-                </label>
+                    <td className="py-2 pr-3">
+                      <label className="flex items-center gap-1.5 text-xs text-slate-600">
+                        <input
+                          type="checkbox"
+                          checked={rule.isActive}
+                          onChange={(e) =>
+                            handlePricingRuleChange(index, "isActive", e.target.checked)
+                          }
+                        />
+                        Active
+                      </label>
+                    </td>
 
-                <button
-                  type="button"
-                  onClick={() => handleRemovePricingRule(index)}
-                  className="text-red-500 hover:text-red-700 text-sm px-2"
-                >
-                  Remove
-                </button>
-              </div>
-            ))}
+                    <td className="py-2 text-right">
+                      <button
+                        type="button"
+                        onClick={() => handleRemovePricingRule(index)}
+                        className="text-red-500 hover:text-red-700 text-sm px-2"
+                      >
+                        Remove
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
 
