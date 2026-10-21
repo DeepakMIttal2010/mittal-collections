@@ -67,6 +67,7 @@ import { getProductViewCount } from "../services/analyticsService";
 import { getProductReviews } from "../services/reviewService";
 import { getPublicRewardsInfo } from "../services/rewardsService";
 import AutoCompareTable from "../components/AutoCompareTable";
+import { localizeSize } from "../utils/localizeSize";
 import { useLanguage } from "../context/LanguageContext";
 
 function ProductDetails() {
@@ -886,7 +887,7 @@ function ProductDetails() {
   const specRows = [
     { label: t("What's Included", "क्या शामिल है"), value: product.whatsIncluded },
     { label: t("Fabric", "फैब्रिक"), value: t(product.fabric, product.fabricHi || product.fabric) },
-    { label: t("Size", "साइज़"), value: product.size },
+    { label: t("Size", "साइज़"), value: localizeSize(product.size, language === "hi") },
     { label: t("GSM", "GSM"), value: t(product.gsm, product.gsmHi || product.gsm) },
     {
       label: t("Wash Care", "वॉश केयर"),
@@ -1157,7 +1158,7 @@ function ProductDetails() {
               <p className="text-sm font-medium text-slate-700 mb-2">
                 {t("Size", "साइज़")}:{" "}
                 <span className="font-semibold text-slate-900">
-                  {selectedVariant?.size}
+                  {localizeSize(selectedVariant?.size, language === "hi")}
                 </span>
               </p>
               <div className="flex flex-wrap gap-2">
@@ -1185,7 +1186,7 @@ function ProductDetails() {
                           : "border-slate-300 text-slate-700 hover:border-blue-400"
                     }`}
                   >
-                    {variant.size}
+                    {localizeSize(variant.size, language === "hi")}
                   </button>
                 ))}
               </div>

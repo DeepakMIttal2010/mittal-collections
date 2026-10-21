@@ -7,16 +7,25 @@ import { productUrl } from "../utils/productUrl";
 import { useCartActions } from "../context/CartContext";
 import { useLanguage } from "../context/LanguageContext";
 import { handleImageError } from "../utils/imageFallback";
+import { localizeSize } from "../utils/localizeSize";
 
-function getSpecRows(t) {
+// Every value follows the page language, the same way ProductDetails'
+// own spec table does -- this table used to read the English fields
+// directly, so a Hindi page showed Hindi labels over English values
+// (fabricHi/washCareHi/... existed but were never used here). t() falls
+// back to the English text when a Hindi value is empty.
+function getSpecRows(t, isHindi) {
   return [
     { label: t("Price", "कीमत"), get: (p) => `₹${p.price}` },
-    { label: t("Fabric", "फैब्रिक"), get: (p) => p.fabric },
-    { label: t("Size", "साइज़"), get: (p) => p.size },
-    { label: t("GSM", "GSM"), get: (p) => p.gsm },
-    { label: t("Wash Care", "वॉश केयर"), get: (p) => p.washCare },
-    { label: t("Brand", "ब्रांड"), get: (p) => p.brand },
-    { label: t("Country of Origin", "मूल देश"), get: (p) => p.countryOfOrigin },
+    { label: t("Fabric", "फैब्रिक"), get: (p) => t(p.fabric, p.fabricHi) },
+    { label: t("Size", "साइज़"), get: (p) => localizeSize(p.size, isHindi) },
+    { label: t("GSM", "GSM"), get: (p) => t(p.gsm, p.gsmHi) },
+    { label: t("Wash Care", "वॉश केयर"), get: (p) => t(p.washCare, p.washCareHi) },
+    { label: t("Brand", "ब्रांड"), get: (p) => t(p.brand, p.brandHi) },
+    {
+      label: t("Country of Origin", "मूल देश"),
+      get: (p) => t(p.countryOfOrigin, p.countryOfOriginHi),
+    },
   ];
 }
 
@@ -26,7 +35,7 @@ function getSpecRows(t) {
 // compared products actually has a value for it.
 function AutoCompareTable({ mainProduct, similarProducts, isHindi = false }) {
   const { addToCart } = useCartActions();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const navigate = useNavigate();
   const products = [mainProduct, ...similarProducts];
 
@@ -48,7 +57,7 @@ function AutoCompareTable({ mainProduct, similarProducts, isHindi = false }) {
     addToCart(product);
   };
 
-  const specRows = getSpecRows(t);
+  const specRows = getSpecRows(t, language === "hi");
   const visibleRows = specRows.filter((row) =>
     products.some((p) => row.get(p)),
   );
