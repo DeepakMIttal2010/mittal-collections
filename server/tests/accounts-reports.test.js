@@ -8,6 +8,7 @@ import Expense from "../models/Expense.js";
 import Role from "../models/Role.js";
 import { createUser, signToken, createProduct, createOrder } from "./helpers.js";
 import { reconcileAll } from "../utils/accountingPosting.js";
+import { dayBook } from "../utils/accountingReports.js";
 
 const A = "/api/admin/accounts";
 
@@ -305,5 +306,16 @@ describe("reports: group summary, ledger statement, day book", () => {
 
     const none = (await get(auth, "/reports/day-book?from=2026-09-01&to=2026-09-30")).body.report;
     expect(none.count).toBe(0);
+  });
+
+  it("dayBook never lets a non-string / unknown type act as a Mongo operator, even when called directly", async () => {
+    await setup(); // sale + cost of goods + courier = 3 vouchers
+    const from = new Date("2026-08-01T12:00:00+05:30");
+    const to = new Date("2026-08-31T12:00:00+05:30");
+
+    // As an operator, {$ne: "Sales"} would return only the 2 non-Sales vouchers.
+    expect((await dayBook(from, to, { $ne: "Sales" })).count).toBe(3);
+    expect((await dayBook(from, to, "NotAType")).count).toBe(3);
+    expect((await dayBook(from, to, "Sales")).count).toBe(1);
   });
 });

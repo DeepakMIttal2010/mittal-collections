@@ -1,7 +1,10 @@
+import mongoose from "mongoose";
+
 import AccountGroup from "../models/AccountGroup.js";
 import Ledger from "../models/Ledger.js";
 import Voucher from "../models/Voucher.js";
 import { getSettings, rupeesFromPaise } from "./accounting.js";
+import { VOUCHER_TYPES } from "../config/accountingDefaults.js";
 import { toIstDateString } from "./recurringExpenses.js";
 
 // Reports are computed from ledgers + non-voided vouchers only, in integer
@@ -222,7 +225,12 @@ export const groupSummary = async (groupId, from, to) => {
 
 // ========================================================= ledger statement
 export const ledgerStatement = async (ledgerId, from, to) => {
-  const ledger = await Ledger.findById(ledgerId).populate("group", "name").lean();
+  // Re-validated and rebuilt as a real ObjectId right at the query (the route
+  // already checks the id; this keeps the guarantee next to the sink).
+  if (typeof ledgerId !== "string" || !mongoose.isValidObjectId(ledgerId)) return null;
+  const safeId = new mongoose.Types.ObjectId(ledgerId);
+
+  const ledger = await Ledger.findById(safeId).populate("group", "name").lean();
   if (!ledger) return null;
 
   const { rows } = await getLedgerActivity(from, to);
@@ -280,7 +288,12 @@ export const ledgerStatement = async (ledgerId, from, to) => {
 // ================================================================ day book
 export const dayBook = async (from, to, type) => {
   const filter = { voided: false, date: { $gte: dayStart(from), $lte: dayEnd(to) } };
-  if (type) filter.type = type;
+
+  // Resolved against the trusted list right here, at the query: only one of
+  // our own literal type names can ever reach it, whatever the caller passed
+  // (an object like {$ne: "Sales"} matches nothing and is simply ignored).
+  const knownType = Object.keys(VOUCHER_TYPES).find((t) => t === type);
+  if (knownType) filter.type = knownType;
 
   const vouchers = await Voucher.find(filter).sort({ date: 1, seq: 1, _id: 1 }).populate("entries.ledger", "name").lean();
 
