@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 
 import { getNewArrivalsByCategory } from "../../services/productService";
 import ProductGrid from "../ProductGrid/ProductGrid";
 import ProductGridSkeleton from "../ProductGrid/ProductGridSkeleton";
 import { useLanguage } from "../../context/LanguageContext";
+import { langPrefix } from "../../utils/hindiPath";
 
 const ARRIVALS_COUNT = 8;
 
@@ -16,6 +17,7 @@ function CategoryNewArrivals() {
   const [sections, setSections] = useState([]);
   const [loading, setLoading] = useState(true);
   const { t } = useLanguage();
+  const prefix = langPrefix(useLocation().pathname);
 
   useEffect(() => {
     getNewArrivalsByCategory(ARRIVALS_COUNT).then((response) => {
@@ -62,7 +64,7 @@ function CategoryNewArrivals() {
               </div>
 
               <Link
-                to={`/category/${category.slug}`}
+                to={`${prefix}/category/${category.slug}`}
                 className="hidden sm:block shrink-0 text-sm font-semibold text-blue-700 hover:text-blue-800 hover:underline whitespace-nowrap"
               >
                 {t("View All", "सभी देखें")} →
