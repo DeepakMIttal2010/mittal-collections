@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink } from "react-router-dom";
 import {
   FaTimes,
   FaChevronDown,
@@ -13,14 +13,14 @@ import {
 import { getCategories } from "../services/categoryService";
 import { getSubcategories } from "../services/subcategoryService";
 import { useLanguage } from "../context/LanguageContext";
-import { isHindiPath } from "../utils/hindiPath";
+import { useHindiLinks } from "../utils/hindiPath";
 
 // Controlled drawer — open state lives in MainLayout so BottomNav's
 // "Categories" tab can open the same drawer instead of each owning a
 // separate copy of the categories/subcategories fetch and expand state.
 function MobileMenu({ isOpen, onClose }) {
   const { language, t } = useLanguage();
-  const isHindi = isHindiPath(useLocation().pathname);
+  const isHindi = useHindiLinks();
   const [categories, setCategories] = useState([]);
   const [subcategories, setSubcategories] = useState([]);
   const [openCategoryId, setOpenCategoryId] = useState(null);

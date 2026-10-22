@@ -7,6 +7,7 @@ import { useWishlist } from "../context/WishlistContext";
 import { useCartActions } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
+import { useHindiLinks } from "../utils/hindiPath";
 import { productUrl } from "../utils/productUrl";
 import { handleImageError } from "../utils/imageFallback";
 import Seo from "../components/Seo";
@@ -17,6 +18,8 @@ function Wishlist() {
   const { addToCart } = useCartActions();
   const { isLoggedIn } = useAuth();
   const { t } = useLanguage();
+  // no /hi URL for this page -- links follow the chosen language
+  const isHindi = useHindiLinks();
   const navigate = useNavigate();
 
   // A wishlisted product with variants (different sizes, each its own
@@ -31,7 +34,7 @@ function Wishlist() {
       toast.info(
         t("Please select a size on the product page", "प्रोडक्ट पेज पर साइज़ चुनें"),
       );
-      navigate(productUrl(item));
+      navigate(productUrl(item, isHindi && !!item.nameHi));
       return;
     }
 
@@ -69,7 +72,7 @@ function Wishlist() {
             )}
           </p>
           <Link
-            to="/"
+            to={isHindi ? "/hi" : "/"}
             className="inline-block bg-blue-900 hover:bg-blue-950 text-white font-semibold rounded-full px-6 py-3 transition-colors"
           >
             {t("Continue Shopping", "शॉपिंग जारी रखें")}

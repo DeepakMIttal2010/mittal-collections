@@ -7,6 +7,8 @@ import { FaTrash, FaPlus, FaMinus, FaGift, FaTags } from "react-icons/fa";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
+import { localizeSize } from "../utils/localizeSize";
+import { useHindiLinks } from "../utils/hindiPath";
 import { getPublicRewardsInfo } from "../services/rewardsService";
 import { getSiteSettings } from "../services/settingsService";
 import { getProductById } from "../services/productService";
@@ -16,7 +18,9 @@ import Seo from "../components/Seo";
 import "./Cart.css";
 
 function Cart() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  // no /hi URL for this page -- links follow the chosen language
+  const isHindi = useHindiLinks();
   const navigate = useNavigate();
   const { isLoggedIn } = useAuth();
   const {
@@ -103,7 +107,7 @@ function Cart() {
           toast.info(
             t(
               `${item.name} (${item.selectedSize}) is no longer available and was removed from your cart`,
-              `${item.name} (${item.selectedSize}) अब उपलब्ध नहीं है और कार्ट से हटा दिया गया`,
+              `${item.name} (${localizeSize(item.selectedSize, true)}) अब उपलब्ध नहीं है और कार्ट से हटा दिया गया`,
             ),
           );
           continue;
@@ -187,7 +191,7 @@ function Cart() {
           )}
         </p>
 
-        <Link to="/" className="shop-btn">
+        <Link to={isHindi ? "/hi" : "/"} className="shop-btn">
           {t("Continue Shopping", "शॉपिंग जारी रखें")}
         </Link>
       </div>
@@ -219,7 +223,7 @@ function Cart() {
                   <p>
                     {t(item.category?.name, item.category?.nameHi)}
                     {item.selectedSize
-                      ? ` · ${t("Size", "साइज़")}: ${item.selectedSize}`
+                      ? ` · ${t("Size", "साइज़")}: ${localizeSize(item.selectedSize, language === "hi")}`
                       : ""}
                   </p>
 
@@ -291,7 +295,7 @@ function Cart() {
             ) : (
               bundleInfo.missingCategoryLabel && (
                 <Link
-                  to={`/category/${bundleInfo.missingCategorySlug}`}
+                  to={`${isHindi ? "/hi" : ""}/category/${bundleInfo.missingCategorySlug}`}
                   style={{
                     display: "block",
                     background: "#eff6ff",

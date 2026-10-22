@@ -6,6 +6,7 @@ import { sendEmail } from "../config/mailer.js";
 import { notifyUser } from "../utils/notify.js";
 import { isValidVisitorId } from "../utils/isValidVisitorId.js";
 import { escapeHtml } from "../utils/escapeHtml.js";
+import { COST_FIELDS } from "../utils/productCostFields.js";
 
 // Keeps a single account/guest from growing an unbounded wishlist
 // (accidental or scripted) — well above any real shopper's use, just a
@@ -24,6 +25,9 @@ export const getWishlist = async (req, res) => {
       .sort({ createdAt: -1 })
       .populate({
         path: "product",
+        // the guest route needs no login at all -- without this every
+        // product's purchase price and admin remarks were readable
+        select: COST_FIELDS,
         populate: {
           path: "category",
           select: "name slug",
@@ -173,6 +177,9 @@ export const getGuestWishlist = async (req, res) => {
       .sort({ createdAt: -1 })
       .populate({
         path: "product",
+        // the guest route needs no login at all -- without this every
+        // product's purchase price and admin remarks were readable
+        select: COST_FIELDS,
         populate: {
           path: "category",
           select: "name slug",

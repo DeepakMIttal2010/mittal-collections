@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   FaUser,
   FaShoppingCart,
@@ -23,14 +23,14 @@ import { imgUrl } from "../../services/api";
 import { productUrl } from "../../utils/productUrl";
 import { notifyDefaultAddressChanged } from "../../utils/addressEvents";
 import { trackSearch, trackSelectItem } from "../../utils/analytics";
-import { isHindiPath } from "../../utils/hindiPath";
+import { useHindiLinks } from "../../utils/hindiPath";
 
 function Header() {
   const { totalItems, openCart } = useCart();
   const { user, logout, isLoggedIn } = useAuth();
   const { language, setLanguage, t } = useLanguage();
   const navigate = useNavigate();
-  const isHindi = isHindiPath(useLocation().pathname);
+  const isHindi = useHindiLinks();
 
   const [query, setQuery] = useState("");
   const [searchCategory, setSearchCategory] = useState("");
@@ -316,7 +316,7 @@ function Header() {
     <header className="sticky top-0 z-40 bg-white border-b border-slate-100">
       <div className="max-w-7xl mx-auto px-4 py-4 flex items-center gap-3 sm:gap-8">
         {/* Logo */}
-        <Link to="/" className="shrink-0">
+        <Link to={isHindi ? "/hi" : "/"} className="shrink-0">
           <h2 className="text-base sm:text-2xl font-bold sm:tracking-wide text-slate-800 whitespace-nowrap">
             MITTAL <span className="text-amber-700">COLLECTIONS</span>
           </h2>

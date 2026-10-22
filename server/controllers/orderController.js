@@ -1306,7 +1306,24 @@ export const updateOrderStatus = async (req, res) => {
     order = claimed;
 
     if (status === "Cancelled" && !wasAlreadyCancelled) {
-      await restoreStock(order.orderItems);
+      // A delivered order can be cancelled after part of it came back
+      // through a return -- that quantity is already back on the shelf
+      // (returnController restocks it), so only the rest goes back now.
+      const returned = await ReturnRequest.find({ order: order._id, stockRestored: true })
+        .select("product size quantity")
+        .lean();
+      const lineKey = (x) => `${x.product}|${x.size || ""}`;
+      const backByLine = new Map();
+      returned.forEach((r) => backByLine.set(lineKey(r), (backByLine.get(lineKey(r)) || 0) + r.quantity));
+      const stillOut = order.orderItems
+        .map((item) => {
+          const back = Math.min(backByLine.get(lineKey(item)) || 0, item.quantity);
+          backByLine.set(lineKey(item), (backByLine.get(lineKey(item)) || 0) - back);
+          return { ...(item.toObject?.() ?? item), quantity: item.quantity - back };
+        })
+        .filter((item) => item.quantity > 0);
+
+      await restoreStock(stillOut);
 
       // Give back any points spent on this order...
       if (order.pointsRedeemed > 0) {

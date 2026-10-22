@@ -1,9 +1,28 @@
 import sharp from "sharp";
 
 import cloudinary from "../config/cloudinary.js";
+import { deleteCloudinaryAssetsByUrl } from "../utils/cloudinaryCleanup.js";
 
 const MAX_DIMENSION = 1600;
 const JPEG_QUALITY = 85;
+
+// The API runs on a ~512 MB instance. libvips' defaults (one worker
+// thread per core, a 50 MB operation cache) plus decoding every photo of a
+// request at once took a 4-photo product upload (3750px phone shots) past
+// that limit on 2026-10-22: 502 and a ~45s restart for every visitor.
+// One libvips thread, no cache, one file at a time (see imageOptimizer
+// below) measured ~+24 MB instead of ~+182 MB for the same 4 photos.
+sharp.concurrency(1);
+sharp.cache(false);
+
+// Decoding is what costs memory, and a small file can still decode huge
+// (a 16000x16000 single-colour PNG is under 1 MB but needs ~1 GB to
+// decode) -- reachable by any logged-in customer through review photos.
+// 60 MP still takes any normal phone photo (48 MP = 8000x6000).
+const MAX_INPUT_PIXELS = 60_000_000;
+const SHARP_INPUT = { limitInputPixels: MAX_INPUT_PIXELS };
+
+class UploadRejected extends Error {}
 
 const isVideo = (mimetype) => mimetype.startsWith("video/");
 
@@ -36,7 +55,7 @@ const buildDescriptivePublicId = (namePrefix, index) => {
 };
 
 const optimizeBuffer = async (file) => {
-  const pipeline = sharp(file.buffer)
+  const pipeline = sharp(file.buffer, SHARP_INPUT)
     .rotate()
     .resize({
       width: MAX_DIMENSION,
@@ -71,7 +90,9 @@ const optimizeBuffer = async (file) => {
 // optimization is skipped closes that off while still letting a
 // legitimate caller avoid the recompression cost.
 const assertValidImage = async (file) => {
-  await sharp(file.buffer).metadata();
+  // metadata() reads the header only, so check the pixel count here too
+  const { width = 0, height = 0 } = await sharp(file.buffer, SHARP_INPUT).metadata();
+  if (width * height > MAX_INPUT_PIXELS) throw new UploadRejected("too many pixels");
 };
 
 // Same spirit as assertValidImage above, but videos have no equivalent
@@ -169,47 +190,40 @@ const imageOptimizer = async (req, res, next) => {
       const raw = req.body.name || req.body.title;
       return raw ? slugify(raw) : null;
     })();
-    let fileIndex = 0;
-    const tasks = [];
+    // One file at a time (not Promise.all): every parallel sharp
+    // pipeline holds its own decoded image, which is what ran the
+    // instance out of memory. Also means a failure stops the rest
+    // instead of leaving them running after the response has gone.
+    const files = [
+      ...(req.file ? [req.file] : []),
+      ...(Array.isArray(req.files)
+        ? req.files
+        : req.files && typeof req.files === "object"
+          ? Object.values(req.files).flat()
+          : []),
+    ];
 
-    if (req.file) {
-      tasks.push(
-        processFile(
-          req.file,
-          shouldOptimize,
-          buildDescriptivePublicId(namePrefix, fileIndex++),
-        ),
-      );
+    for (const [index, file] of files.entries()) {
+      try {
+        await processFile(file, shouldOptimize, buildDescriptivePublicId(namePrefix, index));
+      } catch (error) {
+        // Files already uploaded for this request would otherwise sit in
+        // Cloudinary forever with nothing pointing at them.
+        await deleteCloudinaryAssetsByUrl(files.slice(0, index).map((f) => f.path));
+        throw error;
+      }
     }
-
-    if (Array.isArray(req.files)) {
-      tasks.push(
-        ...req.files.map((file) =>
-          processFile(
-            file,
-            shouldOptimize,
-            buildDescriptivePublicId(namePrefix, fileIndex++),
-          ),
-        ),
-      );
-    } else if (req.files && typeof req.files === "object") {
-      Object.values(req.files).forEach((fileArray) => {
-        tasks.push(
-          ...fileArray.map((file) =>
-            processFile(
-              file,
-              shouldOptimize,
-              buildDescriptivePublicId(namePrefix, fileIndex++),
-            ),
-          ),
-        );
-      });
-    }
-
-    await Promise.all(tasks);
 
     next();
   } catch (error) {
+    // sharp's own "Input image exceeds pixel limit" or our header check
+    if (error instanceof UploadRejected || /pixel limit/i.test(error?.message || "")) {
+      return res.status(400).json({
+        success: false,
+        message: "Image is too large. Please upload a photo under 60 megapixels.",
+      });
+    }
+
     console.error("Image Optimizer Error:", error);
 
     res.status(500).json({

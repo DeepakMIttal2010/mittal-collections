@@ -207,7 +207,10 @@ const returnLineOf = (order, rr) =>
   (order.orderItems || []).find((item) => String(item.product) === String(rr.product));
 
 const returnRefundDesired = (rr, order, L) => {
-  if (rr.status !== "Refunded" || !order) return null;
+  // Same gate as the sale it reverses: once the order stops counting as
+  // sold (e.g. Delivered -> Cancelled) its sale voucher is voided, and a
+  // refund left behind would reverse that revenue a second time.
+  if (rr.status !== "Refunded" || !order || !orderIsSold(order)) return null;
 
   const item = returnLineOf(order, rr);
   if (!item) return null;

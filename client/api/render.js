@@ -1528,7 +1528,10 @@ const buildMeta = async (path, query = {}) => {
     // (schema.org requires a non-empty value there) for the edge case
     // where a product has neither `images` nor a singular `image` set --
     // both are schema-optional with an empty-string default.
-    const galleryImagesRaw = (p.images?.length ? p.images : [p.image])
+    // Main photo (p.image) first -- it's what og:image and image[0] must
+    // be, and what the client and the shopping feed use; images[] keeps
+    // upload order, so on most products images[0] is a different photo.
+    const galleryImagesRaw = (p.images?.length ? [p.image, ...p.images.filter((u) => u !== p.image)] : [p.image])
       .filter(Boolean)
       .map(imgUrl);
     const galleryImages = galleryImagesRaw.length ? galleryImagesRaw : [DEFAULT_IMAGE];
@@ -2141,7 +2144,7 @@ const buildMeta = async (path, query = {}) => {
     const hiUrl = `${SITE_URL}/hi/articles/${article.slug}`;
 
     const breadcrumbItems = [
-      { name: "होम", path: "/" },
+      { name: "होम", path: "/hi" },
       { name: "गाइड और आइडिया", path: "/hi/articles" },
       { name: article.titleHi },
     ];

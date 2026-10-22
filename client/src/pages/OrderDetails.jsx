@@ -7,6 +7,7 @@ import { getOrderById } from "../services/orderService";
 import { resumeOrderPayment } from "../utils/razorpay";
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
+import { localizeSize } from "../utils/localizeSize";
 import OrderStatusTimeline from "../components/OrderStatusTimeline";
 import { handleImageError } from "../utils/imageFallback";
 import { dateLocale } from "../utils/dateLocale";
@@ -189,7 +190,7 @@ function OrderDetails() {
                     </p>
                     {item.size && (
                       <p className="text-xs text-slate-400">
-                        {t("Size", "साइज़")}: {item.size}
+                        {t("Size", "साइज़")}: {localizeSize(item.size, language === "hi")}
                       </p>
                     )}
                     <p className="text-sm text-slate-500">

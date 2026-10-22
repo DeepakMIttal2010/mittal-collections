@@ -628,6 +628,26 @@ describe("round 28 fixes", () => {
     expect(toIstDateString((await live("return-refund"))[0].date)).toBe("2026-08-20");
   });
 
+  it("round 29: a refund is dropped with the sale when a delivered order is later cancelled", async () => {
+    const { order, product, user } = await realOrder({ orderStatus: "Delivered" });
+    await ReturnRequest.create({
+      order: order._id, user: user._id, product: product._id, productName: product.name, quantity: 1, reason: "x",
+      status: "Refunded", stockRestored: true, refundedAt: new Date("2026-08-20T10:00:00+05:30"),
+    });
+    await reconcileAll({ stock: false });
+    expect(await live("return-refund")).toHaveLength(1);
+
+    await Order.updateOne({ _id: order._id }, { orderStatus: "Cancelled" });
+    await reconcileAll({ stock: false });
+
+    // sale voided, so its refund must go too -- otherwise sales are
+    // reversed twice and Razorpay shows money that never existed
+    expect(await live("order-sale")).toHaveLength(0);
+    expect(await live("return-refund")).toHaveLength(0);
+    expect(await net("razorpay")).toBe(0);
+    expect(await trialBalanceIsZero()).toBe(0);
+  });
+
   it("stamps refundedAt / stockRestoredAt through the real return flow", async () => {
     const auth = await adminAuth();
     const { order, product, user } = await realOrder({ orderStatus: "Delivered" });

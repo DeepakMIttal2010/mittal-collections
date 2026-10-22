@@ -397,6 +397,9 @@ function AdminPricingRules() {
                         type="number"
                         min="0"
                         max="100"
+                        // without step="any" the browser only accepts whole
+                        // numbers and blocks Save for the whole table
+                        step="any"
                         aria-label="Misc Exps percent"
                         value={rule.miscExpensesPercent}
                         onChange={(e) =>
@@ -424,7 +427,9 @@ function AdminPricingRules() {
                       <input
                         type="number"
                         min="0"
-                        max="99"
+                        max="99.99"
+                        // e.g. Victory's 59.57% (152 -> MRP 799 -> 323)
+                        step="any"
                         aria-label="Price discount percent"
                         value={rule.priceDiscountPercent}
                         onChange={(e) =>

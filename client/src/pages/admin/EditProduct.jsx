@@ -288,43 +288,51 @@ function EditProduct() {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
+  // The values the cost auto-fill last put in each field. Purchase Price
+  // fires onChange per keystroke ("1", "15", "152"), so a field filled
+  // from "1" has to keep following the price while the admin types --
+  // it was frozen at MRP 5 / price 2 for a typed 152. A field the admin
+  // has typed over no longer matches here and is never touched again.
+  const autoFilled = useRef({});
+
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
 
-    setFormData((prev) => {
-      // Suggest Misc Exps / MRP / Price from Purchase Price the first time
-      // it's entered, using the category's configured rule (or the
-      // fallback default) — but only for fields the admin hasn't already
-      // filled in themselves, so this never overwrites a real value.
-      const shouldSuggestCost =
-        name === "purchasePrice" && Number(value) > 0;
+    // Suggest Misc Exps / MRP / Price from Purchase Price using the
+    // category's configured rule (or the fallback default) -- only into
+    // fields that are empty or still hold our own last suggestion, so
+    // this never overwrites a value the admin entered.
+    let suggestions = {};
+    if (name === "purchasePrice" && Number(value) > 0) {
+      const rule = resolvePricingRule(formData.category, formData.subcategories);
+      const purchasePrice = Number(value);
+      const miscExpenses = Math.round(
+        (purchasePrice * rule.miscExpensesPercent) / 100,
+      );
+      const mrp = Math.round(purchasePrice * rule.mrpMultiplier);
+      const price = Math.round(
+        mrp * (1 - rule.priceDiscountPercent / 100),
+      );
+      const ours = (field) =>
+        formData[field] === "" ||
+        formData[field] === undefined ||
+        formData[field] === null ||
+        String(formData[field]) === autoFilled.current[field];
 
-      let suggestions = {};
-      if (shouldSuggestCost) {
-        const rule = resolvePricingRule(prev.category, prev.subcategories);
-        const purchasePrice = Number(value);
-        const miscExpenses = Math.round(
-          (purchasePrice * rule.miscExpensesPercent) / 100,
-        );
-        const mrp = Math.round(purchasePrice * rule.mrpMultiplier);
-        const price = Math.round(
-          mrp * (1 - rule.priceDiscountPercent / 100),
-        );
-
-        suggestions = {
-          ...(!prev.miscExpenses ? { miscExpenses: String(miscExpenses) } : {}),
-          ...(!prev.oldPrice ? { oldPrice: String(mrp) } : {}),
-          ...(!prev.price ? { price: String(price) } : {}),
-        };
-      }
-
-      return {
-        ...prev,
-        [name]: type === "checkbox" ? checked : value,
-        ...(name === "category" ? { subcategories: [] } : {}),
-        ...suggestions,
+      suggestions = {
+        ...(ours("miscExpenses") ? { miscExpenses: String(miscExpenses) } : {}),
+        ...(ours("oldPrice") ? { oldPrice: String(mrp) } : {}),
+        ...(ours("price") ? { price: String(price) } : {}),
       };
-    });
+      autoFilled.current = { ...autoFilled.current, ...suggestions };
+    }
+
+    setFormData((prev) => ({
+      ...prev,
+      [name]: type === "checkbox" ? checked : value,
+      ...(name === "category" ? { subcategories: [] } : {}),
+      ...suggestions,
+    }));
   };
 
   const handleSubcategoryToggle = (subcategoryId) => {
