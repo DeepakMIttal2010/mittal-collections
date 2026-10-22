@@ -1,12 +1,13 @@
 import { imgUrl, imgSrcSet } from "../../services/api";
 import { useEffect, useLayoutEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
 
 import "./Hero.css";
 import heroBanner from "../../assets/images/hero-banner.webp";
 import { getBanners } from "../../services/bannerService";
 import { useLanguage } from "../../context/LanguageContext";
+import { isHindiPath } from "../../utils/hindiPath";
 import heroBannersSnapshot from "../../data/heroBannersSnapshot.json";
 
 const AUTO_ROTATE_MS = 6000;
@@ -66,7 +67,7 @@ const FALLBACK_SLIDE = {
   button2Link: "#shop-categories",
 };
 
-function HeroButton({ label, link, variant }) {
+function HeroButton({ label, link, variant, isHindi }) {
   if (!label) return null;
 
   const className = variant === "primary" ? "shop-btn" : "explore-btn";
@@ -88,11 +89,17 @@ function HeroButton({ label, link, variant }) {
   }
 
   return (
-    <Link to={link || "/"} className={className}>
+    <Link to={localizeLink(link || "/", isHindi)} className={className}>
       {label}
     </Link>
   );
 }
+
+// Banner links are stored as English paths ("/category/bedsheets/...").
+// On the Hindi homepage they point at the Hindi version of the same page
+// (categories and products have one); anything else is left as it is.
+const localizeLink = (link, isHindi) =>
+  isHindi && /^\/(category|product)\//.test(link) ? `/hi${link}` : link;
 
 function Hero() {
   const [slides, setSlides] = useState(
@@ -102,6 +109,7 @@ function Hero() {
   );
   const [activeIndex, setActiveIndex] = useState(0);
   const { t } = useLanguage();
+  const isHindi = isHindiPath(useLocation().pathname);
 
   // Removes scripts/build-home-html.mjs's static pre-painted hero (a
   // plain DOM sibling of #root, outside React's own tree entirely --
@@ -252,10 +260,15 @@ function Hero() {
           )}
 
           <h1 className="hero-split-title">
-            {slideTitle.split("\n").map((line, i) => (
+            {slideTitle.split("\n").map((line, i, lines) => (
               <span key={i}>
-                {line}
-                {i < slideTitle.split("\n").length - 1 && <br />}
+                {line.trim()}
+                {i < lines.length - 1 && (
+                  <>
+                    {" "}
+                    <br />
+                  </>
+                )}
               </span>
             ))}
           </h1>
@@ -269,11 +282,13 @@ function Hero() {
               label={t(slide.button1Label, slide.button1LabelHi)}
               link={slide.button1Link}
               variant="primary"
+              isHindi={isHindi}
             />
             <HeroButton
               label={t(slide.button2Label, slide.button2LabelHi)}
               link={slide.button2Link}
               variant="secondary"
+              isHindi={isHindi}
             />
           </div>
         </div>

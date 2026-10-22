@@ -117,7 +117,7 @@ function AdminAccounts() {
         </button>
       </div>
 
-      <div className="flex gap-1 border-b border-slate-200 mb-5" role="tablist">
+      <div className="flex gap-1 border-b border-slate-200 mb-5 overflow-x-auto" role="tablist">
         {TABS.map((t) => (
           <button
             key={t.key}
@@ -125,7 +125,7 @@ function AdminAccounts() {
             role="tab"
             aria-selected={tab === t.key}
             onClick={() => setTab(t.key)}
-            className={`px-4 py-2 text-sm font-semibold -mb-px border-b-2 ${
+            className={`px-4 py-2 text-sm font-semibold -mb-px border-b-2 whitespace-nowrap shrink-0 ${
               tab === t.key ? "border-slate-800 text-slate-900" : "border-transparent text-slate-500 hover:text-slate-700"
             }`}
           >

@@ -26,6 +26,7 @@ const settingsSchema = new mongoose.Schema(
     // Serialises "sync books" runs so two simultaneous runs can't both
     // post the same stock-valuation difference.
     syncLockUntil: { type: Date, default: null },
+    syncLockOwner: { type: String, default: null },
   },
   { timestamps: true },
 );

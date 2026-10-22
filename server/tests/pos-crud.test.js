@@ -61,6 +61,32 @@ describe("PUT /api/admin/pos/sales/:id — edit", () => {
     expect((await Product.findById(product._id)).stock).toBe(15);
   });
 
+  it("leaves an edited sale NOT voided in the database, editable again, and deletable with a stock restore", async () => {
+    const admin = await createUser({ role: "admin" });
+    const token = signToken(admin);
+    const product = await createProduct({ price: 100, stock: 20 });
+
+    const created = await recordSale(token, { productId: product._id.toString(), quantity: 2, unitPrice: 100 });
+    const id = created.body.sale._id;
+    const edit = (quantity) =>
+      saleRequest("put", `/api/admin/pos/sales/${id}`, token, {
+        items: [{ productId: product._id.toString(), quantity, unitPrice: 100 }],
+        paymentMethod: "Cash",
+      });
+
+    expect((await edit(3)).status).toBe(200);
+    // Re-read from the DB: the edit mutex must be released for real.
+    expect((await OfflineSale.findById(id)).voided).toBe(false);
+
+    expect((await edit(4)).status).toBe(200); // a second edit used to fail with "voided sale"
+    expect((await OfflineSale.findById(id)).voided).toBe(false);
+    expect((await Product.findById(product._id)).stock).toBe(16);
+
+    const del = await request(app).delete(`/api/admin/pos/sales/${id}`).set("Authorization", `Bearer ${token}`);
+    expect(del.status).toBe(200);
+    expect((await Product.findById(product._id)).stock).toBe(20); // the 4 sold come back
+  });
+
   it("re-reserves the original items and fails cleanly when the edited quantity exceeds available stock", async () => {
     const admin = await createUser({ role: "admin" });
     const token = signToken(admin);

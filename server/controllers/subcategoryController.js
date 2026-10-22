@@ -17,13 +17,32 @@ const generateSlug = (name) =>
 // ============================
 export const getSubcategories = async (req, res) => {
   try {
-    const subcategories = await Subcategory.find({ isActive: true })
-      .populate("category", "name nameHi slug")
-      .sort({ displayOrder: 1 });
+    const [subcategories, counts] = await Promise.all([
+      Subcategory.find({ isActive: true })
+        .populate("category", "name nameHi slug")
+        .sort({ displayOrder: 1 })
+        .lean(),
+      // Same "listable product" filter categoryController uses for each
+      // category's productCount, so the two counts are comparable (the
+      // storefront uses them to tell a real sub-collection from one that
+      // merely repeats its whole category).
+      Product.aggregate([
+        {
+          $match: {
+            isActive: true,
+            visibility: { $ne: "offline" },
+            $or: [{ stock: { $gt: 0 } }, { willRestock: { $ne: false } }],
+          },
+        },
+        { $unwind: "$subcategories" },
+        { $group: { _id: "$subcategories", count: { $sum: 1 } } },
+      ]),
+    ]);
+    const countById = new Map(counts.map((c) => [String(c._id), c.count]));
 
     res.status(200).json({
       success: true,
-      subcategories,
+      subcategories: subcategories.map((s) => ({ ...s, productCount: countById.get(String(s._id)) || 0 })),
     });
   } catch (error) {
     console.error("Get Subcategories Error:", error);

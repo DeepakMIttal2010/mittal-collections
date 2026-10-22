@@ -4,7 +4,8 @@ const getToken = () => localStorage.getItem("adminToken");
 
 export const getSiteSettingsAdmin = async () => {
   try {
-    const response = await fetch(`${API_BASE_URL}/settings`, {
+    // The admin route: the public /settings no longer includes pricingRules.
+    const response = await fetch(`${API_BASE_URL}/settings/admin`, {
       headers: { Authorization: `Bearer ${getToken()}` },
     });
 

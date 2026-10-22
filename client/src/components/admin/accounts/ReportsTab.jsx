@@ -422,6 +422,7 @@ function ReportsTab({ ledgers, settings, notify }) {
   };
 
   const pickReport = (key) => {
+    if (key === report) return; // nothing changes, so nothing would reload
     setData(null);
     setReport(key);
   };

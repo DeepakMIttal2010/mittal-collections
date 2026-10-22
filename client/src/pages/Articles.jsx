@@ -7,12 +7,13 @@ import { imgUrl } from "../services/api";
 import Seo from "../components/Seo";
 import { useLanguage } from "../context/LanguageContext";
 import { SITE_URL } from "../utils/siteUrl";
+import { isHindiPath } from "../utils/hindiPath";
 
 function Articles() {
   const { language, setLanguage } = useLanguage();
   const location = useLocation();
   const navigate = useNavigate();
-  const isHindi = location.pathname.startsWith("/hi/");
+  const isHindi = isHindiPath(location.pathname);
   const [articles, setArticles] = useState([]);
   const [loading, setLoading] = useState(true);
 

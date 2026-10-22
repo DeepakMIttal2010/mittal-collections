@@ -15,7 +15,7 @@ import Role from "../models/Role.js";
 import { AccountingSettings } from "../models/AccountingMisc.js";
 import { createUser, signToken, createProduct, createOrder } from "./helpers.js";
 import { getLedgerBalances, getSystemLedgerMap, ensureAccountingSeed } from "../utils/accounting.js";
-import { reconcileAll, syncExpense } from "../utils/accountingPosting.js";
+import { reconcileAll, syncExpense, syncOrder } from "../utils/accountingPosting.js";
 import { returnedValueFor } from "../utils/returnValue.js";
 import { toIstDateString } from "../utils/recurringExpenses.js";
 
@@ -146,9 +146,11 @@ describe("auto-posting: online orders", () => {
     expect(await net("courier")).toBe(8400);
     expect(await trialBalanceIsZero()).toBe(0);
 
+    // Tidying the cancelled order away (soft delete) keeps the courier
+    // charge that was really paid (round 28).
     await Order.updateOne({ _id: order._id }, { isActive: false });
     await reconcileAll({ stock: false });
-    expect(await live("order-courier")).toHaveLength(0);
+    expect(await live("order-courier")).toHaveLength(1);
   });
 
   it("posts nothing for an order that has not shipped; sale still posts if the cost snapshot is missing", async () => {
@@ -352,7 +354,7 @@ describe("auto-posting: POS sales", () => {
     await reconcileAll({ stock: false });
     expect(await live("pos-sale")).toHaveLength(2);
 
-    await OfflineSale.updateOne({ _id: a._id }, { voided: true });
+    await OfflineSale.updateOne({ _id: a._id }, { voided: true, voidedAt: new Date() }); // a real void stamps voidedAt
     await OfflineSale.deleteOne({ _id: b._id });
     const result = await reconcileAll({ stock: false });
 
@@ -518,5 +520,139 @@ describe("auto-posting: sync endpoint", () => {
     expect(await live("order-sale")).toHaveLength(1);
     expect(await live("expense")).toHaveLength(1);
     expect(await trialBalanceIsZero()).toBe(0);
+  });
+});
+
+describe("round 28 fixes", () => {
+  it("a lock covering today never makes the stock sync post the same difference again", async () => {
+    await createProduct({ price: 500, purchasePrice: 100, miscExpenses: 0, stock: 10 });
+    await ensureAccountingSeed();
+    // The API now refuses to lock today; set it directly to prove the sync itself is safe.
+    await AccountingSettings.updateOne({ key: "main" }, { $set: { lockedThrough: new Date() } });
+
+    await reconcileAll();
+    await reconcileAll();
+    await reconcileAll();
+
+    const syncs = await Voucher.find({ "source.kind": "stock-sync", voided: false }).lean();
+    expect(syncs).toHaveLength(1); // was 3 x Rs 1,000 before the fix
+    expect(syncs[0].totalPaise).toBe(100000);
+  });
+
+  it("refuses to lock today or later through the API", async () => {
+    const auth = await adminAuth();
+    const today = toIstDateString(new Date());
+    const res = await request(app).put("/api/admin/accounts/settings").set(auth).send({ lockedThrough: today });
+    expect(res.status).toBe(400);
+  });
+
+  it("a busy sync never clears another run's lock", async () => {
+    await ensureAccountingSeed();
+    const until = new Date(Date.now() + 5 * 60 * 1000);
+    await AccountingSettings.updateOne({ key: "main" }, { $set: { syncLockUntil: until, syncLockOwner: "someone-else" } });
+
+    const result = await reconcileAll();
+    expect(result.busy).toBe(true);
+
+    const s = await AccountingSettings.findOne({ key: "main" }).lean();
+    expect(s.syncLockOwner).toBe("someone-else");
+    expect(s.syncLockUntil.getTime()).toBe(until.getTime());
+  });
+
+  it("releases its own lock at the end, so the next sync can run", async () => {
+    await realOrder();
+    expect((await reconcileAll({ stock: false })).busy).toBeUndefined();
+    const s = await AccountingSettings.findOne({ key: "main" }).lean();
+    expect(s.syncLockUntil).toBeNull();
+    expect(s.syncLockOwner).toBeNull();
+    expect((await reconcileAll({ stock: false })).busy).toBeUndefined();
+  });
+
+  it("leaves a POS sale's vouchers alone while it is being edited (mutex), but voids a real void", async () => {
+    const user = await createUser({ role: "admin" });
+    const product = await createProduct({ price: 300 });
+    const doc = await OfflineSale.create({
+      items: [{ product: product._id, productName: product.name, quantity: 1, unitPrice: 300, originalPrice: 300, subtotal: 300 }],
+      totalAmount: 300,
+      paymentMethod: "Cash",
+      soldBy: user._id,
+    });
+    await OfflineSaleCost.create({ sale: doc._id, items: [{ product: product._id, quantity: 1, unitPurchasePrice: 100, unitMiscExpenses: 0 }] });
+    await reconcileAll({ stock: false });
+    expect(await live("pos-sale")).toHaveLength(1);
+
+    await OfflineSale.updateOne({ _id: doc._id }, { voided: true }); // edit mutex: no voidedAt
+    await reconcileAll({ stock: false });
+    expect(await live("pos-sale")).toHaveLength(1);
+    expect(await live("pos-cogs")).toHaveLength(1);
+
+    await OfflineSale.updateOne({ _id: doc._id }, { voided: true, voidedAt: new Date() }); // real void
+    await reconcileAll({ stock: false });
+    expect(await live("pos-sale")).toHaveLength(0);
+  });
+
+  it("keeps a courier charge that was really paid when a shipped-then-cancelled order is deleted", async () => {
+    const auth = await adminAuth();
+    const { order } = await realOrder();
+    await reconcileAll({ stock: false });
+
+    await Order.updateOne({ _id: order._id }, { orderStatus: "Cancelled" });
+    await Order.updateOne({ _id: order._id }, { isActive: false }); // soft delete
+    await reconcileAll({ stock: false });
+    expect(await live("order-courier")).toHaveLength(1);
+
+    await Order.deleteOne({ _id: order._id }); // permanent delete
+    await reconcileAll({ stock: false });
+    await syncOrder(order._id);
+    expect(await live("order-courier")).toHaveLength(1);
+    expect(await live("order-sale")).toHaveLength(0);
+    expect(await net("courier")).toBe(8400);
+    expect(auth).toBeTruthy();
+  });
+
+  it("dates refund and returned-stock vouchers from when they happened, not from later edits", async () => {
+    const { order, product, user } = await realOrder({ orderStatus: "Delivered" });
+    const rr = await ReturnRequest.create({
+      order: order._id, user: user._id, product: product._id, productName: product.name, quantity: 1, reason: "x",
+      status: "Refunded", stockRestored: true,
+      refundedAt: new Date("2026-08-20T10:00:00+05:30"), stockRestoredAt: new Date("2026-08-18T10:00:00+05:30"),
+    });
+    await reconcileAll({ stock: false });
+    expect(toIstDateString((await live("return-refund"))[0].date)).toBe("2026-08-20");
+    expect(toIstDateString((await live("return-stock"))[0].date)).toBe("2026-08-18");
+
+    // a later touch (admin note) must not move them
+    await ReturnRequest.updateOne({ _id: rr._id }, { adminNote: "checked again" });
+    const again = await reconcileAll({ stock: false });
+    expect(again.updated).toBe(0);
+    expect(toIstDateString((await live("return-refund"))[0].date)).toBe("2026-08-20");
+  });
+
+  it("stamps refundedAt / stockRestoredAt through the real return flow", async () => {
+    const auth = await adminAuth();
+    const { order, product, user } = await realOrder({ orderStatus: "Delivered" });
+    const rr = await ReturnRequest.create({
+      order: order._id, user: user._id, product: product._id, productName: product.name, quantity: 1, reason: "x", status: "Approved",
+    });
+    const res = await request(app).put(`/api/returns/${rr._id}/status`).set(auth).send({ status: "Refunded" });
+    expect(res.status).toBe(200);
+
+    const fresh = await ReturnRequest.findById(rr._id);
+    expect(fresh.refundedAt).toBeInstanceOf(Date);
+    expect(fresh.stockRestoredAt).toBeInstanceOf(Date);
+  });
+
+  it("refuses an opening-balance change while the books are locked, but not an unchanged resend", async () => {
+    const auth = await adminAuth();
+    await ensureAccountingSeed();
+    const map = await getSystemLedgerMap();
+    const sbi = String(map.get("bank-main"));
+    await AccountingSettings.updateOne({ key: "main" }, { $set: { lockedThrough: new Date("2026-05-31T12:00:00+05:30") } });
+
+    const change = await request(app).put(`/api/admin/accounts/ledgers/${sbi}`).set(auth).send({ openingBalance: 500, openingSide: "Dr" });
+    expect(change.status).toBe(400);
+
+    const resend = await request(app).put(`/api/admin/accounts/ledgers/${sbi}`).set(auth).send({ name: "SBI A/C", openingBalance: 0, openingSide: "Dr", notes: "main bank" });
+    expect(resend.status).toBe(200);
   });
 });

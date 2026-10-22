@@ -1,9 +1,10 @@
 import { imgUrl, imgSrcSet } from "../../services/api";
 import { useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import { useLanguage } from "../../context/LanguageContext";
 import { handleImageError } from "../../utils/imageFallback";
+import { langPrefix } from "../../utils/hindiPath";
 
 const titleCase = (str) =>
   str.replace(/\w\S*/g, (word) => word[0].toUpperCase() + word.slice(1));
@@ -12,6 +13,7 @@ function SubcategoryRow({ category, groupLabel, items, activeSubcategory }) {
   const scrollRef = useRef(null);
   const navigate = useNavigate();
   const { t } = useLanguage();
+  const prefix = langPrefix(useLocation().pathname);
 
   const scroll = (direction) => {
     if (!scrollRef.current) return;
@@ -68,7 +70,7 @@ function SubcategoryRow({ category, groupLabel, items, activeSubcategory }) {
             <button
               key={sub._id}
               type="button"
-              onClick={() => navigate(`/category/${category.slug}/${sub.slug}`)}
+              onClick={() => navigate(`${prefix}/category/${category.slug}/${sub.slug}`)}
               className="shrink-0 w-52 text-left group"
             >
               <div
@@ -97,7 +99,7 @@ function SubcategoryRow({ category, groupLabel, items, activeSubcategory }) {
 
                   {sub.subtitle && (
                     <p className="text-xs text-slate-600 mt-0.5">
-                      {sub.subtitle}
+                      {t(sub.subtitle, sub.subtitleHi)}
                     </p>
                   )}
                 </div>

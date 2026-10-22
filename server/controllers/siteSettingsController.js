@@ -1,21 +1,41 @@
 import SiteSettings from "../models/SiteSettings.js";
 import { invalidateBundleRulesCache } from "../utils/bundleDiscount.js";
 
+const loadSettings = async () => {
+  let settings = await SiteSettings.findOne().populate([
+    { path: "bundleRules.categoryA", select: "name nameHi slug" },
+    { path: "bundleRules.categoryB", select: "name nameHi slug" },
+    { path: "pricingRules.category", select: "name nameHi slug" },
+    { path: "pricingRules.subcategory", select: "name nameHi slug" },
+  ]);
+
+  if (!settings) settings = await SiteSettings.create({});
+
+  return settings;
+};
+
+// ============================
+// GET SITE SETTINGS (Admin) -- everything, incl. pricing rules
+// ============================
+export const getSiteSettingsAdmin = async (req, res) => {
+  try {
+    res.status(200).json({ success: true, settings: await loadSettings() });
+  } catch (error) {
+    console.error("Get Site Settings (admin) Error:", error);
+    res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+
 // ============================
 // GET SITE SETTINGS (Public)
 // ============================
+// pricingRules (purchase-price multipliers and discount percentages) are
+// internal: from them and a product's shown price anyone could work out its
+// purchase cost. Only the admin route above returns them.
 export const getSiteSettings = async (req, res) => {
   try {
-    let settings = await SiteSettings.findOne().populate([
-      { path: "bundleRules.categoryA", select: "name nameHi slug" },
-      { path: "bundleRules.categoryB", select: "name nameHi slug" },
-      { path: "pricingRules.category", select: "name nameHi slug" },
-      { path: "pricingRules.subcategory", select: "name nameHi slug" },
-    ]);
-
-    if (!settings) {
-      settings = await SiteSettings.create({});
-    }
+    const settings = (await loadSettings()).toObject();
+    delete settings.pricingRules;
 
     res.status(200).json({
       success: true,

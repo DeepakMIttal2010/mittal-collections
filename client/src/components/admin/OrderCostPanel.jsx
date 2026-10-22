@@ -29,6 +29,11 @@ function OrderCostPanel({ order, canEdit }) {
         return;
       }
 
+      if (!res.success) {
+        setState({ loading: false, hidden: false, cost: null, failed: true });
+        return;
+      }
+
       setState({ loading: false, hidden: false, cost: res.cost });
       setCourier(res.cost?.courierCharge ?? "");
       setNote(res.cost?.courierNote || "");
@@ -80,6 +85,8 @@ function OrderCostPanel({ order, canEdit }) {
 
       {state.loading ? (
         <p className="text-sm text-slate-400">Loading...</p>
+      ) : state.failed ? (
+        <p className="text-sm text-red-600">Could not load the cost data for this order. Please refresh and try again.</p>
       ) : !cost ? (
         <p className="text-sm text-slate-500">
           No cost snapshot was recorded for this order (it was placed before cost tracking

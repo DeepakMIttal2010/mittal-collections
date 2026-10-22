@@ -5,6 +5,8 @@ import { getCategories } from "../../services/categoryService";
 import { imgUrl } from "../../services/api";
 import { useLanguage } from "../../context/LanguageContext";
 import { handleImageError } from "../../utils/imageFallback";
+import { useLocation } from "react-router-dom";
+import { langPrefix } from "../../utils/hindiPath";
 
 // A compact, always-visible "what are you looking for" row right below
 // the hero -- lets a first-time visitor jump straight to a category
@@ -18,6 +20,7 @@ import { handleImageError } from "../../utils/imageFallback";
 function CategoryQuickLinks() {
   const [categories, setCategories] = useState([]);
   const { t } = useLanguage();
+  const prefix = langPrefix(useLocation().pathname);
 
   useEffect(() => {
     const loadCategories = async () => {
@@ -42,7 +45,7 @@ function CategoryQuickLinks() {
           {categories.map((category) => (
             <Link
               key={category._id}
-              to={`/category/${category.slug}`}
+              to={`${prefix}/category/${category.slug}`}
               className="group flex flex-col items-center gap-2 shrink-0 w-16 sm:w-20"
             >
               <span className="block w-14 h-14 sm:w-16 sm:h-16 rounded-full overflow-hidden border border-slate-200 group-hover:border-amber-400 transition-colors">

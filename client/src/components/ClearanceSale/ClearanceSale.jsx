@@ -8,8 +8,12 @@ import Skeleton from "../Skeleton";
 import { productUrl } from "../../utils/productUrl";
 import { useLanguage } from "../../context/LanguageContext";
 import { handleImageError } from "../../utils/imageFallback";
+import { useLocation } from "react-router-dom";
+import { isHindiPath } from "../../utils/hindiPath";
 
 function ClearanceCategoryRow({ category, products, t, isFirst }) {
+  // A Hindi product page exists only once the product has a Hindi name.
+  const isHindi = isHindiPath(useLocation().pathname);
   const scrollRef = useRef(null);
 
   const scroll = (direction) => {
@@ -63,7 +67,7 @@ function ClearanceCategoryRow({ category, products, t, isFirst }) {
           return (
             <Link
               key={product._id}
-              to={productUrl(product)}
+              to={productUrl(product, isHindi && !!product.nameHi)}
               className="relative shrink-0 w-48 sm:w-60"
             >
               <div className="relative rounded-xl overflow-hidden shadow-md aspect-[4/5] bg-slate-100">
@@ -84,7 +88,7 @@ function ClearanceCategoryRow({ category, products, t, isFirst }) {
                 </span>
 
                 <p className="absolute bottom-10 left-3 right-3 text-white text-sm font-semibold leading-snug line-clamp-2">
-                  {product.name}
+                  {t(product.name, product.nameHi)}
                 </p>
 
                 <p className="absolute bottom-3 left-3 right-3 text-white text-sm flex items-center gap-2">

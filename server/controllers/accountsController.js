@@ -106,7 +106,9 @@ export const updateAccountingSettings = async (req, res) => {
         if (!d) return fail(res, 400, "Lock date must be a real date (YYYY-MM-DD) or null.");
         const start = toIstDateString(update.booksStartDate || current.booksStartDate);
         if (toIstDateString(d) < start) return fail(res, 400, "Lock date cannot be before the books start date.");
-        if (toIstDateString(d) > today) return fail(res, 400, "Lock date cannot be in the future.");
+        // Only finished days: locking today would push today's automatic
+        // vouchers (sales, cost of goods, stock sync) into tomorrow.
+        if (toIstDateString(d) >= today) return fail(res, 400, "Only days that have ended can be locked (yesterday or earlier).");
         update.lockedThrough = d;
       }
     }
@@ -319,6 +321,17 @@ export const updateLedger = async (req, res) => {
     const opening = parseOpening(req.body);
     if (opening.error) return fail(res, 400, opening.error);
     Object.assign(update, opening.value);
+
+    // Opening balances sit on the books-start date, i.e. inside any locked
+    // period: changing one would silently rewrite closed reports. (The
+    // edit form always resends them, so only a real change is refused.)
+    const newPaise = update.openingPaise ?? existing.openingPaise;
+    const newSide = update.openingSide ?? existing.openingSide;
+    const openingChanged =
+      newPaise !== existing.openingPaise || (newPaise > 0 && newSide !== existing.openingSide);
+    if (openingChanged && (await getSettings()).lockedThrough) {
+      return fail(res, 400, "The books are locked. Remove the period lock (Settings) to change an opening balance.");
+    }
 
     if (Object.keys(update).length === 0) return fail(res, 400, "Nothing to update.");
 

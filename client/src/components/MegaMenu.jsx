@@ -6,6 +6,7 @@ import { FaChevronDown } from "react-icons/fa";
 import { getCategories } from "../services/categoryService";
 import { getSubcategories } from "../services/subcategoryService";
 import { useLanguage } from "../context/LanguageContext";
+import { isHindiPath } from "../utils/hindiPath";
 
 // How many categories show as their own top-level nav link (in the
 // priority order the categories API already returns — product count
@@ -448,7 +449,7 @@ function MoreCategoriesMenu({ categories, getGroupedSubcategories, linkClassName
 }
 
 function MegaMenu({ linkClassName, portalTarget }) {
-  const isHindi = useLocation().pathname.startsWith("/hi/");
+  const isHindi = isHindiPath(useLocation().pathname);
   const [categories, setCategories] = useState([]);
   const [subcategories, setSubcategories] = useState([]);
 

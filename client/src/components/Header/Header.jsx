@@ -23,13 +23,14 @@ import { imgUrl } from "../../services/api";
 import { productUrl } from "../../utils/productUrl";
 import { notifyDefaultAddressChanged } from "../../utils/addressEvents";
 import { trackSearch, trackSelectItem } from "../../utils/analytics";
+import { isHindiPath } from "../../utils/hindiPath";
 
 function Header() {
   const { totalItems, openCart } = useCart();
   const { user, logout, isLoggedIn } = useAuth();
   const { language, setLanguage, t } = useLanguage();
   const navigate = useNavigate();
-  const isHindi = useLocation().pathname.startsWith("/hi/");
+  const isHindi = isHindiPath(useLocation().pathname);
 
   const [query, setQuery] = useState("");
   const [searchCategory, setSearchCategory] = useState("");

@@ -21,6 +21,8 @@ import { handleImageError } from "../../utils/imageFallback";
 import { getEarnRate } from "../../services/rewardsService";
 import { trackSelectItem } from "../../utils/analytics";
 import { useLanguage } from "../../context/LanguageContext";
+import { isHindiPath } from "../../utils/hindiPath";
+import { localizeSize } from "../../utils/localizeSize";
 
 // Lazy-loaded, not a static import: QuickViewModal (and the DOMPurify it
 // pulls in via stripHtml.js) only ever renders after a click, but
@@ -42,11 +44,11 @@ function ProductCard({ product, priority = false }) {
   // when CategoryPage.jsx's internal links were still hardcoded English
   // -- linking to the right variant up front avoids recreating that bug
   // here for products.
-  const isHindi = useLocation().pathname.startsWith("/hi/");
+  const isHindi = isHindiPath(useLocation().pathname);
   const { addToCart } = useCartActions();
   const { wishlistItems, addToWishlist, removeFromWishlist } = useWishlist();
   const { toggleCompare, isInCompare } = useCompare();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [showQuickView, setShowQuickView] = useState(false);
   const inCompare = isInCompare(product._id);
   const isWishlisted = wishlistItems.some((item) => item._id === product._id);
@@ -99,7 +101,7 @@ function ProductCard({ product, priority = false }) {
 
           {isOutOfStock ? (
             <span className="stock-badge out-of-stock-badge">
-              {getStockStatus(product.stock).label}
+              {getStockStatus(product.stock, t).label}
             </span>
           ) : (
             isLowStock && (
@@ -116,11 +118,11 @@ function ProductCard({ product, priority = false }) {
         </div>
 
         <div className="product-info">
-          <p className="category">{product.category?.name}</p>
+          <p className="category">{t(product.category?.name, product.category?.nameHi)}</p>
 
           <h3>{t(product.name, product.nameHi)}</h3>
 
-          {product.size && <p className="size-line">{product.size}</p>}
+          {product.size && <p className="size-line">{localizeSize(product.size, language === "hi")}</p>}
 
           {/* Same real-review source as the product detail page's rating
               line — Product.rating is a static default (5 for every

@@ -11,8 +11,9 @@ import { getStockStatus } from "../utils/stock";
 import { stripHtml } from "../utils/stripHtml";
 import { handleImageError } from "../utils/imageFallback";
 import Seo from "../components/Seo";
+import { localizeSize } from "../utils/localizeSize";
 
-function getRows(t) {
+function getRows(t, language) {
   return [
     { label: t("Price", "कीमत"), render: (p) => `₹${p.price}`, spec: null },
     {
@@ -31,14 +32,14 @@ function getRows(t) {
     // that actually differentiate similar products (which bedsheet is
     // thicker/what fabric/what size), showing only Price/MRP/Category/
     // Availability/Description.
-    { label: t("Fabric", "फैब्रिक"), render: (p) => p.fabric || "—", spec: "fabric" },
-    { label: t("Size", "साइज़"), render: (p) => p.size || "—", spec: "size" },
-    { label: t("GSM", "GSM"), render: (p) => p.gsm || "—", spec: "gsm" },
-    { label: t("Wash Care", "वॉश केयर"), render: (p) => p.washCare || "—", spec: "washCare" },
-    { label: t("Brand", "ब्रांड"), render: (p) => p.brand || "—", spec: "brand" },
+    { label: t("Fabric", "फैब्रिक"), render: (p) => t(p.fabric, p.fabricHi) || "—", spec: "fabric" },
+    { label: t("Size", "साइज़"), render: (p) => localizeSize(p.size, language === "hi") || "—", spec: "size" },
+    { label: t("GSM", "GSM"), render: (p) => t(p.gsm, p.gsmHi) || "—", spec: "gsm" },
+    { label: t("Wash Care", "वॉश केयर"), render: (p) => t(p.washCare, p.washCareHi) || "—", spec: "washCare" },
+    { label: t("Brand", "ब्रांड"), render: (p) => t(p.brand, p.brandHi) || "—", spec: "brand" },
     {
       label: t("Country of Origin", "मूल देश"),
-      render: (p) => p.countryOfOrigin || "—",
+      render: (p) => t(p.countryOfOrigin, p.countryOfOriginHi) || "—",
       spec: "countryOfOrigin",
     },
     {
@@ -49,8 +50,8 @@ function getRows(t) {
     {
       label: t("Availability", "उपलब्धता"),
       render: (p) => (
-        <span className={getStockStatus(p.stock).className}>
-          {getStockStatus(p.stock).label}
+        <span className={getStockStatus(p.stock, t).className}>
+          {getStockStatus(p.stock, t).label}
         </span>
       ),
       spec: null,
@@ -70,14 +71,14 @@ function getRows(t) {
 function Compare() {
   const { compareItems, removeFromCompare, clearCompare } = useCompare();
   const { addToCart } = useCartActions();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const navigate = useNavigate();
   // Spec rows (fabric, size, GSM, etc.) only show if at least one
   // compared product actually has a value for that field — matches
   // AutoCompareTable.jsx's identical getSpecRows/visibleRows filtering,
   // so a row isn't a wall of "—" for a product type that spec doesn't
   // apply to.
-  const rows = getRows(t).filter(
+  const rows = getRows(t, language).filter(
     (row) => !row.spec || compareItems.some((p) => p[row.spec]),
   );
 

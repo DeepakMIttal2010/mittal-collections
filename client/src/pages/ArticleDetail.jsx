@@ -10,6 +10,7 @@ import { useLanguage } from "../context/LanguageContext";
 import { SITE_URL } from "../utils/siteUrl";
 import { sanitizeArticleHtml } from "../utils/sanitizeArticleHtml";
 import { truncateAtWordBoundary } from "../utils/truncateMetaDescription";
+import { isHindiPath } from "../utils/hindiPath";
 
 function ArticleDetail() {
   const { slug } = useParams();
@@ -23,7 +24,7 @@ function ArticleDetail() {
   // header's language toggle so switching it while already reading an
   // article still feels instant, the same as it does everywhere else on
   // the site, instead of only taking effect on the next navigation.
-  const isHindi = location.pathname.startsWith("/hi/");
+  const isHindi = isHindiPath(location.pathname);
 
   const [article, setArticle] = useState(null);
   const [status, setStatus] = useState("loading");
@@ -199,7 +200,7 @@ function ArticleDetail() {
   };
 
   const breadcrumbItems = [
-    { name: isHindi ? "होम" : "Home", path: "/" },
+    { name: isHindi ? "होम" : "Home", path: isHindi ? "/hi" : "/" },
     { name: isHindi ? "गाइड और आइडिया" : "Guides & Ideas", path: isHindi ? "/hi/articles" : "/articles" },
     { name: displayTitle },
   ];

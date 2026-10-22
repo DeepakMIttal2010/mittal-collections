@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   getExpenses,
@@ -87,7 +87,11 @@ function AdminExpenses() {
   const [templateEditingId, setTemplateEditingId] = useState(null);
   const [saving, setSaving] = useState(false);
 
+  // Only the latest request may update the page (see VouchersTab).
+  const latestRequest = useRef(0);
+
   const load = useCallback(async () => {
+    const requestId = ++latestRequest.current;
     setLoading(true);
 
     const range = period === "all" ? {} : monthRange(period);
@@ -95,6 +99,8 @@ function AdminExpenses() {
       getExpenses({ ...range, category }),
       getRecurringExpenses(),
     ]);
+
+    if (requestId !== latestRequest.current) return;
 
     if (list.success) {
       setExpenses(list.expenses);
@@ -239,7 +245,8 @@ function AdminExpenses() {
       ]),
     ];
     const csv = rows.map((r) => r.map(csvCell).join(",")).join("\r\n");
-    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    // The BOM makes Excel read the file as UTF-8 (Hindi vendor names / notes stay readable).
+    const url = URL.createObjectURL(new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" }));
     const link = document.createElement("a");
     link.href = url;
     link.download = `expenses-${period}.csv`;
