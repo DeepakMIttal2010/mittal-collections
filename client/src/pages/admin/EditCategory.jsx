@@ -6,6 +6,7 @@ import {
   getCategoryById,
   updateCategory,
 } from "../../services/adminCategoryService";
+import SeoFieldsEditor, { emptySeoFields, seoFieldsFrom } from "../../components/admin/SeoFieldsEditor";
 
 function EditCategory() {
   const navigate = useNavigate();
@@ -25,6 +26,7 @@ function EditCategory() {
     isPinned: false,
     optimizeImages: true,
     image: null,
+    ...emptySeoFields(),
   });
 
   const loadCategory = async () => {
@@ -45,6 +47,7 @@ function EditCategory() {
         isPinned: category.isPinned || false,
         optimizeImages: true,
         image: null,
+        ...seoFieldsFrom(category),
       });
 
       setPreview(`${imgUrl(category.image)}`);
@@ -95,6 +98,7 @@ function EditCategory() {
     data.append("isActive", formData.isActive);
     data.append("isPinned", formData.isPinned);
     data.append("optimizeImages", formData.optimizeImages);
+    Object.entries(seoFieldsFrom(formData)).forEach(([key, value]) => data.append(key, value));
 
     if (formData.image) {
       data.append("image", formData.image);
@@ -171,6 +175,8 @@ function EditCategory() {
             className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
+
+        <SeoFieldsEditor values={formData} onChange={handleChange} idPrefix="category-seo" />
 
         <div>
           <label htmlFor="displayOrder" className="block text-sm font-medium text-slate-700 mb-1">

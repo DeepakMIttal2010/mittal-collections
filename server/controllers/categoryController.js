@@ -1,4 +1,5 @@
 import Category from "../models/Category.js";
+import { pickSeoFields } from "../models/seoFields.js";
 import Product from "../models/Product.js";
 import Subcategory from "../models/Subcategory.js";
 import TrendingSection from "../models/TrendingSection.js";
@@ -221,6 +222,7 @@ export const addCategory = async (req, res) => {
       slug,
       description: description || "",
       descriptionHi: descriptionHi || "",
+      ...pickSeoFields(req.body),
       image: req.file.path,
       featured: featured === "true" || featured === true,
       displayOrder: displayOrder || 0,
@@ -284,6 +286,7 @@ export const updateCategory = async (req, res) => {
     if (nameHi !== undefined) category.nameHi = nameHi;
     if (description !== undefined) category.description = description;
     if (descriptionHi !== undefined) category.descriptionHi = descriptionHi;
+    Object.assign(category, pickSeoFields(req.body));
     if (featured !== undefined)
       category.featured = featured === "true" || featured === true;
     if (displayOrder !== undefined) category.displayOrder = displayOrder;

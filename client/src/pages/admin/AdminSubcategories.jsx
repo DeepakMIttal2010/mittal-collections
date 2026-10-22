@@ -13,6 +13,7 @@ import {
 } from "../../services/adminSubcategoryService";
 import { getCurrentAdminUser } from "../../services/authService";
 import { hasWriteAccess } from "../../config/adminPermissions";
+import SeoFieldsEditor, { emptySeoFields, seoFieldsFrom } from "../../components/admin/SeoFieldsEditor";
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
@@ -43,6 +44,7 @@ function AdminSubcategories() {
     displayOrder: 0,
     isActive: true,
     optimizeImages: true,
+    ...emptySeoFields(),
   });
   const [image, setImage] = useState(null);
   const [preview, setPreview] = useState(null);
@@ -119,6 +121,7 @@ function AdminSubcategories() {
       displayOrder: 0,
       isActive: true,
       optimizeImages: true,
+      ...emptySeoFields(),
     });
     setImage(null);
     setPreview(null);
@@ -167,6 +170,7 @@ function AdminSubcategories() {
       displayOrder: sub.displayOrder,
       isActive: sub.isActive,
       optimizeImages: true,
+      ...seoFieldsFrom(sub),
     });
     setImage(null);
     setPreview(sub.image ? `${imgUrl(sub.image)}` : null);
@@ -316,6 +320,8 @@ function AdminSubcategories() {
             />
           </div>
         </div>
+
+        <SeoFieldsEditor values={formData} onChange={handleChange} idPrefix="subcategory-seo" />
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
           <div>

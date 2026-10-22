@@ -1,5 +1,7 @@
 import mongoose from "mongoose";
 
+import { seoFieldsSchema } from "./seoFields.js";
+
 const categorySchema = new mongoose.Schema(
   {
     name: {
@@ -43,6 +45,9 @@ const categorySchema = new mongoose.Schema(
       default: "",
       trim: true,
     },
+
+    // seoTitle/seoDescription/aboutText (+Hi) -- see seoFields.js
+    ...seoFieldsSchema,
 
     image: {
       type: String,
