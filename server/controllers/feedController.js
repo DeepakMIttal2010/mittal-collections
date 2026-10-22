@@ -144,7 +144,14 @@ ${colorTag}${materialTag}${patternTag}`;
         // standard Shopping-feed pattern for representing size/colour
         // variants of the same product.
         if (product.variants?.length > 1) {
-          return product.variants.map((variant) => {
+          const usedIds = new Set();
+
+          return product.variants.map((variant, i) => {
+            // Unique per variant even if two sizes slugify the same
+            // ("7.5x4" / "7-5x4") or a size has no slug-able characters.
+            let suffix = slugify(variant.size) || String(i + 1);
+            if (usedIds.has(suffix)) suffix = `${suffix}-${i + 1}`;
+            usedIds.add(suffix);
             const availability = variant.stock > 0 ? "in stock" : "out of stock";
             // Each variant carries its own oldPrice (see Product.js --
             // different sizes can have different markdowns), not the
@@ -160,11 +167,11 @@ ${colorTag}${materialTag}${patternTag}`;
               variant.oldPrice > variant.price ? variant.oldPrice : variant.price;
 
             return `    <item>
-      <g:id>${product._id}-${slugify(variant.size)}</g:id>
+      <g:id>${product._id}-${suffix}</g:id>
       <g:item_group_id>${product._id}</g:item_group_id>
       <title>${escapeXml(`${product.name} - ${variant.size}`)}</title>
       <description>${description}</description>
-      <link>${link}</link>
+      <link>${escapeXml(`${productUrl(product)}?size=${encodeURIComponent(variant.size)}`)}</link>
 ${sharedTags}      <g:size>${escapeXml(variant.size)}</g:size>
       <g:availability>${availability}</g:availability>
       <g:price>${listPrice.toFixed(2)} INR</g:price>

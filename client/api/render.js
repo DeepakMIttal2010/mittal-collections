@@ -470,7 +470,7 @@ const buildProductBodyHtml = (
         ["फैब्रिक", product.fabricHi || product.fabric],
         ["रंग", product.color],
         ["पैटर्न", product.pattern],
-        ["साइज़", product.size],
+        ["साइज़", localizeSizeHi(product.size)],
       ].filter(([, value]) => value)
     : [
         ["Brand", product.brand],
@@ -679,7 +679,7 @@ const buildCategoryBodyHtml = (
           return [...byGroup.entries()]
             .map(
               ([groupLabel, items]) => `<section>
-            <h2>${escapeHtml(groupLabel || "Shop by")}</h2>
+            <h2>${escapeHtml((isHindi ? friendlyGroupLabelHi(groupLabel) : friendlyGroupLabel(groupLabel)) || "Shop by")}</h2>
             <ul>
               ${items
                 .map(
@@ -765,6 +765,61 @@ function subcategorySeoName(subcategoryName, groupLabel, categoryName) {
   return `${sub} ${category}`;
 }
 
+// ---- mirrors of client helpers (render.js can't import client ESM) ----
+// Keep in sync with CategoryPage.jsx's friendlyGroupLabel/friendlyGroupLabelHi.
+const friendlyGroupLabel = (groupLabel) =>
+  ({ "By Type": "Type", "By Material": "Material", Size: "Popular Dimensions", "Bed Size": "Bed Type" })[groupLabel] ||
+  groupLabel;
+const friendlyGroupLabelHi = (groupLabel) =>
+  ({
+    "By Type": "प्रकार",
+    "By Material": "मटीरियल",
+    Size: "लोकप्रिय आयाम",
+    "Bed Size": "बेड टाइप",
+    "By Brand": "ब्रांड",
+    "By Pattern": "पैटर्न",
+    "By Design": "डिज़ाइन",
+  })[groupLabel] || groupLabel;
+
+// Keep in sync with client/src/utils/localizeSize.js.
+const SIZE_RULES_HI = [
+  [/\bFits mattress up to ([\d.]+(?:\s*x\s*[\d.]+)?)\s*ft,\s*height up to ([\d.]+)"/gi, '$1 फीट तक के गद्दे पर फिट, ऊंचाई $2" तक'],
+  [/\bSet of (\d+) Cushion Covers\b/gi, "$1 कुशन कवर का सेट"],
+  [/\bSet of (\d+) Cushions\b/gi, "$1 कुशन का सेट"],
+  [/\bBook-Style Gift Box\b/gi, "बुक-स्टाइल गिफ्ट बॉक्स"],
+  [/\bStandard Single Bed Size\b/gi, "स्टैंडर्ड सिंगल बेड साइज़"],
+  [/\bPillow (?:Covers?|Cases)\b/gi, "तकिया कवर"],
+  [/\bFitted Bed ?sheet\b/gi, "फिटेड बेडशीट"],
+  [/\bBed ?sheet\b/gi, "बेडशीट"],
+  [/\bZig Zag\b/gi, "ज़िग-ज़ैग"],
+  [/\bDrop\b/gi, "ड्रॉप"],
+  [/\bHeight\b/gi, "ऊंचाई"],
+  [/\bInch(?:es)?\b/gi, "इंच"],
+  [/\bcm\b/gi, "सेमी"],
+  [/\bft\b/gi, "फीट"],
+  [/\b(\d+) included\b/gi, "$1 शामिल"],
+];
+const localizeSizeHi = (size) =>
+  size ? SIZE_RULES_HI.reduce((text, [pattern, replacement]) => text.replace(pattern, replacement), size) : size;
+
+// The delivery lead-in of category meta descriptions, per language (a Hindi
+// page used to get the English phrase in the middle of Hindi text).
+const deliveryLine = (isHindi) =>
+  isHindi ? "पूरे भारत में डिलीवरी, ग़ाज़ियाबाद में 24 घंटे में" : "pan-India delivery, 24hr in Ghaziabad";
+
+// A subcategory that is the only one in its group used to ALWAYS be
+// canonicalised to its parent category, on the assumption that it shows the
+// same products. That's only true when it holds every one of the
+// category's products (comforters / Microfibre, 17 of 17); a genuine subset
+// (doormats / Anti-Slip, 9 of 22) is its own page and must keep its own
+// canonical + sitemap entry. Same rule in render.js, sitemap.js and
+// CategoryPage.jsx -- keep them identical. Without counts (older API) it
+// falls back to the old behaviour.
+const subcategoryCoversWholeCategory = (sub, category) =>
+  typeof sub?.productCount !== "number" ||
+  typeof category?.productCount !== "number" ||
+  sub.productCount >= category.productCount;
+
 async function buildCategoryMeta({ categorySlug, subcategorySlug, isHindi }) {
   const data = await fetchJson(`${API_BASE}/api/categories`);
 
@@ -824,7 +879,7 @@ async function buildCategoryMeta({ categorySlug, subcategorySlug, isHindi }) {
     const ownGroupCount = categorySubcategories.filter(
       (s) => s.groupLabel === subcategory.groupLabel,
     ).length;
-    subcategoryIsOnlyGroupOption = ownGroupCount === 1;
+    subcategoryIsOnlyGroupOption = ownGroupCount === 1 && subcategoryCoversWholeCategory(subcategory, category);
   }
 
   const urlPrefix = isHindi ? `${SITE_URL}/hi` : SITE_URL;
@@ -841,7 +896,7 @@ async function buildCategoryMeta({ categorySlug, subcategorySlug, isHindi }) {
 
   const categoryPath = `${isHindi ? "/hi" : ""}/category/${category.slug}`;
   const breadcrumbItems = [
-    { name: isHindi ? "होम" : "Home", path: "/" },
+    { name: isHindi ? "होम" : "Home", path: isHindi ? "/hi" : "/" },
     ...(subcategory ? [{ name: displayCategoryName, path: categoryPath }] : []),
     { name: subcategory ? displaySubcategoryName : displayCategoryName },
   ];
@@ -853,13 +908,21 @@ async function buildCategoryMeta({ categorySlug, subcategorySlug, isHindi }) {
     subcategory && !isHindi
       ? subcategorySeoName(subcategory.name, subcategory.groupLabel, category.name)
       : null;
-  const title = subcategory
-    ? seoPhrase
-      ? `${seoPhrase} | ${SITE_NAME}`
-      : `${displaySubcategoryName} | ${displayCategoryName} | ${SITE_NAME}`
-    : `${displayCategoryName} | ${SITE_NAME}`;
-  const pageTitle = subcategory
-    ? seoPhrase || `${displaySubcategoryName} - ${displayCategoryName}`
+  // Title, h1 and description lead-in are built exactly like
+  // CategoryPage.jsx's, so a bot and a visitor see the same page (they had
+  // drifted: "Sub | Cat" vs "Sub - Cat", and the client-only Cotton Double
+  // Bedsheets title).
+  const isCottonDoubleBedsheets = category.slug === "bedsheets" && subcategory?.slug === "double-bed-size";
+  const pageTitle = isCottonDoubleBedsheets
+    ? isHindi
+      ? "कॉटन डबल बेडशीट"
+      : "Cotton Double Bedsheets"
+    : subcategory
+      ? seoPhrase || `${displaySubcategoryName} - ${displayCategoryName}`
+      : displayCategoryName;
+  const title = `${pageTitle} | ${SITE_NAME}`;
+  const headingText = subcategory
+    ? seoPhrase || `${displayCategoryName} / ${displaySubcategoryName}`
     : displayCategoryName;
   // descriptionHi/subtitleHi now exist (see Category.js/Subcategory.js --
   // SEO/conversion audit, 2026-10-20) -- still falls back to the English
@@ -871,7 +934,7 @@ async function buildCategoryMeta({ categorySlug, subcategorySlug, isHindi }) {
     ? (isHindi ? subcategory.subtitleHi : "") || subcategory.subtitle || ""
     : (isHindi ? category.descriptionHi : "") || category.description || "";
   const description = truncateAtWordBoundary(
-    `${pageTitle}: pan-India delivery, 24hr in Ghaziabad. ${bodyText}`.trim(),
+    `${pageTitle}: ${deliveryLine(isHindi)}${isHindi ? "।" : "."} ${bodyText}`.trim(),
   );
 
   // Mirrors CategoryPage.jsx's itemListJsonLd -- same endpoints/params it
@@ -924,7 +987,7 @@ async function buildCategoryMeta({ categorySlug, subcategorySlug, isHindi }) {
     // trimmed version), and no category here has anywhere near enough
     // products yet for 50 to matter in practice.
     bodyHtml: buildCategoryBodyHtml(
-      pageTitle,
+      headingText,
       bodyText,
       breadcrumbItems,
       categoryProducts,
@@ -1040,7 +1103,11 @@ const buildHomeBodyHtml = (heading, description, categories, subcategories, isHi
     .map((s) => {
       const category = categoryMap.get(s.category?._id);
       if (!category) return "";
-      return `<li><a href="${escapeHtml(`${SITE_URL}${urlPrefix}/category/${category.slug}/${s.slug}`)}">${escapeHtml(isHindi ? s.nameHi || s.name : s.name)}</a></li>`;
+      // English anchor text uses the natural search phrase where one exists
+      // ("Satin Curtains", not just "Satin") -- GSC shows those queries
+      // landing on the homepage instead of the subcategory page.
+      const label = isHindi ? s.nameHi || s.name : subcategorySeoName(s.name, s.groupLabel, category.name) || s.name;
+      return `<li><a href="${escapeHtml(`${SITE_URL}${urlPrefix}/category/${category.slug}/${s.slug}`)}">${escapeHtml(label)}</a></li>`;
     })
     .join("\n");
 
@@ -1220,7 +1287,9 @@ const buildBreadcrumbJsonLd = (items) => ({
   })),
 });
 
-const buildMeta = async (path) => {
+// `query` carries the page's own query string (Vercel passes it through
+// the rewrite); only ?size= on product pages is used.
+const buildMeta = async (path, query = {}) => {
   const parts = path.split("/").filter(Boolean);
 
   if (parts.length === 0 || (parts.length === 1 && parts[0] === "hi")) {
@@ -1414,7 +1483,7 @@ const buildMeta = async (path) => {
   }
 
   if (parts[0] === "product" && parts[1]) {
-    return buildProductMeta({ productId: parts[1], productSlug: parts[2], isHindi: false });
+    return buildProductMeta({ productId: parts[1], productSlug: parts[2], isHindi: false, size: query.size });
   }
 
   // Hindi product pages. Same shared-function pattern as the category
@@ -1422,10 +1491,10 @@ const buildMeta = async (path) => {
   // parts[3]=slug, one index over from the English shape -- rather than
   // a second hand-adjusted copy of this block.
   if (parts[0] === "hi" && parts[1] === "product" && parts[2]) {
-    return buildProductMeta({ productId: parts[2], productSlug: parts[3], isHindi: true });
+    return buildProductMeta({ productId: parts[2], productSlug: parts[3], isHindi: true, size: query.size });
   }
 
-  async function buildProductMeta({ productId, productSlug, isHindi }) {
+  async function buildProductMeta({ productId, productSlug, isHindi, size }) {
     // Fetched together — none depend on each other, and ProductDetails.jsx
     // loads all four independently too (reviews/questions/settings never
     // block the product itself from rendering).
@@ -1484,7 +1553,7 @@ const buildMeta = async (path) => {
     // segment used to be dropped here, giving bots a shorter breadcrumb
     // than the one the site itself defines for the same product.
     const breadcrumbItems = [
-      { name: isHindi ? "होम" : "Home", path: "/" },
+      { name: isHindi ? "होम" : "Home", path: isHindi ? "/hi" : "/" },
       ...(p.category
         ? [
             {
@@ -1519,7 +1588,10 @@ const buildMeta = async (path) => {
     // sold-out default variant with stock left in another size still
     // reports InStock here while the page itself would show Out of
     // Stock, a real Merchant Center suspension risk.
-    const defaultVariant = p.variants?.[0];
+    // A ?size= link (one per size in the Shopping feed) shows that size,
+    // like ProductDetails.jsx does, so the price matches the listing.
+    const defaultVariant =
+      (typeof size === "string" && size && p.variants?.find((v) => v.size === size)) || p.variants?.[0];
     const offerPrice = defaultVariant ? defaultVariant.price : p.price;
     const offerStock = defaultVariant ? defaultVariant.stock : p.stock;
 
@@ -1659,7 +1731,7 @@ const buildMeta = async (path) => {
                 variant.stock > 0
                   ? "https://schema.org/InStock"
                   : "https://schema.org/OutOfStock",
-              url,
+              url: `${url}?size=${encodeURIComponent(variant.size)}`,
               sku: `${p._id}-${variant.size}`,
               name: `${isHindi ? p.nameHi : p.name} - ${variant.size}`,
               ...sharedOfferTerms,
@@ -1933,7 +2005,7 @@ const buildMeta = async (path) => {
     // exactly why this page was "Crawled - currently not indexed").
     const isHindi = path === "/hi/articles";
     const staticPage = STATIC_PAGES[path];
-    const staticBreadcrumbItems = [{ name: isHindi ? "होम" : "Home", path: "/" }, { name: staticPage.breadcrumb }];
+    const staticBreadcrumbItems = [{ name: isHindi ? "होम" : "Home", path: isHindi ? "/hi" : "/" }, { name: staticPage.breadcrumb }];
 
     const articlesData = await fetchJson(`${API_BASE}/api/articles`);
     // Same rule Articles.jsx already applies client-side: a Hindi listing
@@ -2342,7 +2414,9 @@ export default async function handler(req, res) {
   }
 
   try {
-    const meta = await buildMeta(path);
+    const meta = await buildMeta(path, {
+      size: typeof req.query.size === "string" ? req.query.size.slice(0, 50) : undefined,
+    });
 
     res.setHeader("Content-Type", "text/html; charset=utf-8");
 

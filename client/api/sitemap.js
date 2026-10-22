@@ -231,6 +231,24 @@ export default async function handler(req, res) {
     // canonical pointing elsewhere. Skip advertising a dedicated entry
     // for these; the parent category's own sitemap entry already covers
     // the URL Google will actually see.
+    // A subcategory that is the only one in its group used to ALWAYS be
+    // canonicalised to its parent category, on the assumption that it shows the
+    // same products. That's only true when it holds every one of the
+    // category's products (comforters / Microfibre, 17 of 17); a genuine subset
+    // (doormats / Anti-Slip, 9 of 22) is its own page and must keep its own
+    // canonical + sitemap entry. Same rule in render.js, sitemap.js and
+    // CategoryPage.jsx -- keep them identical. Without counts (older API) it
+    // falls back to the old behaviour.
+    const categoryById = new Map(categoriesRes.categories.map((c) => [String(c._id), c]));
+    const coversWholeCategory = (sub) => {
+      const category = categoryById.get(String(sub.category?._id));
+      return (
+        typeof sub.productCount !== "number" ||
+        typeof category?.productCount !== "number" ||
+        sub.productCount >= category.productCount
+      );
+    };
+
     const ownGroupCounts = new Map();
     (subcategoriesRes.subcategories || []).forEach((s) => {
       const key = `${s.category?._id}:${s.groupLabel}`;
@@ -241,7 +259,7 @@ export default async function handler(req, res) {
       if (!(s.category?.slug && activeCategorySlugs.has(s.category.slug))) return;
 
       const isOnlyGroupOption = ownGroupCounts.get(`${s.category?._id}:${s.groupLabel}`) === 1;
-      if (isOnlyGroupOption) return;
+      if (isOnlyGroupOption && coversWholeCategory(s)) return;
 
       const enPath = `/category/${s.category.slug}/${s.slug}`;
 

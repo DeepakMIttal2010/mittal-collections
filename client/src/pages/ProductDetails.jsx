@@ -69,6 +69,7 @@ import { getPublicRewardsInfo } from "../services/rewardsService";
 import AutoCompareTable from "../components/AutoCompareTable";
 import { localizeSize } from "../utils/localizeSize";
 import { useLanguage } from "../context/LanguageContext";
+import { isHindiPath } from "../utils/hindiPath";
 
 function ProductDetails() {
   const { id } = useParams();
@@ -80,7 +81,7 @@ function ProductDetails() {
   // canonical/hreflang/JSON-LD stay correct regardless of the visitor's
   // own toggle. Same pattern ArticleDetail.jsx/CategoryPage.jsx already
   // use for their own /hi/ URLs.
-  const isHindi = location.pathname.startsWith("/hi/");
+  const isHindi = isHindiPath(location.pathname);
   const hasSyncedLanguageRef = useRef(false);
 
   const [product, setProduct] = useState(null);
@@ -208,9 +209,13 @@ function ProductDetails() {
 
       if (response.success) {
         setProduct(response.product);
-        // Default to the first size, matching what the top-level
-        // price/stock already reflect (see Product.js's variants field).
-        setSelectedVariant(response.product.variants?.[0] || null);
+        // A ?size=... link (the Google Shopping feed sends one per size,
+        // and each size's Offer url points at one) opens that size, so the
+        // price shown matches the listing; otherwise default to the first
+        // size, matching what the top-level price/stock reflect.
+        const wantedSize = new URLSearchParams(window.location.search).get("size");
+        const variants = response.product.variants || [];
+        setSelectedVariant((wantedSize && variants.find((v) => v.size === wantedSize)) || variants[0] || null);
         setQuantity(1);
         addRecentlyViewed(response.product._id);
         trackViewItem(response.product);
@@ -665,6 +670,64 @@ function ProductDetails() {
     ? calculateDeliveryFee(product.price, shippingSettings)
     : undefined;
 
+  // Shipping + return terms shared by every Offer of this product.
+  const offerTerms = {
+    ...(shippingFeeForSeo !== undefined && {
+      shippingDetails: {
+        "@type": "OfferShippingDetails",
+        shippingRate: {
+          "@type": "MonetaryAmount",
+          value: shippingFeeForSeo,
+          currency: "INR",
+        },
+        shippingDestination: {
+          "@type": "DefinedRegion",
+          addressCountry: "IN",
+        },
+        // Matches the "Usually delivered in 3-7 business days" promise
+        // shown elsewhere on the site (Footer, delivery-info banners) —
+        // same-day Ghaziabad express delivery is handled separately as
+        // its own Google Merchant Center delivery policy, not here.
+        deliveryTime: {
+          "@type": "ShippingDeliveryTime",
+          handlingTime: {
+            "@type": "QuantitativeValue",
+            minValue: 0,
+            maxValue: 0,
+            unitCode: "DAY",
+          },
+          transitTime: {
+            "@type": "QuantitativeValue",
+            minValue: 3,
+            maxValue: 7,
+            unitCode: "DAY",
+          },
+        },
+      },
+    }),
+    hasMerchantReturnPolicy: product.isReturnable
+      ? {
+          "@type": "MerchantReturnPolicy",
+          applicableCountry: "IN",
+          returnPolicyCategory: "https://schema.org/MerchantReturnFiniteReturnWindow",
+          merchantReturnDays: effectiveReturnDaysForSeo,
+          // Confirmed against the live Returns policy page text
+          // ("Return pickup is completely free") rather than assumed.
+          returnFees: "https://schema.org/FreeReturn",
+          // Flagged by Search Console (2026-10-03, "Merchant listings
+          // structured data issues") as a missing recommended field.
+          // ReturnByMail matches how a return actually happens here --
+          // a courier pickup/return shipment, not a customer walking
+          // into the Ghaziabad shop with the item.
+          returnMethod: "https://schema.org/ReturnByMail",
+        }
+      : {
+          "@type": "MerchantReturnPolicy",
+          applicableCountry: "IN",
+          returnPolicyCategory: "https://schema.org/MerchantReturnNotPermitted",
+        },
+  };
+
   const productJsonLd = {
     "@context": "https://schema.org",
     "@type": "Product",
@@ -698,76 +761,40 @@ function ProductDetails() {
       "@type": "Brand",
       name: product.brand || "Mittal Collections",
     },
-    offers: {
-      "@type": "Offer",
-      priceCurrency: "INR",
-      // displayPrice/displayStock (not the flat product.price/stock,
-      // which only mirror the FIRST variant / SUM every variant) so
-      // this always matches whatever's actually shown on screen —
-      // otherwise a sold-out default variant with stock left in
-      // another size still reports InStock here while the visible page
-      // shows Out of Stock, a real Merchant Center suspension risk.
-      price: displayPrice,
-      availability:
-        displayStock > 0
-          ? "https://schema.org/InStock"
-          : "https://schema.org/OutOfStock",
-      url: shareUrl,
-      ...(shippingFeeForSeo !== undefined && {
-        shippingDetails: {
-          "@type": "OfferShippingDetails",
-          shippingRate: {
-            "@type": "MonetaryAmount",
-            value: shippingFeeForSeo,
-            currency: "INR",
-          },
-          shippingDestination: {
-            "@type": "DefinedRegion",
-            addressCountry: "IN",
-          },
-          // Matches the "Usually delivered in 3-7 business days" promise
-          // shown elsewhere on the site (Footer, delivery-info banners) —
-          // same-day Ghaziabad express delivery is handled separately as
-          // its own Google Merchant Center delivery policy, not here.
-          deliveryTime: {
-            "@type": "ShippingDeliveryTime",
-            handlingTime: {
-              "@type": "QuantitativeValue",
-              minValue: 0,
-              maxValue: 0,
-              unitCode: "DAY",
-            },
-            transitTime: {
-              "@type": "QuantitativeValue",
-              minValue: 3,
-              maxValue: 7,
-              unitCode: "DAY",
-            },
-          },
-        },
-      }),
-      hasMerchantReturnPolicy: product.isReturnable
-        ? {
-            "@type": "MerchantReturnPolicy",
-            applicableCountry: "IN",
-            returnPolicyCategory: "https://schema.org/MerchantReturnFiniteReturnWindow",
-            merchantReturnDays: effectiveReturnDaysForSeo,
-            // Confirmed against the live Returns policy page text
-            // ("Return pickup is completely free") rather than assumed.
-            returnFees: "https://schema.org/FreeReturn",
-            // Flagged by Search Console (2026-10-03, "Merchant listings
-            // structured data issues") as a missing recommended field.
-            // ReturnByMail matches how a return actually happens here --
-            // a courier pickup/return shipment, not a customer walking
-            // into the Ghaziabad shop with the item.
-            returnMethod: "https://schema.org/ReturnByMail",
-          }
+    // One Offer per size for a sized product -- exactly what render.js
+    // sends bots for the same URL. A single Offer for the selected size
+    // here used to replace the bot's offer list once the page rendered,
+    // leaving two conflicting Product entities for one URL. Each size's
+    // url carries ?size= so it opens on that size (and its price).
+    offers:
+      product.variants?.length > 1
+        ? product.variants.map((variant) => ({
+            "@type": "Offer",
+            priceCurrency: "INR",
+            price: variant.price,
+            availability:
+              variant.stock > 0
+                ? "https://schema.org/InStock"
+                : "https://schema.org/OutOfStock",
+            url: `${canonicalUrl}?size=${encodeURIComponent(variant.size)}`,
+            sku: `${product._id}-${variant.size}`,
+            name: `${isHindi ? product.nameHi : product.name} - ${variant.size}`,
+            ...offerTerms,
+          }))
         : {
-            "@type": "MerchantReturnPolicy",
-            applicableCountry: "IN",
-            returnPolicyCategory: "https://schema.org/MerchantReturnNotPermitted",
+            "@type": "Offer",
+            priceCurrency: "INR",
+            // displayPrice/displayStock (not the flat product.price/stock,
+            // which only mirror the FIRST variant / SUM every variant) so
+            // this always matches whatever's actually shown on screen.
+            price: displayPrice,
+            availability:
+              displayStock > 0
+                ? "https://schema.org/InStock"
+                : "https://schema.org/OutOfStock",
+            url: shareUrl,
+            ...offerTerms,
           },
-    },
     ...(reviewStats.totalReviews > 0 && {
       aggregateRating: {
         "@type": "AggregateRating",
@@ -830,7 +857,7 @@ function ProductDetails() {
   // unchanged — still toggle-driven via t().
   const categoryUrlPrefix = isHindi ? "/hi" : "";
   const breadcrumbItemsForSeo = [
-    { name: isHindi ? "होम" : "Home", path: "/" },
+    { name: isHindi ? "होम" : "Home", path: isHindi ? "/hi" : "/" },
     ...(product.category
       ? [
           {
@@ -861,7 +888,7 @@ function ProductDetails() {
   // mutation with no re-render) -- a silent mixed-language/wrong-
   // canonical state one click away from every Hindi product page.
   const breadcrumbItems = [
-    { name: t("Home", "होम"), path: "/" },
+    { name: t("Home", "होम"), path: isHindi ? "/hi" : "/" },
     ...(product.category
       ? [
           {
@@ -1206,9 +1233,9 @@ function ProductDetails() {
           <p
             className={`text-sm font-semibold ${
               viewCount > 0 ? "mb-2" : "mb-4"
-            } ${getStockStatus(displayStock).className}`}
+            } ${getStockStatus(displayStock, t).className}`}
           >
-            {getStockStatus(displayStock).label}
+            {getStockStatus(displayStock, t).label}
           </p>
 
           {viewCount > 0 && (

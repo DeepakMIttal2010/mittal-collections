@@ -20,6 +20,8 @@ import { subcategorySeoName } from "../utils/subcategorySeoName";
 import { useLanguage } from "../context/LanguageContext";
 import { FaGift, FaFilter, FaTimes } from "react-icons/fa";
 import { trackFilter } from "../utils/analytics";
+import { isHindiPath } from "../utils/hindiPath";
+import { imgUrl } from "../services/api";
 
 // Sizing/buying help callouts shown on the matching category's product
 // listing — curtains gets the interactive calculator (real measurement
@@ -136,6 +138,9 @@ function friendlyGroupLabelHi(groupLabel) {
   if (groupLabel === "By Material") return "मटीरियल";
   if (groupLabel === "Size") return "लोकप्रिय आयाम";
   if (groupLabel === "Bed Size") return "बेड टाइप";
+  if (groupLabel === "By Brand") return "ब्रांड";
+  if (groupLabel === "By Pattern") return "पैटर्न";
+  if (groupLabel === "By Design") return "डिज़ाइन";
 
   return groupLabel;
 }
@@ -223,7 +228,7 @@ function CategoryPage() {
   // The URL prefix is what actually decides which content is indexable
   // in which language (see render.js and sitemap.js) — same pattern
   // ArticleDetail.jsx already established for /hi/articles/:slug.
-  const isHindi = location.pathname.startsWith("/hi/");
+  const isHindi = isHindiPath(location.pathname);
   // Every internal link/navigate() that points at another category page
   // threads this through, so a visitor already on a /hi/ URL never gets
   // bounced to an English destination (and vice versa) — this used to be
@@ -716,7 +721,7 @@ function CategoryPage() {
   const categoryPath = `${isHindi ? "/hi" : ""}/category/${categorySlug}`;
 
   const breadcrumbItemsForSeo = [
-    { name: isHindi ? "होम" : "Home", path: "/" },
+    { name: isHindi ? "होम" : "Home", path: isHindi ? "/hi" : "/" },
     { name: displayCategoryName, path: categoryPath },
     ...(activeSubcategory ? [{ name: displaySubcategoryName }] : []),
   ];
@@ -729,7 +734,7 @@ function CategoryPage() {
   // exception: they point at a different page type (size calculators/
   // static guides) with no Hindi URL of their own yet.
   const breadcrumbItems = [
-    { name: t("Home", "होम"), path: "/" },
+    { name: t("Home", "होम"), path: isHindi ? "/hi" : "/" },
     {
       name: t(category.name, category.nameHi),
       path: categoryPath,
@@ -761,8 +766,14 @@ function CategoryPage() {
     ? subcategoryGroups.find((g) => g.label === activeSubcategory.groupLabel)
     : null;
 
+  // Only when it also holds every one of the category's products -- see
+  // the rule's comment in render.js (subcategoryCoversWholeCategory).
   const activeSubcategoryIsOnlyGroupOption =
-    activeSubcategory && activeSubcategoryOwnGroup?.items.length === 1;
+    activeSubcategory &&
+    activeSubcategoryOwnGroup?.items.length === 1 &&
+    (typeof activeSubcategory.productCount !== "number" ||
+      typeof category?.productCount !== "number" ||
+      activeSubcategory.productCount >= category.productCount);
 
   const categoryUrlSuffix = `/category/${categorySlug}${
     activeSubcategoryIsOnlyGroupOption ? "" : subcategorySlug ? `/${subcategorySlug}` : ""
@@ -823,8 +834,10 @@ function CategoryPage() {
         // descriptionHi/subtitleHi now exist (SEO/conversion audit,
         // 2026-10-20) -- t() falls back to the English text on its own
         // when a given category/subcategory hasn't been backfilled yet.
-        description={truncateAtWordBoundary(`${pageTitle}: pan-India delivery, 24hr in Ghaziabad. ${t(activeSubcategory?.subtitle, activeSubcategory?.subtitleHi) || t(category.description, category.descriptionHi) || ""}`.trim())}
+        description={truncateAtWordBoundary(`${pageTitle}: ${isHindi ? "पूरे भारत में डिलीवरी, ग़ाज़ियाबाद में 24 घंटे में।" : "pan-India delivery, 24hr in Ghaziabad."} ${t(activeSubcategory?.subtitle, activeSubcategory?.subtitleHi) || t(category.description, category.descriptionHi) || ""}`.trim())}
         url={canonicalCategoryUrl}
+        // Same category photo the bot-rendered page uses (was the site-wide fallback).
+        image={category.image ? imgUrl(category.image) : undefined}
         lang={isHindi ? "hi" : "en"}
         alternateLangs={alternateLangs}
         jsonLd={[buildBreadcrumbJsonLd(breadcrumbItemsForSeo), itemListJsonLd]}
@@ -1054,7 +1067,7 @@ function CategoryPage() {
               )}
             </p>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 min-w-0 max-w-full">
               <button
                 type="button"
                 onClick={openFilterPanel}
@@ -1076,7 +1089,7 @@ function CategoryPage() {
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
-                className="border border-slate-300 rounded-lg text-sm text-slate-700 px-3 py-2 outline-none"
+                className="border border-slate-300 rounded-lg text-sm text-slate-700 px-3 py-2 outline-none min-w-0 max-w-full"
               >
                 {sortOptions.map((opt) => (
                   <option key={opt.value} value={opt.value}>

@@ -11,7 +11,7 @@ import {
   deleteLedger,
 } from "../../../services/adminAccountsService";
 
-const emptyLedger = (group = "") => ({ name: "", group, openingBalance: "", openingSide: "Dr", notes: "" });
+const emptyLedger = (group = "") => ({ name: "", group, openingBalance: "", openingSide: "Dr", notes: "", isActive: true });
 
 // Group / sub-group / ledger tree, Tally style, with each ledger's closing
 // balance and each group's total (sum of everything below it).
@@ -82,6 +82,9 @@ function ChartOfAccounts({ groups, ledgers, openingDifference, onChanged, notify
       openingSide: ledgerForm.openingSide,
       notes: ledgerForm.notes,
     };
+    // A ledger with vouchers can't be deleted -- deactivating hides it from
+    // new vouchers instead. System ledgers are always active.
+    if (ledgerEditingId && !ledgerForm.systemKey) body.isActive = ledgerForm.isActive;
     if (ledgerEditingId && ledgerForm.systemKey) delete body.group; // system ledgers can't move
 
     const ok = await submit(
@@ -221,6 +224,16 @@ function ChartOfAccounts({ groups, ledgers, openingDifference, onChanged, notify
                 </select>
               </div>
             </Field>
+            {ledgerEditingId && !ledgerForm.systemKey && (
+              <label className="flex items-center gap-2 text-sm text-slate-600 self-end pb-2">
+                <input
+                  type="checkbox"
+                  checked={ledgerForm.isActive}
+                  onChange={(e) => setLedgerForm((p) => ({ ...p, isActive: e.target.checked }))}
+                />
+                Active (untick to hide it from new vouchers)
+              </label>
+            )}
             <Field label="Notes">
               <input type="text" maxLength={300} value={ledgerForm.notes} onChange={setL("notes")} className={inputClass} />
             </Field>
@@ -284,6 +297,7 @@ function ChartOfAccounts({ groups, ledgers, openingDifference, onChanged, notify
                       openingSide: l.openingSide,
                       notes: l.notes || "",
                       systemKey: l.systemKey,
+                      isActive: l.isActive,
                     });
                   }}
                   onDeleteLedger={removeLedger}

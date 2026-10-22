@@ -16,6 +16,7 @@ import { getFooterLinks } from "../../services/footerLinkService";
 import { useIsGhaziabadVisitor } from "../../hooks/useIsGhaziabadVisitor";
 import { useLanguage } from "../../context/LanguageContext";
 import { DELIVERY_AREAS } from "../../utils/deliveryAreas";
+import { isHindiPath } from "../../utils/hindiPath";
 
 const SOCIAL_ICONS = [
   { key: "facebook", icon: FaFacebookF, label: "Facebook" },
@@ -27,7 +28,7 @@ const SOCIAL_ICONS = [
 function Footer() {
   const isGhaziabad = useIsGhaziabadVisitor();
   const { t } = useLanguage();
-  const isHindi = useLocation().pathname.startsWith("/hi/");
+  const isHindi = isHindiPath(useLocation().pathname);
   const [categories, setCategories] = useState([]);
   const [subcategories, setSubcategories] = useState([]);
   const [settings, setSettings] = useState({});

@@ -346,6 +346,7 @@ export const updateReturnStatus = async (req, res) => {
         $set: {
           status,
           ...(adminNote !== undefined ? { adminNote } : {}),
+          ...(status === "Refunded" && originalStatus !== "Refunded" ? { refundedAt: new Date() } : {}),
         },
       },
       { new: true },
@@ -374,7 +375,7 @@ export const updateReturnStatus = async (req, res) => {
     if (["Picked Up", "Refunded"].includes(status)) {
       const claimedStock = await ReturnRequest.findOneAndUpdate(
         { _id: returnRequest._id, stockRestored: false },
-        { $set: { stockRestored: true } },
+        { $set: { stockRestored: true, stockRestoredAt: new Date() } },
       );
 
       if (claimedStock) {

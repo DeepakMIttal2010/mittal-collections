@@ -711,12 +711,17 @@ export const updateOfflineSale = async (req, res) => {
     sale.lastEditedBy = req.user._id;
     sale.editReason =
       typeof req.body.editReason === "string" ? req.body.editReason.trim() : "";
+    await sale.save();
+
     // Releases the claim from the top of this function — the sale was
     // never really voided, `voided: true` was only ever a short-lived
-    // mutex against a concurrent void racing this edit.
-    sale.voided = false;
-
-    await sale.save();
+    // mutex against a concurrent void racing this edit. This MUST be an
+    // explicit write: `sale` is the document as it was BEFORE the claim
+    // (voided: false in memory), so the old `sale.voided = false` was a
+    // no-op that Mongoose never saved -- every edited sale stayed
+    // `voided: true` in the database (dropped out of revenue, couldn't be
+    // edited again, and deleting it skipped the stock restore).
+    await releaseClaim();
     await saveSaleCost(sale._id, safeItems, stockResult.products);
     await postSafely(syncPosSale, sale._id);
 

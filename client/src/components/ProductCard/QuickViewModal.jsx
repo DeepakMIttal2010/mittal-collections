@@ -98,7 +98,7 @@ function QuickViewModal({ product, onClose, isHindi = false }) {
 
         <div className="p-6 flex flex-col">
           <p className="text-sm text-slate-500 mb-1">
-            {product.category?.name}
+            {t(product.category?.name, product.category?.nameHi)}
           </p>
 
           <h2 className="text-xl font-bold text-slate-900 mb-2">
@@ -125,10 +125,10 @@ function QuickViewModal({ product, onClose, isHindi = false }) {
 
           <p
             className={`text-sm font-semibold mb-3 ${
-              getStockStatus(product.stock).className
+              getStockStatus(product.stock, t).className
             }`}
           >
-            {getStockStatus(product.stock).label}
+            {getStockStatus(product.stock, t).label}
           </p>
 
           <p className="text-sm text-slate-600 leading-relaxed mb-6 line-clamp-4">

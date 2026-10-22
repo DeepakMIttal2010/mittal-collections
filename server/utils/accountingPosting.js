@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import mongoose from "mongoose";
 
 import Order from "../models/Order.js";
 import OrderCost from "../models/OrderCost.js";
@@ -74,7 +75,11 @@ const reconcileSource = async (kind, id, desired, ctx) => {
 
   if (desired === undefined) return;
 
-  const existing = await Voucher.findOne({ "source.kind": kind, "source.id": String(id), voided: false }).lean();
+  // A full sync preloads every live automatic voucher once (ctx.voucherIndex)
+  // instead of one query per source document.
+  const existing = ctx.voucherIndex
+    ? ctx.voucherIndex.get(`${kind}|${String(id)}`) || null
+    : await Voucher.findOne({ "source.kind": kind, "source.id": String(id), voided: false }).lean();
 
   if (desired === null) {
     if (!existing) return;
@@ -178,11 +183,12 @@ const orderCogsDesired = (order, cost, L) => {
 };
 
 // The courier was paid once the parcel went out, even if the order was
-// cancelled afterwards, so this follows "was it ever shipped", not the
-// current status.
+// cancelled -- or the cancelled order tidied away (soft-deleted) -- later,
+// so this follows "was it ever shipped" only, not the status or the
+// active flag.
 const orderCourierDesired = (order, cost, L) => {
   const shipped = shipDateOf(order);
-  if (order.isActive === false || !shipped) return null;
+  if (!shipped) return null;
   if (!cost) return undefined;
 
   const amount = paise(cost.courierCharge);
@@ -211,7 +217,9 @@ const returnRefundDesired = (rr, order, L) => {
 
   return {
     type: "Journal",
-    date: noonIst(rr.updatedAt),
+    // When it was refunded -- not updatedAt, which moves on every later
+    // touch (admin note, "seen" flag) and would re-date the voucher.
+    date: noonIst(rr.refundedAt || rr.updatedAt),
     narration: `Sales return - order #${shortId(order._id)} (${rr.productName})`,
     // Prepaid refunds come out of the Razorpay balance; a COD refund is paid by the owner.
     entries: lines([L("sales-returns"), "Dr", amount], [L(order.paymentMethod === "Razorpay" ? "razorpay" : "capital"), "Cr", amount]),
@@ -230,15 +238,20 @@ const returnStockDesired = (rr, order, cost, L) => {
 
   return {
     type: "Journal",
-    date: noonIst(rr.updatedAt),
+    date: noonIst(rr.stockRestoredAt || rr.updatedAt),
     narration: `Returned stock back in hand - order #${shortId(order._id)} (${rr.productName})`,
     entries: lines([L("stock"), "Dr", amount], [L("cogs"), "Cr", amount]),
   };
 };
 
 // ----------------------------------------------------------------- POS
+// `voided: true` WITHOUT voidedAt is posController's short-lived edit /
+// delete mutex, not a real void: leave the books alone while it is held
+// (a real void always stamps voidedAt; a deleted sale is swept as an orphan).
+const posVoidState = (sale) => (sale.voided ? (sale.voidedAt ? null : undefined) : "live");
+
 const posSaleDesired = (sale, L) => {
-  if (sale.voided) return null;
+  if (posVoidState(sale) !== "live") return posVoidState(sale);
 
   const total = paise(sale.totalAmount);
   const discount = paise(sale.discountAmount);
@@ -257,7 +270,7 @@ const posSaleDesired = (sale, L) => {
 };
 
 const posCogsDesired = (sale, cost, L) => {
-  if (sale.voided) return null;
+  if (posVoidState(sale) !== "live") return posVoidState(sale);
   if (!cost) return undefined;
 
   const amount = costTotals(cost.items);
@@ -304,7 +317,9 @@ const makeContext = async () => {
 };
 
 const syncOrderWith = async (order, ctx) => {
-  const cost = await OrderCost.findOne({ order: order._id }).lean();
+  const cost = ctx.orderCosts
+    ? ctx.orderCosts.get(String(order._id)) || null
+    : await OrderCost.findOne({ order: order._id }).lean();
   const id = String(order._id);
 
   await reconcileSource("order-sale", id, orderSaleDesired(order, ctx.L), ctx);
@@ -320,15 +335,27 @@ export const syncOrder = async (orderId) => {
   const ctx = await makeContext();
   const order = await Order.findById(orderId).lean();
 
-  if (order) await syncOrderWith(order, ctx);
-  else for (const kind of ["order-sale", "order-cogs", "order-courier"]) await reconcileSource(kind, orderId, null, ctx);
+  if (order) {
+    await syncOrderWith(order, ctx);
+  } else {
+    // Permanently deleted: the sale and its cost of goods go, but a courier
+    // charge that was really paid stays in the books.
+    for (const kind of ["order-sale", "order-cogs"]) await reconcileSource(kind, orderId, null, ctx);
+    if (!(await courierWasPaid(orderId))) await reconcileSource("order-courier", orderId, null, ctx);
+  }
 
   return ctx.stats;
 };
 
 const syncReturnWith = async (rr, ctx) => {
-  const order = await Order.findById(rr.order).lean();
-  const cost = order ? await OrderCost.findOne({ order: order._id }).lean() : null;
+  const order = ctx.orderById
+    ? ctx.orderById.get(String(rr.order)) || null
+    : await Order.findById(rr.order).lean();
+  const cost = !order
+    ? null
+    : ctx.orderCosts
+      ? ctx.orderCosts.get(String(order._id)) || null
+      : await OrderCost.findOne({ order: order._id }).lean();
 
   await reconcileSource("return-refund", String(rr._id), returnRefundDesired(rr, order, ctx.L), ctx);
   await reconcileSource("return-stock", String(rr._id), returnStockDesired(rr, order, cost, ctx.L), ctx);
@@ -345,7 +372,9 @@ export const syncReturn = async (returnId) => {
 };
 
 const syncPosSaleWith = async (sale, ctx) => {
-  const cost = await OfflineSaleCost.findOne({ sale: sale._id }).lean();
+  const cost = ctx.saleCosts
+    ? ctx.saleCosts.get(String(sale._id)) || null
+    : await OfflineSaleCost.findOne({ sale: sale._id }).lean();
   const id = String(sale._id);
 
   await reconcileSource("pos-sale", id, posSaleDesired(sale, ctx.L), ctx);
@@ -369,7 +398,7 @@ export const syncAllExpenses = async () => {
   const expenses = await Expense.find().lean();
 
   for (const expense of expenses) await reconcileSource("expense", String(expense._id), expenseDesired(expense, ctx.L), ctx);
-  await sweepOrphans(SOURCE_KINDS.expense, new Set(expenses.map((e) => String(e._id))), ctx);
+  await sweepOrphans(SOURCE_KINDS.expense, new Set(expenses.map((e) => String(e._id))), ctx, Expense);
 
   return ctx.stats;
 };
@@ -448,9 +477,15 @@ const computeStockValuePaise = async () => {
 // Brings the Stock in Hand ledger up to the live valuation. More stock than
 // the books know about (an upload) is stock introduced from the owner's
 // capital; less stock without a matching sale is a write-off.
+// Book stock counts EVERY live voucher, with no "up to today" cap: a sync
+// voucher can be dated after today (moved past a locked period), and capping
+// would hide it from the next sync, which would then post the same
+// difference again on every run.
+const ALL_DATES = new Date("2999-12-31T12:00:00Z");
+
 export const syncStockValue = async (ctx) => {
   const valuation = await computeStockValuePaise();
-  const balances = await getLedgerBalances(new Date());
+  const balances = await getLedgerBalances(ALL_DATES);
   const stockId = String(ctx.L("stock"));
   const book = balances.find((b) => String(b.ledger._id) === stockId)?.netPaise || 0;
   const diff = valuation - book;
@@ -478,17 +513,38 @@ export const syncStockValue = async (ctx) => {
 };
 
 // ------------------------------------------------------------- full sync
+// The lock carries an owner token: only the run that took it can renew or
+// release it, so a slow run whose lease ran out can never clear a newer
+// run's lock (which would let a third run in alongside it).
+const LOCK_LEASE_MS = 10 * 60 * 1000;
+
 const acquireLock = async () => {
   const now = new Date();
+  const token = crypto.randomUUID();
   const locked = await AccountingSettings.findOneAndUpdate(
     { key: "main", $or: [{ syncLockUntil: null }, { syncLockUntil: { $lt: now } }] },
-    { $set: { syncLockUntil: new Date(now.getTime() + 2 * 60 * 1000) } },
+    { $set: { syncLockUntil: new Date(now.getTime() + LOCK_LEASE_MS), syncLockOwner: token } },
     { returnDocument: "after" },
   );
-  return !!locked;
+  return locked ? token : null;
 };
 
-const releaseLock = () => AccountingSettings.updateOne({ key: "main" }, { $set: { syncLockUntil: null } });
+// Extends the lease; false if this run no longer holds the lock.
+const renewLock = async (token) => {
+  const r = await AccountingSettings.updateOne(
+    { key: "main", syncLockOwner: token, syncLockUntil: { $gt: new Date() } },
+    { $set: { syncLockUntil: new Date(Date.now() + LOCK_LEASE_MS) } },
+  );
+  return r.matchedCount === 1;
+};
+
+const releaseLock = (token) =>
+  AccountingSettings.updateOne({ key: "main", syncLockOwner: token }, { $set: { syncLockUntil: null, syncLockOwner: null } });
+
+const courierWasPaid = (orderId) =>
+  mongoose.isValidObjectId(String(orderId))
+    ? OrderCost.exists({ order: String(orderId), courierCharge: { $gt: 0 } })
+    : null;
 
 const SOURCE_KINDS = {
   order: ["order-sale", "order-cogs", "order-courier"],
@@ -498,12 +554,20 @@ const SOURCE_KINDS = {
 };
 
 // Voids vouchers whose source document no longer exists (a deleted POS
-// sale, a deleted expense...).
-const sweepOrphans = async (kinds, liveIds, ctx) => {
-  const live = await Voucher.find({ "source.kind": { $in: kinds }, voided: false }).select("source").lean();
+// sale, a deleted expense...). `liveIds` was loaded earlier in the run, so
+// before voiding re-check that the document really is gone -- one created
+// meanwhile (whose voucher a hook just posted) must not be swept. A
+// permanently deleted order keeps a courier charge that was really paid.
+const sweepOrphans = async (kinds, liveIds, ctx, Model) => {
+  const live = await Voucher.find({ "source.kind": { $in: kinds }, voided: false }).select("source date fy number type entries totalPaise").lean();
 
   for (const v of live) {
-    if (!liveIds.has(v.source.id)) await reconcileSource(v.source.kind, v.source.id, null, ctx);
+    const id = v.source.id;
+    if (liveIds.has(id)) continue;
+    if (!mongoose.isValidObjectId(id) || (await Model.exists({ _id: id }))) continue;
+    if (v.source.kind === "order-courier" && (await courierWasPaid(id))) continue;
+
+    await reconcileSource(v.source.kind, id, null, { ...ctx, voucherIndex: new Map([[`${v.source.kind}|${id}`, v]]) });
   }
 };
 
@@ -513,29 +577,42 @@ const sweepOrphans = async (kinds, liveIds, ctx) => {
 export const reconcileAll = async ({ stock = true } = {}) => {
   const ctx = await makeContext();
 
-  if (!(await acquireLock())) return { busy: true, ...ctx.stats };
+  const token = await acquireLock();
+  if (!token) return { busy: true, ...ctx.stats };
 
   try {
-    const orders = await Order.find().lean();
+    // Load everything once (a handful of queries) instead of several
+    // queries per document.
+    const [orders, returns, sales, expenses, orderCosts, saleCosts, liveVouchers] = await Promise.all([
+      Order.find().lean(),
+      ReturnRequest.find().lean(),
+      OfflineSale.find().lean(),
+      Expense.find().lean(),
+      OrderCost.find().lean(),
+      OfflineSaleCost.find().lean(),
+      Voucher.find({ "source.kind": { $type: "string" }, voided: false }).lean(),
+    ]);
+
+    ctx.orderById = new Map(orders.map((o) => [String(o._id), o]));
+    ctx.orderCosts = new Map(orderCosts.map((c) => [String(c.order), c]));
+    ctx.saleCosts = new Map(saleCosts.map((c) => [String(c.sale), c]));
+    ctx.voucherIndex = new Map(liveVouchers.map((v) => [`${v.source.kind}|${v.source.id}`, v]));
+
     for (const order of orders) await syncOrderWith(order, ctx);
-    await sweepOrphans(SOURCE_KINDS.order, new Set(orders.map((o) => String(o._id))), ctx);
-
-    const returns = await ReturnRequest.find().lean();
     for (const rr of returns) await syncReturnWith(rr, ctx);
-    await sweepOrphans(SOURCE_KINDS.return, new Set(returns.map((r) => String(r._id))), ctx);
-
-    const sales = await OfflineSale.find().lean();
     for (const sale of sales) await syncPosSaleWith(sale, ctx);
-    await sweepOrphans(SOURCE_KINDS.pos, new Set(sales.map((s) => String(s._id))), ctx);
-
-    const expenses = await Expense.find().lean();
     for (const expense of expenses) await reconcileSource("expense", String(expense._id), expenseDesired(expense, ctx.L), ctx);
-    await sweepOrphans(SOURCE_KINDS.expense, new Set(expenses.map((e) => String(e._id))), ctx);
 
-    const stockResult = stock ? await syncStockValue(ctx) : null;
+    await sweepOrphans(SOURCE_KINDS.order, new Set(orders.map((o) => String(o._id))), ctx, Order);
+    await sweepOrphans(SOURCE_KINDS.return, new Set(returns.map((r) => String(r._id))), ctx, ReturnRequest);
+    await sweepOrphans(SOURCE_KINDS.pos, new Set(sales.map((s) => String(s._id))), ctx, OfflineSale);
+    await sweepOrphans(SOURCE_KINDS.expense, new Set(expenses.map((e) => String(e._id))), ctx, Expense);
+
+    // Only post a stock difference while this run still holds the lock.
+    const stockResult = stock && (await renewLock(token)) ? await syncStockValue(ctx) : null;
 
     return { ...ctx.stats, stock: stockResult };
   } finally {
-    await releaseLock();
+    await releaseLock(token);
   }
 };

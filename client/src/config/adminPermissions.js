@@ -89,7 +89,14 @@ export const PERMISSION_KEYS = PERMISSION_GROUPS.flatMap((group) =>
 
 // Longest-"to"-first so a nested path (e.g. /admin/products/bulk-import)
 // matches its own entry rather than the shorter /admin/products prefix.
-const PATH_ENTRIES = PERMISSION_GROUPS.flatMap((group) => group.items).sort(
+// Pages reached from inside another section rather than having their own
+// permission: Cost/Price Auto-Fill rules are saved through the "settings"
+// endpoint, so they follow that permission (before this, no entry meant the
+// sidebar hid the page from every restricted role, even ones with
+// "settings", while the URL itself stayed open to all of them).
+const EXTRA_PATHS = [{ key: "settings", to: "/admin/pricing-rules" }];
+
+const PATH_ENTRIES = [...PERMISSION_GROUPS.flatMap((group) => group.items), ...EXTRA_PATHS].sort(
   (a, b) => b.to.length - a.to.length,
 );
 

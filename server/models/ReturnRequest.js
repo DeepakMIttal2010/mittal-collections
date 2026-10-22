@@ -79,6 +79,12 @@ const returnRequestSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+
+    // When the refund happened / when the item was back in stock. The
+    // accounting vouchers are dated from these (updatedAt moves on every
+    // later touch -- an admin note, the "seen" flag).
+    refundedAt: { type: Date, default: null },
+    stockRestoredAt: { type: Date, default: null },
   },
   {
     timestamps: true,

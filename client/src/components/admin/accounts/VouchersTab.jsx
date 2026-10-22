@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import Field from "./shared";
 import { inputClass, VOUCHER_TYPES, istToday, rupees, displayDate, toPaise } from "./helpers";
@@ -19,7 +19,10 @@ const blankForm = () => ({
 });
 
 function VouchersTab({ ledgers, notify, onChanged }) {
-  const [period, setPeriod] = useState("all"); // "YYYY-MM" | "all"
+  // This month by default: the server returns at most 500 vouchers, and
+  // automatic posting adds them steadily, so "all time" would quietly cut
+  // off the oldest.
+  const [period, setPeriod] = useState(() => istToday().slice(0, 7)); // "YYYY-MM" | "all"
   const [type, setType] = useState("");
   const [ledgerFilter, setLedgerFilter] = useState("");
   const [vouchers, setVouchers] = useState([]);
@@ -42,7 +45,12 @@ function VouchersTab({ ledgers, notify, onChanged }) {
     return [...byGroup.entries()].sort((a, b) => a[0].localeCompare(b[0]));
   }, [activeLedgers]);
 
+  // Only the latest request may update the table: changing Period/Type
+  // quickly must not let a slower, older response overwrite a newer one.
+  const latestRequest = useRef(0);
+
   const load = useCallback(async () => {
+    const requestId = ++latestRequest.current;
     setLoading(true);
 
     const filters = { type, ledger: ledgerFilter };
@@ -54,6 +62,7 @@ function VouchersTab({ ledgers, notify, onChanged }) {
     }
 
     const res = await getVouchers(filters);
+    if (requestId !== latestRequest.current) return;
     if (res.success) setVouchers(res.vouchers);
     else notify(res.message || "Could not load vouchers.");
 
@@ -297,6 +306,12 @@ function VouchersTab({ ledgers, notify, onChanged }) {
             </button>
           </div>
         </div>
+      )}
+
+      {vouchers.length >= 500 && (
+        <p className="mb-3 text-sm bg-amber-50 border border-amber-200 rounded-lg px-4 py-2 text-amber-800">
+          Showing the latest 500 vouchers only. Choose a month or a type to see older ones.
+        </p>
       )}
 
       <div className="border border-slate-200 rounded-xl bg-white overflow-x-auto">

@@ -67,6 +67,10 @@ voucherSchema.pre("validate", function checkBalance() {
 
 voucherSchema.index({ type: 1, fy: 1, seq: 1 }, { unique: true });
 voucherSchema.index({ "entries.ledger": 1, date: 1 });
+// Plain (non-partial) index for the lookup by source: the partial unique
+// index below can't serve an equality query, so without this every lookup
+// scanned the whole collection.
+voucherSchema.index({ "source.kind": 1, "source.id": 1, voided: 1 });
 // One live voucher per source document -- what makes auto-posting idempotent.
 voucherSchema.index(
   { "source.kind": 1, "source.id": 1 },
