@@ -1,5 +1,7 @@
 import mongoose from "mongoose";
 
+import { seoFieldsSchema } from "./seoFields.js";
+
 const subcategorySchema = new mongoose.Schema(
   {
     category: {
@@ -58,6 +60,9 @@ const subcategorySchema = new mongoose.Schema(
       default: "",
       trim: true,
     },
+
+    // seoTitle/seoDescription/aboutText (+Hi) -- see seoFields.js
+    ...seoFieldsSchema,
 
     displayOrder: {
       type: Number,

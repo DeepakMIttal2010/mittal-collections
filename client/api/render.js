@@ -658,6 +658,7 @@ const buildCategoryBodyHtml = (
   categorySlug,
   subcategories,
   isHindi = false,
+  about = null,
 ) => {
   const breadcrumbHtml = buildBreadcrumbHtml(breadcrumbItems);
   const categoryUrlPrefix = isHindi ? `${SITE_URL}/hi` : SITE_URL;
@@ -734,6 +735,11 @@ const buildCategoryBodyHtml = (
     <ul>
       ${productsHtml}
     </ul>
+    ${
+      about?.paragraphs?.length
+        ? `<section><h2>${escapeHtml(about.heading)}</h2>${about.paragraphs.map((para) => `<p>${escapeHtml(para)}</p>`).join("")}</section>`
+        : ""
+    }
   `;
 };
 
@@ -920,7 +926,16 @@ async function buildCategoryMeta({ categorySlug, subcategorySlug, isHindi }) {
     : subcategory
       ? seoPhrase || `${displaySubcategoryName} - ${displayCategoryName}`
       : displayCategoryName;
-  const title = `${pageTitle} | ${SITE_NAME}`;
+  // Hand-written search copy (Category/Subcategory SEO fields) wins
+  // when filled -- same rule as CategoryPage.jsx.
+  const seoSource = subcategory || category;
+  const customSeoTitle = (isHindi ? seoSource.seoTitleHi : seoSource.seoTitle) || "";
+  const customSeoDescription = (isHindi ? seoSource.seoDescriptionHi : seoSource.seoDescription) || "";
+  const aboutParagraphs = ((isHindi ? seoSource.aboutTextHi : seoSource.aboutText) || "")
+    .split(/\n\s*\n/)
+    .map((para) => para.trim())
+    .filter(Boolean);
+  const title = `${customSeoTitle || pageTitle} | ${SITE_NAME}`;
   const headingText = subcategory
     ? seoPhrase || `${displayCategoryName} / ${displaySubcategoryName}`
     : displayCategoryName;
@@ -934,7 +949,7 @@ async function buildCategoryMeta({ categorySlug, subcategorySlug, isHindi }) {
     ? (isHindi ? subcategory.subtitleHi : "") || subcategory.subtitle || ""
     : (isHindi ? category.descriptionHi : "") || category.description || "";
   const description = truncateAtWordBoundary(
-    `${pageTitle}: ${deliveryLine(isHindi)}${isHindi ? "।" : "."} ${bodyText}`.trim(),
+    customSeoDescription || `${pageTitle}: ${deliveryLine(isHindi)}${isHindi ? "।" : "."} ${bodyText}`.trim(),
   );
 
   // Mirrors CategoryPage.jsx's itemListJsonLd -- same endpoints/params it
@@ -994,6 +1009,10 @@ async function buildCategoryMeta({ categorySlug, subcategorySlug, isHindi }) {
       category.slug,
       categorySubcategories,
       isHindi,
+      {
+        heading: `${isHindi ? "जानकारी:" : "About"} ${seoPhrase || (isHindi ? seoSource.nameHi || seoSource.name : seoSource.name)}`,
+        paragraphs: aboutParagraphs,
+      },
     ),
     // Real-user-only, same pattern as buildProductMeta's own preloadData/
     // prepaintHtml (see its comment) -- categorySlug/subcategorySlug ride

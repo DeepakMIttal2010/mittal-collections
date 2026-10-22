@@ -1,4 +1,5 @@
 import Subcategory from "../models/Subcategory.js";
+import { pickSeoFields } from "../models/seoFields.js";
 import Product from "../models/Product.js";
 import SiteSettings from "../models/SiteSettings.js";
 import { deleteCloudinaryAssetsByUrl } from "../utils/cloudinaryCleanup.js";
@@ -145,6 +146,7 @@ export const addSubcategory = async (req, res) => {
       slug,
       subtitle: subtitle || "",
       subtitleHi: subtitleHi || "",
+      ...pickSeoFields(req.body),
       image: req.file ? req.file.path : "",
       displayOrder: displayOrder || 0,
       isActive: isActive === undefined ? true : isActive === "true",
@@ -212,6 +214,7 @@ export const updateSubcategory = async (req, res) => {
     if (nameHi !== undefined) subcategory.nameHi = nameHi;
     if (subtitle !== undefined) subcategory.subtitle = subtitle;
     if (subtitleHi !== undefined) subcategory.subtitleHi = subtitleHi;
+    Object.assign(subcategory, pickSeoFields(req.body));
     if (displayOrder !== undefined) subcategory.displayOrder = displayOrder;
     if (isActive !== undefined) subcategory.isActive = isActive === "true";
 

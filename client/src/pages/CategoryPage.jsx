@@ -718,6 +718,16 @@ function CategoryPage() {
       ? seoPhrase || `${displaySubcategoryName} - ${displayCategoryName}`
       : displayCategoryName;
 
+  // Hand-written search copy (admin -> Category / Subcategory "SEO"
+  // fields). Empty -> the generated title/description below, as before.
+  const seoSource = activeSubcategory || category;
+  const customSeoTitle = (isHindi ? seoSource.seoTitleHi : seoSource.seoTitle) || "";
+  const customSeoDescription = (isHindi ? seoSource.seoDescriptionHi : seoSource.seoDescription) || "";
+  const aboutParagraphs = ((isHindi ? seoSource.aboutTextHi : seoSource.aboutText) || "")
+    .split(/\n\s*\n/)
+    .map((para) => para.trim())
+    .filter(Boolean);
+
   const categoryPath = `${isHindi ? "/hi" : ""}/category/${categorySlug}`;
 
   const breadcrumbItemsForSeo = [
@@ -821,7 +831,7 @@ function CategoryPage() {
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
       <Seo
-        title={pageTitle}
+        title={customSeoTitle || pageTitle}
         // Shorter fixed wrapper than the old "Buy X online with pan-India
         // delivery at Mittal Collections - fast 24-hour delivery in
         // Ghaziabad. " (~85 chars before category.description even
@@ -834,7 +844,7 @@ function CategoryPage() {
         // descriptionHi/subtitleHi now exist (SEO/conversion audit,
         // 2026-10-20) -- t() falls back to the English text on its own
         // when a given category/subcategory hasn't been backfilled yet.
-        description={truncateAtWordBoundary(`${pageTitle}: ${isHindi ? "पूरे भारत में डिलीवरी, ग़ाज़ियाबाद में 24 घंटे में।" : "pan-India delivery, 24hr in Ghaziabad."} ${t(activeSubcategory?.subtitle, activeSubcategory?.subtitleHi) || t(category.description, category.descriptionHi) || ""}`.trim())}
+        description={customSeoDescription ? truncateAtWordBoundary(customSeoDescription) : truncateAtWordBoundary(`${pageTitle}: ${isHindi ? "पूरे भारत में डिलीवरी, ग़ाज़ियाबाद में 24 घंटे में।" : "pan-India delivery, 24hr in Ghaziabad."} ${t(activeSubcategory?.subtitle, activeSubcategory?.subtitleHi) || t(category.description, category.descriptionHi) || ""}`.trim())}
         url={canonicalCategoryUrl}
         // Same category photo the bot-rendered page uses (was the site-wide fallback).
         image={category.image ? imgUrl(category.image) : undefined}
@@ -1145,6 +1155,20 @@ function CategoryPage() {
           <ProductGrid products={sortedProducts} />
         </div>
       </div>
+
+      {/* Below the grid, so it never pushes products down on mobile. */}
+      {aboutParagraphs.length > 0 && (
+        <section className="mt-12 max-w-3xl text-slate-700">
+          <h2 className="text-lg font-semibold text-slate-800 mb-3">
+            {t("About", "जानकारी:")} {seoPhrase || t(seoSource.name, seoSource.nameHi)}
+          </h2>
+          {aboutParagraphs.map((para, i) => (
+            <p key={i} className="text-sm leading-relaxed mb-3">
+              {para}
+            </p>
+          ))}
+        </section>
+      )}
 
       {isFilterOpen && (
         <>
