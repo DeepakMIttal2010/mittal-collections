@@ -5,6 +5,7 @@ import { FaTimes, FaShoppingCart } from "react-icons/fa";
 import { useCompare } from "../context/CompareContext";
 import { useCartActions } from "../context/CartContext";
 import { useLanguage } from "../context/LanguageContext";
+import { useHindiLinks } from "../utils/hindiPath";
 import { imgUrl } from "../services/api";
 import { productUrl } from "../utils/productUrl";
 import { getStockStatus } from "../utils/stock";
@@ -72,6 +73,8 @@ function Compare() {
   const { compareItems, removeFromCompare, clearCompare } = useCompare();
   const { addToCart } = useCartActions();
   const { t, language } = useLanguage();
+  // no /hi URL for this page -- links follow the chosen language
+  const isHindi = useHindiLinks();
   const navigate = useNavigate();
   // Spec rows (fabric, size, GSM, etc.) only show if at least one
   // compared product actually has a value for that field — matches
@@ -92,7 +95,7 @@ function Compare() {
       toast.info(
         t("Please select a size on the product page", "प्रोडक्ट पेज पर साइज़ चुनें"),
       );
-      navigate(productUrl(product));
+      navigate(productUrl(product, isHindi && !!product.nameHi));
       return;
     }
 
@@ -133,7 +136,7 @@ function Compare() {
             {t("You haven't added any products to compare yet.", "आपने अभी तक तुलना के लिए कोई प्रोडक्ट नहीं जोड़ा है।")}
           </p>
           <Link
-            to="/"
+            to={isHindi ? "/hi" : "/"}
             className="inline-block bg-blue-900 hover:bg-blue-950 text-white font-semibold rounded-full px-6 py-3 transition-colors"
           >
             {t("Continue Shopping", "शॉपिंग जारी रखें")}
@@ -159,7 +162,7 @@ function Compare() {
                         <FaTimes className="text-xs" />
                       </button>
 
-                      <Link to={productUrl(product)}>
+                      <Link to={productUrl(product, isHindi && !!product.nameHi)}>
                         <img
                           src={imgUrl(product.image, "w_300,q_auto,f_auto")}
                           alt={productName}

@@ -740,7 +740,13 @@ function ProductDetails() {
     // they exist, not just the main photo — productImages already
     // excludes videos (see mediaItems above) and falls back to the
     // single product.image when no gallery array is set.
-    image: productImages.map((url) => imgUrl(url)),
+    // Main photo first: Google uses image[0] as the lead image, and the
+    // gallery array keeps upload order, so on most products images[0] was
+    // not the photo the admin picked as main (the og:image).
+    image: [
+      ...(product.image && productImages.includes(product.image) ? [product.image] : []),
+      ...productImages.filter((url) => url !== product.image),
+    ].map((url) => imgUrl(url)),
     // The product's own Mongo _id — already the unique identifier used
     // everywhere else (product URLs, the Merchant Center/Meta feed's
     // <g:id>), matching render.js's bot-prerendered version of this same

@@ -6,6 +6,7 @@ import { FaTag, FaTimes, FaGift, FaTags } from "react-icons/fa";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
+import { useHindiLinks } from "../utils/hindiPath";
 import {
   createOrder,
   verifyRazorpayPayment,
@@ -27,6 +28,8 @@ import Seo from "../components/Seo";
 function Checkout() {
   const navigate = useNavigate();
   const { t } = useLanguage();
+  // no /hi URL for this page -- links follow the chosen language
+  const isHindi = useHindiLinks();
   const { isLoggedIn, user } = useAuth();
 
   const { cartItems, totalPrice, bundleInfo, clearCart } = useCart();
@@ -501,7 +504,7 @@ function Checkout() {
             {t("View Order", "ऑर्डर देखें")}
           </Link>
           <Link
-            to="/"
+            to={isHindi ? "/hi" : "/"}
             className="text-blue-700 hover:underline text-sm"
           >
             {t("Continue Shopping", "शॉपिंग जारी रखें")}
@@ -518,7 +521,7 @@ function Checkout() {
 
         <p className="text-slate-500 mb-4">{t("Your cart is empty.", "आपका कार्ट खाली है।")}</p>
         <Link
-          to="/"
+          to={isHindi ? "/hi" : "/"}
           className="inline-block bg-blue-900 hover:bg-blue-950 text-white font-semibold rounded-full px-6 py-3 transition-colors"
         >
           {t("Continue Shopping", "शॉपिंग जारी रखें")}
@@ -724,7 +727,7 @@ function Checkout() {
             ) : (
               bundleInfo.missingCategoryLabel && (
                 <Link
-                  to={`/category/${bundleInfo.missingCategorySlug}`}
+                  to={`${isHindi ? "/hi" : ""}/category/${bundleInfo.missingCategorySlug}`}
                   className="block bg-blue-50 border border-blue-200 rounded-lg px-3 py-2.5 mt-4 hover:bg-blue-100 transition-colors"
                 >
                   <span className="text-sm font-medium text-blue-800 flex items-center gap-1.5">

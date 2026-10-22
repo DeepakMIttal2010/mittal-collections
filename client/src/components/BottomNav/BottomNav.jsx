@@ -3,6 +3,7 @@ import { FaHome, FaTh, FaShoppingCart, FaUser } from "react-icons/fa";
 
 import { useCart } from "../../context/CartContext";
 import { useLanguage } from "../../context/LanguageContext";
+import { useHindiLinks } from "../../utils/hindiPath";
 
 // Persistent mobile bottom tab bar (Flipkart/Amazon-style) — replaces the
 // old "☰ Menu" row that used to sit inside Navbar. Thumb-reachable nav
@@ -10,6 +11,7 @@ import { useLanguage } from "../../context/LanguageContext";
 function BottomNav({ onOpenCategories, categoriesOpen, onOpenAccount, accountOpen }) {
   const { totalItems, openCart } = useCart();
   const { t } = useLanguage();
+  const isHindi = useHindiLinks();
 
   const tabClass = (active) =>
     `flex flex-col items-center justify-center gap-0.5 text-[11px] font-medium transition-colors ${
@@ -24,7 +26,7 @@ function BottomNav({ onOpenCategories, categoriesOpen, onOpenAccount, accountOpe
       className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white border-t border-slate-200 grid grid-cols-4 pb-[env(safe-area-inset-bottom)]"
       aria-label="Primary"
     >
-      <NavLink to="/" end className={({ isActive }) => tabClass(isActive) + " py-2"}>
+      <NavLink to={isHindi ? "/hi" : "/"} end className={({ isActive }) => tabClass(isActive) + " py-2"}>
         <FaHome className="text-lg" />
         {t("Home", "होम")}
       </NavLink>

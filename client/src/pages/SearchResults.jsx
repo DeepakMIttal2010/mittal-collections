@@ -6,9 +6,12 @@ import ProductGrid from "../components/ProductGrid/ProductGrid";
 import ProductGridSkeleton from "../components/ProductGrid/ProductGridSkeleton";
 import Seo from "../components/Seo";
 import { useLanguage } from "../context/LanguageContext";
+import { useHindiLinks } from "../utils/hindiPath";
 
 function SearchResults() {
   const { t } = useLanguage();
+  // no /hi URL for this page -- links follow the chosen language
+  const isHindi = useHindiLinks();
   const [searchParams] = useSearchParams();
   const query = searchParams.get("q") || "";
   const categoryFromUrl = searchParams.get("category") || "";
@@ -120,7 +123,7 @@ function SearchResults() {
               <option value="">{t("All Categories", "सभी श्रेणियां")}</option>
               {categories.map((c) => (
                 <option key={c._id} value={c._id}>
-                  {c.name}
+                  {t(c.name, c.nameHi)}
                 </option>
               ))}
             </select>
@@ -166,7 +169,7 @@ function SearchResults() {
                   {categories.map((c) => (
                     <Link
                       key={c._id}
-                      to={`/category/${c.slug}`}
+                      to={`${isHindi ? "/hi" : ""}/category/${c.slug}`}
                       className="px-4 py-2 rounded-full border border-slate-300 text-sm text-slate-700 hover:border-amber-500 hover:text-amber-600 transition-colors"
                     >
                       {t(c.name, c.nameHi)}

@@ -8,6 +8,7 @@ import { resumeOrderPayment } from "../utils/razorpay";
 import { useCartActions } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
+import { localizeSize } from "../utils/localizeSize";
 import ReturnRequestModal from "../components/ReturnRequestModal";
 import { handleImageError } from "../utils/imageFallback";
 import { dateLocale } from "../utils/dateLocale";
@@ -159,7 +160,7 @@ function OrderCard({ order, onBuyAgain, onPayNow, payingId }) {
                 <div className="min-w-0">
                   <p className="text-sm text-slate-800 line-clamp-2">
                     {item.name}
-                    {item.size ? ` (${t("Size", "साइज़")}: ${item.size})` : ""}
+                    {item.size ? ` (${t("Size", "साइज़")}: ${localizeSize(item.size, language === "hi")})` : ""}
                   </p>
                   <p className="text-xs text-slate-500 mb-1">
                     {t(`Qty ${item.quantity} · ₹${item.price}`, `मात्रा ${item.quantity} · ₹${item.price}`)}
@@ -287,7 +288,7 @@ function MyOrders() {
   const [payingId, setPayingId] = useState(null);
   const { addToCart } = useCartActions();
   const { user } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   const loadOrders = async () => {
     const response = await getMyOrders();
@@ -370,7 +371,7 @@ function MyOrders() {
       toast.error(
         t(
           `${item.name} (${item.size}) is no longer available`,
-          `${item.name} (${item.size}) अब उपलब्ध नहीं है`,
+          `${item.name} (${localizeSize(item.size, true)}) अब उपलब्ध नहीं है`,
         ),
       );
       return;
@@ -472,7 +473,7 @@ function MyOrders() {
                       <div className="min-w-0">
                         <p className="font-medium text-slate-800 truncate">
                           {item.name}
-                          {item.size ? ` (${t("Size", "साइज़")}: ${item.size})` : ""}
+                          {item.size ? ` (${t("Size", "साइज़")}: ${localizeSize(item.size, language === "hi")})` : ""}
                         </p>
                         <p className="text-sm text-slate-500">
                           ₹{item.price}

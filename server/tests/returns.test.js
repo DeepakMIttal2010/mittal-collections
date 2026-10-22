@@ -274,6 +274,40 @@ describe("Return approval side effects (stock restore + loyalty clawback)", () =
   });
 });
 
+describe("Cancelling a delivered order after a return (round 29)", () => {
+  it("puts back only the pieces the return didn't already restock", async () => {
+    await seedLoyaltySettings({ earnRate: 20 });
+
+    const user = await createUser();
+    const admin = await createUser({ role: "admin" });
+    const token = signToken(user);
+    const adminToken = signToken(admin);
+    const product = await createProduct({ price: 1000, stock: 5 });
+
+    const order = await placeAndDeliverOrder(token, adminToken, product, 3); // stock 5 -> 2
+
+    const returnRequest = await ReturnRequest.create({
+      order: order._id,
+      user: user._id,
+      product: product._id,
+      productName: product.name,
+      quantity: 1,
+      reason: "Didn't like it",
+    });
+    await setReturnStatus(adminToken, returnRequest._id, "Refunded"); // 1 back -> 3
+    expect((await Product.findById(product._id)).stock).toBe(3);
+
+    const cancel = await request(app)
+      .put(`/api/orders/${order._id}/status`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ status: "Cancelled" });
+    expect(cancel.status).toBe(200);
+
+    // the other 2 come back; the returned one must not be counted twice
+    expect((await Product.findById(product._id)).stock).toBe(5);
+  });
+});
+
 describe("Return status transition guard", () => {
   it("rejects a Rejected -> Refunded jump (would phantom-restock an item never accepted back)", async () => {
     await seedLoyaltySettings({ earnRate: 20 });

@@ -1,12 +1,12 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink } from "react-router-dom";
 import { FaChevronDown } from "react-icons/fa";
 
 import { getCategories } from "../services/categoryService";
 import { getSubcategories } from "../services/subcategoryService";
 import { useLanguage } from "../context/LanguageContext";
-import { isHindiPath } from "../utils/hindiPath";
+import { useHindiLinks } from "../utils/hindiPath";
 
 // How many categories show as their own top-level nav link (in the
 // priority order the categories API already returns — product count
@@ -449,7 +449,7 @@ function MoreCategoriesMenu({ categories, getGroupedSubcategories, linkClassName
 }
 
 function MegaMenu({ linkClassName, portalTarget }) {
-  const isHindi = isHindiPath(useLocation().pathname);
+  const isHindi = useHindiLinks();
   const [categories, setCategories] = useState([]);
   const [subcategories, setSubcategories] = useState([]);
 

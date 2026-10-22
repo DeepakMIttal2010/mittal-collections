@@ -284,9 +284,12 @@ export default async function handler(req, res) {
     // the original hreflang rollout.
     products.forEach((p) => {
       const enPath = productUrl(p);
+      // Main photo first -- Google treats the first <image:loc> as the
+      // lead image, and images[] keeps upload order (render.js does the same).
+      const images = p.images?.length && p.image ? [p.image, ...p.images.filter((u) => u !== p.image)] : p.images;
 
       if (!p.nameHi) {
-        urls.push(urlEntry(enPath, undefined, p.updatedAt, p.images, p.name));
+        urls.push(urlEntry(enPath, undefined, p.updatedAt, images, p.name));
         return;
       }
 
@@ -297,8 +300,8 @@ export default async function handler(req, res) {
         { lang: "x-default", href: enPath },
       ];
 
-      urls.push(urlEntry(enPath, alternates, p.updatedAt, p.images, p.name));
-      urls.push(urlEntry(hiPath, alternates, p.updatedAt, p.images, p.nameHi));
+      urls.push(urlEntry(enPath, alternates, p.updatedAt, images, p.name));
+      urls.push(urlEntry(hiPath, alternates, p.updatedAt, images, p.nameHi));
     });
 
     // A Hindi version is only advertised (and only gets its own sitemap

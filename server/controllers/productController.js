@@ -21,18 +21,10 @@ import {
 import { deleteCloudinaryAssetsByUrl } from "../utils/cloudinaryCleanup.js";
 import { sanitizeProductDescription } from "../utils/sanitizeProductDescription.js";
 import { escapeRegex } from "../utils/escapeRegex.js";
+import { COST_FIELDS } from "../utils/productCostFields.js";
 
-// Never sent by a public route — cost data and adminRemarks are both
-// admin-only (see Product.js's own comment on adminRemarks: "never shown
-// to customers"). The nested variants.purchasePrice needs its own
-// dotted exclusion; a bare "-purchasePrice" only strips the top-level
-// field, not the same-named field inside each variants[] subdocument.
-// Security audit (2026-09-29) found adminRemarks was missing from this
-// list despite its own documented intent -- live-confirmed 51 products'
-// internal sourcing/pricing notes were readable via the public product
-// endpoints before this fix.
-const COST_FIELDS =
-  "-purchasePrice -miscExpenses -purchaseDate -variants.purchasePrice -adminRemarks -adminRemarksUpdatedAt";
+// Cost data / adminRemarks never go to a public route -- see
+// utils/productCostFields.js.
 
 // getProducts' page size when a caller opts into pagination (`page` sent)
 // without also specifying `limit` — Amazon/Flipkart-style listing density,
@@ -498,8 +490,9 @@ export const getSearchSuggestions = async (req, res) => {
       ];
     }
 
+    // nameHi: the header shows Hindi suggestions via t(name, nameHi)
     const products = await Product.find(filter).select(
-      "name slug price image",
+      "name nameHi slug price image",
     );
 
     const ranked = rankProducts(q.trim(), products).slice(0, 6);

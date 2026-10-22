@@ -1,7 +1,7 @@
 import { imgUrl, imgSrcSet } from "../../services/api";
 import { lazy, memo, Suspense, useEffect, useState } from "react";
 import "./ProductCard.css";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import {
   FaGift,
@@ -21,7 +21,7 @@ import { handleImageError } from "../../utils/imageFallback";
 import { getEarnRate } from "../../services/rewardsService";
 import { trackSelectItem } from "../../utils/analytics";
 import { useLanguage } from "../../context/LanguageContext";
-import { isHindiPath } from "../../utils/hindiPath";
+import { useHindiLinks } from "../../utils/hindiPath";
 import { localizeSize } from "../../utils/localizeSize";
 
 // Lazy-loaded, not a static import: QuickViewModal (and the DOMPurify it
@@ -44,7 +44,7 @@ function ProductCard({ product, priority = false }) {
   // when CategoryPage.jsx's internal links were still hardcoded English
   // -- linking to the right variant up front avoids recreating that bug
   // here for products.
-  const isHindi = isHindiPath(useLocation().pathname);
+  const isHindi = useHindiLinks();
   const { addToCart } = useCartActions();
   const { wishlistItems, addToWishlist, removeFromWishlist } = useWishlist();
   const { toggleCompare, isInCompare } = useCompare();

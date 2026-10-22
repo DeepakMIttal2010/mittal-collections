@@ -6,6 +6,8 @@ import { FaTimes, FaPlus, FaMinus, FaLock, FaGift, FaTags } from "react-icons/fa
 import { useCart } from "../../context/CartContext";
 import { useAuth } from "../../context/AuthContext";
 import { useLanguage } from "../../context/LanguageContext";
+import { localizeSize } from "../../utils/localizeSize";
+import { useHindiLinks } from "../../utils/hindiPath";
 import { getPublicRewardsInfo } from "../../services/rewardsService";
 import { getSiteSettings } from "../../services/settingsService";
 import { handleImageError } from "../../utils/imageFallback";
@@ -14,7 +16,9 @@ import { useModalA11y } from "../../hooks/useModalA11y";
 function CartDrawer() {
   const navigate = useNavigate();
   const { isLoggedIn } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  // no /hi URL for this page -- links follow the chosen language
+  const isHindi = useHindiLinks();
   const {
     cartItems,
     increaseQty,
@@ -103,7 +107,7 @@ function CartDrawer() {
           <div className="flex-1 flex flex-col items-center justify-center gap-4 px-6 text-center">
             <p className="text-slate-500">{t("Your cart is empty.", "आपका कार्ट खाली है।")}</p>
             <Link
-              to="/"
+              to={isHindi ? "/hi" : "/"}
               onClick={closeCart}
               className="bg-blue-900 hover:bg-blue-950 text-white font-semibold rounded-full px-6 py-3 transition-colors"
             >
@@ -151,7 +155,7 @@ function CartDrawer() {
                     </p>
                     {item.selectedSize && (
                       <p className="text-xs text-slate-400">
-                        {t("Size", "साइज़")}: {item.selectedSize}
+                        {t("Size", "साइज़")}: {localizeSize(item.selectedSize, language === "hi")}
                       </p>
                     )}
                     <p className="text-sm text-slate-500 mt-1">
