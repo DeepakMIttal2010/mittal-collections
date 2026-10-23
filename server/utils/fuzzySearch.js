@@ -45,44 +45,49 @@ const normalize = (text) =>
 // "doormat" aren't a few edits apart), so common terms are mapped
 // directly to the English catalog word they mean, in both Devanagari
 // and the most common Romanized spellings.
-const HINDI_SYNONYMS = {
-  doormat: ["पायदान", "पाएदान", "paaydaan", "paydan", "paydaan"],
-  bedsheet: ["चादर", "चदर", "chaadar", "chadar", "chader"],
-  cushion: ["कुशन", "गद्दी", "kushan", "gaddi"],
-  pillow: ["तकिया", "takiya", "takia"],
-  towel: ["तौलिया", "तौलिए", "tauliya", "taulia", "tauliye"],
-  curtain: ["पर्दा", "पर्दे", "parda", "pardaa", "parde"],
-  blanket: ["कंबल", "कम्बल", "kambal", "kambel", "kambl"],
-  quilt: ["रजाई", "rajai", "razai"],
-};
+// Each entry: the words a shopper may type (Devanagari and the common
+// Romanized spellings) -> the catalog's own English word(s). One word can
+// point at several catalog words: shoppers say "razai" or "kambal" for
+// what the catalog sells as a Comforter or a Dohar (GSC also shows
+// "tulip blanket" searches), so those map to all of them.
+const HINDI_SYNONYMS = [
+  { to: ["doormat"], words: ["पायदान", "पाएदान", "पैदान", "paaydaan", "paydan", "paydaan", "payadan"] },
+  { to: ["bedsheet"], words: ["चादर", "चदर", "चद्दर", "बेडशीट", "बिस्तर", "chaadar", "chadar", "chader", "chaddar", "chadder", "bistar", "bistara"] },
+  { to: ["cushion"], words: ["कुशन", "गद्दी", "kushan", "gaddi"] },
+  { to: ["pillow"], words: ["तकिया", "तकिए", "takiya", "takia", "takiye"] },
+  { to: ["cover"], words: ["गिलाफ", "गिलाफ़", "gilaf", "ghilaf", "gilaaf"] },
+  { to: ["towel"], words: ["तौलिया", "तौलिए", "तोलिया", "tauliya", "taulia", "tauliye", "toliya", "tolia", "towliya"] },
+  { to: ["curtain"], words: ["पर्दा", "पर्दे", "परदा", "parda", "pardaa", "parde", "pardey"] },
+  { to: ["comforter"], words: ["कम्फर्टर", "कंफर्टर", "कम्फ़र्टर", "कंफ़र्टर", "kamforter"] },
+  { to: ["comforter", "dohar", "quilt"], words: ["रजाई", "रज़ाई", "rajai", "razai", "rajaai", "razaai", "quilt"] },
+  { to: ["comforter", "dohar", "blanket"], words: ["कंबल", "कम्बल", "kambal", "kambel", "kambl", "blanket", "blankets"] },
+  { to: ["dohar"], words: ["दोहर", "दोहड़", "dohad"] },
+  { to: ["mattress"], words: ["गद्दा", "गद्दे", "gadda", "gaddaa", "gadde"] },
+  { to: ["table"], words: ["मेज़पोश", "मेजपोश", "mezposh", "mejposh"] },
+  { to: ["table"], words: ["मेज़", "मेज", "टेबल", "mez", "mej"] },
+  { to: ["runner"], words: ["रनर"] },
+  { to: ["toy"], words: ["खिलौना", "खिलौने", "khilona", "khilone", "khilauna"] },
+  { to: ["cleaning"], words: ["पोछा", "पोंछा", "pocha", "pochha", "ponchha"] },
+  { to: ["diwan"], words: ["दीवान", "deewan", "dewan", "diwaan"] },
+];
 
 const HINDI_TO_ENGLISH = new Map(
-  Object.entries(HINDI_SYNONYMS).flatMap(([english, variants]) =>
-    variants.map((variant) => [variant.toLowerCase(), english]),
-  ),
+  HINDI_SYNONYMS.flatMap(({ to, words }) => words.map((word) => [word.toLowerCase(), to])),
 );
 
-// Adds the mapped English word alongside any Hindi/Hinglish word found
-// in the query, so scoring below (which only ever looks at English
-// product text) picks it up like any other query word — the original
-// word is kept too, it's never removed.
-const expandSynonyms = (words) => {
-  const expanded = [...words];
-
-  for (const word of words) {
-    const english = HINDI_TO_ENGLISH.get(word);
-    if (english) expanded.push(english);
-  }
-
-  return expanded;
-};
+// One group per word the shopper typed: the word itself plus any catalog
+// word(s) it maps to. Scoring uses every word in every group; the
+// "enough of the query matched" rule in scoreProduct counts GROUPS, so a
+// synonym that expands to three catalog words doesn't make a one-word
+// search suddenly need two matches.
+const synonymGroups = (words) => words.map((word) => [word, ...(HINDI_TO_ENGLISH.get(word) || [])]);
 
 // Returns a match score for a query against a piece of text (0 if no
 // reasonable match — exact substrings score highest, near-typos score
 // lower) AND which specific query words actually matched, so the caller
 // can require real coverage across a multi-word query rather than just
 // "at least one word matched somewhere" (see scoreProduct's comment).
-const scoreText = (queryWords, text) => {
+const scoreText = (queryWords, text, wholeWordOnly = new Set()) => {
   const textWords = normalize(text);
   const matchedWords = new Set();
   if (textWords.length === 0) return { score: 0, matchedWords };
@@ -91,6 +96,18 @@ const scoreText = (queryWords, text) => {
   let score = 0;
 
   for (const qWord of queryWords) {
+    // A known Hinglish word and the catalog words it maps to: we already
+    // know what the shopper meant, so match whole words only (plural
+    // allowed). Typo tolerance and substring matching made "dohar" match
+    // "door"(mat), "toy" match "top" and "table" match "comfortable".
+    if (wholeWordOnly.has(qWord)) {
+      if (textWords.some((t) => t === qWord || t === `${qWord}s` || t === `${qWord}es`)) {
+        score += 10;
+        matchedWords.add(qWord);
+      }
+      continue;
+    }
+
     if (joined.includes(qWord)) {
       score += qWord.length >= 3 ? 10 : 4;
       matchedWords.add(qWord);
@@ -116,11 +133,13 @@ const scoreText = (queryWords, text) => {
 // Scores a product against a search query using its name (weighted higher)
 // and description. Returns 0 for no match.
 export const scoreProduct = (query, product) => {
-  const queryWords = expandSynonyms(normalize(query));
-  if (queryWords.length === 0) return 0;
+  const groups = synonymGroups(normalize(query));
+  if (groups.length === 0) return 0;
+  const queryWords = [...new Set(groups.flat())];
 
-  const nameResult = scoreText(queryWords, product.name);
-  const descResult = scoreText(queryWords, product.description);
+  const wholeWordOnly = new Set(groups.filter((group) => group.length > 1).flat());
+  const nameResult = scoreText(queryWords, product.name, wholeWordOnly);
+  const descResult = scoreText(queryWords, product.description, wholeWordOnly);
 
   // Requires a real fraction of the query's own words to actually be
   // present (exact or typo-tolerant) somewhere on the product -- not
@@ -137,8 +156,9 @@ export const scoreProduct = (query, product) => {
   // case the typo-tolerance exists for) needing only one real match,
   // same as before -- it only tightens longer, more specific queries.
   const matchedWords = new Set([...nameResult.matchedWords, ...descResult.matchedWords]);
-  const requiredMatches = Math.ceil(queryWords.length / 2);
-  if (matchedWords.size < requiredMatches) return 0;
+  const matchedGroups = groups.filter((group) => group.some((word) => matchedWords.has(word))).length;
+  const requiredMatches = Math.ceil(groups.length / 2);
+  if (matchedGroups < requiredMatches) return 0;
 
   return nameResult.score * 2 + descResult.score;
 };
