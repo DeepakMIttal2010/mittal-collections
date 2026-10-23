@@ -17,6 +17,11 @@ import { useIsGhaziabadVisitor } from "../../hooks/useIsGhaziabadVisitor";
 import { useLanguage } from "../../context/LanguageContext";
 import { DELIVERY_AREAS } from "../../utils/deliveryAreas";
 import { useHindiLinks } from "../../utils/hindiPath";
+import { friendlyGroupLabel, friendlyGroupLabelHi } from "../../utils/groupLabels";
+
+// Footer column order of subcategory groups; anything else goes last.
+const GROUP_ORDER = ["By Type", "Bed Size", "By Brand", "By Material", "By Pattern", "By Design", "Size"];
+const groupRank = (label) => (GROUP_ORDER.includes(label) ? GROUP_ORDER.indexOf(label) : GROUP_ORDER.length);
 
 const SOCIAL_ICONS = [
   { key: "facebook", icon: FaFacebookF, label: "Facebook" },
@@ -54,33 +59,56 @@ function Footer() {
 
   const activeSocialLinks = SOCIAL_ICONS.filter((s) => settings[s.key]);
 
-  const categoryColumns = categories.map((category) => ({
-    category,
-    items: subcategories
+  // Grouped like the mega menu (Type, Bed Size, Brand, ...), each group
+  // in its own displayOrder. Sorting one flat list by displayOrder mixed
+  // every group's 0, 1, 2... together -- "Glace Cotton, Diwan Bed Size,
+  // 70 x 90 Inches, 3D Print..." read as a random list.
+  const categoryColumns = categories.map((category) => {
+    const byGroup = new Map();
+    subcategories
       .filter((sub) => sub.category?._id === category._id)
-      .sort((a, b) => a.displayOrder - b.displayOrder),
-  }));
+      .forEach((sub) => byGroup.set(sub.groupLabel, [...(byGroup.get(sub.groupLabel) || []), sub]));
+    const groups = [...byGroup.entries()]
+      .sort(([a], [b]) => groupRank(a) - groupRank(b))
+      .map(([label, items]) => ({
+        label,
+        items: items.sort((a, b) => a.displayOrder - b.displayOrder || a.name.localeCompare(b.name)),
+      }));
+    return { category, groups };
+  });
 
   return (
     <>
       {categoryColumns.length > 0 && (
         <div className="bg-white pt-14 pb-10 px-4 border-t border-slate-100">
           <div className="max-w-7xl mx-auto grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-x-6 gap-y-8">
-            {categoryColumns.map(({ category, items }) => (
+            {categoryColumns.map(({ category, groups }) => (
               <div key={category._id}>
                 <h3 className="text-sm font-semibold text-slate-800 mb-3 pb-2 border-b border-amber-500/40">
                   {t(category.name, category.nameHi)}
                 </h3>
                 <ul className="space-y-2 text-xs">
-                  {items.length > 0 ? (
-                    items.map((item) => (
-                      <li key={item._id}>
-                        <Link
-                          to={`${isHindi ? "/hi" : ""}/category/${category.slug}/${item.slug}`}
-                          className="text-slate-600 hover:text-amber-600 transition-colors"
-                        >
-                          {t(item.name, item.nameHi)}
-                        </Link>
+                  {groups.length > 0 ? (
+                    groups.map((group) => (
+                      <li key={group.label}>
+                        {/* group name only when the column has more than one group */}
+                        {groups.length > 1 && (
+                          <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-700 mt-3 mb-1.5">
+                            {t(friendlyGroupLabel(group.label), friendlyGroupLabelHi(group.label))}
+                          </p>
+                        )}
+                        <ul className="space-y-1.5">
+                          {group.items.map((item) => (
+                            <li key={item._id}>
+                              <Link
+                                to={`${isHindi ? "/hi" : ""}/category/${category.slug}/${item.slug}`}
+                                className="text-slate-600 hover:text-amber-600 transition-colors"
+                              >
+                                {t(item.name, item.nameHi)}
+                              </Link>
+                            </li>
+                          ))}
+                        </ul>
                       </li>
                     ))
                   ) : (
