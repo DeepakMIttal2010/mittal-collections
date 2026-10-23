@@ -304,6 +304,19 @@
     padding: 32px 0 40px;
   }
 
+  /* In a column with align-items:center the photo column was only as
+     wide as its content -- 0x0 until the photo arrived, so the 4:3
+     aspect-ratio reserved nothing and the photo landing pushed the
+     text, TrustBar and everything below ~200px down (live mobile CLS
+     0.17 of 0.27, 2026-10-23); each auto-rotate to a photo of a
+     different native size moved it again. Full width = the 4:3 box is
+     reserved before any photo loads. */
+  .hero-split-media,
+  .hero-split-content {
+    width: 100%;
+    flex: none;
+  }
+
   .hero-split-image {
     aspect-ratio: 4 / 3;
     border-radius: 14px;

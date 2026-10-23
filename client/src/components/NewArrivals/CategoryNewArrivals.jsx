@@ -71,7 +71,8 @@ function CategoryNewArrivals() {
               </Link>
             </div>
 
-            <ProductGrid products={products} />
+            {/* below the fold on the homepage -- never compete with the hero */}
+            <ProductGrid products={products} priorityCount={0} />
           </div>
         </section>
       ))}

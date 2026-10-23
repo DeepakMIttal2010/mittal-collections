@@ -1108,8 +1108,38 @@ const buildArticleListBodyHtml = (breadcrumbItems, heading, intro, articles, isH
 // currently not indexed" with no other non-JS-discoverable link at all
 // (see buildCategoryBodyHtml's own subcategory-links addition, the
 // same day, for the other half of this fix).
-const buildHomeBodyHtml = (heading, description, categories, subcategories, isHindi = false) => {
+const buildHomeBodyHtml = (
+  heading,
+  description,
+  categories,
+  subcategories,
+  isHindi = false,
+  { productSections = [], faqs = [] } = {},
+) => {
   const urlPrefix = isHindi ? "/hi" : "";
+  // Real product links + the FAQ as text: the bot homepage was categories
+  // only (~320 words, 0 product links) while a visitor's homepage shows
+  // trending/new products and the FAQ (~4,000 words) -- Google expects a
+  // dynamically rendered page to carry the same content a user sees.
+  const productSectionsHtml = productSections
+    .filter((section) => section.products.length)
+    .map((section) => {
+      const items = section.products
+        .map((p) => {
+          const productPath = p.slug ? `/product/${p._id}/${p.slug}` : `/product/${p._id}`;
+          const href = `${SITE_URL}${isHindi && p.nameHi ? `/hi${productPath}` : productPath}`;
+          const name = isHindi && p.nameHi ? p.nameHi : p.name;
+          return `<li><a href="${escapeHtml(href)}">${escapeHtml(name)}</a> - ₹${escapeHtml(p.price)}</li>`;
+        })
+        .join("\n");
+      return `<section><h2>${escapeHtml(section.heading)}</h2><ul>${items}</ul></section>`;
+    })
+    .join("\n");
+  const faqHtml = faqs.length
+    ? `<section><h2>${isHindi ? "अक्सर पूछे जाने वाले सवाल" : "Frequently Asked Questions"}</h2>${faqs
+        .map((f) => `<h3>${escapeHtml(f.name)}</h3><p>${escapeHtml(f.acceptedAnswer.text)}</p>`)
+        .join("")}</section>`
+    : "";
   const categoryLinksHtml = categories
     .map(
       (c) =>
@@ -1149,6 +1179,8 @@ const buildHomeBodyHtml = (heading, description, categories, subcategories, isHi
     </nav>`
         : ""
     }
+    ${productSectionsHtml}
+    ${faqHtml}
     <p><a href="${escapeHtml(`${SITE_URL}${urlPrefix}/articles`)}">${isHindi ? "गाइड और आइडियाज़ देखें" : "Browse our guides & ideas"}</a></p>
   `;
 };
@@ -1333,11 +1365,13 @@ const buildMeta = async (path, query = {}) => {
     // Playwright audit (2026-10-16), fixed here plus AppRoutes.jsx,
     // vercel.json and sitemap.js together.
     const isHindi = parts.length === 1;
-    const [settingsData, categoriesData, subcategoriesData, rewardsData] = await Promise.all([
+    const [settingsData, categoriesData, subcategoriesData, rewardsData, trendingData, newArrivalsData] = await Promise.all([
       fetchJson(`${API_BASE}/api/settings`),
       fetchJson(`${API_BASE}/api/categories`),
       fetchJson(`${API_BASE}/api/subcategories`),
       safeFetchJson(`${API_BASE}/api/rewards/public`),
+      safeFetchJson(`${API_BASE}/api/products/trending?limit=12`),
+      safeFetchJson(`${API_BASE}/api/products/new-arrivals?limit=12`),
     ]);
     const settings = settingsData.settings || {};
     const homeCategories = categoriesData.success ? categoriesData.categories || [] : [];
@@ -1473,17 +1507,26 @@ const buildMeta = async (path, query = {}) => {
     // here is the real SEO bug, not the client-side one. Bare title must
     // stay short enough that appending " | SITE_NAME" doesn't push the
     // final <title> past Google's ~60-char truncation point.
+    //
+    // Brand first ("mittal collection" ranked ~2.6, not 1) and the three
+    // categories the homepage actually ranks for. Already contains
+    // SITE_NAME, so no " | SITE_NAME" suffix (same rule as Seo.jsx).
+    // The h1 is a separate, visible heading -- HOME_H1 matches
+    // Categories.jsx's h1 exactly.
     const homeTitle = isHindi
-      ? "बेडशीट, पर्दे, होम डेकोर ऑनलाइन"
-      : "Bedsheets, Curtains, Home Decor Online";
+      ? "Mittal Collections: बेडशीट, कम्फर्टर और पर्दे ऑनलाइन"
+      : "Mittal Collections: Bedsheets, Comforters & Curtains Online";
+    const homeHeading = isHindi
+      ? "बेडशीट, कम्फर्टर और पर्दे ऑनलाइन खरीदें"
+      : "Shop Bedsheets, Comforters & Curtains Online";
     const homeDescription = isHindi
-      ? "Mittal Collections पर बेडशीट, कम्फर्टर, पर्दे और होम फर्निशिंग ऑनलाइन खरीदें। हर कमरे के लिए स्टाइलिश डिज़ाइन और क्वालिटी फैब्रिक एक्सप्लोर करें।"
-      : "Shop bedsheets, comforters, curtains and home furnishings online at Mittal Collections. Explore stylish designs, quality fabrics and home essentials for every room.";
+      ? "Mittal Collections पर बेडशीट, कम्फर्टर और पर्दे ऑनलाइन खरीदें – पूरे भारत में डिलीवरी, ग़ाज़ियाबाद में 24 घंटे में, कैश ऑन डिलीवरी और 7 दिन में आसान रिटर्न।"
+      : "Shop bedsheets, comforters & curtains online at Mittal Collections – pan-India delivery, 24hr in Ghaziabad, Cash on Delivery and easy 7-day returns.";
     const enHomeUrl = `${SITE_URL}/`;
     const hiHomeUrl = `${SITE_URL}/hi`;
 
     return {
-      title: `${homeTitle} | ${SITE_NAME}`,
+      title: homeTitle,
       description: homeDescription,
       image: DEFAULT_IMAGE,
       url: isHindi ? hiHomeUrl : enHomeUrl,
@@ -1497,7 +1540,13 @@ const buildMeta = async (path, query = {}) => {
       jsonLd: [organizationJsonLd, websiteJsonLd, localBusinessJsonLd, faqJsonLd].filter(
         Boolean,
       ),
-      bodyHtml: buildHomeBodyHtml(homeTitle, homeDescription, homeCategories, homeSubcategories, isHindi),
+      bodyHtml: buildHomeBodyHtml(homeHeading, homeDescription, homeCategories, homeSubcategories, isHindi, {
+        productSections: [
+          { heading: isHindi ? "ट्रेंडिंग प्रोडक्ट्स" : "Top Trending", products: trendingData.success ? trendingData.products || [] : [] },
+          { heading: isHindi ? "नए प्रोडक्ट्स" : "New Arrivals", products: newArrivalsData.success ? newArrivalsData.products || [] : [] },
+        ],
+        faqs: faqJsonLd.mainEntity,
+      }),
     };
   }
 
