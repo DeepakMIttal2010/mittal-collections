@@ -46,6 +46,41 @@ describe("fuzzySearch Hindi/Hinglish synonyms", () => {
   });
 });
 
+describe("fuzzySearch Hinglish words for what the catalog calls something else (2026-10-23)", () => {
+  const tulip = {
+    name: "Tulip Original Reversible Microfibre Comforter, Double Bed 90x72 inches - Sage Grey Peony Floral",
+    description: "A reversible double-bed comforter.",
+  };
+  const dohar = { name: "Sparsh Cotton Dohar Single Bed 60x90 Inches - Blue", description: "A light cotton dohar." };
+  const mattressCover = { name: "Waterproof PVC Mattress Cover 72x78 Inches - Charcoal Grey", description: "A wipe-clean mattress protector." };
+  const tableCover = { name: "Central Table Cover 40x60 Inches - Grey Sunflower Net", description: "A net table cover." };
+  const shop = [tulip, dohar, mattressCover, tableCover, doormat, bedsheet, cushionCovers];
+
+  it("razai / kambal / blanket find the comforters and dohars the catalog sells", () => {
+    for (const q of ["razai", "रजाई", "kambal", "कंबल", "blanket"]) {
+      expect(rankProducts(q, shop)).toEqual(expect.arrayContaining([tulip, dohar]));
+      expect(rankProducts(q, shop)).not.toContain(doormat);
+    }
+  });
+
+  it("a one-word search that expands to several catalog words still needs only that one word", () => {
+    // "tulip razai": 2 typed words -> needs 1 of them; the comforter has both
+    expect(rankProducts("tulip razai", shop)[0]).toBe(tulip);
+    expect(rankProducts("razai", shop)).toContain(tulip);
+  });
+
+  it("Devanagari words seen in Search Console match", () => {
+    expect(rankProducts("कंफर्टर", shop)).toEqual([tulip]);
+    expect(rankProducts("बेडशीट", shop)).toEqual([bedsheet]);
+  });
+
+  it("gadda, mezposh, toliya and chaddar spellings map to the catalog word", () => {
+    expect(rankProducts("gadda cover", shop)[0]).toBe(mattressCover);
+    expect(rankProducts("mezposh", shop)).toEqual([tableCover]);
+    expect(rankProducts("chaddar", shop)).toEqual([bedsheet]);
+  });
+});
+
 describe("fuzzySearch multi-word relevance (regression, 2026-10-13)", () => {
   // Confirmed live: searching a specific 6-word product name returned
   // the ENTIRE catalog (162/162 products), just reordered, because any
