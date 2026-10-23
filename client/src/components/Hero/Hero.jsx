@@ -259,7 +259,10 @@ function Hero() {
             </div>
           )}
 
-          <h1 className="hero-split-title">
+          {/* h2, not h1: the slide title changes with every banner and
+              carries no search terms -- the page's one stable h1 is the
+              keyword heading in Categories.jsx (render.js serves the same). */}
+          <h2 className="hero-split-title">
             {slideTitle.split("\n").map((line, i, lines) => (
               <span key={i}>
                 {line.trim()}
@@ -271,7 +274,7 @@ function Hero() {
                 )}
               </span>
             ))}
-          </h1>
+          </h2>
 
           {slide.description && (
             <p className="hero-split-desc">{t(slide.description, slide.descriptionHi)}</p>

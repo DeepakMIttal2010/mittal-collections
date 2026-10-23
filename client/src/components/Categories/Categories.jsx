@@ -39,9 +39,12 @@ function Categories() {
     <section className="py-20 bg-white" id="shop-categories">
       <div className="max-w-7xl mx-auto px-4">
         <div className="text-center mb-12 max-w-3xl mx-auto">
-          <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-2">
-            {t("Shop Home Furnishing Online", "होम फर्निशिंग ऑनलाइन खरीदें")}
-          </h2>
+          {/* The homepage's one h1 (the hero slide titles are h2) -- the
+              terms people actually search, kept identical to render.js's
+              bot h1 (HOME_H1 there). */}
+          <h1 className="text-3xl md:text-4xl font-bold text-slate-900 mb-2">
+            {t("Shop Bedsheets, Comforters & Curtains Online", "बेडशीट, कम्फर्टर और पर्दे ऑनलाइन खरीदें")}
+          </h1>
 
           {/* Real, readable body copy naming the actual categories — not
               just the visual cards below, which carry names/images but no

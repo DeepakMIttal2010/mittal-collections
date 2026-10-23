@@ -149,15 +149,18 @@ function Home() {
   return (
     <>
       <Seo
+        // Same strings as render.js's homeTitle/homeDescription (what
+        // Googlebot gets). Contains "Mittal Collections", so Seo.jsx adds
+        // no " | Mittal Collections" suffix.
         title={
           isHindi
-            ? "बेडशीट, पर्दे, होम डेकोर ऑनलाइन"
-            : "Bedsheets, Curtains, Home Decor Online"
+            ? "Mittal Collections: बेडशीट, कम्फर्टर और पर्दे ऑनलाइन"
+            : "Mittal Collections: Bedsheets, Comforters & Curtains Online"
         }
         description={
           isHindi
-            ? "Mittal Collections पर बेडशीट, कम्फर्टर, पर्दे और होम फर्निशिंग ऑनलाइन खरीदें। हर कमरे के लिए स्टाइलिश डिज़ाइन और क्वालिटी फैब्रिक एक्सप्लोर करें।"
-            : "Shop bedsheets, comforters, curtains and home furnishings online at Mittal Collections. Explore stylish designs, quality fabrics and home essentials for every room."
+            ? "Mittal Collections पर बेडशीट, कम्फर्टर और पर्दे ऑनलाइन खरीदें – पूरे भारत में डिलीवरी, ग़ाज़ियाबाद में 24 घंटे में, कैश ऑन डिलीवरी और 7 दिन में आसान रिटर्न।"
+            : "Shop bedsheets, comforters & curtains online at Mittal Collections – pan-India delivery, 24hr in Ghaziabad, Cash on Delivery and easy 7-day returns."
         }
         url={isHindi ? hiHomeUrl : enHomeUrl}
         lang={isHindi ? "hi" : "en"}
