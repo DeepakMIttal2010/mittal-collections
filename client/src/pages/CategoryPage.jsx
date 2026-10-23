@@ -22,6 +22,7 @@ import { FaGift, FaFilter, FaTimes } from "react-icons/fa";
 import { trackFilter } from "../utils/analytics";
 import { isHindiPath } from "../utils/hindiPath";
 import { imgUrl } from "../services/api";
+import { friendlyGroupLabel, friendlyGroupLabelHi } from "../utils/groupLabels";
 
 // Sizing/buying help callouts shown on the matching category's product
 // listing — curtains gets the interactive calculator (real measurement
@@ -124,27 +125,6 @@ function getSizeHelpLinks(t) {
 // The raw groupLabel values ("By Type", "By Material", ...) come straight
 // from the admin-managed Subcategory records — friendlier for a section
 // heading than showing "By Material" verbatim.
-function friendlyGroupLabel(groupLabel) {
-  if (groupLabel === "By Type") return "Type";
-  if (groupLabel === "By Material") return "Material";
-  if (groupLabel === "Size") return "Popular Dimensions";
-  if (groupLabel === "Bed Size") return "Bed Type";
-
-  return groupLabel;
-}
-
-function friendlyGroupLabelHi(groupLabel) {
-  if (groupLabel === "By Type") return "प्रकार";
-  if (groupLabel === "By Material") return "मटीरियल";
-  if (groupLabel === "Size") return "लोकप्रिय आयाम";
-  if (groupLabel === "Bed Size") return "बेड टाइप";
-  if (groupLabel === "By Brand") return "ब्रांड";
-  if (groupLabel === "By Pattern") return "पैटर्न";
-  if (groupLabel === "By Design") return "डिज़ाइन";
-
-  return groupLabel;
-}
-
 // Which subcategory group gets the always-visible top pill row (clicking
 // a pill *replaces* the URL's subcategory — see the pill onClick below)
 // versus a checkbox facet in the Filter panel (which ANDs on top of
