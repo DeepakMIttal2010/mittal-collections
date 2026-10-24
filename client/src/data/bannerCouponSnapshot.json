@@ -1,0 +1,9 @@
+{
+  "coupon": {
+    "code": "WELCOME10",
+    "discountType": "percentage",
+    "discountValue": 10,
+    "maxDiscount": 1000,
+    "firstOrderOnly": true
+  }
+}
