@@ -29,50 +29,66 @@
 // banners".
 import fs from "fs";
 import path from "path";
-import { fileURLToPath } from "url";
+import { fileURLToPath, pathToFileURL } from "url";
+
+import { apiBaseFromEnv } from "./apiBase.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const OUT_PATH = path.join(__dirname, "../src/data/heroBannersSnapshot.json");
-const API_BASE = process.env.VITE_API_URL || "https://mittal-collections-api.onrender.com/api";
+// Was `process.env.VITE_API_URL || ".../api"`: on Vercel VITE_API_URL is
+// the bare API origin, so every build requested .../banners (404), sat
+// through all the retries below and kept the committed snapshot -- banners
+// added since (e.g. the 3D Print slide, 2026-10-21) never reached it.
+const API_BASE = apiBaseFromEnv(process.env.VITE_API_URL);
 const MAX_ATTEMPTS = 4;
 const RETRY_DELAY_MS = 15000;
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-async function fetchBanners() {
-  const res = await fetch(`${API_BASE}/banners`);
+async function fetchBanners(apiBase, fetchImpl) {
+  const res = await fetchImpl(`${apiBase}/banners`);
   if (!res.ok) {
     throw new Error(`API responded ${res.status} ${res.statusText}`);
   }
   const data = await res.json();
-  if (!Array.isArray(data.banners)) {
+  if (!Array.isArray(data?.banners)) {
     throw new Error(`Response had no "banners" array: ${JSON.stringify(data).slice(0, 200)}`);
   }
   return data.banners;
 }
 
-async function main() {
-  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+export async function snapshotHeroBanners({
+  apiBase = API_BASE,
+  outPath = OUT_PATH,
+  fetchImpl = fetch,
+  attempts = MAX_ATTEMPTS,
+  retryDelayMs = RETRY_DELAY_MS,
+  log = console,
+} = {}) {
+  for (let attempt = 1; attempt <= attempts; attempt++) {
     try {
-      const banners = await fetchBanners();
-      fs.mkdirSync(path.dirname(OUT_PATH), { recursive: true });
-      fs.writeFileSync(OUT_PATH, JSON.stringify(banners, null, 2) + "\n");
-      console.log(`fetch-hero-banners: snapshotted ${banners.length} banner(s) from ${API_BASE} (attempt ${attempt})`);
-      return;
+      const banners = await fetchBanners(apiBase, fetchImpl);
+      fs.mkdirSync(path.dirname(outPath), { recursive: true });
+      fs.writeFileSync(outPath, JSON.stringify(banners, null, 2) + "\n");
+      log.log(`fetch-hero-banners: snapshotted ${banners.length} banner(s) from ${apiBase} (attempt ${attempt})`);
+      return { written: true, count: banners.length };
     } catch (e) {
-      console.warn(`fetch-hero-banners: attempt ${attempt}/${MAX_ATTEMPTS} failed (${e.message})`);
-      if (attempt < MAX_ATTEMPTS) {
-        await sleep(RETRY_DELAY_MS);
+      log.warn(`fetch-hero-banners: attempt ${attempt}/${attempts} failed (${e.message})`);
+      if (attempt < attempts) {
+        await sleep(retryDelayMs);
       }
     }
   }
 
-  const hasExisting = fs.existsSync(OUT_PATH);
-  console.warn(
+  const hasExisting = fs.existsSync(outPath);
+  log.warn(
     hasExisting
-      ? `fetch-hero-banners: all ${MAX_ATTEMPTS} attempts failed — leaving the existing committed snapshot in place (NOT overwriting with empty data).`
-      : `fetch-hero-banners: all ${MAX_ATTEMPTS} attempts failed and no existing snapshot file was found — Hero.jsx's FALLBACK_SLIDE will cover this build.`,
+      ? `fetch-hero-banners: all ${attempts} attempts failed — leaving the existing committed snapshot in place (NOT overwriting with empty data).`
+      : `fetch-hero-banners: all ${attempts} attempts failed and no existing snapshot file was found — Hero.jsx's FALLBACK_SLIDE will cover this build.`,
   );
+  return { written: false };
 }
 
-main();
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  snapshotHeroBanners();
+}

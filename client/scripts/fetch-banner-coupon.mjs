@@ -18,15 +18,10 @@ import path from "path";
 import { fileURLToPath, pathToFileURL } from "url";
 
 import { parseBannerCouponResponse } from "../src/utils/bannerCoupon.js";
+import { apiBaseFromEnv } from "./apiBase.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const OUT_PATH = path.join(__dirname, "../src/data/bannerCouponSnapshot.json");
-// VITE_API_URL is the API server's origin (services/api.js appends "/api"
-// to it -- the production bundle's value has no "/api"), so the same is
-// done here. fetch-hero-banners.mjs uses it as-is and so requests
-// .../banners without /api.
-export const apiBaseFromEnv = (value) =>
-  `${(value || "https://mittal-collections-api.onrender.com").replace(/\/+$/, "")}/api`;
 const API_BASE = apiBaseFromEnv(process.env.VITE_API_URL);
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
