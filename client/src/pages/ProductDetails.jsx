@@ -67,6 +67,7 @@ import { getProductViewCount } from "../services/analyticsService";
 import { getProductReviews } from "../services/reviewService";
 import { getPublicRewardsInfo } from "../services/rewardsService";
 import AutoCompareTable from "../components/AutoCompareTable";
+import BuyingGuides from "../components/BuyingGuides";
 import { localizeSize } from "../utils/localizeSize";
 import { useLanguage } from "../context/LanguageContext";
 import { isHindiPath } from "../utils/hindiPath";
@@ -1647,6 +1648,8 @@ function ProductDetails() {
           </div>
         </div>
       )}
+
+      <BuyingGuides product={product} isHindi={isHindi} />
 
       <AutoCompareTable
         mainProduct={product}

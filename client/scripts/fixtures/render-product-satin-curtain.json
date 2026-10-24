@@ -1,0 +1,103 @@
+{
+ "success": true,
+ "product": {
+  "_id": "6ad9ef2069101ea5c9ac96bf",
+  "name": "Blush Pink Leaf Drop Satin Eyelet Curtain - 7x4 & 9x4 Ft",
+  "slug": "blush-pink-leaf-drop-satin-eyelet-curtain-7x4-9x4-ft",
+  "description": "<p>A blush-pink satin curtain with a soft marble-texture sheen and leaf-drop motifs in maroon, rose and olive, finished with a matching eyelet header.</p><ul><li>Same satin quality and stitching across both sizes — only the panel dimensions change</li><li>See the size selector above for exact stock and price per size</li><li>Care: dry clean recommended; for hand-washing, use cold water with a mild detergent, avoid wringing, and dry away from direct sunlight to preserve the sheen</li></ul>",
+  "nameHi": "ब्लश पिंक लीफ ड्रॉप सैटिन आईलेट पर्दा - 7x4 और 9x4 फीट",
+  "descriptionHi": "<p>यह ब्लश-पिंक सैटिन पर्दा हल्की मार्बल-टेक्सचर चमक और मैरून, रोज़ और ऑलिव लीफ-ड्रॉप मोटिफ के साथ आता है, ऊपर मैचिंग आईलेट हेडर के साथ।</p><ul><li>दोनों साइज़ में एक जैसी सैटिन क्वालिटी और सिलाई - सिर्फ पैनल का साइज़ बदलता है</li><li>सही कीमत और स्टॉक के लिए ऊपर साइज़ सिलेक्टर देखें</li><li>देखभाल: ड्राई क्लीन की सलाह दी जाती है। हाथ से धोना हो तो ठंडे पानी में माइल्ड डिटर्जेंट से धोएं, निचोड़ें नहीं, और चमक बनाए रखने के लिए सीधी धूप से दूर सुखाएं।</li></ul>",
+  "price": 404,
+  "oldPrice": 475,
+  "category": {
+   "_id": "6a6453c92bdcd87c2e0ce70a",
+   "name": "Curtains",
+   "slug": "curtains",
+   "image": "https://res.cloudinary.com/y2gghpvz/image/upload/v1790325094/mittal-collections/zhi4rk7zl1e6opbmlhdk.jpg",
+   "nameHi": "पर्दे"
+  },
+  "subcategories": [
+   {
+    "_id": "6a9a88df602a67023f047e09",
+    "name": "7x4 Ft",
+    "nameHi": "7x4 फ़ीट",
+    "slug": "7x4-ft"
+   },
+   {
+    "_id": "6a9a88e2602a67023f047e0a",
+    "name": "9x4 Ft",
+    "nameHi": "9x4 फ़ीट",
+    "slug": "9x4-ft"
+   },
+   {
+    "_id": "6ab0c56f1979b36c216488da",
+    "name": "Satin",
+    "nameHi": "सैटिन",
+    "slug": "satin"
+   }
+  ],
+  "additionalCategories": [],
+  "image": "https://res.cloudinary.com/y2gghpvz/image/upload/v1792738927/mittal-collections/blush-pink-leaf-drop-satin-eyelet-curtain-7x4-9x4-ft-1-mvkmgrb0gkef.jpg",
+  "images": [
+   "https://res.cloudinary.com/y2gghpvz/image/upload/v1792667423/mittal-collections/blush-pink-leaf-drop-satin-eyelet-curtain-7x4-9x4-ft-1-mvjfw87n84cq.jpg",
+   "https://res.cloudinary.com/y2gghpvz/image/upload/v1792667423/mittal-collections/blush-pink-leaf-drop-satin-eyelet-curtain-7x4-9x4-ft-2-mvjfw87o65pg.jpg",
+   "https://res.cloudinary.com/y2gghpvz/image/upload/v1792667423/mittal-collections/blush-pink-leaf-drop-satin-eyelet-curtain-7x4-9x4-ft-3-mvjfw87oclpo.jpg",
+   "https://res.cloudinary.com/y2gghpvz/image/upload/v1792667424/mittal-collections/blush-pink-leaf-drop-satin-eyelet-curtain-7x4-9x4-ft-4-mvjfw87oazhi.jpg",
+   "https://res.cloudinary.com/y2gghpvz/image/upload/v1792738927/mittal-collections/blush-pink-leaf-drop-satin-eyelet-curtain-7x4-9x4-ft-1-mvkmgrb0gkef.jpg",
+   "https://res.cloudinary.com/y2gghpvz/image/upload/v1792738931/mittal-collections/blush-pink-leaf-drop-satin-eyelet-curtain-7x4-9x4-ft-2-mvkmgxz4v0f8.jpg",
+   "https://res.cloudinary.com/y2gghpvz/image/upload/v1792738935/mittal-collections/blush-pink-leaf-drop-satin-eyelet-curtain-7x4-9x4-ft-3-mvkmh0u5eims.jpg",
+   "https://res.cloudinary.com/y2gghpvz/image/upload/v1792738946/mittal-collections/blush-pink-leaf-drop-satin-eyelet-curtain-7x4-9x4-ft-4-mvkmh3ugyu28.jpg"
+  ],
+  "videos": [],
+  "stock": 20,
+  "variants": [
+   {
+    "size": "7x4",
+    "price": 404,
+    "oldPrice": 475,
+    "stock": 10,
+    "_id": "6adb0683aee5f8feb623558e"
+   },
+   {
+    "size": "9x4",
+    "price": 468,
+    "oldPrice": 550,
+    "stock": 10,
+    "_id": "6adb0683aee5f8feb623558f"
+   }
+  ],
+  "fabric": "Satin",
+  "fabricHi": "सैटिन",
+  "color": "Blush Pink",
+  "pattern": "Leaf Drop",
+  "size": "7x4 & 9x4 Ft",
+  "gsm": "",
+  "gsmHi": "",
+  "washCare": "Dry clean recommended, do not wring",
+  "washCareHi": "ड्राईक्लीन की सलाह दी जाती है, निचोड़ें नहीं",
+  "brand": "",
+  "brandHi": "",
+  "countryOfOrigin": "",
+  "countryOfOriginHi": "",
+  "whatsIncluded": "1 Curtain Panel",
+  "colorVariesNote": "",
+  "colorVariesNoteHi": "",
+  "localDeliveryOnly": false,
+  "rating": 5,
+  "featured": false,
+  "isTrending": false,
+  "trendingRank": 0,
+  "showInNewArrivals": true,
+  "isGiftingItem": false,
+  "willRestock": true,
+  "isActive": true,
+  "visibility": "both",
+  "isReturnable": true,
+  "returnPeriodDays": 0,
+  "restockAlertEnabled": false,
+  "restockAlertQuantity": 0,
+  "createdAt": "2026-10-22T11:10:24.857Z",
+  "updatedAt": "2026-10-23T07:02:27.455Z",
+  "__v": 2
+ }
+}

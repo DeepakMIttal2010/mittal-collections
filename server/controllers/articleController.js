@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import Article from "../models/Article.js";
 import { deleteCloudinaryAssetsByUrl } from "../utils/cloudinaryCleanup.js";
 import { sanitizeArticleContent } from "../utils/sanitizeArticleContent.js";
@@ -31,8 +32,25 @@ const extractContentImageUrls = (html) => {
 // ============================
 export const getArticles = async (req, res) => {
   try {
-    const articles = await Article.find({ isActive: true })
-      .select("title slug excerpt titleHi excerptHi coverImage createdAt updatedAt")
+    // ?category=<id> narrows the list to one category's guides (the
+    // product page's "Buying guides" block). A malformed id matches
+    // nothing rather than throwing a CastError 500.
+    // The category comes back on each article so a client can tell these
+    // filtered results apart from an older server that ignores the
+    // parameter and returns every article.
+    const filter = { isActive: true };
+    let fields = "title slug excerpt titleHi excerptHi coverImage createdAt updatedAt";
+    if (req.query.category !== undefined) {
+      const category = String(req.query.category);
+      if (!mongoose.isValidObjectId(category)) {
+        return res.status(200).json({ success: true, articles: [] });
+      }
+      filter.category = category;
+      fields += " category";
+    }
+
+    const articles = await Article.find(filter)
+      .select(fields)
       .sort({ createdAt: -1 });
 
     res.status(200).json({
