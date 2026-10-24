@@ -8,7 +8,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-import { apiBaseFromEnv, snapshotBannerCoupon } from "./fetch-banner-coupon.mjs";
+import { snapshotBannerCoupon } from "./fetch-banner-coupon.mjs";
+import { apiBaseFromEnv } from "./apiBase.mjs";
 import { parseBannerCouponResponse, toBannerCoupon } from "../src/utils/bannerCoupon.js";
 
 const LIVE_COUPON = {
