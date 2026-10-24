@@ -1041,6 +1041,17 @@ async function buildCategoryMeta({ categorySlug, subcategorySlug, isHindi }) {
 // trusted content, not raw user input, so it's embedded as-is rather than
 // escaped (escaping it would show literal "<p>" tags as text instead of
 // rendering them).
+// Mirrors client/src/utils/localizeContentLinks.js (render.js can't import
+// client ESM) -- keep both identical. See that file for the reasoning.
+const HINDI_TWIN = /^\/($|category\/|product\/|articles(\/|$))/;
+const INTERNAL_HREF = /href="(?:https?:\/\/(?:www\.)?mittalcollections\.com)?(\/[^"]*)"/g;
+const localizeContentLinksHi = (html) =>
+  (html || "").replace(INTERNAL_HREF, (match, path) => {
+    const base = path.replace(/^\/hi(?=[/?#]|$)/, "") || "/";
+    if (!HINDI_TWIN.test(base)) return `href="${base}"`;
+    return `href="${base === "/" ? "/hi" : `/hi${base}`}"`;
+  });
+
 const buildRichContentBodyHtml = (breadcrumbItems, heading, contentHtml) => `
     <nav aria-label="breadcrumb">${buildBreadcrumbHtml(breadcrumbItems)}</nav>
     <h1>${escapeHtml(heading)}</h1>
@@ -2259,7 +2270,7 @@ const buildMeta = async (path, query = {}) => {
       bodyHtml: buildRichContentBodyHtml(
         breadcrumbItems,
         article.titleHi,
-        article.contentHi || article.content,
+        localizeContentLinksHi(article.contentHi || article.content),
       ),
     };
   }

@@ -11,6 +11,7 @@ import { SITE_URL } from "../utils/siteUrl";
 import { sanitizeArticleHtml } from "../utils/sanitizeArticleHtml";
 import { truncateAtWordBoundary } from "../utils/truncateMetaDescription";
 import { isHindiPath } from "../utils/hindiPath";
+import { localizeContentLinksHi } from "../utils/localizeContentLinks";
 
 function ArticleDetail() {
   const { slug } = useParams();
@@ -159,7 +160,9 @@ function ArticleDetail() {
 
   const displayTitle = isHindi ? article.titleHi : article.title;
   const displayExcerpt = isHindi ? article.excerptHi || article.excerpt : article.excerpt;
-  const displayContent = isHindi ? article.contentHi || article.content : article.content;
+  const displayContent = isHindi
+    ? localizeContentLinksHi(article.contentHi || article.content)
+    : article.content;
   // Falls back to Seo.jsx's own DEFAULT_IMAGE value (not exported, so
   // duplicated here) -- Seo's og:image/twitter:image tags apply this
   // fallback internally via `image || DEFAULT_IMAGE`, but articleJsonLd
