@@ -42,7 +42,10 @@
 // using the normal index.html untouched.
 import fs from "fs";
 import path from "path";
-import { fileURLToPath } from "url";
+import { fileURLToPath, pathToFileURL } from "url";
+
+import { applyCloudinaryTransform, cloudinarySrcSet, isCloudinaryUploadUrl } from "../src/utils/cloudinaryUrl.js";
+import { HERO_IMAGE_SIZES, HERO_IMAGE_SRCSET_WIDTHS, HERO_IMAGE_TRANSFORM } from "../src/utils/heroImage.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DIST_DIR = path.join(__dirname, "../dist");
@@ -50,22 +53,9 @@ const INDEX_PATH = path.join(DIST_DIR, "index.html");
 const HOME_PATH = path.join(DIST_DIR, "home.html");
 const SNAPSHOT_PATH = path.join(__dirname, "../src/data/heroBannersSnapshot.json");
 
-// Same standalone Cloudinary-transform logic render.js's own copy uses
-// (and, ultimately, src/services/api.js's imgUrl/imgSrcSet) -- duplicated
-// rather than imported for the same reason documented there: this runs
-// as plain Node, not through Vite.
-const isCloudinaryUploadUrl = (p) => {
-  try {
-    const u = new URL(p);
-    return u.hostname === "res.cloudinary.com" && u.pathname.includes("/upload/");
-  } catch {
-    return false;
-  }
-};
-
-const cloudinaryTransform = (p, transform) =>
-  isCloudinaryUploadUrl(p) ? p.replace("/upload/", `/upload/${transform}/`) : p;
-
+// Cloudinary URLs come from src/utils/cloudinaryUrl.js -- the same
+// dependency-free module services/api.js's imgUrl/imgSrcSet use -- so
+// this plain-Node script can share the code instead of keeping a copy.
 const escapeHtml = (s) =>
   String(s)
     .replace(/&/g, "&amp;")
@@ -73,15 +63,22 @@ const escapeHtml = (s) =>
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
 
-function buildHeroSnippet(imageUrl) {
+// Exactly what Hero.jsx's <img> asks for (imgUrl/imgSrcSet run the same
+// cloudinaryUrl.js code with the same heroImage.js constants), so the
+// preload and the pre-painted copy are cache hits for the React hero
+// instead of a second download of the LCP image.
+export function heroImageUrls(imageUrl) {
+  if (!isCloudinaryUploadUrl(imageUrl)) return { src: imageUrl, srcset: "" };
+  return {
+    src: applyCloudinaryTransform(imageUrl, HERO_IMAGE_TRANSFORM),
+    srcset: cloudinarySrcSet(imageUrl, HERO_IMAGE_SRCSET_WIDTHS),
+  };
+}
+
+export function buildHeroSnippet(imageUrl) {
   if (!imageUrl) return "";
 
-  const src = cloudinaryTransform(imageUrl, "w_1000,q_auto,f_webp");
-  const srcset = isCloudinaryUploadUrl(imageUrl)
-    ? [500, 800, 1200]
-        .map((w) => `${cloudinaryTransform(imageUrl, `w_${w},q_auto,f_webp`)} ${w}w`)
-        .join(", ")
-    : "";
+  const { src, srcset } = heroImageUrls(imageUrl);
 
   // Same classNames Hero.css already styles (hero / container hero-split
   // / hero-split-media / hero-split-image) -- no new CSS needed, and the
@@ -94,7 +91,7 @@ function buildHeroSnippet(imageUrl) {
           <img
             src="${escapeHtml(src)}"
             ${srcset ? `srcset="${escapeHtml(srcset)}"` : ""}
-            sizes="(max-width: 640px) 90vw, (max-width: 1200px) 45vw, 512px"
+            sizes="${HERO_IMAGE_SIZES}"
             alt=""
             class="hero-split-image"
             fetchpriority="high"
@@ -110,22 +107,17 @@ function buildHeroSnippet(imageUrl) {
 // downloads of the same photo) -- same "must match exactly" reasoning
 // as render.js's own prepaint/real-component pairing for product and
 // category pages.
-function buildPreloadLinkTag(imageUrl) {
+export function buildPreloadLinkTag(imageUrl) {
   if (!imageUrl) return "";
 
-  const src = cloudinaryTransform(imageUrl, "w_1000,q_auto,f_webp");
-  const srcset = isCloudinaryUploadUrl(imageUrl)
-    ? [500, 800, 1200]
-        .map((w) => `${cloudinaryTransform(imageUrl, `w_${w},q_auto,f_webp`)} ${w}w`)
-        .join(", ")
-    : "";
+  const { src, srcset } = heroImageUrls(imageUrl);
 
   return `<link
       rel="preload"
       as="image"
       href="${escapeHtml(src)}"
       ${srcset ? `imagesrcset="${escapeHtml(srcset)}"` : ""}
-      imagesizes="(max-width: 640px) 90vw, (max-width: 1200px) 45vw, 512px"
+      imagesizes="${HERO_IMAGE_SIZES}"
       fetchpriority="high"
     />`;
 }
@@ -184,4 +176,7 @@ function main() {
   console.log("build-home-html: wrote dist/home.html with a pre-painted hero placeholder.");
 }
 
-main();
+// Only when run as the build step, not when the parity test imports it.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main();
+}

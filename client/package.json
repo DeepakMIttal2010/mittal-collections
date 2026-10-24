@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "node scripts/fetch-hero-banners.mjs && vite build && node scripts/build-home-html.mjs",
     "lint": "eslint .",
+    "test": "node --test scripts/build-home-html.test.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

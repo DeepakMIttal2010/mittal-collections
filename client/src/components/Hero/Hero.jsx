@@ -8,6 +8,7 @@ import heroBanner from "../../assets/images/hero-banner.webp";
 import { getBanners } from "../../services/bannerService";
 import { useLanguage } from "../../context/LanguageContext";
 import { isHindiPath } from "../../utils/hindiPath";
+import { HERO_IMAGE_SIZES, HERO_IMAGE_SRCSET_WIDTHS, HERO_IMAGE_TRANSFORM } from "../../utils/heroImage";
 import heroBannersSnapshot from "../../data/heroBannersSnapshot.json";
 
 const AUTO_ROTATE_MS = 6000;
@@ -166,7 +167,7 @@ function Hero() {
   // sensible quality, instead of serving whatever the admin originally
   // uploaded as-is.
   const backgroundImage = slide.image
-    ? imgUrl(slide.image, "w_1000,q_auto,f_auto")
+    ? imgUrl(slide.image, HERO_IMAGE_TRANSFORM)
     : heroBanner;
   const slideTitle = t(slide.title, slide.titleHi);
   const imageAlt = slide.title
@@ -229,8 +230,8 @@ function Hero() {
         <div className="hero-split-media">
           <img
             src={backgroundImage}
-            srcSet={slide.image ? imgSrcSet(slide.image, [500, 800, 1200]) : undefined}
-            sizes="(max-width: 640px) 90vw, (max-width: 1200px) 45vw, 512px"
+            srcSet={slide.image ? imgSrcSet(slide.image, HERO_IMAGE_SRCSET_WIDTHS) : undefined}
+            sizes={HERO_IMAGE_SIZES}
             alt={imageAlt}
             className="hero-split-image"
             fetchPriority="high"
