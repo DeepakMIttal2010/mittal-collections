@@ -1,5 +1,5 @@
 import { imgUrl, imgSrcSet } from "../../services/api";
-import { useEffect, useLayoutEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
 
@@ -10,6 +10,8 @@ import { useLanguage } from "../../context/LanguageContext";
 import { isHindiPath } from "../../utils/hindiPath";
 import { HERO_IMAGE_SIZES, HERO_IMAGE_SRCSET_WIDTHS, HERO_IMAGE_TRANSFORM } from "../../utils/heroImage";
 import heroBannersSnapshot from "../../data/heroBannersSnapshot.json";
+import { trackSelectPromotion, trackViewPromotion } from "../../utils/analytics";
+import { createHeroViewTracker, heroPromotionParams } from "../../utils/heroPromotion";
 
 const AUTO_ROTATE_MS = 6000;
 // Caches the last-fetched banner slides so Hero can render a REAL
@@ -68,14 +70,14 @@ const FALLBACK_SLIDE = {
   button2Link: "#shop-categories",
 };
 
-function HeroButton({ label, link, variant, isHindi }) {
+function HeroButton({ label, link, variant, isHindi, onClick }) {
   if (!label) return null;
 
   const className = variant === "primary" ? "shop-btn" : "explore-btn";
 
   if (link.startsWith("#")) {
     return (
-      <a href={link} className={className}>
+      <a href={link} className={className} onClick={onClick}>
         {label}
       </a>
     );
@@ -83,14 +85,14 @@ function HeroButton({ label, link, variant, isHindi }) {
 
   if (link.startsWith("http")) {
     return (
-      <a href={link} target="_blank" rel="noopener noreferrer" className={className}>
+      <a href={link} target="_blank" rel="noopener noreferrer" className={className} onClick={onClick}>
         {label}
       </a>
     );
   }
 
   return (
-    <Link to={localizeLink(link || "/", isHindi)} className={className}>
+    <Link to={localizeLink(link || "/", isHindi)} className={className} onClick={onClick}>
       {label}
     </Link>
   );
@@ -157,7 +159,52 @@ function Hero() {
     return () => clearInterval(interval);
   }, [slides.length]);
 
-  const slide = slides[Math.min(activeIndex, slides.length - 1)];
+  // view_promotion: a slide counts as viewed only while the hero photo is
+  // at least half on screen and the tab is visible -- autoplay keeps
+  // rotating in a background tab or after the visitor scrolls away, and
+  // those slides were never seen. One tracker per page load, so each
+  // banner is sent at most once however often it comes back round.
+  const mediaRef = useRef(null);
+  const [heroOnScreen, setHeroOnScreen] = useState(false);
+  const [pageVisible, setPageVisible] = useState(() => typeof document === "undefined" || document.visibilityState !== "hidden");
+  const [trackSlideView] = useState(() => createHeroViewTracker(trackViewPromotion));
+
+  useEffect(() => {
+    const el = mediaRef.current;
+    if (!el || typeof IntersectionObserver === "undefined") {
+      setHeroOnScreen(true);
+      return undefined;
+    }
+    const observer = new IntersectionObserver(([entry]) => setHeroOnScreen(entry.intersectionRatio >= 0.5), {
+      threshold: [0, 0.5, 1],
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const onChange = () => setPageVisible(document.visibilityState !== "hidden");
+    document.addEventListener("visibilitychange", onChange);
+    return () => document.removeEventListener("visibilitychange", onChange);
+  }, []);
+
+  useEffect(() => {
+    trackSlideView({
+      slides,
+      activeIndex: Math.min(activeIndex, slides.length - 1),
+      visible: heroOnScreen && pageVisible,
+      width: window.innerWidth,
+    });
+  }, [trackSlideView, slides, activeIndex, heroOnScreen, pageVisible]);
+
+  const slideIndex = Math.min(activeIndex, slides.length - 1);
+  const slide = slides[slideIndex];
+  // select_promotion: only the slide's own CTA links (dots and arrows
+  // aren't banner clicks). Navigation itself is untouched.
+  const trackCtaClick = () => {
+    const params = heroPromotionParams(slide, slideIndex, window.innerWidth);
+    if (params) trackSelectPromotion(params);
+  };
   // LCP element, but bounded to the .hero-split-image column (roughly
   // half the .container width, well under 1000px on any real viewport)
   // rather than the old full-bleed treatment — w_1000 covers that at
@@ -227,7 +274,7 @@ function Hero() {
   return (
     <section className="hero">
       <div className="container hero-split">
-        <div className="hero-split-media">
+        <div className="hero-split-media" ref={mediaRef}>
           <img
             src={backgroundImage}
             srcSet={slide.image ? imgSrcSet(slide.image, HERO_IMAGE_SRCSET_WIDTHS) : undefined}
@@ -287,12 +334,14 @@ function Hero() {
               link={slide.button1Link}
               variant="primary"
               isHindi={isHindi}
+              onClick={trackCtaClick}
             />
             <HeroButton
               label={t(slide.button2Label, slide.button2LabelHi)}
               link={slide.button2Link}
               variant="secondary"
               isHindi={isHindi}
+              onClick={trackCtaClick}
             />
           </div>
         </div>

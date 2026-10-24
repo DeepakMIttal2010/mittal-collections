@@ -144,6 +144,29 @@ export const trackSearch = (searchTerm) => {
   trackEvent("search", { search_term: searchTerm });
 };
 
+// Homepage hero banners -- GA4's recommended promotion events. `params`
+// comes from utils/heroPromotion.js: promotion_id, promotion_name,
+// creative_slot and device (a custom parameter; register it as a custom
+// dimension in GA4 to report on it). GA4 fills its built-in promotion
+// dimensions (Item promotion ID/name/creative slot) from `items`, which
+// these events require, so the banner also goes in as the one item.
+const promotionPayload = (params) => ({
+  ...params,
+  items: [
+    {
+      item_id: params.promotion_id,
+      item_name: params.promotion_name,
+      promotion_id: params.promotion_id,
+      promotion_name: params.promotion_name,
+      creative_slot: params.creative_slot,
+    },
+  ],
+});
+
+export const trackViewPromotion = (params) => trackEvent("view_promotion", promotionPayload(params));
+
+export const trackSelectPromotion = (params) => trackEvent("select_promotion", promotionPayload(params));
+
 // Fired when a customer picks a specific product out of a list — a
 // product grid, the header's search-suggestions dropdown, etc. `listName`
 // identifies which surface the click came from, since the same product
