@@ -443,6 +443,51 @@ const buildBreadcrumbHtml = (breadcrumbItems) =>
     )
     .join(" &gt; ");
 
+// Mirrors client/src/utils/rankGuides.js (render.js can't import client
+// ESM) -- keep both identical. Up to 3 of a category's guides for one
+// product, best title/product-name word overlap first.
+const GUIDE_IGNORED_WORDS = new Set(["with", "inch", "inches", "pillow", "covers", "from"]);
+const guideWords = (text) => (text || "").toLowerCase().match(/[a-z]{4,}/g) || [];
+const rankGuidesForProduct = (articles, productName, categoryId, limit = 3) => {
+  const nameWords = new Set(guideWords(productName).filter((w) => !GUIDE_IGNORED_WORDS.has(w)));
+  const seen = new Set();
+  return (Array.isArray(articles) ? articles : [])
+    // Only guides that say they belong to this category: a server without
+    // the ?category= filter returns every article, with no category field.
+    .filter((a) => a && categoryId && String(a.category) === String(categoryId))
+    .filter((a) => typeof a.slug === "string" && a.slug && a.title && !seen.has(a.slug) && seen.add(a.slug))
+    .map((article, index) => ({ article, index, score: new Set(guideWords(article.title).filter((w) => nameWords.has(w))).size }))
+    .sort((a, b) => b.score - a.score || a.index - b.index)
+    .slice(0, limit)
+    .map(({ article }) => article);
+};
+
+// The product page's "Buying guides" block (BuyingGuides.jsx) for bots --
+// a guide without a Hindi title links to its English page, same as the
+// component, since its /hi/ URL would only redirect there.
+const buildBuyingGuidesHtml = (guides, isHindi) => {
+  if (!guides.length) return "";
+  const items = guides
+    .map((article) => {
+      const hindi = isHindi && Boolean(article.titleHi);
+      const href = `${SITE_URL}${hindi ? "/hi" : ""}/articles/${encodeURIComponent(article.slug)}`;
+      const title = hindi ? article.titleHi : article.title;
+      const excerpt = hindi ? article.excerptHi || article.excerpt : article.excerpt;
+      return `<li>
+        <a href="${escapeHtml(href)}">${escapeHtml(title)}</a>
+        ${excerpt ? `<p>${escapeHtml(excerpt)}</p>` : ""}
+      </li>`;
+    })
+    .join("\n");
+  const heading = isHindi ? "खरीदने से पहले पढ़ें" : "Buying guides";
+  return `<nav aria-label="${heading}">
+      <h2>${heading}</h2>
+      <ul>
+        ${items}
+      </ul>
+    </nav>`;
+};
+
 // Real, visible HTML for a product page's <body> — same reasoning as
 // buildCategoryBodyHtml below (added first, for category pages, after a
 // confirmed live Soft 404 on table-covers; extended here to product
@@ -460,6 +505,7 @@ const buildProductBodyHtml = (
   galleryImages,
   isHindi = false,
   relatedProducts = [],
+  buyingGuides = [],
 ) => {
   const breadcrumbHtml = buildBreadcrumbHtml(breadcrumbItems);
   const displayName = isHindi ? product.nameHi : product.name;
@@ -535,6 +581,7 @@ const buildProductBodyHtml = (
     </nav>`
         : ""
     }
+    ${buildBuyingGuidesHtml(buyingGuides, isHindi)}
   `;
 };
 
@@ -1902,12 +1949,18 @@ const buildMeta = async (path, query = {}) => {
     // exact endpoint, but bots never run that JS (SEO/conversion audit,
     // 2026-10-20). safeFetchJson never throws, so a failure here just
     // means an empty related-products section, never a broken page.
-    const relatedProductsData = p.category
-      ? await safeFetchJson(`${API_BASE}/api/products?category=${p.category._id}`)
-      : null;
+    // The category's buying guides come alongside, same never-throws
+    // fetch: a failure or an empty list just leaves the section out.
+    const [relatedProductsData, guidesData] = p.category
+      ? await Promise.all([
+          safeFetchJson(`${API_BASE}/api/products?category=${p.category._id}`),
+          safeFetchJson(`${API_BASE}/api/articles?category=${encodeURIComponent(p.category._id)}`),
+        ])
+      : [null, null];
     const relatedProducts = (relatedProductsData?.products || [])
       .filter((rp) => rp._id !== p._id)
       .slice(0, 10);
+    const buyingGuides = rankGuidesForProduct(guidesData?.success ? guidesData.articles : [], p.name, p.category?._id);
 
     return {
       title: `${seoTitle} | ${SITE_NAME}`,
@@ -1932,6 +1985,7 @@ const buildMeta = async (path, query = {}) => {
         galleryImages,
         isHindi,
         relatedProducts,
+        buyingGuides,
       ),
       // Real-user-only fields (bots never run JS, so these are wasted
       // bytes for them, but injectMeta writes them unconditionally since

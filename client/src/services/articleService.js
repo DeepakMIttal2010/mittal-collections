@@ -12,6 +12,18 @@ export const getArticles = async () => {
   }
 };
 
+export const getArticlesByCategory = async (categoryId) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/articles?category=${encodeURIComponent(categoryId)}`);
+
+    return await response.json();
+  } catch (error) {
+    console.error("Get Category Articles Error:", error);
+
+    return { success: false, articles: [] };
+  }
+};
+
 export const getArticleBySlug = async (slug) => {
   try {
     const response = await fetch(`${API_BASE_URL}/articles/slug/${slug}`);
