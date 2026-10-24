@@ -135,6 +135,6 @@ test("a product without a category makes no article request", async () => {
 test("canonical, Product JSON-LD and status are unaffected by the guides", async () => {
   const { status, body } = await render(EN_PATH, ok(GUIDES));
   assert.equal(status, 200);
-  assert.match(body, new RegExp(`<link rel="canonical" href="${SITE}${EN_PATH}"`));
+  assert.ok(body.includes(`<link rel="canonical" href="${SITE}${EN_PATH}"`), "canonical link missing");
   assert.match(body, /"@type":\s*"Product"/);
 });
