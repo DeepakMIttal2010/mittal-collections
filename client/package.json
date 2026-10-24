@@ -5,9 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "node scripts/fetch-hero-banners.mjs && vite build && node scripts/build-home-html.mjs",
+    "build": "node scripts/fetch-hero-banners.mjs && node scripts/fetch-banner-coupon.mjs && vite build && node scripts/build-home-html.mjs",
     "lint": "eslint .",
-    "test": "node --test scripts/build-home-html.test.mjs",
+    "test": "node --test scripts/build-home-html.test.mjs scripts/fetch-banner-coupon.test.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
