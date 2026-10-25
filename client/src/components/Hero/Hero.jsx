@@ -297,52 +297,59 @@ function Hero() {
         </div>
 
         <div className="hero-split-content">
-          {slide.subtitle && (
-            <div className="hero-split-eyebrow-row">
-              <span className="hero-split-divider" aria-hidden="true" />
-              <span className="hero-split-eyebrow">
-                {t(slide.subtitle, slide.subtitleHi)}
-              </span>
-              <span className="hero-split-divider" aria-hidden="true" />
+          {/* Keyed per banner: each autoplay/manual slide change mounts fresh
+              elements instead of re-flowing the previous slide's. Text of a
+              different length moved the reused eyebrow/title/buttons on
+              every step (desktop CLS 0.003-0.009 per transition); newly
+              inserted elements aren't layout shifts. */}
+          <div key={slide._id} className="hero-split-slide">
+            {slide.subtitle && (
+              <div className="hero-split-eyebrow-row">
+                <span className="hero-split-divider" aria-hidden="true" />
+                <span className="hero-split-eyebrow">
+                  {t(slide.subtitle, slide.subtitleHi)}
+                </span>
+                <span className="hero-split-divider" aria-hidden="true" />
+              </div>
+            )}
+
+            {/* h2, not h1: the slide title changes with every banner and
+                carries no search terms -- the page's one stable h1 is the
+                keyword heading in Categories.jsx (render.js serves the same). */}
+            <h2 className="hero-split-title">
+              {slideTitle.split("\n").map((line, i, lines) => (
+                <span key={i}>
+                  {line.trim()}
+                  {i < lines.length - 1 && (
+                    <>
+                      {" "}
+                      <br />
+                    </>
+                  )}
+                </span>
+              ))}
+            </h2>
+
+            {slide.description && (
+              <p className="hero-split-desc">{t(slide.description, slide.descriptionHi)}</p>
+            )}
+
+            <div className="hero-split-buttons">
+              <HeroButton
+                label={t(slide.button1Label, slide.button1LabelHi)}
+                link={slide.button1Link}
+                variant="primary"
+                isHindi={isHindi}
+                onClick={trackCtaClick}
+              />
+              <HeroButton
+                label={t(slide.button2Label, slide.button2LabelHi)}
+                link={slide.button2Link}
+                variant="secondary"
+                isHindi={isHindi}
+                onClick={trackCtaClick}
+              />
             </div>
-          )}
-
-          {/* h2, not h1: the slide title changes with every banner and
-              carries no search terms -- the page's one stable h1 is the
-              keyword heading in Categories.jsx (render.js serves the same). */}
-          <h2 className="hero-split-title">
-            {slideTitle.split("\n").map((line, i, lines) => (
-              <span key={i}>
-                {line.trim()}
-                {i < lines.length - 1 && (
-                  <>
-                    {" "}
-                    <br />
-                  </>
-                )}
-              </span>
-            ))}
-          </h2>
-
-          {slide.description && (
-            <p className="hero-split-desc">{t(slide.description, slide.descriptionHi)}</p>
-          )}
-
-          <div className="hero-split-buttons">
-            <HeroButton
-              label={t(slide.button1Label, slide.button1LabelHi)}
-              link={slide.button1Link}
-              variant="primary"
-              isHindi={isHindi}
-              onClick={trackCtaClick}
-            />
-            <HeroButton
-              label={t(slide.button2Label, slide.button2LabelHi)}
-              link={slide.button2Link}
-              variant="secondary"
-              isHindi={isHindi}
-              onClick={trackCtaClick}
-            />
           </div>
         </div>
       </div>

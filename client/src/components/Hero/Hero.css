@@ -1,3 +1,37 @@
+/* Stand-ins for Playfair Display while it loads (index.html fetches it
+   asynchronously, display=swap). Unadjusted, Georgia set the hero title
+   ~11% wider, so "Transform Every Corner" wrapped to a third line and the
+   content column jumped 29px when Playfair arrived (CLS 0.0083 at
+   1366x768). size-adjust scales each local font to Playfair Display's
+   width (measured on every banner title: Playfair/Georgia Bold 0.873-0.899,
+   mean 0.896; Playfair/Noto Serif Bold 0.903-0.924, mean 0.917), so the
+   title wraps the same before and after the swap. Line height is fixed at
+   1.2 x font-size, so heights match too. Georgia covers Windows/macOS/iOS;
+   Noto Serif is Android's serif. A device with neither falls through to
+   the old unadjusted fallbacks. */
+@font-face {
+  font-family: "Playfair Display Fallback";
+  src: local("Georgia Bold"), local("Georgia-Bold");
+  font-weight: 700;
+  size-adjust: 89.6%;
+  /* Playfair Display's ascent/descent (1.082 / 0.251 em), divided by the
+     size-adjust (overrides are scaled by it), so the baseline sits where
+     Playfair's will -- without these the lines still moved 8px at the swap. */
+  ascent-override: 120.8%;
+  descent-override: 28%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "Playfair Display Fallback Noto";
+  src: local("Noto Serif Bold"), local("NotoSerif-Bold");
+  font-weight: 700;
+  size-adjust: 91.7%;
+  ascent-override: 118%;
+  descent-override: 27.4%;
+  line-gap-override: 0%;
+}
+
 .hero {
   position: relative;
   overflow: hidden;
@@ -151,6 +185,22 @@
   min-height: 320px;
 }
 
+/* Desktop only (>=1024px): a column tall enough for the tallest banner
+   copy (measured 2026-10-25: 412px at 1366, 429px at 1024; Hindi lower),
+   so its height -- and, with .hero-split's align-items:center, its top --
+   no longer changes between slides, with the text centred inside it.
+   Still shorter than the photo column (541-715px), so the section height
+   is unchanged. Mobile/tablet keep the min-heights above; a taller mobile
+   hero is a separate decision. */
+@media (min-width: 1024px) {
+  .hero-split-content {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 440px;
+  }
+}
+
 .hero-split-eyebrow-row {
   display: flex;
   align-items: center;
@@ -175,7 +225,7 @@
 }
 
 .hero-split-title {
-  font-family: "Playfair Display", Georgia, "Times New Roman", serif;
+  font-family: "Playfair Display", "Playfair Display Fallback", "Playfair Display Fallback Noto", Georgia, "Times New Roman", serif;
   font-size: 48px;
   font-weight: 700;
   line-height: 1.2;
