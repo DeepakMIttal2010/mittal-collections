@@ -334,24 +334,36 @@ function Header() {
           </p>
         </Link>
 
-        {/* Delivery location — saved address if logged in, else an IP-based guess */}
-        {deliverPlace &&
-          (isLoggedIn && savedAddresses.length > 0 ? (
+        {/* Delivery location — saved address if logged in, else an IP-based guess.
+            Takes the same fixed-width slot from the first render: it used to
+            appear only once getMyLocation()/getAddresses() answered, pushing
+            the flex-1 search box ~159px right on every desktop load (CLS
+            0.0045). Long places truncate; the full text is in the title. */}
+        {!deliverPlace ? (
+          <div className="hidden lg:flex items-start gap-1.5 shrink-0 w-36 leading-tight" aria-hidden="true">
+            <FaMapMarkerAlt className="text-amber-600 mt-1 text-base shrink-0" />
+            <span className="min-w-0">
+              <span className="block text-xs text-slate-500 truncate">{t("Deliver to", "डिलीवर करें")}</span>
+              <span className="block text-sm font-bold text-slate-900">&nbsp;</span>
+            </span>
+          </div>
+        ) : isLoggedIn && savedAddresses.length > 0 ? (
             <div
-              className="relative hidden lg:block shrink-0"
+              className="relative hidden lg:block shrink-0 w-36"
               onMouseEnter={openAddressMenu}
               onMouseLeave={scheduleCloseAddressMenu}
             >
               <button
                 type="button"
-                className="flex items-start gap-1.5 leading-tight"
+                className="flex items-start gap-1.5 leading-tight w-full text-left"
+                title={deliverPlace}
               >
                 <FaMapMarkerAlt className="text-amber-600 mt-1 text-base shrink-0" />
-                <span>
-                  <span className="block text-xs text-slate-500">
+                <span className="min-w-0">
+                  <span className="block text-xs text-slate-500 truncate">
                     {t("Deliver to ", "डिलीवर करें ")}{deliverName}
                   </span>
-                  <span className="block text-sm font-bold text-slate-900">
+                  <span className="block text-sm font-bold text-slate-900 truncate">
                     {deliverPlace}
                   </span>
                 </span>
@@ -420,25 +432,26 @@ function Header() {
           ) : (
             <Link
               to={isLoggedIn ? "/addresses/add" : "/login"}
-              className="hidden lg:flex items-start gap-1.5 shrink-0 leading-tight"
+              className="hidden lg:flex items-start gap-1.5 shrink-0 w-36 leading-tight"
+              title={deliverPlace}
             >
               <FaMapMarkerAlt className="text-amber-600 mt-1 text-base shrink-0" />
               {deliverName ? (
-                <span>
-                  <span className="block text-xs text-slate-500">
+                <span className="min-w-0">
+                  <span className="block text-xs text-slate-500 truncate">
                     {t("Deliver to ", "डिलीवर करें ")}{deliverName}
                   </span>
-                  <span className="block text-sm font-bold text-slate-900">
+                  <span className="block text-sm font-bold text-slate-900 truncate">
                     {deliverPlace}
                   </span>
                 </span>
               ) : (
-                <span className="text-sm font-bold text-slate-900">
+                <span className="min-w-0 text-sm font-bold text-slate-900 truncate">
                   {t("Deliver to: ", "डिलीवर करें: ")}{deliverPlace}
                 </span>
               )}
             </Link>
-          ))}
+          )}
 
         {/* Search */}
         <form
