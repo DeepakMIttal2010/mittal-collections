@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "node scripts/fetch-hero-banners.mjs && node scripts/fetch-banner-coupon.mjs && vite build && node scripts/build-home-html.mjs",
+    "build": "node scripts/fetch-hero-banners.mjs && node scripts/fetch-banner-coupon.mjs && node scripts/fetch-nav-categories.mjs && vite build && node scripts/build-home-html.mjs",
     "lint": "eslint .",
     "test": "node --test scripts/*.test.mjs",
     "preview": "vite preview"

@@ -5,6 +5,8 @@ import { FaChevronDown } from "react-icons/fa";
 
 import { getCategories } from "../services/categoryService";
 import { getSubcategories } from "../services/subcategoryService";
+import { toNavCategories } from "../utils/navCategories";
+import navCategoriesSnapshot from "../data/navCategoriesSnapshot.json";
 import { useLanguage } from "../context/LanguageContext";
 import { useHindiLinks } from "../utils/hindiPath";
 
@@ -450,7 +452,12 @@ function MoreCategoriesMenu({ categories, getGroupedSubcategories, linkClassName
 
 function MegaMenu({ linkClassName, portalTarget }) {
   const isHindi = useHindiLinks();
-  const [categories, setCategories] = useState([]);
+  // Starts from the build-time snapshot (scripts/fetch-nav-categories.mjs)
+  // so the category links are in the very first render: starting empty
+  // and inserting them once the API answered pushed every link after
+  // them sideways (desktop CLS 0.0236). The fetch below still corrects
+  // it, and a failed fetch leaves the snapshot in place.
+  const [categories, setCategories] = useState(() => toNavCategories(navCategoriesSnapshot) || []);
   const [subcategories, setSubcategories] = useState([]);
 
   const loadData = async () => {

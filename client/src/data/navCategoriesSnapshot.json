@@ -1,0 +1,80 @@
+[
+  {
+    "_id": "6a6453c92bdcd87c2e0ce708",
+    "name": "Bedsheets",
+    "nameHi": "बेडशीट",
+    "slug": "bedsheets"
+  },
+  {
+    "_id": "6abcb82e598c3c49f7f067ba",
+    "name": "Comforters",
+    "nameHi": "कंफर्टर",
+    "slug": "comforters"
+  },
+  {
+    "_id": "6a6453c92bdcd87c2e0ce70a",
+    "name": "Curtains",
+    "nameHi": "पर्दे",
+    "slug": "curtains"
+  },
+  {
+    "_id": "6a7da730350e3eabfa9f537b",
+    "name": "Cushion Covers",
+    "nameHi": "कुशन कवर",
+    "slug": "cushion-covers"
+  },
+  {
+    "_id": "6a6453c92bdcd87c2e0ce70c",
+    "name": "Cushions",
+    "nameHi": "कुशन",
+    "slug": "cushions"
+  },
+  {
+    "_id": "6aae3441572a69e975f92220",
+    "name": "Dohars",
+    "nameHi": "दोहर",
+    "slug": "dohars"
+  },
+  {
+    "_id": "6a704bb7c5fdce89c2d01f98",
+    "name": "Doormats",
+    "nameHi": "डोरमैट",
+    "slug": "doormats"
+  },
+  {
+    "_id": "6a82faf653c2f308a83dba6d",
+    "name": "Hotel Linen",
+    "nameHi": "होटल लिनन",
+    "slug": "hotel-linen"
+  },
+  {
+    "_id": "6a97c4d726bb0c9797466268",
+    "name": "Mattress Covers",
+    "nameHi": "मैट्रेस कवर",
+    "slug": "mattress-covers"
+  },
+  {
+    "_id": "6a97fe2fd6c1d187c220f3a0",
+    "name": "Table Covers",
+    "nameHi": "टेबल कवर",
+    "slug": "table-covers"
+  },
+  {
+    "_id": "6a9bd63f1ca8d07d4d3eddc8",
+    "name": "Table Runners",
+    "nameHi": "टेबल रनर",
+    "slug": "table-runners"
+  },
+  {
+    "_id": "6a6453c92bdcd87c2e0ce709",
+    "name": "Towels",
+    "nameHi": "तौलिए",
+    "slug": "towels"
+  },
+  {
+    "_id": "6a9fa8a13bf2114da8690c49",
+    "name": "Toys",
+    "nameHi": "खिलौने",
+    "slug": "toys"
+  }
+]
