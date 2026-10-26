@@ -30,6 +30,19 @@ import { REVIEW_BONUS_POINTS } from "./reviewController.js";
 import { escapeHtml } from "../utils/escapeHtml.js";
 import OrderCost from "../models/OrderCost.js";
 import { syncOrder, postSafely } from "../utils/accountingPosting.js";
+import { getPendingPaymentConfig } from "../config/pendingPayment.js";
+import {
+  transactionsSupported,
+  withOptionalTransaction,
+  TransactionsUnavailableError,
+} from "../utils/orderTransactions.js";
+import {
+  markOrderPaid,
+  flagPaymentReview,
+  sendPaymentReviewAlert,
+  sendPaymentNotice,
+  NOTICE_LEASE_MS,
+} from "../utils/orderPayment.js";
 
 // Lazily constructed so a missing/blank key in dev doesn't crash the
 // whole server at import time — only Razorpay-paid checkouts need it.
@@ -193,17 +206,6 @@ const sendOrderStatusNotification = (order, status) => {
 // is a genuine "they liked it" signal, not just a guess at 4 days.
 const REVIEW_REQUEST_DELAY_DAYS = 8;
 
-// A Razorpay order reserves stock and (if redeemed) loyalty points the
-// instant it's created — well before payment actually succeeds (see
-// createOrder below) — but nothing ever released them if the customer
-// simply never paid (closed the tab, payment failed, deliberately
-// abandoned it). 45 minutes gives a slow/retrying customer real room
-// (Razorpay's own checkout, UPI app switches, bank redirects) while
-// still freeing a stock=1 item within the hour instead of it being
-// silently locked away from real buyers indefinitely with no recovery
-// path short of an admin noticing and cancelling it by hand.
-const STALE_RAZORPAY_ORDER_MINUTES = 45;
-
 // Re-derives price/name/image from the database and validates quantity —
 // req.body.orderItems is never trusted for anything that affects money or
 // inventory. Without this, a client could submit an arbitrary price (get
@@ -305,7 +307,9 @@ const verifyOrderItems = async (rawItems) => {
 // AND the top-level stock (kept as a sum-of-variants rollup, see
 // Product.js) are decremented in the same update, matched via
 // arrayFilters so a same-named size on another product can't collide.
-const reserveStock = async (orderItems) => {
+//
+// `session` (optional) runs every write inside the caller's transaction.
+const reserveStock = async (orderItems, { session = null } = {}) => {
   const reserved = [];
 
   for (const item of orderItems) {
@@ -319,12 +323,12 @@ const reserveStock = async (orderItems) => {
             },
           },
           { $inc: { stock: -item.quantity, "variants.$[v].stock": -item.quantity } },
-          { new: true, arrayFilters: [{ "v.size": item.size }] },
+          { new: true, arrayFilters: [{ "v.size": item.size }], session },
         )
       : await Product.findOneAndUpdate(
           { _id: item.product, stock: { $gte: item.quantity } },
           { $inc: { stock: -item.quantity } },
-          { new: true },
+          { new: true, session },
         );
 
     if (!updated) {
@@ -333,7 +337,7 @@ const reserveStock = async (orderItems) => {
       // so the per-item wrapping here only added N extra round trips on
       // a path that can already have several items reserved before a
       // later one runs out of stock (N+1 audit, 2026-10-13).
-      await restoreStock(reserved);
+      await restoreStock(reserved, { session });
 
       return { success: false, failedItemName: item.name };
     }
@@ -354,30 +358,171 @@ const reserveStock = async (orderItems) => {
 // next, so firing all the updates concurrently is safe and cuts an
 // N-item order's restore from N sequential round trips to one wall-clock
 // round trip (N+1 audit, 2026-10-13).
-export const restoreStock = async (orderItems) => {
+//
+// Inside a transaction (`session` set) the updates run one after another —
+// a session can't carry concurrent operations — and the back-in-stock
+// emails are NOT sent: the products that came back are returned instead,
+// for the caller to pass to notifyRestocked() once the transaction has
+// actually committed (a rolled-back restock must not email anyone).
+const restockOne = (item, session) =>
+  item.size
+    ? Product.findOneAndUpdate(
+        { _id: item.product, "variants.size": item.size },
+        { $inc: { stock: item.quantity, "variants.$[v].stock": item.quantity } },
+        { new: true, arrayFilters: [{ "v.size": item.size }], session },
+      )
+    : Product.findByIdAndUpdate(
+        item.product,
+        { $inc: { stock: item.quantity } },
+        { new: true, session },
+      );
+
+const cameBackInStock = (product, item) =>
+  product && product.stock - item.quantity <= 0 && product.stock > 0;
+
+const notifyRestocked = (products) => {
+  products.forEach((product) =>
+    notifyStockAlertSubscribers(product).catch((error) =>
+      console.error("Notify Stock Alert Subscribers Error:", error),
+    ),
+  );
+};
+
+export const restoreStock = async (orderItems, { session = null } = {}) => {
+  if (session) {
+    const restocked = [];
+
+    for (const item of orderItems) {
+      const product = await restockOne(item, session);
+      if (cameBackInStock(product, item)) restocked.push(product);
+    }
+
+    return restocked;
+  }
+
   await Promise.all(
     orderItems.map(async (item) => {
-      const product = item.size
-        ? await Product.findOneAndUpdate(
-            { _id: item.product, "variants.size": item.size },
-            { $inc: { stock: item.quantity, "variants.$[v].stock": item.quantity } },
-            { new: true, arrayFilters: [{ "v.size": item.size }] },
-          )
-        : await Product.findByIdAndUpdate(
-            item.product,
-            { $inc: { stock: item.quantity } },
-            { new: true },
-          );
-
-      const wasOutOfStock = product && product.stock - item.quantity <= 0;
-
-      if (product && wasOutOfStock && product.stock > 0) {
-        notifyStockAlertSubscribers(product).catch((error) =>
-          console.error("Notify Stock Alert Subscribers Error:", error),
-        );
-      }
+      const product = await restockOne(item, null);
+      if (cameBackInStock(product, item)) notifyRestocked([product]);
     }),
   );
+
+  return [];
+};
+
+// Everything a cancellation gives back, for any order: stock (minus what
+// already came back through a return), redeemed points, points already
+// earned from it, the one-time first-order coupon, and a referral bonus
+// this order triggered. Shared by the admin Cancel action and the
+// pending-payment cron, and meant to run inside the same transaction as
+// the status claim — so the order is never Cancelled with its stock still
+// out, or the other way round. Returns the products that came back in
+// stock (see restoreStock).
+const releaseOrderResources = async (
+  order,
+  { session = null, refundDescription = `Refund for cancelled order ${order._id}` } = {},
+) => {
+  // A delivered order can be cancelled after part of it came back
+  // through a return -- that quantity is already back on the shelf
+  // (returnController restocks it), so only the rest goes back now.
+  const returned = await ReturnRequest.find({ order: order._id, stockRestored: true })
+    .select("product size quantity")
+    .session(session)
+    .lean();
+  const lineKey = (x) => `${x.product}|${x.size || ""}`;
+  const backByLine = new Map();
+  returned.forEach((r) => backByLine.set(lineKey(r), (backByLine.get(lineKey(r)) || 0) + r.quantity));
+  const stillOut = order.orderItems
+    .map((item) => {
+      const back = Math.min(backByLine.get(lineKey(item)) || 0, item.quantity);
+      backByLine.set(lineKey(item), (backByLine.get(lineKey(item)) || 0) - back);
+      return { ...(item.toObject?.() ?? item), quantity: item.quantity - back };
+    })
+    .filter((item) => item.quantity > 0);
+
+  const restocked = await restoreStock(stillOut, { session });
+
+  // Give back any points spent on this order...
+  if (order.pointsRedeemed > 0) {
+    await applyLoyaltyPointsChange({
+      userId: order.user,
+      type: "refunded",
+      points: order.pointsRedeemed,
+      order: order._id,
+      description: refundDescription,
+      session,
+    });
+  }
+
+  // ...and claw back any points already earned from it (covers a
+  // delivered order later being marked cancelled, e.g. a return).
+  if (order.pointsCredited && order.pointsEarned > 0) {
+    await applyLoyaltyPointsChange({
+      userId: order.user,
+      type: "clawback",
+      points: -order.pointsEarned,
+      order: order._id,
+      description: `Reversed earn from cancelled order ${order._id}`,
+      session,
+    });
+  }
+
+  // ...and give back their one-time first-order-coupon eligibility
+  // if this order is the one that claimed it (createOrder sets
+  // firstOrderCouponApplied only once that atomic claim itself
+  // succeeds) — an admin cancelling a customer's first order
+  // (defective item, etc.) shouldn't permanently burn it.
+  if (order.firstOrderCouponApplied) {
+    await User.updateOne(
+      { _id: order.user },
+      { $set: { firstOrderCouponUsed: false } },
+      { session },
+    );
+  }
+
+  // ...and claw back the referral bonus if THIS order is the one
+  // that triggered it (order.referralBonusPaid, set only once that
+  // payout itself succeeds — see updateOrderStatus's Delivered branch).
+  // Without this, cancelling or returning a referred customer's
+  // first order kept both sides' referral points permanently, with
+  // no signup/order left to justify them — repeatable by creating a
+  // new account with someone else's referral code, placing a cheap
+  // order, getting it marked Delivered, then cancelling/returning
+  // it. Also releases referralRewarded so a genuinely-delivered
+  // later order can still earn the bonus once, for real.
+  if (order.referralBonusPaid) {
+    const referredUser = await User.findById(order.user).select("referredBy").session(session);
+
+    if (referredUser?.referredBy && order.referralBonusPoints.referrer > 0) {
+      await applyLoyaltyPointsChange({
+        userId: referredUser.referredBy,
+        type: "clawback",
+        points: -order.referralBonusPoints.referrer,
+        order: order._id,
+        description: `Reversed referral bonus — order ${order._id} cancelled`,
+        session,
+      });
+    }
+
+    if (order.referralBonusPoints.referred > 0) {
+      await applyLoyaltyPointsChange({
+        userId: order.user,
+        type: "clawback",
+        points: -order.referralBonusPoints.referred,
+        order: order._id,
+        description: `Reversed referral signup bonus — order ${order._id} cancelled`,
+        session,
+      });
+    }
+
+    await User.updateOne(
+      { _id: order.user },
+      { $set: { referralRewarded: false } },
+      { session },
+    );
+  }
+
+  return restocked;
 };
 
 // ============================
@@ -670,9 +815,12 @@ export const createOrder = async (req, res) => {
     // itself succeeds below — never blindly, since resetting a flag
     // this order never actually claimed could hand the coupon back to
     // whichever other order legitimately holds it).
-    const cancelAndReject = async (message, statusCode = 400) => {
+    const cancelAndReject = async (message, statusCode = 400, reason = "other") => {
       order.orderStatus = "Cancelled";
       order.statusHistory.push({ status: "Cancelled", changedAt: new Date() });
+      order.cancelledAt = new Date();
+      order.cancellationReason = reason;
+      order.cancelledBy = "system";
       await order.save();
 
       await restoreStock(verifiedItems);
@@ -771,6 +919,7 @@ export const createOrder = async (req, res) => {
         return cancelAndReject(
           "Unable to initiate payment. Please try again.",
           500,
+          "payment_init_failed",
         );
       }
     }
@@ -898,9 +1047,9 @@ export const resumeRazorpayPayment = async (req, res) => {
     // customer pay a second time for the same order. This used to just
     // detect that and tell the customer to wait, throwing away proof
     // of payment it had already fetched -- the order stayed "Pending"/
-    // unpaid until cancelStaleRazorpayOrders eventually caught it, up to
-    // 45+ minutes later. Self-heals immediately instead, using the same
-    // atomic claim as that cron's own recovery branch (two tabs hitting
+    // unpaid until the pending-payment cron eventually caught it.
+    // Self-heals immediately instead, through the same atomic
+    // markOrderPaid every other payment path uses (two tabs hitting
     // "Pay Now" at once shouldn't both fire the notification below)
     // (deep bug sweep, 2026-10-20).
     if (razorpayOrder.status === "paid") {
@@ -909,18 +1058,14 @@ export const resumeRazorpayPayment = async (req, res) => {
       );
       const captured = payments.find((p) => p.status === "captured");
 
-      const claimed = await Order.findOneAndUpdate(
-        { _id: order._id, isPaid: { $ne: true } },
-        {
-          $set: {
-            isPaid: true,
-            paidAt: new Date(),
-            razorpayPaymentId: captured?.id || "",
-          },
-        },
-      );
+      const result = await markOrderPaid({
+        orderId: order._id,
+        razorpayOrderId: order.razorpayOrderId,
+        paymentId: captured?.id,
+        source: "resume",
+      });
 
-      if (claimed) {
+      if (result.status === "paid") {
         notifyUser({
           userId: order.user,
           type: "order_status",
@@ -980,6 +1125,21 @@ export const verifyRazorpayPayment = async (req, res) => {
       });
     }
 
+    // Plain strings only — these go into database queries, and a JSON
+    // object here (e.g. {"$ne": ""}) would otherwise act as a query
+    // operator.
+    if (
+      typeof orderId !== "string" ||
+      typeof razorpay_order_id !== "string" ||
+      typeof razorpay_payment_id !== "string" ||
+      typeof razorpay_signature !== "string"
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid payment details",
+      });
+    }
+
     const order = await Order.findOne({
       _id: orderId,
       user: req.user._id,
@@ -1006,45 +1166,33 @@ export const verifyRazorpayPayment = async (req, res) => {
     }
 
     // A valid signature means Razorpay genuinely took the money,
-    // regardless of what state our own order is in — but if the
-    // stale-order cron already cancelled this order (and restored its
-    // stock, possibly to another customer) before this verify call
-    // arrived, blindly setting isPaid=true would leave a paid order
-    // silently stuck as "Cancelled" with no signal to anyone. Record the
-    // real payment fact, but don't auto-revive the order — stock may no
-    // longer be available — and flag it for a human to resolve.
-    const wasCancelled = order.orderStatus === "Cancelled";
-
-    order.isPaid = true;
-    order.paidAt = new Date();
-    order.razorpayPaymentId = razorpay_payment_id;
-    if (wasCancelled) order.paidAfterCancellation = true;
-    await order.save();
-
-    if (wasCancelled) {
-      try {
-        await sendEmail({
-          to: process.env.ADMIN_NOTIFICATION_EMAIL,
-          subject: `Action needed: payment received on cancelled order ${order._id}`,
-          html: `
-            <p>Order ${order._id} was already cancelled (stock restored) when a valid Razorpay payment (${razorpay_payment_id}) was verified for it.</p>
-            <p>The customer was genuinely charged. Please manually confirm whether stock can still be fulfilled, or issue a refund via the Razorpay dashboard.</p>
-          `,
-        });
-      } catch (emailError) {
-        console.error("Paid-After-Cancellation Admin Alert Error:", emailError);
-      }
-    }
+    // regardless of what state our own order is in. markOrderPaid records
+    // that atomically and, if the order had meanwhile been cancelled (the
+    // pending-payment cron, possibly with its stock already sold on) or
+    // switched to Cash on Delivery by an admin, flags it for manual
+    // review and alerts the admin instead of reviving it. Re-verifying an
+    // already-paid order is a harmless no-op.
+    const result = await markOrderPaid({
+      orderId: order._id,
+      razorpayOrderId: razorpay_order_id,
+      paymentId: razorpay_payment_id,
+      source: "verify",
+    });
+    const paidOrder = result.order || order;
+    const lateReason = paidOrder.paidAfterCancellation ? paidOrder.paymentReviewReason : null;
 
     res.status(200).json({
       success: true,
-      message: wasCancelled
-        ? "Payment received. This order was already cancelled — our team will confirm with you shortly."
-        : "Payment verified successfully",
+      message:
+        lateReason === "paid_after_cod_conversion"
+          ? "Payment received. This order had been switched to Cash on Delivery — please don't pay again on delivery; our team will confirm with you shortly."
+          : lateReason
+            ? "Payment received. This order was already cancelled — our team will confirm with you shortly."
+            : "Payment verified successfully",
       // Lets the client fire a GA4 `purchase` event from the order's own
       // confirmed line items — needed specifically by the "Pay Now" resume
       // flow (razorpay.js), which has no live cart to build one from.
-      order,
+      order: paidOrder,
     });
   } catch (error) {
     console.error("Verify Razorpay Payment Error:", error);
@@ -1287,14 +1435,50 @@ export const updateOrderStatus = async (req, res) => {
     // credit Delivered's pointsEarned twice (deep bug sweep, 2026-10-13).
     // Scoping the filter to the order's status AT READ TIME means a
     // losing concurrent request's update simply matches nothing.
-    const claimed = await Order.findOneAndUpdate(
-      { _id: order._id, orderStatus: originalStatus },
-      {
-        $set: setFields,
-        $push: { statusHistory: { status, changedAt: new Date() } },
-      },
-      { new: true },
-    );
+    //
+    // A cancellation runs that claim and everything it gives back (stock,
+    // points, coupon, referral bonus) in one transaction: either all of
+    // it happens or none of it does, so a crash part-way can't leave a
+    // Cancelled order with its stock still out.
+    const isCancelling = status === "Cancelled" && !wasAlreadyCancelled;
+    let restocked = [];
+
+    const claimOrder = async (session) => {
+      const claim = await Order.findOneAndUpdate(
+        { _id: order._id, orderStatus: originalStatus },
+        {
+          $set: isCancelling
+            ? {
+                ...setFields,
+                cancelledAt: new Date(),
+                cancellationReason: "admin",
+                cancelledBy: String(req.user._id),
+              }
+            : setFields,
+          $push: { statusHistory: { status, changedAt: new Date() } },
+        },
+        { new: true, session },
+      );
+
+      if (claim && isCancelling) {
+        restocked = await releaseOrderResources(claim, { session });
+      }
+
+      return claim;
+    };
+
+    let claimed;
+
+    try {
+      claimed = isCancelling ? await withOptionalTransaction(claimOrder) : await claimOrder(null);
+    } catch (error) {
+      if (!(error instanceof TransactionsUnavailableError)) throw error;
+
+      return res.status(503).json({
+        success: false,
+        message: "Cancelling orders is temporarily unavailable — nothing was changed, please try again shortly.",
+      });
+    }
 
     if (!claimed) {
       return res.status(409).json({
@@ -1305,101 +1489,8 @@ export const updateOrderStatus = async (req, res) => {
 
     order = claimed;
 
-    if (status === "Cancelled" && !wasAlreadyCancelled) {
-      // A delivered order can be cancelled after part of it came back
-      // through a return -- that quantity is already back on the shelf
-      // (returnController restocks it), so only the rest goes back now.
-      const returned = await ReturnRequest.find({ order: order._id, stockRestored: true })
-        .select("product size quantity")
-        .lean();
-      const lineKey = (x) => `${x.product}|${x.size || ""}`;
-      const backByLine = new Map();
-      returned.forEach((r) => backByLine.set(lineKey(r), (backByLine.get(lineKey(r)) || 0) + r.quantity));
-      const stillOut = order.orderItems
-        .map((item) => {
-          const back = Math.min(backByLine.get(lineKey(item)) || 0, item.quantity);
-          backByLine.set(lineKey(item), (backByLine.get(lineKey(item)) || 0) - back);
-          return { ...(item.toObject?.() ?? item), quantity: item.quantity - back };
-        })
-        .filter((item) => item.quantity > 0);
-
-      await restoreStock(stillOut);
-
-      // Give back any points spent on this order...
-      if (order.pointsRedeemed > 0) {
-        await applyLoyaltyPointsChange({
-          userId: order.user,
-          type: "refunded",
-          points: order.pointsRedeemed,
-          order: order._id,
-          description: `Refund for cancelled order ${order._id}`,
-        });
-      }
-
-      // ...and claw back any points already earned from it (covers a
-      // delivered order later being marked cancelled, e.g. a return).
-      if (wasAlreadyCredited && order.pointsEarned > 0) {
-        await applyLoyaltyPointsChange({
-          userId: order.user,
-          type: "clawback",
-          points: -order.pointsEarned,
-          order: order._id,
-          description: `Reversed earn from cancelled order ${order._id}`,
-        });
-      }
-
-      // ...and give back their one-time first-order-coupon eligibility
-      // if this order is the one that claimed it (createOrder sets
-      // firstOrderCouponApplied only once that atomic claim itself
-      // succeeds) — an admin cancelling a customer's first order
-      // (defective item, etc.) shouldn't permanently burn it.
-      if (order.firstOrderCouponApplied) {
-        await User.updateOne(
-          { _id: order.user },
-          { $set: { firstOrderCouponUsed: false } },
-        );
-      }
-
-      // ...and claw back the referral bonus if THIS order is the one
-      // that triggered it (order.referralBonusPaid, set only once that
-      // payout itself succeeds — see the Delivered branch below).
-      // Without this, cancelling or returning a referred customer's
-      // first order kept both sides' referral points permanently, with
-      // no signup/order left to justify them — repeatable by creating a
-      // new account with someone else's referral code, placing a cheap
-      // order, getting it marked Delivered, then cancelling/returning
-      // it. Also releases referralRewarded so a genuinely-delivered
-      // later order can still earn the bonus once, for real.
-      if (order.referralBonusPaid) {
-        const referredUser = await User.findById(order.user).select(
-          "referredBy",
-        );
-
-        if (referredUser?.referredBy && order.referralBonusPoints.referrer > 0) {
-          await applyLoyaltyPointsChange({
-            userId: referredUser.referredBy,
-            type: "clawback",
-            points: -order.referralBonusPoints.referrer,
-            order: order._id,
-            description: `Reversed referral bonus — order ${order._id} cancelled`,
-          });
-        }
-
-        if (order.referralBonusPoints.referred > 0) {
-          await applyLoyaltyPointsChange({
-            userId: order.user,
-            type: "clawback",
-            points: -order.referralBonusPoints.referred,
-            order: order._id,
-            description: `Reversed referral signup bonus — order ${order._id} cancelled`,
-          });
-        }
-
-        await User.updateOne(
-          { _id: order.user },
-          { $set: { referralRewarded: false } },
-        );
-      }
+    if (isCancelling) {
+      notifyRestocked(restocked);
     } else if (status === "Delivered" && !wasAlreadyCredited) {
       if (order.pointsEarned > 0) {
         await applyLoyaltyPointsChange({
@@ -1728,174 +1819,549 @@ export const sendReviewRequestEmails = async (req, res) => {
 };
 
 // ============================
-// Cancel Stale Unpaid Razorpay Orders
-// Called by an external scheduler, protected by a shared secret rather
-// than JWT auth — same pattern as sendReviewRequestEmails above. A
-// Razorpay order reserves stock (and any redeemed points) the moment
-// it's created in createOrder, before payment actually succeeds; if the
-// customer never completes payment there was previously no path back —
-// this releases that reservation the same way a real cancellation does
-// (restoreStock + points refund), once the order has clearly been
-// abandoned rather than just slow.
+// Pending Razorpay Payments: reminders, auto-cancel, late-payment checks
 // ============================
+// Called by cron-job.org (CRON_SECRET, not JWT) — every few minutes. A
+// Razorpay order reserves stock (and any redeemed points / first-order
+// coupon) the moment it's created, before payment succeeds. Each run:
+//
+//   1. Unpaid Razorpay orders with something due: asks Razorpay first,
+//      then sends reminder #1 / reminder #2 or auto-cancels, using the
+//      timings in config/pendingPayment.js. A payment that is captured is
+//      recorded; one that is authorized, still in flight, or can't be
+//      confirmed is never cancelled — it is rechecked with backoff and
+//      handed to an admin (paymentReviewNeeded) once the deadline passes.
+//   2. Orders the cron or an admin cancelled, and orders an admin switched to COD,
+//      are rechecked for a few days for money that arrives late.
+//   3. Messages whose send failed earlier are retried.
+//
+// Everything is driven by due times stored on the order, so a missed or
+// late run (Render cold start, downtime) simply catches up on the next
+// one, and every action is claimed atomically, so overlapping runs can't
+// send twice or cancel twice. The handler keeps its old name and URL
+// (/cancel-stale-razorpay) so the existing cron-job.org job keeps working.
+
+const MINUTE = 60 * 1000;
+const minutesFromNow = (minutes) => new Date(Date.now() + minutes * MINUTE);
+
+// Razorpay's view of an order, reduced to one decision:
+//   PAID         a captured payment for the right amount
+//   MISMATCH     captured, but the amount/currency doesn't match
+//   AUTHORIZED   money blocked, not captured (we never capture it)
+//   IN_FLIGHT    a payment attempt started recently and may still succeed
+//   UNPAID       nothing paid and nothing pending
+//   INCONCLUSIVE couldn't tell (API error, timeout, odd response)
+const reconcileRazorpayOrder = async (order, { inFlightGraceMinutes }) => {
+  if (!order.razorpayOrderId) {
+    return { verdict: "INCONCLUSIVE", error: "order has no razorpayOrderId" };
+  }
+
+  let razorpayOrder;
+  let payments;
+
+  try {
+    razorpayOrder = await getRazorpay().orders.fetch(order.razorpayOrderId);
+    ({ items: payments } = await getRazorpay().orders.fetchPayments(order.razorpayOrderId));
+  } catch (error) {
+    return { verdict: "INCONCLUSIVE", error: error?.message || String(error) };
+  }
+
+  if (!razorpayOrder || !Array.isArray(payments)) {
+    return { verdict: "INCONCLUSIVE", error: "unexpected Razorpay response" };
+  }
+
+  const captured = payments.find((p) => p.status === "captured");
+
+  if (captured) {
+    // razorpayOrder.amount is what createOrder asked Razorpay to collect;
+    // while the order is still a Razorpay order it must also equal our
+    // own total (a COD-converted order's total has since changed).
+    const matches =
+      captured.amount === razorpayOrder.amount &&
+      captured.currency === "INR" &&
+      (order.paymentMethod !== "Razorpay" ||
+        razorpayOrder.amount === Math.round(order.totalPrice * 100));
+
+    return matches
+      ? { verdict: "PAID", paymentId: captured.id }
+      : { verdict: "MISMATCH", paymentId: captured.id };
+  }
+
+  // "paid" with no captured payment in the list shouldn't happen — don't
+  // guess either way.
+  if (razorpayOrder.status === "paid") {
+    return { verdict: "INCONCLUSIVE", error: "order paid but no captured payment listed" };
+  }
+
+  if (payments.some((p) => p.status === "authorized")) return { verdict: "AUTHORIZED" };
+
+  const graceStart = Date.now() - inFlightGraceMinutes * MINUTE;
+  const inFlight = payments.some(
+    (p) => p.status === "created" && (!p.created_at || p.created_at * 1000 > graceStart),
+  );
+
+  return { verdict: inFlight ? "IN_FLIGHT" : "UNPAID" };
+};
+
+// Answers that mean money may already have been taken — convertOrderToCod
+// refuses on these (and on IN_FLIGHT / INCONCLUSIVE).
+const PAYMENT_TAKEN_VERDICTS = ["PAID", "MISMATCH", "AUTHORIZED"];
+
+const notifyPaymentConfirmed = (order) =>
+  notifyUser({
+    userId: order.user,
+    type: "order_status",
+    title: "Payment confirmed",
+    message: `We've confirmed your payment for order ${order._id} — it's now being processed.`,
+    link: `/my-orders/${order._id}`,
+  });
+
+const notifyPaymentNotice = (order, title) =>
+  notifyUser({
+    userId: order.user,
+    type: "order_status",
+    title,
+    message: `Order ID: ${order._id}`,
+    link: `/my-orders/${order._id}`,
+  });
+
+const logPending = (order, action, extra = "") =>
+  console.log(`[pending-payment] order=${order._id} action=${action}${extra ? ` ${extra}` : ""}`);
+
+// Auto-cancel for non-payment: status claim + stock / points / coupon
+// release in one transaction (see releaseOrderResources), then the
+// customer's cancellation message.
+const cancelForPaymentTimeout = async (order) => {
+  let restocked = [];
+
+  const cancelled = await withOptionalTransaction(async (session) => {
+    const claim = await Order.findOneAndUpdate(
+      {
+        _id: order._id,
+        orderStatus: "Pending",
+        paymentMethod: "Razorpay",
+        isPaid: { $ne: true },
+        paymentReviewNeeded: { $ne: true },
+      },
+      {
+        $set: {
+          orderStatus: "Cancelled",
+          cancelledAt: new Date(),
+          cancellationReason: "payment_timeout",
+          cancelledBy: "system",
+          nextPaymentCheckAt: null,
+        },
+        $push: { statusHistory: { status: "Cancelled", changedAt: new Date() } },
+      },
+      { new: true, session },
+    );
+
+    if (!claim) return null;
+
+    restocked = await releaseOrderResources(claim, {
+      session,
+      refundDescription: `Refund for unpaid Razorpay order ${claim._id}`,
+    });
+
+    return claim;
+  });
+
+  if (!cancelled) return null;
+
+  notifyRestocked(restocked);
+  await postSafely(syncOrder, cancelled._id);
+
+  return cancelled;
+};
+
+const sendTimeoutCancelNotice = (orderId) =>
+  sendPaymentNotice({
+    orderId,
+    notice: "timeoutCancel",
+    filter: { orderStatus: "Cancelled", cancellationReason: "payment_timeout" },
+    notify: notifyPaymentNotice,
+  });
+
+const processDueOrder = async (order, cfg, counters, canCancel) => {
+  const now = Date.now();
+  const ageMinutes = (now - new Date(order.createdAt).getTime()) / MINUTE;
+  const cancelAt = new Date(new Date(order.createdAt).getTime() + cfg.autoCancelMinutes * MINUTE);
+  const pastDeadline = ageMinutes >= cfg.autoCancelMinutes;
+
+  const result = await reconcileRazorpayOrder(order, cfg);
+
+  if (result.verdict === "INCONCLUSIVE") {
+    const failures = (order.paymentCheckFailures || 0) + 1;
+
+    await Order.updateOne(
+      { _id: order._id },
+      {
+        $set: {
+          paymentCheckFailures: failures,
+          lastPaymentCheckError: String(result.error).slice(0, 300),
+          nextPaymentCheckAt: minutesFromNow(Math.min(60, 5 * 2 ** (failures - 1))),
+        },
+      },
+    );
+
+    counters.skippedInconclusive += 1;
+    logPending(order, "inconclusive", `failures=${failures} error="${result.error}"`);
+
+    if (pastDeadline && failures >= cfg.checkMaxFailures) {
+      if (await flagPaymentReview(order._id, "check_inconclusive")) counters.flaggedReview += 1;
+    }
+
+    return;
+  }
+
+  // Any conclusive answer resets the failure streak.
+  const conclusive = { paymentCheckFailures: 0, lastPaymentCheckError: null };
+
+  if (result.verdict === "PAID") {
+    const paid = await markOrderPaid({
+      orderId: order._id,
+      razorpayOrderId: order.razorpayOrderId,
+      paymentId: result.paymentId,
+      source: "cron",
+    });
+
+    if (paid.status === "paid") {
+      await Order.updateOne({ _id: order._id }, { $set: conclusive });
+      counters.recovered += 1;
+      logPending(order, "recovered-paid", `payment=${result.paymentId}`);
+      if (!paid.order.paidAfterCancellation) notifyPaymentConfirmed(paid.order);
+    }
+
+    return;
+  }
+
+  if (result.verdict === "MISMATCH" || result.verdict === "AUTHORIZED") {
+    await Order.updateOne(
+      { _id: order._id },
+      { $set: { ...conclusive, nextPaymentCheckAt: minutesFromNow(15) } },
+    );
+    logPending(order, result.verdict.toLowerCase());
+
+    if (result.verdict === "MISMATCH" || pastDeadline) {
+      const reason = result.verdict === "MISMATCH" ? "amount_mismatch" : "authorized_uncaptured";
+      if (await flagPaymentReview(order._id, reason)) counters.flaggedReview += 1;
+    }
+
+    return;
+  }
+
+  if (result.verdict === "IN_FLIGHT") {
+    await Order.updateOne({ _id: order._id }, { $set: { ...conclusive, nextPaymentCheckAt: minutesFromNow(5) } });
+    counters.skippedInFlight += 1;
+    logPending(order, "in-flight");
+    return;
+  }
+
+  // UNPAID. A review opened for an authorized / inconclusive payment that
+  // has since cleared (failed, refunded, expired) goes back to the normal
+  // schedule.
+  if (order.paymentReviewNeeded) {
+    await Order.updateOne(
+      { _id: order._id, paymentReviewNeeded: true },
+      {
+        $set: {
+          paymentReviewNeeded: false,
+          paymentReviewResolvedAt: new Date(),
+          paymentReviewResolvedBy: "system",
+        },
+      },
+    );
+    logPending(order, "review-cleared", `reason=${order.paymentReviewReason}`);
+  }
+
+  if (pastDeadline) {
+    if (!canCancel) {
+      // Never cancel without a transaction (see withOptionalTransaction):
+      // stock / points / coupon must be released together with the status.
+      await Order.updateOne({ _id: order._id }, { $set: { ...conclusive, nextPaymentCheckAt: minutesFromNow(15) } });
+      counters.cancelSkippedNoTransactions += 1;
+      logPending(order, "cancel-skipped", "reason=no-transaction-support");
+      return;
+    }
+
+    const cancelled = await cancelForPaymentTimeout(order);
+
+    if (cancelled) {
+      await Order.updateOne(
+        { _id: order._id },
+        { $set: { ...conclusive, nextPaymentCheckAt: minutesFromNow(30) } },
+      );
+      counters.cancelled += 1;
+      logPending(order, "auto-cancelled");
+      if ((await sendTimeoutCancelNotice(order._id)) === "failed") counters.noticeFailures += 1;
+    }
+
+    return;
+  }
+
+  // Only the latest due stage is sent: after downtime an order first seen
+  // at 4 hours gets reminder #2, not both.
+  const unpaidFilter = {
+    orderStatus: "Pending",
+    paymentMethod: "Razorpay",
+    isPaid: { $ne: true },
+    paymentReviewNeeded: { $ne: true },
+  };
+  let noticeFailed = false;
+  let leaseRetryAt = null;
+
+  if (cfg.remindersEnabled) {
+    const reminder2Due = ageMinutes >= cfg.reminder2Minutes;
+    const notice = reminder2Due ? "reminder2" : "reminder1";
+    const alreadySent =
+      order.paymentNotices?.reminder2?.sentAt || (!reminder2Due && order.paymentNotices?.reminder1?.sentAt);
+
+    if (!alreadySent) {
+      const outcome = await sendPaymentNotice({
+        orderId: order._id,
+        notice,
+        filter: unpaidFilter,
+        expiresAt: cancelAt,
+        notify: notifyPaymentNotice,
+      });
+
+      if (outcome === "sent") {
+        counters[notice === "reminder1" ? "reminded1" : "reminded2"] += 1;
+        logPending(order, notice);
+      } else if (outcome === "failed") {
+        counters.noticeFailures += 1;
+        noticeFailed = true;
+      } else if (outcome === "leased") {
+        // Another run holds the claim — or crashed holding it. Look again
+        // just after the lease runs out instead of jumping to the next
+        // stage, so a crashed send isn't silently dropped.
+        leaseRetryAt = new Date(Date.now() + NOTICE_LEASE_MS + MINUTE);
+        logPending(order, `${notice}-leased`);
+      }
+    }
+  }
+
+  // Next look: the next stage's due time (or straight away if a send just
+  // failed and should be retried).
+  const nextStageAt =
+    ageMinutes < cfg.reminder2Minutes
+      ? new Date(new Date(order.createdAt).getTime() + cfg.reminder2Minutes * MINUTE)
+      : cancelAt;
+
+  await Order.updateOne(
+    { _id: order._id },
+    {
+      $set: {
+        ...conclusive,
+        nextPaymentCheckAt: noticeFailed
+          ? new Date()
+          : new Date(Math.min(nextStageAt, cancelAt, leaseRetryAt ?? Infinity)),
+      },
+    },
+  );
+};
+
+// A cancelled (or COD-converted) order whose Razorpay payment lands late:
+// recorded and flagged for an admin, never revived automatically.
+const recheckClosedOrder = async (order, cfg, counters) => {
+  const result = await reconcileRazorpayOrder(order, cfg);
+
+  if (result.verdict === "PAID") {
+    const paid = await markOrderPaid({
+      orderId: order._id,
+      razorpayOrderId: order.razorpayOrderId,
+      paymentId: result.paymentId,
+      source: "cron",
+    });
+
+    if (paid.status === "paid") {
+      counters.latePayments += 1;
+      logPending(order, "late-payment", `payment=${result.paymentId}`);
+    }
+  } else if (result.verdict === "AUTHORIZED" || result.verdict === "MISMATCH") {
+    const reason = result.verdict === "AUTHORIZED" ? "authorized_uncaptured" : "amount_mismatch";
+    if (await flagPaymentReview(order._id, reason)) counters.flaggedReview += 1;
+  }
+
+  await Order.updateOne({ _id: order._id }, { $set: { nextPaymentCheckAt: minutesFromNow(30) } });
+};
+
+const dueNow = () => ({ $or: [{ nextPaymentCheckAt: null }, { nextPaymentCheckAt: { $lte: new Date() } }] });
 
 export const cancelStaleRazorpayOrders = async (req, res) => {
   try {
+    const cfg = getPendingPaymentConfig();
+    const canCancel = await transactionsSupported();
+    const counters = {
+      cancelled: 0,
+      recovered: 0,
+      reminded1: 0,
+      reminded2: 0,
+      skippedInFlight: 0,
+      skippedInconclusive: 0,
+      flaggedReview: 0,
+      latePayments: 0,
+      noticeFailures: 0,
+      noticesRetried: 0,
+      cancelSkippedNoTransactions: 0,
+      errors: 0,
+    };
 
-    const cutoff = new Date(
-      Date.now() - STALE_RAZORPAY_ORDER_MINUTES * 60 * 1000,
-    );
+    // Each order in its own try/catch: one bad record must not stop the
+    // rest of the batch.
+    const eachSafely = async (orders, fn) => {
+      for (const order of orders) {
+        try {
+          await fn(order);
+        } catch (error) {
+          counters.errors += 1;
+          console.error(`[pending-payment] order=${order._id} error:`, error);
+        }
+      }
+    };
 
-    const staleOrders = await Order.find({
+    // 1. Unpaid Razorpay orders with something due. COD orders never match.
+    const firstStageMinutes = Math.min(cfg.reminder1Minutes, cfg.autoCancelMinutes);
+    const due = await Order.find({
       paymentMethod: "Razorpay",
       orderStatus: "Pending",
       isPaid: { $ne: true },
-      createdAt: { $lte: cutoff },
+      createdAt: { $lte: new Date(Date.now() - firstStageMinutes * MINUTE) },
+      ...dueNow(),
+    })
+      .sort({ createdAt: 1 })
+      .limit(cfg.batchSize);
+
+    await eachSafely(due, (order) => processDueOrder(order, cfg, counters, canCancel));
+
+    // 2. Late money on orders the cron or an admin cancelled, or an admin
+    // moved to COD. Only recorded and flagged — never revived, no stock change.
+    const recheckSince = new Date(Date.now() - cfg.postCancelRecheckHours * 60 * MINUTE);
+    const closed = await Order.find({
+      isPaid: { $ne: true },
+      razorpayOrderId: { $nin: ["", null] },
+      $and: [
+        {
+          $or: [
+            { cancellationReason: "payment_timeout", cancelledAt: { $gte: recheckSince } },
+            // An admin can cancel an unpaid Razorpay order while a payment
+            // is still on its way — same late-money risk.
+            {
+              cancellationReason: "admin",
+              paymentMethod: "Razorpay",
+              cancelledAt: { $gte: recheckSince },
+            },
+            { convertedToCodAt: { $gte: recheckSince } },
+          ],
+        },
+        dueNow(),
+      ],
+    })
+      .sort({ updatedAt: 1 })
+      .limit(cfg.batchSize);
+
+    await eachSafely(closed, (order) => recheckClosedOrder(order, cfg, counters));
+
+    // 3. Retries: cancellation messages and admin review alerts whose send
+    // failed or was interrupted, plus one follow-up after 24h unresolved.
+    // Orders already handled above wait for the next run, so one failing
+    // send isn't immediately retried in the same run (that would burn two
+    // of its attempts in a single outage).
+    const { reminderMaxAttempts } = cfg;
+    const handledThisRun = [...due, ...closed].map((order) => order._id);
+    const retryable = (path) => ({
+      _id: { $nin: handledThisRun },
+      [`paymentNotices.${path}.sentAt`]: null,
+      [`paymentNotices.${path}.attempts`]: { $not: { $gte: reminderMaxAttempts } },
     });
 
-    let cancelled = 0;
-    let recovered = 0;
+    const pendingCancelNotices = await Order.find({
+      cancellationReason: "payment_timeout",
+      cancelledAt: { $gte: recheckSince },
+      ...retryable("timeoutCancel"),
+    })
+      .select("_id")
+      .limit(cfg.batchSize);
 
-    for (const order of staleOrders) {
-      // Our own isPaid flag only ever gets set by verifyRazorpayPayment,
-      // a client-driven call — there's no webhook, so a payment that
-      // genuinely succeeded on Razorpay's side (e.g. the browser closed
-      // right after the bank redirect, before that call fired) would
-      // otherwise look identical to a real abandoned checkout here, and
-      // get cancelled + have its stock restored despite the customer
-      // having actually been charged. Check with Razorpay directly
-      // before trusting "still unpaid after 45 minutes" at face value.
-      try {
-        const razorpayOrder = await getRazorpay().orders.fetch(
-          order.razorpayOrderId,
-        );
+    await eachSafely(pendingCancelNotices, async (order) => {
+      if ((await sendTimeoutCancelNotice(order._id)) === "sent") counters.noticesRetried += 1;
+    });
 
-        if (razorpayOrder.status === "paid") {
-          const { items: payments } = await getRazorpay().orders.fetchPayments(
-            order.razorpayOrderId,
-          );
-          const captured = payments.find((p) => p.status === "captured");
+    const pendingAlerts = await Order.find({ paymentReviewNeeded: true, ...retryable("reviewAlert") })
+      .select("_id")
+      .limit(cfg.batchSize);
 
-          // Atomic claim, same reasoning as the cancel branch below: two
-          // overlapping cron fires could otherwise both read isPaid:false
-          // here and both send the "Payment confirmed" notification for
-          // the same order. This branch never actually had that guard
-          // despite a since-corrected comment on the cancel branch below
-          // claiming it did (deep bug sweep, 2026-10-20).
-          const claimed = await Order.findOneAndUpdate(
-            { _id: order._id, isPaid: { $ne: true } },
-            {
-              $set: {
-                isPaid: true,
-                paidAt: new Date(),
-                razorpayPaymentId: captured?.id || "",
-              },
-            },
-          );
+    await eachSafely(pendingAlerts, async (order) => {
+      if ((await sendPaymentReviewAlert(order._id)) === "sent") counters.noticesRetried += 1;
+    });
 
-          if (!claimed) {
-            continue;
-          }
+    const staleReviews = await Order.find({
+      paymentReviewNeeded: true,
+      "paymentNotices.reviewAlert.sentAt": { $lte: new Date(Date.now() - 24 * 60 * MINUTE) },
+      ...retryable("reviewFollowUp"),
+    })
+      .select("_id")
+      .limit(cfg.batchSize);
 
-          // Nothing else in this flow tells the customer their payment
-          // actually went through — verifyRazorpayPayment (the normal
-          // path) relies on the checkout page itself showing success,
-          // which never happened here since that call never fired.
-          notifyUser({
-            userId: order.user,
-            type: "order_status",
-            title: "Payment confirmed",
-            message: `We've confirmed your payment for order ${order._id} — it's now being processed.`,
-            link: `/my-orders/${order._id}`,
-          });
-
-          recovered += 1;
-          continue;
-        }
-      } catch (razorpayError) {
-        // Can't confirm either way (Razorpay API hiccup) — leave this
-        // order alone for now rather than risk wrongly cancelling a
-        // possibly-paid order; the next run will re-check it.
-        console.error(
-          `Stale Order Razorpay Check Error (order ${order._id}):`,
-          razorpayError,
-        );
-        continue;
-      }
-
-      // Unlike the Razorpay-check block above (already its own
-      // try/catch), this cancel/restock/refund block had no per-order
-      // guard — one order whose save()/restoreStock() throws (a
-      // transient DB hiccup, a malformed record) used to propagate to
-      // the outer catch and abort the whole run, silently leaving
-      // every remaining stale order in this batch unprocessed with
-      // nothing logged about which ones.
-      try {
-        // Atomic claim — this branch still read `order` once via the
-        // Order.find() above and saved it with no version check (Order has
-        // no optimisticConcurrency, unlike Product), so two overlapping
-        // runs could both pass this point for the same still-"Pending"
-        // order and both restore stock / refund loyalty points for it
-        // (deep bug sweep, 2026-10-13). The Razorpay-paid-recovery branch
-        // above has its own separate atomic claim for the same reason.
-        // Scoping the filter to `orderStatus: "Pending"` means a losing
-        // concurrent run's update simply matches nothing and `claimed`
-        // comes back null, same mechanism posController's
-        // void/delete-sale guards already use.
-        const claimed = await Order.findOneAndUpdate(
-          { _id: order._id, orderStatus: "Pending" },
-          {
-            $set: { orderStatus: "Cancelled" },
-            $push: { statusHistory: { status: "Cancelled", changedAt: new Date() } },
-          },
-        );
-
-        if (!claimed) {
-          continue;
-        }
-
-        await restoreStock(order.orderItems);
-
-        if (order.pointsRedeemed > 0) {
-          await applyLoyaltyPointsChange({
-            userId: order.user,
-            type: "refunded",
-            points: order.pointsRedeemed,
-            order: order._id,
-            description: `Refund for abandoned Razorpay order ${order._id}`,
-          });
-        }
-
-        if (order.firstOrderCouponApplied) {
-          await User.updateOne(
-            { _id: order.user },
-            { $set: { firstOrderCouponUsed: false } },
-          );
-        }
-
-        // Every other order-status change notifies the customer (see
-        // updateOrderStatus above) — this cron-driven path was silently
-        // skipping that, so a customer whose checkout stalled had no way
-        // to know their order had been cancelled out from under them.
-        sendOrderStatusNotification(order, "Cancelled");
-
-        cancelled += 1;
-      } catch (cancelError) {
-        console.error(
-          `Stale Order Cancel Error (order ${order._id}):`,
-          cancelError,
-        );
-      }
-    }
+    await eachSafely(staleReviews, async (order) => {
+      if ((await sendPaymentReviewAlert(order._id, { followUp: true })) === "sent") counters.noticesRetried += 1;
+    });
 
     res.status(200).json({
       success: true,
-      message: `Cancelled ${cancelled} stale Razorpay order${cancelled === 1 ? "" : "s"}, recovered ${recovered} that had actually been paid`,
-      cancelled,
-      recovered,
+      message: `Cancelled ${counters.cancelled} stale Razorpay order${counters.cancelled === 1 ? "" : "s"}, recovered ${counters.recovered} that had actually been paid`,
+      ...counters,
     });
   } catch (error) {
-    console.error("Cancel Stale Razorpay Orders Error:", error);
+    console.error("Pending Razorpay Orders Error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};
+
+// ============================
+// Resolve a Payment Review (Admin)
+// ============================
+// The admin has checked the Razorpay dashboard (captured, refunded or let
+// an authorization lapse there — this system never does either) and
+// records what they found.
+export const resolvePaymentReview = async (req, res) => {
+  try {
+    const note = typeof req.body?.note === "string" ? req.body.note.trim() : "";
+
+    if (!note || note.length > 500) {
+      return res.status(400).json({
+        success: false,
+        message: "Please add a short note (up to 500 characters) on what you checked.",
+      });
+    }
+
+    const order = await Order.findOneAndUpdate(
+      { _id: req.params.id, paymentReviewNeeded: true },
+      {
+        $set: {
+          paymentReviewNeeded: false,
+          paymentReviewResolvedAt: new Date(),
+          paymentReviewResolvedBy: String(req.user._id),
+          paymentReviewNote: note,
+        },
+      },
+      { new: true },
+    ).populate("user", "name email mobile");
+
+    if (!order) {
+      return res.status(400).json({
+        success: false,
+        message: "This order has no open payment review.",
+      });
+    }
+
+    res.status(200).json({ success: true, message: "Marked as reviewed", order });
+  } catch (error) {
+    console.error("Resolve Payment Review Error:", error);
 
     res.status(500).json({
       success: false,
@@ -2000,39 +2466,35 @@ export const convertOrderToCod = async (req, res) => {
       });
     }
 
-    if (order.razorpayOrderId) {
-      try {
-        const razorpayOrder = await getRazorpay().orders.fetch(order.razorpayOrderId);
-        const { items: payments } = await getRazorpay().orders.fetchPayments(
-          order.razorpayOrderId,
-        );
-        const moneyTaken = payments.some((p) => ["authorized", "captured"].includes(p.status));
+    // Ask Razorpay first. Refused not only when money was taken
+    // (captured / authorized) but also while a payment attempt is still in
+    // flight (a UPI collect request can complete minutes later) or the
+    // answer is unclear — any of those could charge the customer online
+    // on top of the cash they'd then pay on delivery.
+    const check = await reconcileRazorpayOrder(order, getPendingPaymentConfig());
 
-        if (razorpayOrder.status === "paid" || moneyTaken) {
-          return res.status(400).json({
-            success: false,
-            message:
-              "Razorpay shows a payment on this order — check the Razorpay dashboard (refund or fulfil) instead of converting to COD.",
-          });
-        }
-      } catch (razorpayError) {
-        console.error(`Convert To COD Razorpay Check Error (order ${order._id}):`, razorpayError);
-
-        return res.status(502).json({
-          success: false,
-          message: "Couldn't confirm the payment status with Razorpay — try again in a minute.",
-        });
-      }
-    }
-
-    // Stock first: the cancellation put it back on the shelf, and it may
-    // have sold since.
-    const stockResult = await reserveStock(order.orderItems);
-
-    if (!stockResult.success) {
+    if (PAYMENT_TAKEN_VERDICTS.includes(check.verdict)) {
       return res.status(400).json({
         success: false,
-        message: `Sorry, "${stockResult.failedItemName}" doesn't have enough stock available.`,
+        message:
+          "Razorpay shows a payment on this order — check the Razorpay dashboard (refund or fulfil) instead of converting to COD.",
+      });
+    }
+
+    if (check.verdict === "IN_FLIGHT") {
+      return res.status(400).json({
+        success: false,
+        message:
+          "A Razorpay payment attempt on this order is still in progress — try again in about half an hour.",
+      });
+    }
+
+    if (check.verdict === "INCONCLUSIVE") {
+      console.error(`Convert To COD Razorpay Check Error (order ${order._id}):`, check.error);
+
+      return res.status(502).json({
+        success: false,
+        message: "Couldn't confirm the payment status with Razorpay — try again in a minute.",
       });
     }
 
@@ -2040,6 +2502,8 @@ export const convertOrderToCod = async (req, res) => {
       paymentMethod: "COD",
       orderStatus: "Pending",
       convertedToCodAt: new Date(),
+      // Picked up straight away by the late-payment recheck.
+      nextPaymentCheckAt: null,
     };
 
     if (addCodCharge && !(order.codCharge > 0)) {
@@ -2050,30 +2514,65 @@ export const convertOrderToCod = async (req, res) => {
       setFields.totalPrice = order.totalPrice + codCharge;
     }
 
-    // Same atomic-claim pattern as updateOrderStatus: a double-click (or a
-    // second tab) loses here and hands its stock reservation back.
-    const claimed = await Order.findOneAndUpdate(
-      {
-        _id: order._id,
-        orderStatus: "Cancelled",
-        paymentMethod: "Razorpay",
-        isPaid: { $ne: true },
-      },
-      {
-        $set: setFields,
-        $push: { statusHistory: { status: "Pending", changedAt: new Date() } },
-      },
-      { new: true },
-    );
+    // Stock (the cancellation put it back on the shelf, and it may have
+    // sold since) and the status claim commit together: a crash between
+    // the two can no longer leave stock reserved for a still-Cancelled
+    // order. Losing the claim to a concurrent request (double-click,
+    // second tab, a payment landing) rolls the reservation back.
+    const CLAIM_LOST = "convert-claim-lost";
+    let outcome;
 
-    if (!claimed) {
-      await restoreStock(order.orderItems);
+    try {
+      outcome = await withOptionalTransaction(async (session) => {
+        const stockResult = await reserveStock(order.orderItems, { session });
+
+        if (!stockResult.success) return { stockResult };
+
+        const claim = await Order.findOneAndUpdate(
+          {
+            _id: order._id,
+            orderStatus: "Cancelled",
+            paymentMethod: "Razorpay",
+            isPaid: { $ne: true },
+          },
+          {
+            $set: setFields,
+            $push: { statusHistory: { status: "Pending", changedAt: new Date() } },
+          },
+          { new: true, session },
+        );
+
+        if (!claim) {
+          if (!session) await restoreStock(order.orderItems);
+          throw new Error(CLAIM_LOST);
+        }
+
+        return { claimed: claim };
+      });
+    } catch (error) {
+      if (error instanceof TransactionsUnavailableError) {
+        return res.status(503).json({
+          success: false,
+          message: "Converting orders is temporarily unavailable — nothing was changed, please try again shortly.",
+        });
+      }
+
+      if (error.message !== CLAIM_LOST) throw error;
 
       return res.status(409).json({
         success: false,
         message: "This order was just changed elsewhere — refresh and try again.",
       });
     }
+
+    if (outcome.stockResult) {
+      return res.status(400).json({
+        success: false,
+        message: `Sorry, "${outcome.stockResult.failedItemName}" doesn't have enough stock available.`,
+      });
+    }
+
+    const { claimed } = outcome;
 
     await postSafely(syncOrder, claimed._id);
 

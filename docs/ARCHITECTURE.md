@@ -199,7 +199,7 @@ a secret-protected endpoint:
 | Post-delivery review-request emails | `GET/POST /api/orders/send-review-requests?secret=...` | Daily |
 | Wishlist price-drop alerts | `GET/POST /api/wishlist/send-price-drop-alerts?secret=...` | Added 2026-08-26; confirmed live and set up in cron-job.org's dashboard 2026-09-16 |
 | Keep backend awake | `GET /api/health` (no secret — public endpoint) | ~10 min; a dedicated cron-job.org job separate from (and redundant with) UptimeRobot's own ~5 min health-check ping, see §6 |
-| Cancel stale Razorpay orders | `GET/POST /api/orders/cancel-stale-razorpay?secret=...` | ~15-20 min; cancels Razorpay orders left unpaid 45+ min and restores stock/points/coupon claims — endpoint existed for a while before the cron-job.org job itself was registered 2026-09-17 |
+| Pending Razorpay payments | `GET/POST /api/orders/cancel-stale-razorpay?secret=...` (alias `/api/orders/process-pending-payments`) | ~15-20 min today (planned 5 min). Since 2026-10-26: asks Razorpay first, emails payment reminders at 30 min and 3 h, auto-cancels at 6 h (all env-configurable, `server/config/pendingPayment.js`) in a MongoDB transaction with the stock/points/coupon release; never cancels an authorized, in-flight or unconfirmable payment (flags `paymentReviewNeeded` + one admin email instead); rechecks timeout-cancelled and COD-converted orders for 72 h for late payments. Never captures or refunds. First registered on cron-job.org 2026-09-17 |
 
 The review-request job (added 2026-08-24) follows the exact same
 pattern as the two pre-existing jobs: it queries for `Delivered`

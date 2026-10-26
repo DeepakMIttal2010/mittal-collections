@@ -8,6 +8,7 @@ import {
   updateOrderStatus,
   resendOrderStatusEmail,
   convertOrderToCod,
+  resolvePaymentReview,
   restoreOrder,
   deleteOrder,
   permanentlyDeleteOrder,
@@ -23,6 +24,32 @@ const STATUS_OPTIONS = [
   "Delivered",
   "Cancelled",
 ];
+
+// Shown as the "Needs payment review" badge — see Order.paymentReviewReason.
+const PAYMENT_REVIEW_LABELS = {
+  authorized_uncaptured: "Payment authorized, not captured",
+  check_inconclusive: "Razorpay status unconfirmed",
+  amount_mismatch: "Paid amount mismatch",
+  paid_after_cancellation: "Paid after cancellation",
+  paid_after_cod_conversion: "Paid online after COD conversion — don't collect cash",
+  duplicate_payment: "Possible double payment",
+};
+
+const CANCELLATION_REASON_LABELS = {
+  payment_timeout: "Payment not received in time (automatic)",
+  admin: "Cancelled by admin",
+  payment_init_failed: "Payment couldn't be started",
+  other: "Cancelled automatically",
+};
+
+const formatDateTime = (value) =>
+  new Date(value).toLocaleString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
 
 const STATUS_COLORS = {
   Pending: "bg-slate-100 text-slate-700",
@@ -126,7 +153,9 @@ function AdminOrders() {
   useEffect(() => {
     let result = orders;
 
-    if (statusFilter !== "All") {
+    if (statusFilter === "PaymentReview") {
+      result = result.filter((order) => order.paymentReviewNeeded);
+    } else if (statusFilter !== "All") {
       result = result.filter((order) => order.orderStatus === statusFilter);
     }
 
@@ -153,6 +182,20 @@ function AdminOrders() {
     if (
       newStatus === "Cancelled" &&
       !window.confirm("Cancel this order? Stock and any points/coupon used will be reversed.")
+    ) {
+      return;
+    }
+
+    // Nothing here captures a payment — an authorized one is left for
+    // Razorpay to capture or release per the dashboard settings.
+    const target = orders.find((o) => o._id === id);
+    if (
+      newStatus === "Cancelled" &&
+      target?.paymentReviewNeeded &&
+      target.paymentReviewReason === "authorized_uncaptured" &&
+      !window.confirm(
+        "Razorpay shows an AUTHORIZED payment on this order. Cancelling here will not capture it — check the Razorpay dashboard. Cancel anyway?",
+      )
     ) {
       return;
     }
@@ -217,6 +260,31 @@ function AdminOrders() {
       );
     } else {
       alert(response.message || "Unable to convert order to COD");
+    }
+
+    setUpdatingId(null);
+  };
+
+  const handleResolveReview = async (order) => {
+    const note = window.prompt(
+      'What did you check or do in the Razorpay dashboard? (required, e.g. "Refunded pay_xxx on 27 Oct")',
+    );
+
+    if (note === null) return;
+
+    if (!note.trim()) {
+      alert("Please add a short note.");
+      return;
+    }
+
+    setUpdatingId(order._id);
+
+    const response = await resolvePaymentReview(order._id, note.trim());
+
+    if (response.success) {
+      setOrders((prev) => prev.map((o) => (o._id === order._id ? response.order : o)));
+    } else {
+      alert(response.message || "Unable to mark the review as done");
     }
 
     setUpdatingId(null);
@@ -292,6 +360,7 @@ function AdminOrders() {
           className="border border-slate-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           <option value="All">All Status</option>
+          <option value="PaymentReview">Needs payment review</option>
           {STATUS_OPTIONS.map((status) => (
             <option key={status} value={status}>
               {status}
@@ -395,6 +464,16 @@ function AdminOrders() {
                       title="This order was paid via Razorpay but is now Cancelled — the customer was charged. Confirm a refund has actually been issued (or re-fulfil the order) manually."
                     >
                       ⚠ Paid & cancelled — needs refund/review
+                    </span>
+                  )}
+
+                  {order.paymentReviewNeeded && (
+                    <span
+                      className="text-xs font-semibold px-3 py-1 rounded-full w-fit bg-red-600 text-white"
+                      title="This order's payment needs a manual check in the Razorpay dashboard — open it for details."
+                    >
+                      ⚠ Needs payment review:{" "}
+                      {PAYMENT_REVIEW_LABELS[order.paymentReviewReason] || order.paymentReviewReason}
                     </span>
                   )}
 
@@ -543,13 +622,23 @@ function AdminOrders() {
                         {order.convertedToCodAt && (
                           <p className="text-xs text-slate-500">
                             Converted from Razorpay to COD on{" "}
-                            {new Date(order.convertedToCodAt).toLocaleString("en-IN", {
-                              day: "2-digit",
-                              month: "short",
-                              year: "numeric",
-                              hour: "numeric",
-                              minute: "2-digit",
-                            })}
+                            {formatDateTime(order.convertedToCodAt)}
+                          </p>
+                        )}
+                        {order.paymentNotices?.reminder1?.sentAt && (
+                          <p className="text-xs text-slate-500">
+                            Payment reminder 1 sent {formatDateTime(order.paymentNotices.reminder1.sentAt)}
+                          </p>
+                        )}
+                        {order.paymentNotices?.reminder2?.sentAt && (
+                          <p className="text-xs text-slate-500">
+                            Payment reminder 2 sent {formatDateTime(order.paymentNotices.reminder2.sentAt)}
+                          </p>
+                        )}
+                        {order.orderStatus === "Cancelled" && order.cancellationReason && (
+                          <p className="text-xs text-slate-500">
+                            {CANCELLATION_REASON_LABELS[order.cancellationReason] || order.cancellationReason}
+                            {order.cancelledAt ? ` — ${formatDateTime(order.cancelledAt)}` : ""}
                           </p>
                         )}
                       </div>
@@ -624,6 +713,61 @@ function AdminOrders() {
                       </div>
                     </div>
                   </div>
+
+                  {/* Payment review — opened automatically when Razorpay
+                      shows something a person has to settle in the
+                      Razorpay dashboard (nothing is captured or refunded
+                      from here). */}
+                  {(order.paymentReviewNeeded || order.paymentReviewResolvedAt) && (
+                    <div
+                      className={`mt-6 rounded-lg border p-3 text-sm ${
+                        order.paymentReviewNeeded
+                          ? "border-red-200 bg-red-50 text-red-800"
+                          : "border-slate-200 bg-white text-slate-600"
+                      }`}
+                    >
+                      <p className="font-semibold">
+                        {order.paymentReviewNeeded ? "Needs payment review" : "Payment review closed"}:{" "}
+                        {PAYMENT_REVIEW_LABELS[order.paymentReviewReason] || order.paymentReviewReason}
+                      </p>
+                      {order.paymentReviewFlaggedAt && (
+                        <p className="text-xs mt-1">Flagged {formatDateTime(order.paymentReviewFlaggedAt)}</p>
+                      )}
+                      {(order.razorpayPaymentId || order.extraPaymentIds?.length > 0) && (
+                        <p className="text-xs mt-1 font-mono">
+                          Razorpay payment(s):{" "}
+                          {[order.razorpayPaymentId, ...(order.extraPaymentIds || [])].filter(Boolean).join(", ")}
+                        </p>
+                      )}
+                      {order.paymentReviewNeeded ? (
+                        <>
+                          <p className="text-xs mt-2">
+                            Check this order in the Razorpay dashboard (capture, refund or let an
+                            authorization lapse there), then record what you did.
+                          </p>
+                          {canModify && (
+                            <button
+                              type="button"
+                              disabled={updatingId === order._id}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleResolveReview(order);
+                              }}
+                              className="mt-2 text-xs font-semibold text-red-700 border border-red-300 hover:bg-red-100 rounded-lg px-3 py-1.5 disabled:opacity-60"
+                            >
+                              Mark reviewed
+                            </button>
+                          )}
+                        </>
+                      ) : (
+                        <p className="text-xs mt-1">
+                          Closed {formatDateTime(order.paymentReviewResolvedAt)}
+                          {order.paymentReviewResolvedBy === "system" ? " automatically (Razorpay settled it)" : ""}
+                          {order.paymentReviewNote ? ` — ${order.paymentReviewNote}` : ""}
+                        </p>
+                      )}
+                    </div>
+                  )}
 
                   <OrderCostPanel order={order} canEdit={canModify} />
 
