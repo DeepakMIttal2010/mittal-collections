@@ -18,6 +18,7 @@ vi.mock("razorpay", () => ({
 
 vi.mock("../config/mailer.js", () => ({ sendEmail }));
 
+import mongoose from "mongoose";
 import "./setup-replset.js";
 import app from "../app.js";
 import Order from "../models/Order.js";
@@ -26,6 +27,10 @@ import User from "../models/User.js";
 import LoyaltyTransaction from "../models/LoyaltyTransaction.js";
 import { getPendingPaymentConfig } from "../config/pendingPayment.js";
 import { formatIst } from "../utils/orderPayment.js";
+import {
+  transactionsSupported,
+  __resetTransactionSupportForTests,
+} from "../utils/orderTransactions.js";
 import { createUser, signToken, createProduct } from "./helpers.js";
 
 const ADMIN_EMAIL = "admin-alerts@example.com";
@@ -667,5 +672,206 @@ describe("admin side", () => {
 
     const noSecret = await request(app).get("/api/orders/process-pending-payments");
     expect(noSecret.status).toBe(401);
+  });
+});
+
+describe("pre-merge fixes", () => {
+  // Pretends the database is a standalone server (no transactions) for
+  // one test; the real answer is re-detected afterwards.
+  const pretendNoTransactions = () => {
+    __resetTransactionSupportForTests();
+    vi.spyOn(mongoose.connection.db, "admin").mockReturnValue({
+      command: async () => ({}),
+    });
+  };
+
+  const originalNodeEnv = process.env.NODE_ENV;
+
+  afterEach(() => {
+    process.env.NODE_ENV = originalNodeEnv;
+    delete process.env.ALLOW_NON_TRANSACTIONAL_ORDER_WRITES;
+    process.env.ADMIN_NOTIFICATION_EMAIL = ADMIN_EMAIL;
+    vi.restoreAllMocks();
+    __resetTransactionSupportForTests();
+  });
+
+  it("G1: a failed transaction-support check is not cached; the next call retries", async () => {
+    __resetTransactionSupportForTests();
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(mongoose.connection.db, "admin").mockImplementationOnce(() => ({
+      command: () => Promise.reject(new Error("network blip")),
+    }));
+
+    expect(await transactionsSupported()).toBe(false);
+    expect(await transactionsSupported()).toBe(true);
+  });
+
+  it("G2: without transactions outside tests, admin Cancel returns 503 and changes nothing", async () => {
+    const user = await createUser({ loyaltyPoints: 0, firstOrderCouponUsed: true });
+    const { order, product } = await makeOrder({ user, pointsRedeemed: 20, firstOrderCouponApplied: true });
+    const token = await adminToken();
+    pretendNoTransactions();
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    process.env.NODE_ENV = "production";
+
+    const res = await request(app)
+      .put(`/api/orders/${order._id}/status`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ status: "Cancelled" });
+
+    expect(res.status).toBe(503);
+    const reloaded = await Order.findById(order._id);
+    expect(reloaded.orderStatus).toBe("Pending");
+    expect(reloaded.statusHistory).toHaveLength(1);
+    expect(await stockOf(product)).toBe(4);
+    const reloadedUser = await User.findById(user._id);
+    expect(reloadedUser.loyaltyPoints).toBe(0);
+    expect(reloadedUser.firstOrderCouponUsed).toBe(true);
+  });
+
+  it("G2: without transactions outside tests, convert-to-COD returns 503 and changes nothing", async () => {
+    const { order, product } = await makeOrder({
+      orderStatus: "Cancelled",
+      product: await createProduct({ stock: 5 }),
+    });
+    const token = await adminToken();
+    pretendNoTransactions();
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    process.env.NODE_ENV = "production";
+
+    const res = await request(app)
+      .put(`/api/orders/${order._id}/convert-to-cod`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({});
+
+    expect(res.status).toBe(503);
+    const reloaded = await Order.findById(order._id);
+    expect(reloaded.orderStatus).toBe("Cancelled");
+    expect(reloaded.paymentMethod).toBe("Razorpay");
+    expect(await stockOf(product)).toBe(5);
+  });
+
+  it("G2: non-cancel status changes do not need a transaction", async () => {
+    const { order } = await makeOrder({});
+    const token = await adminToken();
+    pretendNoTransactions();
+    process.env.NODE_ENV = "production";
+
+    const res = await request(app)
+      .put(`/api/orders/${order._id}/status`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ status: "Processing" });
+
+    expect(res.status).toBe(200);
+  });
+
+  it("G2: the non-transactional fallback still works in tests and when explicitly allowed", async () => {
+    const first = await makeOrder({});
+    const second = await makeOrder({});
+    const token = await adminToken();
+    pretendNoTransactions();
+
+    const inTests = await request(app)
+      .put(`/api/orders/${first.order._id}/status`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ status: "Cancelled" });
+    expect(inTests.status).toBe(200);
+    expect(await stockOf(first.product)).toBe(5);
+
+    process.env.NODE_ENV = "production";
+    process.env.ALLOW_NON_TRANSACTIONAL_ORDER_WRITES = "true";
+    const allowed = await request(app)
+      .put(`/api/orders/${second.order._id}/status`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ status: "Cancelled" });
+    expect(allowed.status).toBe(200);
+  });
+
+  it("G2: the cron never auto-cancels without transactions", async () => {
+    const { order, product } = await makeOrder({ ageMinutes: 361 });
+    pretendNoTransactions();
+
+    const res = await runCron();
+    expect(res.body.cancelSkippedNoTransactions).toBe(1);
+    expect((await Order.findById(order._id)).orderStatus).toBe("Pending");
+    expect(await stockOf(product)).toBe(4);
+  });
+
+  it("G3: a reminder held by a crashed run's lease is retried after the lease, not dropped", async () => {
+    const { order, user } = await makeOrder({ ageMinutes: 31 });
+    // A previous run claimed reminder #1 two minutes ago and died before sending.
+    await Order.updateOne(
+      { _id: order._id },
+      { $set: { "paymentNotices.reminder1": { claimedAt: new Date(Date.now() - 2 * MINUTE), attempts: 1 } } },
+    );
+
+    await runCron();
+    expect(emailsTo(user.email)).toHaveLength(0);
+
+    const next = (await Order.findById(order._id)).nextPaymentCheckAt.getTime();
+    expect(next).toBeGreaterThan(Date.now() + 9 * MINUTE);
+    expect(next).toBeLessThan(Date.now() + 12 * MINUTE);
+
+    // The lease runs out and the order comes due again.
+    await Order.updateOne(
+      { _id: order._id },
+      {
+        $set: {
+          "paymentNotices.reminder1.claimedAt": new Date(Date.now() - 11 * MINUTE),
+          nextPaymentCheckAt: null,
+        },
+      },
+    );
+    await runCron();
+
+    expect(subjectsTo(user.email)).toEqual(["Your Mittal Collections order is awaiting payment"]);
+    expect((await Order.findById(order._id)).paymentNotices.reminder1.attempts).toBe(2);
+  });
+
+  it("G4: late payment on an admin-cancelled Razorpay order is flagged, not revived, stock untouched", async () => {
+    const { order, product } = await makeOrder({ ageMinutes: 10 });
+
+    await request(app)
+      .put(`/api/orders/${order._id}/status`)
+      .set("Authorization", `Bearer ${await adminToken()}`)
+      .send({ status: "Cancelled" });
+    expect(await stockOf(product)).toBe(5);
+
+    razorpaySays({ status: "paid", payments: [captured("pay_late_admin")] });
+    const res = await runCron();
+    expect(res.body.latePayments).toBe(1);
+
+    const reloaded = await Order.findById(order._id);
+    expect(reloaded.orderStatus).toBe("Cancelled");
+    expect(reloaded.isPaid).toBe(true);
+    expect(reloaded.paymentReviewReason).toBe("paid_after_cancellation");
+    expect(await stockOf(product)).toBe(5);
+    expect(emailsTo(ADMIN_EMAIL)).toHaveLength(1);
+  });
+
+  it("G5: without ADMIN_NOTIFICATION_EMAIL the alert is not marked sent and goes out once it is set", async () => {
+    delete process.env.ADMIN_NOTIFICATION_EMAIL;
+    const configErrors = vi.spyOn(console, "error").mockImplementation(() => {});
+    razorpaySays({ status: "paid", payments: [captured("pay_bad", 100)] });
+    const { order } = await makeOrder({ ageMinutes: 31 });
+
+    for (let run = 0; run < 4; run += 1) await runCron();
+
+    let reloaded = await Order.findById(order._id);
+    expect(reloaded.paymentReviewNeeded).toBe(true);
+    expect(reloaded.paymentNotices?.reviewAlert?.sentAt).toBeFalsy();
+    expect(reloaded.paymentNotices?.reviewAlert?.attempts || 0).toBe(0);
+    expect(
+      configErrors.mock.calls.some(([msg]) => String(msg).includes("ADMIN_NOTIFICATION_EMAIL is not set")),
+    ).toBe(true);
+    expect(sendEmail).not.toHaveBeenCalled();
+
+    process.env.ADMIN_NOTIFICATION_EMAIL = ADMIN_EMAIL;
+    await runCron();
+    await runCron();
+
+    reloaded = await Order.findById(order._id);
+    expect(reloaded.paymentNotices.reviewAlert.sentAt).toBeInstanceOf(Date);
+    expect(emailsTo(ADMIN_EMAIL)).toHaveLength(1);
   });
 });

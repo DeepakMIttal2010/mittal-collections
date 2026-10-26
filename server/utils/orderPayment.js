@@ -31,13 +31,23 @@ const lateReason = {
 };
 
 export const markOrderPaid = async ({ orderId, razorpayOrderId, paymentId, source }) => {
+  // Checked here, at the query, rather than trusting every caller: the
+  // verify endpoint passes values straight from the request body, and a
+  // JSON object in place of a string would act as a query operator.
+  if (typeof razorpayOrderId !== "string" || !razorpayOrderId) {
+    return { status: "not_found", order: null };
+  }
+  if (paymentId !== undefined && paymentId !== null && typeof paymentId !== "string") {
+    return { status: "not_found", order: null };
+  }
+
   const isLate = { $ne: ["$_lateReason", null] };
   const settlesOpenReview = {
     $and: [{ $eq: ["$_lateReason", null] }, { $eq: ["$paymentReviewNeeded", true] }],
   };
 
   const updated = await Order.findOneAndUpdate(
-    { _id: orderId, razorpayOrderId, isPaid: { $ne: true } },
+    { _id: orderId, razorpayOrderId: { $eq: razorpayOrderId }, isPaid: { $ne: true } },
     [
       { $set: { _lateReason: lateReason } },
       {
@@ -74,7 +84,7 @@ export const markOrderPaid = async ({ orderId, razorpayOrderId, paymentId, sourc
     return { status: "paid", order: updated };
   }
 
-  const existing = await Order.findOne({ _id: orderId, razorpayOrderId });
+  const existing = await Order.findOne({ _id: orderId, razorpayOrderId: { $eq: razorpayOrderId } });
 
   if (!existing) return { status: "not_found", order: null };
 
@@ -82,7 +92,7 @@ export const markOrderPaid = async ({ orderId, razorpayOrderId, paymentId, sourc
   // charged twice for one order. Recorded once per payment id.
   if (paymentId && existing.razorpayPaymentId && existing.razorpayPaymentId !== paymentId) {
     const recorded = await Order.findOneAndUpdate(
-      { _id: existing._id, extraPaymentIds: { $ne: paymentId } },
+      { _id: existing._id, extraPaymentIds: { $ne: String(paymentId) } },
       { $addToSet: { extraPaymentIds: paymentId } },
       { new: true },
     );
@@ -136,7 +146,12 @@ export const flagPaymentReview = async (orderId, reason) => {
 // cron run retries — up to reminderMaxAttempts. sentAt is written only
 // after the send succeeded, so a duplicate needs a crash in the instant
 // between the two.
-const NOTICE_LEASE_MS = 10 * 60 * 1000;
+export const NOTICE_LEASE_MS = 10 * 60 * 1000;
+
+// Returns "sent", "failed" (released for a later retry), "leased" (another
+// run holds a live claim — possibly one that crashed mid-send; the caller
+// should look again once the lease runs out) or "skipped" (already sent,
+// out of attempts, or the order no longer qualifies).
 
 export const sendOrderNotice = async ({ orderId, notice, filter = {}, send }) => {
   const { reminderMaxAttempts } = getPendingPaymentConfig();
@@ -158,7 +173,14 @@ export const sendOrderNotice = async ({ orderId, notice, filter = {}, send }) =>
     { new: true },
   );
 
-  if (!claimed) return "skipped";
+  if (!claimed) {
+    const current = await Order.findById(orderId).select(path).lean();
+    const state = current?.paymentNotices?.[notice];
+    const leaseLive =
+      state && !state.sentAt && state.claimedAt && new Date(state.claimedAt) > new Date(claimedAt - NOTICE_LEASE_MS);
+
+    return leaseLive ? "leased" : "skipped";
+  }
 
   try {
     await send(claimed);
@@ -183,21 +205,23 @@ export const sendOrderNotice = async ({ orderId, notice, filter = {}, send }) =>
 // ============================
 // Admin alert for a review
 // ============================
-export const sendPaymentReviewAlert = (orderId, { followUp = false } = {}) =>
-  sendOrderNotice({
+// Without ADMIN_NOTIFICATION_EMAIL there's nowhere to send it: nothing
+// is claimed or counted as an attempt, so the cron's alert sweep keeps
+// retrying (and logging) until the variable is set.
+export const sendPaymentReviewAlert = async (orderId, { followUp = false } = {}) => {
+  if (!process.env.ADMIN_NOTIFICATION_EMAIL) {
+    console.error(
+      `[pending-payment] CONFIG ERROR: ADMIN_NOTIFICATION_EMAIL is not set — payment review alert for order ${orderId} not sent; it will be retried on every run until it is set`,
+    );
+    return "config_missing";
+  }
+
+  return sendOrderNotice({
     orderId,
     notice: followUp ? "reviewFollowUp" : "reviewAlert",
     filter: { paymentReviewNeeded: true },
     send: async (order) => {
       const to = process.env.ADMIN_NOTIFICATION_EMAIL;
-
-      if (!to) {
-        console.error(
-          `[pending-payment] review alert for order ${order._id} not emailed: ADMIN_NOTIFICATION_EMAIL is not set`,
-        );
-        return;
-      }
-
       const label = PAYMENT_REVIEW_LABELS[order.paymentReviewReason] || order.paymentReviewReason;
       const paymentIds = [order.razorpayPaymentId, ...(order.extraPaymentIds || [])].filter(Boolean);
 
@@ -217,6 +241,7 @@ export const sendPaymentReviewAlert = (orderId, { followUp = false } = {}) =>
       });
     },
   });
+};
 
 // ============================
 // Customer messages

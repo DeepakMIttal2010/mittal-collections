@@ -570,6 +570,29 @@ describe("POST /api/orders/verify-payment", () => {
         razorpay_signature: signature,
       });
 
+  it("rejects non-string payment fields (query-operator injection) without marking the order paid", async () => {
+    const user = await createUser();
+    const token = signToken(user);
+    const order = await createTestOrder({
+      user: user._id,
+      paymentMethod: "Razorpay",
+      razorpayOrderId,
+    });
+
+    const res = await request(app)
+      .post("/api/orders/verify-payment")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        orderId: order._id.toString(),
+        razorpay_order_id: { $ne: "" },
+        razorpay_payment_id: razorpayPaymentId,
+        razorpay_signature: validSignature(),
+      });
+
+    expect(res.status).toBe(400);
+    expect((await Order.findById(order._id)).isPaid).toBe(false);
+  });
+
   it("rejects an invalid signature without marking the order paid", async () => {
     const user = await createUser();
     const token = signToken(user);

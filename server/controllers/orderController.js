@@ -31,12 +31,17 @@ import { escapeHtml } from "../utils/escapeHtml.js";
 import OrderCost from "../models/OrderCost.js";
 import { syncOrder, postSafely } from "../utils/accountingPosting.js";
 import { getPendingPaymentConfig } from "../config/pendingPayment.js";
-import { transactionsSupported, withOptionalTransaction } from "../utils/orderTransactions.js";
+import {
+  transactionsSupported,
+  withOptionalTransaction,
+  TransactionsUnavailableError,
+} from "../utils/orderTransactions.js";
 import {
   markOrderPaid,
   flagPaymentReview,
   sendPaymentReviewAlert,
   sendPaymentNotice,
+  NOTICE_LEASE_MS,
 } from "../utils/orderPayment.js";
 
 // Lazily constructed so a missing/blank key in dev doesn't crash the
@@ -1120,6 +1125,21 @@ export const verifyRazorpayPayment = async (req, res) => {
       });
     }
 
+    // Plain strings only — these go into database queries, and a JSON
+    // object here (e.g. {"$ne": ""}) would otherwise act as a query
+    // operator.
+    if (
+      typeof orderId !== "string" ||
+      typeof razorpay_order_id !== "string" ||
+      typeof razorpay_payment_id !== "string" ||
+      typeof razorpay_signature !== "string"
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid payment details",
+      });
+    }
+
     const order = await Order.findOne({
       _id: orderId,
       user: req.user._id,
@@ -1423,7 +1443,7 @@ export const updateOrderStatus = async (req, res) => {
     const isCancelling = status === "Cancelled" && !wasAlreadyCancelled;
     let restocked = [];
 
-    const claimed = await withOptionalTransaction(async (session) => {
+    const claimOrder = async (session) => {
       const claim = await Order.findOneAndUpdate(
         { _id: order._id, orderStatus: originalStatus },
         {
@@ -1445,7 +1465,20 @@ export const updateOrderStatus = async (req, res) => {
       }
 
       return claim;
-    });
+    };
+
+    let claimed;
+
+    try {
+      claimed = isCancelling ? await withOptionalTransaction(claimOrder) : await claimOrder(null);
+    } catch (error) {
+      if (!(error instanceof TransactionsUnavailableError)) throw error;
+
+      return res.status(503).json({
+        success: false,
+        message: "Cancelling orders is temporarily unavailable — nothing was changed, please try again shortly.",
+      });
+    }
 
     if (!claimed) {
       return res.status(409).json({
@@ -1798,7 +1831,7 @@ export const sendReviewRequestEmails = async (req, res) => {
 //      recorded; one that is authorized, still in flight, or can't be
 //      confirmed is never cancelled — it is rechecked with backoff and
 //      handed to an admin (paymentReviewNeeded) once the deadline passes.
-//   2. Orders the cron cancelled, and orders an admin switched to COD,
+//   2. Orders the cron or an admin cancelled, and orders an admin switched to COD,
 //      are rechecked for a few days for money that arrives late.
 //   3. Messages whose send failed earlier are retried.
 //
@@ -2075,6 +2108,7 @@ const processDueOrder = async (order, cfg, counters, canCancel) => {
     paymentReviewNeeded: { $ne: true },
   };
   let noticeFailed = false;
+  let leaseRetryAt = null;
 
   if (cfg.remindersEnabled) {
     const reminder2Due = ageMinutes >= cfg.reminder2Minutes;
@@ -2097,6 +2131,12 @@ const processDueOrder = async (order, cfg, counters, canCancel) => {
       } else if (outcome === "failed") {
         counters.noticeFailures += 1;
         noticeFailed = true;
+      } else if (outcome === "leased") {
+        // Another run holds the claim — or crashed holding it. Look again
+        // just after the lease runs out instead of jumping to the next
+        // stage, so a crashed send isn't silently dropped.
+        leaseRetryAt = new Date(Date.now() + NOTICE_LEASE_MS + MINUTE);
+        logPending(order, `${notice}-leased`);
       }
     }
   }
@@ -2110,7 +2150,14 @@ const processDueOrder = async (order, cfg, counters, canCancel) => {
 
   await Order.updateOne(
     { _id: order._id },
-    { $set: { ...conclusive, nextPaymentCheckAt: noticeFailed ? new Date() : new Date(Math.min(nextStageAt, cancelAt)) } },
+    {
+      $set: {
+        ...conclusive,
+        nextPaymentCheckAt: noticeFailed
+          ? new Date()
+          : new Date(Math.min(nextStageAt, cancelAt, leaseRetryAt ?? Infinity)),
+      },
+    },
   );
 };
 
@@ -2187,7 +2234,8 @@ export const cancelStaleRazorpayOrders = async (req, res) => {
 
     await eachSafely(due, (order) => processDueOrder(order, cfg, counters, canCancel));
 
-    // 2. Late money on orders the cron cancelled or an admin moved to COD.
+    // 2. Late money on orders the cron or an admin cancelled, or an admin
+    // moved to COD. Only recorded and flagged — never revived, no stock change.
     const recheckSince = new Date(Date.now() - cfg.postCancelRecheckHours * 60 * MINUTE);
     const closed = await Order.find({
       isPaid: { $ne: true },
@@ -2196,6 +2244,13 @@ export const cancelStaleRazorpayOrders = async (req, res) => {
         {
           $or: [
             { cancellationReason: "payment_timeout", cancelledAt: { $gte: recheckSince } },
+            // An admin can cancel an unpaid Razorpay order while a payment
+            // is still on its way — same late-money risk.
+            {
+              cancellationReason: "admin",
+              paymentMethod: "Razorpay",
+              cancelledAt: { $gte: recheckSince },
+            },
             { convertedToCodAt: { $gte: recheckSince } },
           ],
         },
@@ -2495,6 +2550,13 @@ export const convertOrderToCod = async (req, res) => {
         return { claimed: claim };
       });
     } catch (error) {
+      if (error instanceof TransactionsUnavailableError) {
+        return res.status(503).json({
+          success: false,
+          message: "Converting orders is temporarily unavailable — nothing was changed, please try again shortly.",
+        });
+      }
+
       if (error.message !== CLAIM_LOST) throw error;
 
       return res.status(409).json({
