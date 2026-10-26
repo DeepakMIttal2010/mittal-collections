@@ -335,6 +335,19 @@ const orderSchema = new mongoose.Schema(
       default: undefined,
     },
 
+    // Captured Razorpay payments whose amount or currency didn't match this
+    // order (reported by the Razorpay webhook). Kept as evidence for the
+    // amount_mismatch review; such a payment never marks the order paid.
+    mismatchedPayments: {
+      type: [
+        new mongoose.Schema(
+          { paymentId: String, amount: Number, currency: String, receivedAt: Date },
+          { _id: false },
+        ),
+      ],
+      default: undefined,
+    },
+
     // One entry per customer/admin message the pending-payment flow
     // sends. claimedAt is a lease (a crashed send is retried once it
     // expires), sentAt is set only after the send succeeded, attempts
@@ -382,6 +395,8 @@ orderSchema.index({ paymentMethod: 1, orderStatus: 1, isPaid: 1, createdAt: 1 })
 orderSchema.index({ cancellationReason: 1, cancelledAt: 1 });
 orderSchema.index({ convertedToCodAt: 1 });
 orderSchema.index({ paymentReviewNeeded: 1 });
+// The Razorpay webhook only knows Razorpay's order id.
+orderSchema.index({ razorpayOrderId: 1 });
 orderSchema.index(
   { user: 1, clientRequestId: 1 },
   { unique: true, partialFilterExpression: { clientRequestId: { $type: "string" } } },
