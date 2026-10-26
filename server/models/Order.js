@@ -276,6 +276,77 @@ const orderSchema = new mongoose.Schema(
     // (see orderController.js's convertOrderToCod).
     convertedToCodAt: Date,
 
+    // Why and when an order was cancelled. Orders cancelled before these
+    // fields existed simply don't have them.
+    cancelledAt: Date,
+    cancellationReason: {
+      type: String,
+      enum: ["payment_timeout", "admin", "payment_init_failed", "other"],
+    },
+    // "system" for the pending-payment cron, otherwise the admin's user id.
+    cancelledBy: String,
+
+    // Which path recorded the payment: "verify" (checkout signature),
+    // "resume" (Pay Now self-heal), "cron" (Razorpay API reconciliation)
+    // or "webhook".
+    paymentSource: String,
+
+    // Pending-payment cron bookkeeping (see processPendingRazorpayOrders):
+    // when this order is next due a Razorpay check, and how many checks
+    // in a row came back inconclusive (API error/timeout).
+    nextPaymentCheckAt: Date,
+    paymentCheckFailures: {
+      type: Number,
+      default: 0,
+    },
+    lastPaymentCheckError: String,
+
+    // Set when the payment state needs a human: an authorized-but-not-
+    // captured payment, repeated inconclusive Razorpay checks, an amount
+    // mismatch, money taken after cancellation or after conversion to COD,
+    // or a second payment on an already-paid order. Never auto-cancelled
+    // while set on a Pending order.
+    paymentReviewNeeded: {
+      type: Boolean,
+      default: false,
+    },
+    paymentReviewReason: {
+      type: String,
+      enum: [
+        "authorized_uncaptured",
+        "check_inconclusive",
+        "amount_mismatch",
+        "paid_after_cancellation",
+        "paid_after_cod_conversion",
+        "duplicate_payment",
+      ],
+    },
+    paymentReviewFlaggedAt: Date,
+    paymentReviewResolvedAt: Date,
+    // "system" when a later conclusive Razorpay check settled it,
+    // otherwise the admin's user id.
+    paymentReviewResolvedBy: String,
+    paymentReviewNote: String,
+
+    // Payment ids Razorpay reported on top of razorpayPaymentId for an
+    // order that was already paid (a possible double charge).
+    extraPaymentIds: {
+      type: [String],
+      default: undefined,
+    },
+
+    // One entry per customer/admin message the pending-payment flow
+    // sends. claimedAt is a lease (a crashed send is retried once it
+    // expires), sentAt is set only after the send succeeded, attempts
+    // caps retries.
+    paymentNotices: {
+      reminder1: { claimedAt: Date, sentAt: Date, attempts: Number },
+      reminder2: { claimedAt: Date, sentAt: Date, attempts: Number },
+      timeoutCancel: { claimedAt: Date, sentAt: Date, attempts: Number },
+      reviewAlert: { claimedAt: Date, sentAt: Date, attempts: Number },
+      reviewFollowUp: { claimedAt: Date, sentAt: Date, attempts: Number },
+    },
+
     // Guards the review-request cron (see sendReviewRequestEmails) against
     // emailing the same order twice.
     reviewRequestSent: {
@@ -305,6 +376,12 @@ orderSchema.index({ isSeenByAdmin: 1, createdAt: -1 });
 // otherwise creep up unnoticed as volume grows.
 orderSchema.index({ orderStatus: 1, reviewRequestSent: 1 });
 orderSchema.index({ paymentMethod: 1, orderStatus: 1, isPaid: 1 });
+// Pending-payment cron: due unpaid orders oldest-first, the post-cancel /
+// post-conversion late-payment recheck, and the review-alert sweep.
+orderSchema.index({ paymentMethod: 1, orderStatus: 1, isPaid: 1, createdAt: 1 });
+orderSchema.index({ cancellationReason: 1, cancelledAt: 1 });
+orderSchema.index({ convertedToCodAt: 1 });
+orderSchema.index({ paymentReviewNeeded: 1 });
 orderSchema.index(
   { user: 1, clientRequestId: 1 },
   { unique: true, partialFilterExpression: { clientRequestId: { $type: "string" } } },

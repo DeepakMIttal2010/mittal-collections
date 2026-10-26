@@ -56,6 +56,8 @@ export const applyLoyaltyPointsChange = async ({
   points,
   order = null,
   description = "",
+  // Optional: run both writes inside the caller's transaction.
+  session = null,
 }) => {
   if (!points) return null;
 
@@ -65,19 +67,24 @@ export const applyLoyaltyPointsChange = async ({
   const user = await User.findOneAndUpdate(
     filter,
     { $inc: { loyaltyPoints: points } },
-    { new: true },
+    { new: true, session },
   );
 
   if (!user) return null;
 
-  await LoyaltyTransaction.create({
-    user: userId,
-    type,
-    points,
-    balanceAfter: user.loyaltyPoints,
-    order,
-    description,
-  });
+  await LoyaltyTransaction.create(
+    [
+      {
+        user: userId,
+        type,
+        points,
+        balanceAfter: user.loyaltyPoints,
+        order,
+        description,
+      },
+    ],
+    { session },
+  );
 
   return user;
 };

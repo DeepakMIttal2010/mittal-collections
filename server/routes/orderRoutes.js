@@ -23,6 +23,7 @@ import {
   resendOrderStatusEmail,
   resumeRazorpayPayment,
   convertOrderToCod,
+  resolvePaymentReview,
 } from "../controllers/orderController.js";
 import { getOrderCost, setOrderCost } from "../controllers/orderCostController.js";
 
@@ -49,10 +50,15 @@ router.get("/", authMiddleware, adminMiddleware, perm, getAllOrders);
 router.post("/send-review-requests", requireCronSecret, sendReviewRequestEmails);
 router.get("/send-review-requests", requireCronSecret, sendReviewRequestEmails);
 
-// Cancel Stale Unpaid Razorpay Orders — called by an external scheduler
-// (cron secret, not JWT), same registration-order reasoning as above.
+// Pending Razorpay payments (reminders, auto-cancel, late-payment checks)
+// — called by an external scheduler (cron secret, not JWT), same
+// registration-order reasoning as above. /cancel-stale-razorpay is the
+// URL the existing cron-job.org job uses; /process-pending-payments is the
+// same handler under its current name.
 router.post("/cancel-stale-razorpay", requireCronSecret, cancelStaleRazorpayOrders);
 router.get("/cancel-stale-razorpay", requireCronSecret, cancelStaleRazorpayOrders);
+router.post("/process-pending-payments", requireCronSecret, cancelStaleRazorpayOrders);
+router.get("/process-pending-payments", requireCronSecret, cancelStaleRazorpayOrders);
 
 // Get Single Order — logged-in user (owner ya admin)
 router.get("/:id", authMiddleware, getOrderById);
@@ -74,6 +80,16 @@ router.put("/:id/status", authMiddleware, adminMiddleware, perm, canModify, upda
 
 // Convert a cancelled, unpaid Razorpay order to COD — sirf Admin
 router.put("/:id/convert-to-cod", authMiddleware, adminMiddleware, perm, canModify, convertOrderToCod);
+
+// Close a payment review after checking the Razorpay dashboard — sirf Admin
+router.put(
+  "/:id/payment-review/resolve",
+  authMiddleware,
+  adminMiddleware,
+  perm,
+  canModify,
+  resolvePaymentReview,
+);
 
 // Resend Order Status Notification Email — sirf Admin (no data changes,
 // gated same as a status update since it does send a real customer email)

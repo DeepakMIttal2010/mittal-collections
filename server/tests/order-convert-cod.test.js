@@ -81,7 +81,10 @@ describe("PUT /api/orders/:id/convert-to-cod", () => {
   });
 
   it("refuses when Razorpay shows the payment actually went through", async () => {
-    fetchOrder.mockResolvedValue({ status: "paid" });
+    fetchOrder.mockResolvedValue({ status: "paid", amount: 99900 });
+    fetchPayments.mockResolvedValue({
+      items: [{ id: "pay_1", status: "captured", amount: 99900, currency: "INR" }],
+    });
     const product = await createProduct({ stock: 5 });
     const order = await cancelledRazorpayOrder(product);
 

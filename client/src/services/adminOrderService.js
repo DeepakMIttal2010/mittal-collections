@@ -132,6 +132,31 @@ export const convertOrderToCod = async (id, { addCodCharge = false } = {}) => {
 };
 
 // ==============================
+// CLOSE A PAYMENT REVIEW (after checking the Razorpay dashboard)
+// ==============================
+export const resolvePaymentReview = async (id, note) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/orders/${id}/payment-review/resolve`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${getToken()}`,
+      },
+      body: JSON.stringify({ note }),
+    });
+
+    return await response.json();
+  } catch (error) {
+    console.error("Resolve Payment Review Error:", error);
+
+    return {
+      success: false,
+      message: "Unable to mark the review as done",
+    };
+  }
+};
+
+// ==============================
 // RESTORE ORDER
 // ==============================
 export const restoreOrder = async (id) => {
