@@ -22,6 +22,7 @@ import {
   cancelStaleRazorpayOrders,
   resendOrderStatusEmail,
   resumeRazorpayPayment,
+  convertOrderToCod,
 } from "../controllers/orderController.js";
 import { getOrderCost, setOrderCost } from "../controllers/orderCostController.js";
 
@@ -70,6 +71,9 @@ router.put("/:id/cost", authMiddleware, adminMiddleware, costPerm, canModify, se
 
 // Update Order Status — sirf Admin
 router.put("/:id/status", authMiddleware, adminMiddleware, perm, canModify, updateOrderStatus);
+
+// Convert a cancelled, unpaid Razorpay order to COD — sirf Admin
+router.put("/:id/convert-to-cod", authMiddleware, adminMiddleware, perm, canModify, convertOrderToCod);
 
 // Resend Order Status Notification Email — sirf Admin (no data changes,
 // gated same as a status update since it does send a real customer email)

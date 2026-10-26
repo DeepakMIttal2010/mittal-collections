@@ -7,6 +7,7 @@ import {
   getAllOrders,
   updateOrderStatus,
   resendOrderStatusEmail,
+  convertOrderToCod,
   restoreOrder,
   deleteOrder,
   permanentlyDeleteOrder,
@@ -188,6 +189,37 @@ function AdminOrders() {
     );
 
     setResendingId(null);
+  };
+
+  // For a customer whose online payment failed and who asked for Cash on
+  // Delivery instead — revives the same order (stock re-reserved, back to
+  // Pending) rather than re-placing it by hand.
+  const handleConvertToCod = async (order) => {
+    if (
+      !window.confirm(
+        `Convert this cancelled order to Cash on Delivery? It goes back to Pending and its stock is reserved again.`,
+      )
+    ) {
+      return;
+    }
+
+    const addCodCharge = window.confirm(
+      `Also add the COD charge to the total?\n\nOK = add COD charge\nCancel = keep the total at ₹${order.totalPrice}`,
+    );
+
+    setUpdatingId(order._id);
+
+    const response = await convertOrderToCod(order._id, { addCodCharge });
+
+    if (response.success) {
+      setOrders((prev) =>
+        prev.map((o) => (o._id === order._id ? { ...o, ...response.order, user: o.user } : o)),
+      );
+    } else {
+      alert(response.message || "Unable to convert order to COD");
+    }
+
+    setUpdatingId(null);
   };
 
   const toggleExpand = (id) => {
@@ -508,6 +540,18 @@ function AdminOrders() {
                             {order.isPaid ? "Yes" : "No"}
                           </span>
                         </p>
+                        {order.convertedToCodAt && (
+                          <p className="text-xs text-slate-500">
+                            Converted from Razorpay to COD on{" "}
+                            {new Date(order.convertedToCodAt).toLocaleString("en-IN", {
+                              day: "2-digit",
+                              month: "short",
+                              year: "numeric",
+                              hour: "numeric",
+                              minute: "2-digit",
+                            })}
+                          </p>
+                        )}
                       </div>
                     </div>
 
@@ -636,16 +680,32 @@ function AdminOrders() {
                   <div className="mt-6 pt-4 border-t border-slate-200 flex items-center gap-3">
                     {order.isActive ? (
                       order.orderStatus === "Cancelled" ? (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDelete(order._id);
-                          }}
-                          className="text-xs font-semibold text-red-600 hover:text-red-700 border border-red-200 hover:bg-red-50 rounded-lg px-3 py-1.5"
-                        >
-                          Delete Order
-                        </button>
+                        <>
+                          {order.paymentMethod === "Razorpay" && !order.isPaid && (
+                            <button
+                              type="button"
+                              disabled={updatingId === order._id}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleConvertToCod(order);
+                              }}
+                              title="Customer wants Cash on Delivery instead — revive this order as COD"
+                              className="text-xs font-semibold text-green-700 hover:text-green-800 border border-green-200 hover:bg-green-50 rounded-lg px-3 py-1.5 disabled:opacity-60"
+                            >
+                              {updatingId === order._id ? "Converting..." : "Convert to COD"}
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDelete(order._id);
+                            }}
+                            className="text-xs font-semibold text-red-600 hover:text-red-700 border border-red-200 hover:bg-red-50 rounded-lg px-3 py-1.5"
+                          >
+                            Delete Order
+                          </button>
+                        </>
                       ) : (
                         <p className="text-xs text-slate-400">
                           Cancel this order to enable deleting it.
