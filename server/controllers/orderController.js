@@ -41,6 +41,7 @@ import {
   flagPaymentReview,
   sendPaymentReviewAlert,
   sendPaymentNotice,
+  notifyPaymentConfirmed,
   NOTICE_LEASE_MS,
 } from "../utils/orderPayment.js";
 
@@ -1906,15 +1907,6 @@ const reconcileRazorpayOrder = async (order, { inFlightGraceMinutes }) => {
 // Answers that mean money may already have been taken — convertOrderToCod
 // refuses on these (and on IN_FLIGHT / INCONCLUSIVE).
 const PAYMENT_TAKEN_VERDICTS = ["PAID", "MISMATCH", "AUTHORIZED"];
-
-const notifyPaymentConfirmed = (order) =>
-  notifyUser({
-    userId: order.user,
-    type: "order_status",
-    title: "Payment confirmed",
-    message: `We've confirmed your payment for order ${order._id} — it's now being processed.`,
-    link: `/my-orders/${order._id}`,
-  });
 
 const notifyPaymentNotice = (order, title) =>
   notifyUser({

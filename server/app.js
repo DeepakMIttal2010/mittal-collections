@@ -46,6 +46,7 @@ import deliveryRoutes from "./routes/deliveryRoutes.js";
 import roleRoutes from "./routes/roleRoutes.js";
 import staffUserRoutes from "./routes/staffUserRoutes.js";
 import { classifyKnownErrors, jsonErrorHandler } from "./middleware/errorHandler.js";
+import { razorpayWebhook } from "./controllers/paymentWebhookController.js";
 
 const app = express();
 
@@ -111,6 +112,24 @@ app.use(
     },
   }),
 );
+// Razorpay webhook — registered BEFORE express.json(): its signature is an
+// HMAC over the exact raw request bytes, so this one route gets the body
+// as an untouched Buffer (any content type, 100 KB cap). It has its own
+// limiter because the general /api limiter below is mounted after it.
+// Server-to-server only (Razorpay sends no Origin), so CORS above is moot.
+const razorpayWebhookLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 120,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.post(
+  "/api/payments/razorpay/webhook",
+  razorpayWebhookLimiter,
+  express.raw({ type: () => true, limit: "100kb" }),
+  razorpayWebhook,
+);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

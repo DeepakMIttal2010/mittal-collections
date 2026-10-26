@@ -122,6 +122,7 @@ network blip, not a real failure; simply retry the same command.
 | `GOOGLE_OAUTH_CLIENT_ID` | Verifies Google ID tokens server-side for `POST /api/auth/google` (Google Sign-In / Sign-Up). **Required** for Google Sign-In to work; added 2026-08-08. |
 | `RAZORPAY_KEY_ID` | Razorpay Standard Checkout — creates the Razorpay order server-side and is served to the frontend at order-creation time to open the checkout modal (not baked into the client build). **Required** for online payments. Added 2026-08-22. See §4.7 — confirmed working in **test mode** only as of that date; verify live-mode credentials before relying on this in production. |
 | `RAZORPAY_KEY_SECRET` | Verifies the Razorpay payment signature (HMAC-SHA256) on `POST /api/orders/verify-payment`. Server-side only, never exposed to the client. **Required** for online payments. Added 2026-08-22. |
+| `RAZORPAY_WEBHOOK_SECRET` | Verifies Razorpay webhook deliveries (HMAC-SHA256 over the raw body) on `POST /api/payments/razorpay/webhook`. Must equal the secret entered for the webhook in the Razorpay dashboard (Test Mode and Live Mode webhooks each have their own). **Not set in production yet** — until it is, the endpoint answers 503 and nothing changes; the checkout verify and the pending-payment cron keep working. Added with PR-B (not yet deployed). |
 | `WHATSAPP_VERIFY_TOKEN` | Gates `GET /api/whatsapp/webhook` — must match the Verify Token entered in Meta's dashboard Callback URL setup. **Required** once the Meta webhook is configured (live and verified as of 2026-08-25). See §4.8. |
 | `ADMIN_NOTIFICATION_EMAIL` | BCC destination on the registration OTP email, the post-verification welcome email, and every order-status-change email; also implicitly the audience for review-request send activity. Optional — emails still send fine without it, the admin just loses BCC visibility into what customers are receiving. Added 2026-08-24. |
 | `PAYMENT_REMINDER_1_MINUTES` / `PAYMENT_REMINDER_2_MINUTES` / `PAYMENT_AUTO_CANCEL_MINUTES` | Unpaid Razorpay order timings — defaults 30 / 180 / 360. Optional; the defaults are the approved policy. `PAYMENT_AUTO_CANCEL_MINUTES=45` + `PAYMENT_REMINDERS_ENABLED=false` restores the pre-2026-10-26 behaviour without a deploy. Added 2026-10-26. |
@@ -251,6 +252,66 @@ Integrated 2026-08-22; made the default payment method at checkout
    offset real courier COD-handling fees — the default is a
    placeholder pending Shiprocket onboarding). Razorpay orders never
    carry this charge.
+
+#### 4.7.1 Razorpay webhook (PR-B)
+`POST /api/payments/razorpay/webhook` lets Razorpay report a captured
+payment directly, so an order is marked paid even if the customer's tab
+closed before the checkout's verify call, and a payment that lands after
+an order was cancelled or switched to COD is flagged for an admin
+(including orders cancelled before the 2026-10-26 pending-payment change,
+which the cron's 72 h recheck can't see).
+
+- **Events processed:** `payment.captured`, `order.paid`. **Logged only:**
+  `payment.authorized`, `payment.failed`. Anything else is acknowledged
+  and ignored.
+- **Signature:** HMAC-SHA256 of the exact raw body with
+  `RAZORPAY_WEBHOOK_SECRET`, compared to `X-Razorpay-Signature`. The route
+  is registered in `server/app.js` before `express.json()` (raw body, 100 KB
+  cap, own 120/min rate limit). Bad or missing signature → 400; secret not
+  set → 503; JSON is parsed only after the signature passes.
+- **What it does:** looks the order up by `razorpayOrderId`, checks INR and
+  the amount (Razorpay order total in paise; skipped for a COD-converted
+  order, which is flagged anyway), then calls the same `markOrderPaid` as
+  the checkout verify and the cron — one atomic, idempotent paid write.
+  Unknown order → 200, nothing written. Amount/currency mismatch → flagged
+  `amount_mismatch`, not marked paid. Late payment on a cancelled or
+  COD-converted order → flagged + one admin email, never revived, stock
+  untouched. It never captures, refunds or cancels anything.
+- **Replays** (Razorpay retries until it gets a 2xx) are harmless: a
+  delivery for an already-paid order is a no-op that still answers 200. A
+  database error answers 500 so Razorpay retries.
+- **Logs:** `[razorpay-webhook] event=… eventId=… rzpOrder=… payment=… result=…`
+  — ids and outcome only, never the body, signature or secret.
+
+**Test Mode check (before any Live setup; nothing in production):**
+1. Run the API locally against the local MongoDB (`server/.env`,
+   `mongodb://127.0.0.1:27017/mittal-collections` — never production)
+   with Razorpay **Test** keys and a local test `RAZORPAY_WEBHOOK_SECRET`.
+2. Expose it with a temporary tunnel, e.g.
+   `cloudflared tunnel --url http://localhost:5000`.
+3. Razorpay Dashboard → **Test Mode** → Settings → Webhooks → Add: the
+   tunnel URL + `/api/payments/razorpay/webhook`, the same test secret,
+   events `payment.captured`, `order.paid` (optionally `payment.authorized`,
+   `payment.failed`).
+4. Place a local order, pay with a Razorpay test card/UPI, and confirm one
+   200 delivery in the dashboard's webhook log and the order paid. Close
+   the browser right after paying once to see the webhook alone mark it
+   paid; "Resend" an event to confirm a replay is a no-op.
+5. Delete the Test Mode webhook and stop the tunnel.
+
+**Live rollout — only with separate owner approval:** set
+`RAZORPAY_WEBHOOK_SECRET` on Render, deploy, confirm an unsigned POST to the
+endpoint returns 400 (503 means the secret is missing), then add the Live
+Mode webhook in the Razorpay dashboard with the same secret and events, and
+watch the first real delivery (Razorpay webhook log + the Render log line).
+
+**Troubleshooting:** every delivery 400 → the dashboard secret and
+`RAZORPAY_WEBHOOK_SECRET` differ, or something in front of the API altered
+the body. 503 → secret not set. `unknown-order` → the Razorpay order isn't
+in this database (e.g. a Test Mode event sent to production).
+
+**Rollback:** disable the webhook in the Razorpay dashboard (instant). The
+checkout verify and the pending-payment cron keep working without it.
 
 ### 4.8 WhatsApp Cloud API (Webhook Only)
 Added 2026-08-25. Current scope is **receiving only** — there is no

@@ -238,6 +238,17 @@ COD orders carry a separate, server-computed `codCharge` (see
 method was flipped to default-Razorpay; it is never applied to
 Razorpay orders.
 
+**Webhook (PR-B, not yet live):** `POST /api/payments/razorpay/webhook`
+(`server/controllers/paymentWebhookController.js`) receives
+`payment.captured` / `order.paid` straight from Razorpay, verifies the
+HMAC over the raw body (`RAZORPAY_WEBHOOK_SECRET`; the route is mounted
+before `express.json()`), and records the payment through the same
+`markOrderPaid` helper (`server/utils/orderPayment.js`) that the checkout
+verify and the pending-payment cron use — so all three paths share one
+atomic, idempotent paid transition and the same late-payment / duplicate-
+payment review flags. It never captures, refunds or cancels. See
+`DEPLOYMENT.md` §4.7.1.
+
 ### 4.7 WhatsApp Cloud API Integration
 Added 2026-08-25 (`whatsappController.js` / `whatsappRoutes.js`,
 mounted at `/api/whatsapp`). Currently **receive-only**:

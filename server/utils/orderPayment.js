@@ -2,6 +2,7 @@ import Order from "../models/Order.js";
 import User from "../models/User.js";
 import { sendEmail } from "../config/mailer.js";
 import { escapeHtml } from "./escapeHtml.js";
+import { notifyUser } from "./notify.js";
 import { getPendingPaymentConfig } from "../config/pendingPayment.js";
 
 // ============================
@@ -102,6 +103,19 @@ export const markOrderPaid = async ({ orderId, razorpayOrderId, paymentId, sourc
 
   return { status: "already_paid", order: existing };
 };
+
+// In-app "payment confirmed" note for a payment the customer's own
+// checkout didn't confirm (the cron's reconciliation, the Razorpay
+// webhook). Callers send it only on the actual paid transition and never
+// for a late payment on a cancelled / COD-converted order.
+export const notifyPaymentConfirmed = (order) =>
+  notifyUser({
+    userId: order.user,
+    type: "order_status",
+    title: "Payment confirmed",
+    message: `We've confirmed your payment for order ${order._id} — it's now being processed.`,
+    link: `/my-orders/${order._id}`,
+  });
 
 // ============================
 // Manual payment review

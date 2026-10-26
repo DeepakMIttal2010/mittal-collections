@@ -382,6 +382,8 @@ orderSchema.index({ paymentMethod: 1, orderStatus: 1, isPaid: 1, createdAt: 1 })
 orderSchema.index({ cancellationReason: 1, cancelledAt: 1 });
 orderSchema.index({ convertedToCodAt: 1 });
 orderSchema.index({ paymentReviewNeeded: 1 });
+// The Razorpay webhook only knows Razorpay's order id.
+orderSchema.index({ razorpayOrderId: 1 });
 orderSchema.index(
   { user: 1, clientRequestId: 1 },
   { unique: true, partialFilterExpression: { clientRequestId: { $type: "string" } } },
