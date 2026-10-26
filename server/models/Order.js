@@ -272,6 +272,10 @@ const orderSchema = new mongoose.Schema(
 
     deliveredAt: Date,
 
+    // Set when an admin revived a cancelled, unpaid Razorpay order as COD
+    // (see orderController.js's convertOrderToCod).
+    convertedToCodAt: Date,
+
     // Guards the review-request cron (see sendReviewRequestEmails) against
     // emailing the same order twice.
     reviewRequestSent: {

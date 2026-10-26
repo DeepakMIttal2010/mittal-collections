@@ -1944,3 +1944,158 @@ export const resendOrderStatusEmail = async (req, res) => {
     });
   }
 };
+
+// ============================
+// Convert Cancelled Razorpay Order to COD (Admin)
+// ============================
+// A customer whose online payment failed/was abandoned (the stale-order
+// cron then cancelled it and restored its stock) sometimes calls to say
+// "send it Cash on Delivery instead". Re-placing the order by hand loses
+// the original order ID and history, so this revives the same order as
+// COD: re-reserves its stock, moves it back to Pending, and records when
+// it was converted. Only unpaid orders qualify — and Razorpay itself is
+// asked first, so an order whose payment actually went through (just
+// never verified on our side) is never turned into a second, COD charge.
+// Orders that redeemed loyalty points or claimed the first-order coupon
+// are refused: the cancellation already handed those back, and
+// re-claiming them here would duplicate createOrder's atomic claims.
+export const convertOrderToCod = async (req, res) => {
+  try {
+    const addCodCharge = req.body?.addCodCharge === true;
+
+    const order = await Order.findById(req.params.id);
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    if (!order.isActive) {
+      return res.status(400).json({
+        success: false,
+        message: "This order is deleted — restore it before converting it",
+      });
+    }
+
+    if (
+      order.orderStatus !== "Cancelled" ||
+      order.paymentMethod !== "Razorpay" ||
+      order.isPaid ||
+      order.paidAfterCancellation ||
+      order.refundedAmount > 0
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Only a cancelled, unpaid Razorpay order can be converted to COD.",
+      });
+    }
+
+    if (order.pointsRedeemed > 0 || order.firstOrderCouponApplied) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "This order used loyalty points or the first-order coupon (already refunded on cancel) — please place a fresh COD order instead.",
+      });
+    }
+
+    if (order.razorpayOrderId) {
+      try {
+        const razorpayOrder = await getRazorpay().orders.fetch(order.razorpayOrderId);
+        const { items: payments } = await getRazorpay().orders.fetchPayments(
+          order.razorpayOrderId,
+        );
+        const moneyTaken = payments.some((p) => ["authorized", "captured"].includes(p.status));
+
+        if (razorpayOrder.status === "paid" || moneyTaken) {
+          return res.status(400).json({
+            success: false,
+            message:
+              "Razorpay shows a payment on this order — check the Razorpay dashboard (refund or fulfil) instead of converting to COD.",
+          });
+        }
+      } catch (razorpayError) {
+        console.error(`Convert To COD Razorpay Check Error (order ${order._id}):`, razorpayError);
+
+        return res.status(502).json({
+          success: false,
+          message: "Couldn't confirm the payment status with Razorpay — try again in a minute.",
+        });
+      }
+    }
+
+    // Stock first: the cancellation put it back on the shelf, and it may
+    // have sold since.
+    const stockResult = await reserveStock(order.orderItems);
+
+    if (!stockResult.success) {
+      return res.status(400).json({
+        success: false,
+        message: `Sorry, "${stockResult.failedItemName}" doesn't have enough stock available.`,
+      });
+    }
+
+    const setFields = {
+      paymentMethod: "COD",
+      orderStatus: "Pending",
+      convertedToCodAt: new Date(),
+    };
+
+    if (addCodCharge && !(order.codCharge > 0)) {
+      const settings = await SiteSettings.findOne().select("codCharge").lean();
+      const codCharge = settings?.codCharge ?? 50;
+
+      setFields.codCharge = codCharge;
+      setFields.totalPrice = order.totalPrice + codCharge;
+    }
+
+    // Same atomic-claim pattern as updateOrderStatus: a double-click (or a
+    // second tab) loses here and hands its stock reservation back.
+    const claimed = await Order.findOneAndUpdate(
+      {
+        _id: order._id,
+        orderStatus: "Cancelled",
+        paymentMethod: "Razorpay",
+        isPaid: { $ne: true },
+      },
+      {
+        $set: setFields,
+        $push: { statusHistory: { status: "Pending", changedAt: new Date() } },
+      },
+      { new: true },
+    );
+
+    if (!claimed) {
+      await restoreStock(order.orderItems);
+
+      return res.status(409).json({
+        success: false,
+        message: "This order was just changed elsewhere — refresh and try again.",
+      });
+    }
+
+    await postSafely(syncOrder, claimed._id);
+
+    notifyUser({
+      userId: claimed.user,
+      type: "order_status",
+      title: "Your order is confirmed as Cash on Delivery",
+      message: `Order ID: ${claimed._id} — pay ₹${claimed.totalPrice} on delivery.`,
+      link: `/my-orders/${claimed._id}`,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Order converted to Cash on Delivery",
+      order: claimed,
+    });
+  } catch (error) {
+    console.error("Convert Order To COD Error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};

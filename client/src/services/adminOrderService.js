@@ -107,6 +107,31 @@ export const resendOrderStatusEmail = async (id) => {
 };
 
 // ==============================
+// CONVERT CANCELLED RAZORPAY ORDER TO COD
+// ==============================
+export const convertOrderToCod = async (id, { addCodCharge = false } = {}) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/orders/${id}/convert-to-cod`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${getToken()}`,
+      },
+      body: JSON.stringify({ addCodCharge }),
+    });
+
+    return await response.json();
+  } catch (error) {
+    console.error("Convert Order To COD Error:", error);
+
+    return {
+      success: false,
+      message: "Unable to convert order to COD",
+    };
+  }
+};
+
+// ==============================
 // RESTORE ORDER
 // ==============================
 export const restoreOrder = async (id) => {
