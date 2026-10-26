@@ -138,7 +138,7 @@ describe("Razorpay webhook: signature and payload checks", () => {
     expect(reloaded.paymentSource).toBe("webhook");
     expect(reloaded.razorpayPaymentId).toBe("pay_ok");
     expect(reloaded.orderStatus).toBe("Pending");
-    expect(await confirmations(user)).toBe(1);
+    await vi.waitFor(async () => expect(await confirmations(user)).toBe(1));
     expect((await Order.findById(other.order._id)).isPaid).toBe(false);
   });
 
@@ -236,7 +236,7 @@ describe("Razorpay webhook: idempotency and ordering", () => {
     }
 
     expect((await Order.findById(order._id)).isPaid).toBe(true);
-    expect(await confirmations(user)).toBe(1);
+    await vi.waitFor(async () => expect(await confirmations(user)).toBe(1));
   });
 
   it("processes order.paid followed by payment.captured once", async () => {
@@ -248,7 +248,7 @@ describe("Razorpay webhook: idempotency and ordering", () => {
     const reloaded = await Order.findById(order._id);
     expect(reloaded.isPaid).toBe(true);
     expect(reloaded.paymentReviewNeeded).toBe(false);
-    expect(await confirmations(user)).toBe(1);
+    await vi.waitFor(async () => expect(await confirmations(user)).toBe(1));
   });
 
   it("webhook and browser verify racing: exactly one paid transition", async () => {
@@ -292,7 +292,7 @@ describe("Razorpay webhook: idempotency and ordering", () => {
     expect(reloaded.razorpayPaymentId).toBe("pay_one");
     expect(reloaded.extraPaymentIds).toEqual(["pay_two"]);
     expect(reloaded.paymentReviewReason).toBe("duplicate_payment");
-    expect(adminEmails()).toHaveLength(1);
+    await vi.waitFor(() => expect(adminEmails()).toHaveLength(1));
   });
 });
 
@@ -340,7 +340,7 @@ describe("Razorpay webhook: orders that shouldn't simply be marked paid", () => 
     expect(reloaded.paidAfterCancellation).toBe(true);
     expect(reloaded.paymentReviewReason).toBe("paid_after_cancellation");
     expect(await stockOf(product)).toBe(4);
-    expect(adminEmails()).toHaveLength(1);
+    await vi.waitFor(() => expect(adminEmails()).toHaveLength(1));
     expect(await confirmations(user)).toBe(0);
   });
 
@@ -353,7 +353,7 @@ describe("Razorpay webhook: orders that shouldn't simply be marked paid", () => 
     expect(reloaded.orderStatus).toBe("Cancelled");
     expect(reloaded.paymentReviewReason).toBe("paid_after_cancellation");
     expect(await stockOf(product)).toBe(4);
-    expect(adminEmails()).toHaveLength(1);
+    await vi.waitFor(() => expect(adminEmails()).toHaveLength(1));
   });
 
   it("capture after conversion to COD: flagged, order stays COD and unchanged otherwise", async () => {
@@ -372,7 +372,7 @@ describe("Razorpay webhook: orders that shouldn't simply be marked paid", () => 
     expect(reloaded.orderStatus).toBe("Pending");
     expect(reloaded.totalPrice).toBe(1049);
     expect(reloaded.paymentReviewReason).toBe("paid_after_cod_conversion");
-    expect(adminEmails()).toHaveLength(1);
+    await vi.waitFor(() => expect(adminEmails()).toHaveLength(1));
     expect(await confirmations(user)).toBe(0);
   });
 
