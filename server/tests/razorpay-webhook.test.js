@@ -390,3 +390,182 @@ describe("Razorpay webhook: orders that shouldn't simply be marked paid", () => 
     expect(rzp.refund).not.toHaveBeenCalled();
   });
 });
+
+describe("Razorpay webhook: review follow-ups (F1, F2) and edge cases", () => {
+  it("F1: answers without waiting for a slow admin-alert email, and the alert still goes out once", async () => {
+    let release;
+    sendEmail.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          release = resolve;
+        }),
+    );
+    const { order } = await makeOrder({ orderStatus: "Cancelled" });
+
+    const res = await deliver(paymentCaptured({ razorpayOrderId: order.razorpayOrderId }));
+    expect(res.status).toBe(200);
+
+    // The response came back while the email is still in flight: the alert
+    // is claimed but not marked sent.
+    await vi.waitFor(() => expect(release).toBeTypeOf("function"));
+    let reloaded = await Order.findById(order._id);
+    expect(reloaded.isPaid).toBe(true);
+    expect(reloaded.paymentReviewReason).toBe("paid_after_cancellation");
+    expect(reloaded.paymentNotices.reviewAlert.claimedAt).toBeInstanceOf(Date);
+    expect(reloaded.paymentNotices.reviewAlert.sentAt).toBeFalsy();
+
+    release();
+    await vi.waitFor(async () => {
+      reloaded = await Order.findById(order._id);
+      expect(reloaded.paymentNotices.reviewAlert.sentAt).toBeInstanceOf(Date);
+    });
+    expect(adminEmails()).toHaveLength(1);
+  });
+
+  it("F1: a failed background alert is logged and left unsent for the cron sweep, with no unhandled rejection", async () => {
+    sendEmail.mockRejectedValue(new Error("Brevo down"));
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { order } = await makeOrder({ orderStatus: "Cancelled" });
+
+    const res = await deliver(paymentCaptured({ razorpayOrderId: order.razorpayOrderId }));
+    expect(res.status).toBe(200);
+
+    await vi.waitFor(async () => {
+      const reloaded = await Order.findById(order._id);
+      expect(reloaded.paymentNotices?.reviewAlert?.attempts).toBe(1);
+      expect(reloaded.paymentNotices.reviewAlert.claimedAt).toBeFalsy();
+    });
+    const reloaded = await Order.findById(order._id);
+    expect(reloaded.paymentNotices.reviewAlert.sentAt).toBeFalsy();
+    expect(reloaded.paymentReviewNeeded).toBe(true);
+    expect(errors).toHaveBeenCalled();
+  });
+
+  it("F2: records the mismatched payment once across concurrent and repeated deliveries, and the alert shows it", async () => {
+    const { order, product } = await makeOrder();
+    const raw = paymentCaptured({ razorpayOrderId: order.razorpayOrderId, paymentId: "pay_wrong", amount: 100 });
+
+    await Promise.all([deliver(raw), deliver(raw)]);
+    await deliver(raw);
+
+    const reloaded = await Order.findById(order._id);
+    expect(reloaded.isPaid).toBe(false);
+    expect(reloaded.orderStatus).toBe("Pending");
+    expect(reloaded.paymentReviewReason).toBe("amount_mismatch");
+    expect(reloaded.mismatchedPayments).toHaveLength(1);
+    expect(reloaded.mismatchedPayments[0]).toMatchObject({ paymentId: "pay_wrong", amount: 100, currency: "INR" });
+    expect(reloaded.mismatchedPayments[0].receivedAt).toBeInstanceOf(Date);
+    expect(await stockOf(product)).toBe(4);
+
+    await vi.waitFor(() => expect(adminEmails()).toHaveLength(1));
+    const html = adminEmails()[0][0].html;
+    expect(html).toContain("pay_wrong");
+    expect(html).toContain("₹1.00");
+  });
+
+  it("F2: a second, different mismatched payment is added without overwriting the first; extraPaymentIds untouched", async () => {
+    const { order } = await makeOrder();
+
+    await deliver(paymentCaptured({ razorpayOrderId: order.razorpayOrderId, paymentId: "pay_a", amount: 100 }));
+    await deliver(paymentCaptured({ razorpayOrderId: order.razorpayOrderId, paymentId: "pay_b", currency: "USD" }));
+
+    const reloaded = await Order.findById(order._id);
+    expect(reloaded.mismatchedPayments.map((p) => p.paymentId)).toEqual(["pay_a", "pay_b"]);
+    expect(reloaded.mismatchedPayments[1].currency).toBe("USD");
+    expect(reloaded.extraPaymentIds).toBeUndefined();
+    expect(reloaded.isPaid).toBe(false);
+  });
+
+  it("F2: a mismatch on a cancelled order keeps it cancelled with stock untouched", async () => {
+    const { order, product } = await makeOrder({ orderStatus: "Cancelled", cancellationReason: "admin" });
+
+    await deliver(paymentCaptured({ razorpayOrderId: order.razorpayOrderId, amount: 5 }));
+
+    const reloaded = await Order.findById(order._id);
+    expect(reloaded.orderStatus).toBe("Cancelled");
+    expect(reloaded.isPaid).toBe(false);
+    expect(reloaded.paymentReviewReason).toBe("amount_mismatch");
+    expect(reloaded.mismatchedPayments).toHaveLength(1);
+    expect(await stockOf(product)).toBe(4);
+  });
+
+  it("order.paid whose order amount disagrees with the payment amount is not marked paid", async () => {
+    const { order } = await makeOrder();
+    const raw = JSON.stringify({
+      entity: "event",
+      event: "order.paid",
+      payload: {
+        payment: {
+          entity: { id: "pay_ok", order_id: order.razorpayOrderId, amount: 99900, currency: "INR", status: "captured" },
+        },
+        order: { entity: { id: order.razorpayOrderId, amount: 100, status: "paid" } },
+      },
+    });
+
+    expect((await deliver(raw)).status).toBe(200);
+
+    const reloaded = await Order.findById(order._id);
+    expect(reloaded.isPaid).toBe(false);
+    expect(reloaded.paymentReviewReason).toBe("amount_mismatch");
+  });
+
+  it("handles malformed but valid-JSON payloads without crashing or touching the database", async () => {
+    const { order } = await makeOrder();
+    const findOne = vi.spyOn(Order, "findOne");
+    const rid = order.razorpayOrderId;
+    const bodies = [
+      "{}",
+      "null",
+      "[]",
+      '"just a string"',
+      "42",
+      JSON.stringify({ event: "payment.captured" }),
+      JSON.stringify({ event: "payment.captured", payload: null }),
+      JSON.stringify({ event: "payment.captured", payload: { payment: null } }),
+      JSON.stringify({ event: "payment.captured", payload: { payment: { entity: null } } }),
+      JSON.stringify({ event: "payment.captured", payload: { payment: { entity: [] } } }),
+      JSON.stringify({ event: "payment.captured", payload: { payment: { entity: "pay_ok" } } }),
+      JSON.stringify({ event: "order.paid", payload: { order: { entity: { id: rid, amount: 99900 } } } }),
+      JSON.stringify({ event: ["payment.captured"], payload: { payment: { entity: { id: "pay_ok", order_id: rid, status: "captured" } } } }),
+      JSON.stringify({ event: "payment.captured", payload: { payment: { entity: { id: "pay_ok", order_id: rid, status: "authorized" } } } }),
+    ];
+
+    for (const raw of bodies) {
+      const res = await deliver(raw);
+      expect(res.status, raw).toBe(200);
+    }
+
+    expect(findOne).not.toHaveBeenCalled();
+    const reloaded = await Order.findById(order._id);
+    expect(reloaded.isPaid).toBe(false);
+    expect(reloaded.paymentReviewNeeded).toBe(false);
+  });
+
+  it("returns 500 when the order lookup fails, so Razorpay retries the delivery", async () => {
+    const { order } = await makeOrder();
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(Order, "findOne").mockImplementation(() => ({
+      select: () => Promise.reject(new Error("database unavailable")),
+    }));
+
+    const res = await deliver(paymentCaptured({ razorpayOrderId: order.razorpayOrderId }));
+
+    expect(res.status).toBe(500);
+    vi.restoreAllMocks();
+    expect((await Order.findById(order._id)).isPaid).toBe(false);
+  });
+
+  it("rejects a body over the 100 KB limit with 413", async () => {
+    const { order } = await makeOrder();
+    const raw = JSON.stringify({
+      event: "payment.captured",
+      payload: { payment: { entity: { id: "pay_ok", order_id: order.razorpayOrderId, amount: 99900, currency: "INR", status: "captured" } } },
+      padding: "x".repeat(110 * 1024),
+    });
+
+    const res = await deliver(raw);
+
+    expect(res.status).toBe(413);
+    expect((await Order.findById(order._id)).isPaid).toBe(false);
+  });
+});

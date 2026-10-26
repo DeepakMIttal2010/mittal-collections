@@ -274,9 +274,13 @@ which the cron's 72 h recheck can't see).
   order, which is flagged anyway), then calls the same `markOrderPaid` as
   the checkout verify and the cron — one atomic, idempotent paid write.
   Unknown order → 200, nothing written. Amount/currency mismatch → flagged
-  `amount_mismatch`, not marked paid. Late payment on a cancelled or
-  COD-converted order → flagged + one admin email, never revived, stock
-  untouched. It never captures, refunds or cancels anything.
+  `amount_mismatch`, not marked paid, and the payment id / amount / currency
+  recorded once in `Order.mismatchedPayments` (shown in the admin alert).
+  Late payment on a cancelled or COD-converted order → flagged + one admin
+  email, never revived, stock untouched. Admin alert emails are sent in the
+  background so a slow email can't delay Razorpay's response; an alert that
+  fails stays unsent and the pending-payment cron's sweep retries it. It
+  never captures, refunds or cancels anything.
 - **Replays** (Razorpay retries until it gets a 2xx) are harmless: a
   delivery for an already-paid order is a no-op that still answers 200. A
   database error answers 500 so Razorpay retries.

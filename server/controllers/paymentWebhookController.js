@@ -127,7 +127,22 @@ export const razorpayWebhook = async (req, res) => {
       (order.paymentMethod !== "Razorpay" || payment.amount === Math.round(order.totalPrice * 100));
 
     if (!amountMatches) {
-      await flagPaymentReview(order._id, "amount_mismatch");
+      // Evidence for the admin: recorded once per payment id in a single
+      // atomic write (a replay or a concurrent delivery matches nothing).
+      await Order.updateOne(
+        { _id: order._id, "mismatchedPayments.paymentId": { $ne: paymentId } },
+        {
+          $push: {
+            mismatchedPayments: {
+              paymentId,
+              amount: Number.isFinite(payment.amount) ? payment.amount : null,
+              currency: typeof payment.currency === "string" ? payment.currency.slice(0, 8) : null,
+              receivedAt: new Date(),
+            },
+          },
+        },
+      );
+      await flagPaymentReview(order._id, "amount_mismatch", { deferAlert: true });
       log({ ...base, order: order._id, result: "amount-mismatch-flagged" });
       return res.status(200).json({ success: true });
     }
@@ -137,6 +152,7 @@ export const razorpayWebhook = async (req, res) => {
       razorpayOrderId,
       paymentId,
       source: "webhook",
+      deferAlert: true,
     });
 
     if (result.status === "paid" && !result.order.paidAfterCancellation) {

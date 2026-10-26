@@ -31,7 +31,10 @@ const lateReason = {
   },
 };
 
-export const markOrderPaid = async ({ orderId, razorpayOrderId, paymentId, source }) => {
+// `deferAlert: true` (the Razorpay webhook) sends any admin alert in the
+// background instead of holding the caller's response until the email is
+// out — see alertAdmin below.
+export const markOrderPaid = async ({ orderId, razorpayOrderId, paymentId, source, deferAlert = false }) => {
   // Checked here, at the query, rather than trusting every caller: the
   // verify endpoint passes values straight from the request body, and a
   // JSON object in place of a string would act as a query operator.
@@ -79,7 +82,7 @@ export const markOrderPaid = async ({ orderId, razorpayOrderId, paymentId, sourc
 
   if (updated) {
     if (updated.paidAfterCancellation) {
-      await sendPaymentReviewAlert(updated._id);
+      await alertAdmin(updated._id, deferAlert);
     }
 
     return { status: "paid", order: updated };
@@ -98,7 +101,7 @@ export const markOrderPaid = async ({ orderId, razorpayOrderId, paymentId, sourc
       { new: true },
     );
 
-    if (recorded) await flagPaymentReview(existing._id, "duplicate_payment");
+    if (recorded) await flagPaymentReview(existing._id, "duplicate_payment", { deferAlert });
   }
 
   return { status: "already_paid", order: existing };
@@ -129,8 +132,25 @@ export const PAYMENT_REVIEW_LABELS = {
   duplicate_payment: "Second payment on an already-paid order",
 };
 
+// Sends the review alert now, or — for a caller that must answer quickly
+// (the Razorpay webhook waits only a few seconds per delivery, and an email
+// can take up to 10) — in the background. Either way the alert goes through
+// the same claim/lease as always: an email that fails or never finishes is
+// left unsent and the pending-payment cron's alert sweep retries it, so
+// deferring never marks anything as sent that wasn't.
+const alertAdmin = async (orderId, deferAlert) => {
+  if (!deferAlert) {
+    await sendPaymentReviewAlert(orderId);
+    return;
+  }
+
+  sendPaymentReviewAlert(orderId).catch((error) =>
+    console.error(`[pending-payment] background review alert for order ${orderId} failed:`, error),
+  );
+};
+
 // Opens a review (only if none is open) and alerts the admin once.
-export const flagPaymentReview = async (orderId, reason) => {
+export const flagPaymentReview = async (orderId, reason, { deferAlert = false } = {}) => {
   const flagged = await Order.findOneAndUpdate(
     { _id: orderId, paymentReviewNeeded: { $ne: true } },
     {
@@ -147,7 +167,7 @@ export const flagPaymentReview = async (orderId, reason) => {
     { new: true },
   );
 
-  if (flagged) await sendPaymentReviewAlert(flagged._id);
+  if (flagged) await alertAdmin(flagged._id, deferAlert);
 
   return Boolean(flagged);
 };
@@ -238,6 +258,9 @@ export const sendPaymentReviewAlert = async (orderId, { followUp = false } = {})
       const to = process.env.ADMIN_NOTIFICATION_EMAIL;
       const label = PAYMENT_REVIEW_LABELS[order.paymentReviewReason] || order.paymentReviewReason;
       const paymentIds = [order.razorpayPaymentId, ...(order.extraPaymentIds || [])].filter(Boolean);
+      const mismatched = (order.mismatchedPayments || [])
+        .map((p) => `${p.paymentId} (${Number.isFinite(p.amount) ? `₹${(p.amount / 100).toFixed(2)}` : "amount ?"} ${p.currency || "?"})`)
+        .join(", ");
 
       await sendEmail({
         to,
@@ -248,7 +271,10 @@ export const sendPaymentReviewAlert = async (orderId, { followUp = false } = {})
           Status: ${escapeHtml(order.orderStatus)} · Payment method: ${escapeHtml(order.paymentMethod)} · Paid: ${order.isPaid ? "Yes" : "No"}<br>
           Total: ₹${order.totalPrice}<br>
           Razorpay order: ${escapeHtml(order.razorpayOrderId || "-")}<br>
-          Razorpay payment(s): ${escapeHtml(paymentIds.join(", ") || "-")}</p>
+          Razorpay payment(s): ${escapeHtml(paymentIds.join(", ") || "-")}${
+            mismatched ? `<br>
+          Mismatched payment(s): ${escapeHtml(mismatched)}` : ""
+          }</p>
           <p>Nothing has been captured or refunded automatically. Check the Razorpay dashboard, then mark the order reviewed in the admin panel.</p>
           <p><a href="${process.env.CLIENT_URL}/admin/orders?highlight=${order._id}">Open the order</a></p>
         `,
