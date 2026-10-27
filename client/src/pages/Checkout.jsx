@@ -17,8 +17,7 @@ import {
   validateCoupon,
 } from "../services/couponService";
 import { getSiteSettings } from "../services/settingsService";
-import { getProfile } from "../services/authService";
-import { getPublicRewardsInfo } from "../services/rewardsService";
+import { getPublicRewardsInfo, getMyLoyaltySummary } from "../services/rewardsService";
 import { checkPincodeDelivery } from "../services/deliveryService";
 import { calculateDeliveryFee } from "../utils/shipping";
 import { loadRazorpayScript } from "../utils/razorpay";
@@ -72,10 +71,10 @@ function Checkout() {
   const [availablePoints, setAvailablePoints] = useState(0);
   const [redeemPoints, setRedeemPoints] = useState(0);
   const [usePoints, setUsePoints] = useState(false);
+  const [pendingPoints, setPendingPoints] = useState(0);
   const [loyaltyRules, setLoyaltyRules] = useState({
     redeemValue: 1,
-    maxRedeemPercent: 0.5,
-    minRedeemPoints: 50,
+    maxRedeemPercent: 0.1,
   });
 
   const [shipping, setShipping] = useState({
@@ -144,11 +143,14 @@ function Checkout() {
   useEffect(() => {
     if (!isLoggedIn) return;
 
+    // Only available, unexpired points can be redeemed — pending points
+    // (an order still inside its return window) are shown but not usable.
     const loadPoints = async () => {
-      const response = await getProfile();
+      const response = await getMyLoyaltySummary();
 
       if (response.success) {
-        setAvailablePoints(response.user.loyaltyPoints || 0);
+        setAvailablePoints(response.summary.available || 0);
+        setPendingPoints(response.summary.pendingTotal || 0);
       }
     };
 
@@ -211,19 +213,28 @@ function Checkout() {
     (a, b) => a.maxOrderValue - b.maxOrderValue,
   );
 
+  // Mirrors the server's cap (createOrder): maxRedeemPercent of the
+  // merchandise left after coupon and bundle discounts — delivery and COD
+  // charges never count. The server re-checks all of this.
+  const merchandiseAfterDiscounts = Math.max(
+    totalPrice - discountAmount - bundleInfo.discountAmount,
+    0,
+  );
   const maxRedeemablePoints = Math.max(
     0,
     Math.min(
       availablePoints,
       Math.floor(
-        (totalPrice * loyaltyRules.maxRedeemPercent) /
+        (merchandiseAfterDiscounts * loyaltyRules.maxRedeemPercent) /
           loyaltyRules.redeemValue,
       ),
     ),
   );
-  const pointsDiscount = usePoints
-    ? redeemPoints * loyaltyRules.redeemValue
+  // A coupon applied after choosing points can lower the cap.
+  const effectiveRedeemPoints = usePoints
+    ? Math.min(redeemPoints, maxRedeemablePoints)
     : 0;
+  const pointsDiscount = effectiveRedeemPoints * loyaltyRules.redeemValue;
 
   const orderTotal = Math.max(
     totalPrice +
@@ -235,8 +246,12 @@ function Checkout() {
     0,
   );
 
+  // Earned on merchandise after all discounts, never on delivery/COD.
   const pointsPreview = loyaltyRules.earnRate
-    ? Math.floor(orderTotal / loyaltyRules.earnRate)
+    ? Math.floor(
+        Math.max(merchandiseAfterDiscounts - pointsDiscount, 0) /
+          loyaltyRules.earnRate,
+      )
     : 0;
 
   const handleTogglePoints = (checked) => {
@@ -324,7 +339,7 @@ function Checkout() {
       },
       paymentMethod,
       couponCode: appliedCoupon?.code || undefined,
-      redeemPoints: usePoints ? redeemPoints : undefined,
+      redeemPoints: effectiveRedeemPoints > 0 ? effectiveRedeemPoints : undefined,
       clientRequestId,
     });
 
@@ -822,39 +837,66 @@ function Checkout() {
               )}
             </div>
 
-            {availablePoints >= loyaltyRules.minRedeemPoints && (
+            {(availablePoints > 0 || pendingPoints > 0) && (
               <div className="border-t border-slate-100 mt-4 pt-4">
-                <label className="flex items-center justify-between cursor-pointer">
-                  <span className="text-sm text-slate-700">
-                    {t("Use loyalty points", "लॉयल्टी पॉइंट्स इस्तेमाल करें")}{" "}
-                    <span className="text-slate-400">
-                      ({availablePoints} {t("available", "उपलब्ध")})
+                {availablePoints > 0 && (
+                  <label className="flex items-center justify-between cursor-pointer">
+                    <span className="text-sm text-slate-700">
+                      {t("Use loyalty points", "लॉयल्टी पॉइंट्स इस्तेमाल करें")}{" "}
+                      <span className="text-slate-400">
+                        ({availablePoints} {t("available", "उपलब्ध")})
+                      </span>
                     </span>
-                  </span>
-                  <input
-                    type="checkbox"
-                    checked={usePoints}
-                    onChange={(e) => handleTogglePoints(e.target.checked)}
-                  />
-                </label>
+                    <input
+                      type="checkbox"
+                      checked={usePoints}
+                      disabled={maxRedeemablePoints === 0}
+                      aria-describedby="points-cap-note"
+                      onChange={(e) => handleTogglePoints(e.target.checked)}
+                    />
+                  </label>
+                )}
 
-                {usePoints && (
+                {usePoints && maxRedeemablePoints > 0 && (
                   <div className="mt-2">
                     <input
                       type="range"
                       min={0}
                       max={maxRedeemablePoints}
-                      value={redeemPoints}
+                      value={effectiveRedeemPoints}
+                      aria-label={t("Points to redeem", "रिडीम करने के पॉइंट्स")}
                       onChange={(e) => setRedeemPoints(Number(e.target.value))}
                       className="w-full"
                     />
                     <div className="flex justify-between text-xs text-slate-500 mt-1">
-                      <span>{redeemPoints} {t("points", "पॉइंट्स")}</span>
+                      <span>{effectiveRedeemPoints} {t("points", "पॉइंट्स")}</span>
                       <span>
-                        -₹{redeemPoints * loyaltyRules.redeemValue} {t("off", "छूट")}
+                        -₹{pointsDiscount} {t("off", "छूट")}
                       </span>
                     </div>
                   </div>
+                )}
+
+                <p id="points-cap-note" className="text-xs text-slate-500 mt-1.5">
+                  {maxRedeemablePoints > 0
+                    ? t(
+                        `Up to ${maxRedeemablePoints} points (${Math.round(loyaltyRules.maxRedeemPercent * 100)}% of your item total after discounts) can be used on this order.`,
+                        `इस ऑर्डर पर ${maxRedeemablePoints} पॉइंट्स तक (डिस्काउंट के बाद आइटम टोटल का ${Math.round(loyaltyRules.maxRedeemPercent * 100)}%) इस्तेमाल हो सकते हैं।`,
+                      )
+                    : availablePoints > 0 &&
+                      t(
+                        `Points can cover up to ${Math.round(loyaltyRules.maxRedeemPercent * 100)}% of your item total — add a little more to use them.`,
+                        `पॉइंट्स आइटम टोटल के ${Math.round(loyaltyRules.maxRedeemPercent * 100)}% तक कवर करते हैं — इस्तेमाल करने के लिए थोड़ा और जोड़ें।`,
+                      )}
+                </p>
+
+                {pendingPoints > 0 && (
+                  <p className="text-xs text-slate-500 mt-1">
+                    {t(
+                      `${pendingPoints} more points are pending — they become usable once the return window of a delivered order closes.`,
+                      `${pendingPoints} और पॉइंट्स पेंडिंग हैं — डिलीवर हुए ऑर्डर की रिटर्न अवधि खत्म होने पर इस्तेमाल हो सकेंगे।`,
+                    )}
+                  </p>
                 )}
               </div>
             )}
@@ -975,7 +1017,7 @@ function Checkout() {
               {pointsDiscount > 0 && (
                 <div className="flex justify-between text-green-600">
                   <span>
-                    {t("Points redeemed", "पॉइंट्स इस्तेमाल हुए")} ({redeemPoints}):
+                    {t("Points redeemed", "पॉइंट्स इस्तेमाल हुए")} ({effectiveRedeemPoints}):
                   </span>
                   <span>-₹{pointsDiscount}</span>
                 </div>

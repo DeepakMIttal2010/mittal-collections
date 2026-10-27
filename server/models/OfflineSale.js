@@ -131,6 +131,13 @@ const offlineSaleSchema = new mongoose.Schema(
       default: 0,
     },
 
+    // Bumped every time an edit re-awards points, so each version's
+    // award and reversal gets its own idempotency key.
+    loyaltyRevision: {
+      type: Number,
+      default: 0,
+    },
+
     soldBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",

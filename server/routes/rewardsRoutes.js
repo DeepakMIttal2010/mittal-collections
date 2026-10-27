@@ -5,6 +5,7 @@ import {
   updateReferralSettings,
   getPublicRewardsInfo,
   getMyLoyaltyTransactions,
+  getMyLoyaltySummary,
   runPointsExpiry,
 } from "../controllers/rewardsSettingsController.js";
 import authMiddleware from "../middleware/authMiddleware.js";
@@ -26,6 +27,7 @@ router.get(
   authMiddleware,
   getMyLoyaltyTransactions,
 );
+router.get("/my-summary", authMiddleware, getMyLoyaltySummary);
 
 router.get("/admin", authMiddleware, adminMiddleware, perm, getRewardsSettings);
 router.put(

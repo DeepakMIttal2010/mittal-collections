@@ -19,7 +19,7 @@ import { FaWhatsapp } from "react-icons/fa6";
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
 import { getProfile } from "../services/authService";
-import { getPublicRewardsInfo } from "../services/rewardsService";
+import { getPublicRewardsInfo, getMyLoyaltySummary } from "../services/rewardsService";
 import { getMyNotifications } from "../services/notificationService";
 
 function getAccountLinks(t) {
@@ -91,14 +91,14 @@ function Account() {
   const { user, logout } = useAuth();
   const { t } = useLanguage();
   const [loyaltyPoints, setLoyaltyPoints] = useState(user?.loyaltyPoints || 0);
+  const [pendingPoints, setPendingPoints] = useState(0);
   const [referralCode, setReferralCode] = useState(user?.referralCode || "");
   const [unreadCount, setUnreadCount] = useState(0);
   const [rewards, setRewards] = useState({
     loyalty: {
       earnRate: 20,
       redeemValue: 1,
-      maxRedeemPercent: 0.5,
-      minRedeemPoints: 50,
+      maxRedeemPercent: 0.1,
     },
     referral: { referrerPoints: 100, referredPoints: 50 },
   });
@@ -106,8 +106,14 @@ function Account() {
   useEffect(() => {
     getProfile().then((response) => {
       if (response.success) {
-        setLoyaltyPoints(response.user.loyaltyPoints || 0);
         setReferralCode(response.user.referralCode || "");
+      }
+    });
+    // Available = spendable now; pending = waiting for a return window.
+    getMyLoyaltySummary().then((response) => {
+      if (response.success) {
+        setLoyaltyPoints(response.summary.available || 0);
+        setPendingPoints(response.summary.pendingTotal || 0);
       }
     });
 
@@ -168,10 +174,15 @@ function Account() {
                 {t(`${loyaltyPoints} Loyalty Points`, `${loyaltyPoints} लॉयल्टी पॉइंट्स`)}
               </span>
               <span className="block text-sm text-slate-500 mt-0.5">
-                {t(
-                  `Worth ₹${loyaltyPoints * rewards.loyalty.redeemValue} — tap to see your points history`,
-                  `₹${loyaltyPoints * rewards.loyalty.redeemValue} मूल्य — अपनी पॉइंट्स हिस्ट्री देखने के लिए टैप करें`,
-                )}
+                {pendingPoints > 0
+                  ? t(
+                      `Worth ₹${loyaltyPoints * rewards.loyalty.redeemValue} · ${pendingPoints} pending — tap for details and expiry dates`,
+                      `₹${loyaltyPoints * rewards.loyalty.redeemValue} मूल्य · ${pendingPoints} पेंडिंग — विवरण और समाप्ति तिथि देखने के लिए टैप करें`,
+                    )
+                  : t(
+                      `Worth ₹${loyaltyPoints * rewards.loyalty.redeemValue} — tap for your history and expiry dates`,
+                      `₹${loyaltyPoints * rewards.loyalty.redeemValue} मूल्य — हिस्ट्री और समाप्ति तिथि देखने के लिए टैप करें`,
+                    )}
               </span>
             </span>
           </Link>
@@ -180,8 +191,8 @@ function Account() {
             <li>
               <strong>{t("Earn:", "कमाएं:")}</strong>{" "}
               {t(
-                `1 point for every ₹${rewards.loyalty.earnRate} you spend, credited once your order is delivered.`,
-                `आपके हर ₹${rewards.loyalty.earnRate} खर्च पर 1 पॉइंट, जो ऑर्डर डिलीवर होने पर क्रेडिट होता है।`,
+                `1 point for every ₹${rewards.loyalty.earnRate} of products (not delivery/COD charges), usable once the order's return window closes.`,
+                `हर ₹${rewards.loyalty.earnRate} के प्रोडक्ट पर 1 पॉइंट (डिलीवरी/COD चार्ज नहीं), ऑर्डर की रिटर्न अवधि खत्म होने पर इस्तेमाल योग्य।`,
               )}
             </li>
             <li>
@@ -194,8 +205,8 @@ function Account() {
             <li>
               <strong>{t("Limit:", "सीमा:")}</strong>{" "}
               {t(
-                `Points can cover up to ${Math.round(rewards.loyalty.maxRedeemPercent * 100)}% of an order, and you need at least ${rewards.loyalty.minRedeemPoints} points to redeem.`,
-                `पॉइंट्स ऑर्डर के ${Math.round(rewards.loyalty.maxRedeemPercent * 100)}% तक कवर कर सकते हैं, और रिडीम करने के लिए कम से कम ${rewards.loyalty.minRedeemPoints} पॉइंट्स ज़रूरी हैं।`,
+                `From 1 point, up to ${Math.round(rewards.loyalty.maxRedeemPercent * 100)}% of your item total. Each batch is valid ${rewards.loyalty.pointsValidityDays || 365} days from when it's credited.`,
+                `1 पॉइंट से, आइटम टोटल के ${Math.round(rewards.loyalty.maxRedeemPercent * 100)}% तक। हर बैच क्रेडिट होने से ${rewards.loyalty.pointsValidityDays || 365} दिन तक मान्य।`,
               )}
             </li>
           </ul>
@@ -256,8 +267,8 @@ function Account() {
               </li>
               <li>
                 {t(
-                  `Once their first order is delivered, you get ${rewards.referral.referrerPoints} points and they get ${rewards.referral.referredPoints} points, automatically.`,
-                  `उनका पहला ऑर्डर डिलीवर होते ही, आपको ${rewards.referral.referrerPoints} पॉइंट्स और उन्हें ${rewards.referral.referredPoints} पॉइंट्स अपने आप मिल जाएंगे।`,
+                  `Once their first order is delivered and its return window has closed, you get ${rewards.referral.referrerPoints} points and they get ${rewards.referral.referredPoints} points, automatically.`,
+                  `उनका पहला ऑर्डर डिलीवर होने और उसकी रिटर्न अवधि खत्म होने पर, आपको ${rewards.referral.referrerPoints} पॉइंट्स और उन्हें ${rewards.referral.referredPoints} पॉइंट्स अपने आप मिल जाएंगे।`,
                 )}
               </li>
             </ul>

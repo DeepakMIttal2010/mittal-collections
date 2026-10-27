@@ -202,8 +202,21 @@ fire-and-forget from `productController.getProducts`.
 
 ### `LoyaltySettings` (singleton — one document, found via `findOne()`)
 earnRate (₹ per point, default 20), redeemValue (₹ per point on
-redemption, default 1), maxRedeemPercent (default 0.5 = 50% of order),
-minRedeemPoints (default 50), expiryMonths (default 12).
+redemption, default 1), maxRedeemPercent (default 0.1 = 10% of the item
+total after discounts). minRedeemPoints and expiryMonths remain on old
+documents but are no longer used.
+
+### `LoyaltyLot`
+One batch of available points: user, source (order / referral / review /
+pos / admin / legacy / legacy_refund), originalPoints, remainingPoints,
+expiredPoints, creditedAt, expiresAt (end of the IST day 365 days after
+credit), status (available / expired), unique idempotency `key`.
+User.loyaltyPoints = sum of remainingPoints of available lots (+ any
+not-yet-migrated legacy balance). LoyaltyTransaction entries now carry a
+unique `key`, `source`, `allocations` (lots a deduction used), `expiresAt`,
+`shortfall` and `actor`. User.loyaltyPointsOwed holds clawback shortfalls.
+Order: loyaltyEarnBase, pointsAvailableAt, pointsCreditedAt,
+pointsClawedBack.
 
 ### `ReferralSettings` (singleton)
 referrerPoints (default 100), referredPoints (default 50) — points

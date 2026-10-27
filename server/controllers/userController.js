@@ -1,6 +1,8 @@
+import crypto from "crypto";
 import User from "../models/User.js";
 import Order from "../models/Order.js";
 import LoyaltyTransaction from "../models/LoyaltyTransaction.js";
+import LoyaltyLot from "../models/LoyaltyLot.js";
 import Wishlist from "../models/Wishlist.js";
 import CartSnapshot from "../models/CartSnapshot.js";
 import PageVisit from "../models/PageVisit.js";
@@ -10,7 +12,11 @@ import Review from "../models/Review.js";
 import Question from "../models/Question.js";
 import Ticket from "../models/Ticket.js";
 import ReturnRequest from "../models/ReturnRequest.js";
-import { applyLoyaltyPointsChange } from "../utils/loyaltyPoints.js";
+import {
+  applyLoyaltyPointsChange,
+  getSpendablePoints,
+  getLoyaltySummary,
+} from "../utils/loyaltyPoints.js";
 import { notifyUser } from "../utils/notify.js";
 import { sendEmail } from "../config/mailer.js";
 import { escapeHtml } from "../utils/escapeHtml.js";
@@ -111,7 +117,7 @@ export const getCustomerById = async (req, res) => {
       user: customer._id,
     }).sort({ createdAt: -1 });
 
-    const [wishlistItems, cartSnapshot, recentVisits] = await Promise.all([
+    const [wishlistItems, cartSnapshot, recentVisits, loyaltySummary] = await Promise.all([
       Wishlist.find({ user: customer._id })
         .populate("product", "name image price")
         .sort({ createdAt: -1 }),
@@ -126,6 +132,8 @@ export const getCustomerById = async (req, res) => {
         .sort({ createdAt: -1 })
         .limit(RECENT_VISITS_LIMIT)
         .select("path device createdAt"),
+
+      getLoyaltySummary(customer._id),
     ]);
 
     res.status(200).json({
@@ -135,6 +143,7 @@ export const getCustomerById = async (req, res) => {
       totalOrders: orders.length,
       totalSpent,
       loyaltyTransactions,
+      loyaltySummary,
       wishlistItems,
       cartItems: cartSnapshot?.items || [],
       recentVisits,
@@ -181,23 +190,31 @@ export const adjustLoyaltyPoints = async (req, res) => {
       });
     }
 
-    if (pointsNum < 0 && customer.loyaltyPoints + pointsNum < 0) {
-      return res.status(400).json({
-        success: false,
-        message: `Cannot deduct ${Math.abs(pointsNum)} points — customer only has ${customer.loyaltyPoints}.`,
-      });
-    }
-
-    const updatedCustomer = await applyLoyaltyPointsChange({
+    // A grant is its own batch, valid for 365 days from today like any
+    // other credit; a deduction comes out of the customer's available,
+    // unexpired points (earliest expiry first) and never more than that.
+    // The admin and reason are recorded on the ledger entry.
+    const key = `admin:${customer._id}:${crypto.randomUUID()}`;
+    const result = await applyLoyaltyPointsChange({
       userId: customer._id,
       type: "admin_adjustment",
+      source: "admin",
       points: pointsNum,
+      key,
+      actor: { id: req.user._id, name: req.user.name },
       description: reason.trim(),
     });
 
-    const transaction = await LoyaltyTransaction.findOne({
-      user: customer._id,
-    }).sort({ createdAt: -1 });
+    if (!result) {
+      const spendable = await getSpendablePoints(customer._id);
+      return res.status(400).json({
+        success: false,
+        message: `Cannot deduct ${Math.abs(pointsNum)} points — customer only has ${spendable} available.`,
+      });
+    }
+
+    const updatedCustomer = result.user;
+    const transaction = await LoyaltyTransaction.findOne({ key });
 
     notifyUser({
       userId: customer._id,
@@ -358,6 +375,7 @@ export const deleteCustomer = async (req, res) => {
       Ticket.deleteMany({ user: customer._id }),
       ReturnRequest.deleteMany({ user: customer._id }),
       LoyaltyTransaction.deleteMany({ user: customer._id }),
+      LoyaltyLot.deleteMany({ user: customer._id }),
       PageVisit.updateMany({ user: customer._id }, { $set: { user: null } }),
     ]);
 

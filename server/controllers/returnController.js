@@ -7,7 +7,8 @@ import { sendEmail } from "../config/mailer.js";
 import { notifyUser } from "../utils/notify.js";
 import { returnedValueFor } from "../utils/returnValue.js";
 import { restoreStock } from "./orderController.js";
-import { applyLoyaltyPointsChange } from "../utils/loyaltyPoints.js";
+import { clawBackForReturn } from "../utils/loyaltyPoints.js";
+import { withOptionalTransaction } from "../utils/orderTransactions.js";
 import { escapeHtml } from "../utils/escapeHtml.js";
 import { syncReturn, postSafely } from "../utils/accountingPosting.js";
 
@@ -390,18 +391,23 @@ export const updateReturnStatus = async (req, res) => {
       }
     }
 
-    // Claw back only the loyalty points actually earned on the returned
-    // item's share of the order — not the whole order's points — and
-    // only if points were ever credited (order was delivered) in the
-    // first place.
+    // Takes back the returned item's share of the order's loyalty earn —
+    // from the pending amount if the order's points haven't been credited
+    // yet, otherwise from the balance (see clawBackForReturn). The flag
+    // claim, refundedAmount and the points change commit together, so a
+    // crash can't record the refund without the clawback or the other way
+    // round, and a retry can't take the points twice.
     if (status === "Refunded") {
-      const claimedPoints = await ReturnRequest.findOneAndUpdate(
-        { _id: returnRequest._id, pointsClawedBack: false },
-        { $set: { pointsClawedBack: true } },
-      );
+      const claimedPoints = await withOptionalTransaction(async (session) => {
+        const claim = await ReturnRequest.findOneAndUpdate(
+          { _id: returnRequest._id, pointsClawedBack: false },
+          { $set: { pointsClawedBack: true } },
+          { session },
+        );
 
-      if (claimedPoints) {
-        const order = await Order.findById(returnRequest.order);
+        if (!claim) return false;
+
+        const order = await Order.findById(returnRequest.order).session(session);
         const orderItem = order?.orderItems.find(
           (item) => item.product.toString() === returnRequest.product.toString(),
         );
@@ -412,33 +418,19 @@ export const updateReturnStatus = async (req, res) => {
 
           // Revenue tracking — independent of whether this order ever
           // earned loyalty points. See Order.js's refundedAmount comment.
-          await Order.updateOne(
-            { _id: order._id },
+          const updatedOrder = await Order.findByIdAndUpdate(
+            order._id,
             { $inc: { refundedAmount: returnedValue } },
+            { new: true, session },
           );
 
-          if (order.pointsCredited && order.pointsEarned > 0 && order.totalPrice > 0) {
-            const pointsToClawback = Math.min(
-              Math.round(
-                order.pointsEarned * (returnedValue / order.totalPrice),
-              ),
-              order.pointsEarned,
-            );
-
-            if (pointsToClawback > 0) {
-              await applyLoyaltyPointsChange({
-                userId: returnRequest.user._id,
-                type: "clawback",
-                points: -pointsToClawback,
-                order: order._id,
-                description: `Reversed earn for returned item: ${returnRequest.productName}`,
-              });
-            }
-          }
+          await clawBackForReturn({ order: updatedOrder, returnRequest, session });
         }
 
-        returnRequest.pointsClawedBack = true;
-      }
+        return true;
+      });
+
+      if (claimedPoints) returnRequest.pointsClawedBack = true;
     }
 
     // status/adminNote are already persisted via the atomic claim above;
