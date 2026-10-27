@@ -90,6 +90,21 @@ const userSchema = new mongoose.Schema(
       default: 0,
     },
 
+    // Points a clawback (a return or cancellation after the points were
+    // credited) couldn't take because they were already spent. Settled
+    // automatically out of the customer's next credits — the balance
+    // itself never goes negative.
+    loyaltyPointsOwed: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
+    // Set by the one-off legacy-balance migration (utils/loyaltyMigration.js)
+    // in the same transaction that creates this user's legacy lots — its
+    // presence is what stops a second or concurrent run migrating them again.
+    loyaltyLotsMigratedAt: Date,
+
     // Claimed atomically (findOneAndUpdate with a { $ne: true } guard —
     // see orderController.js's createOrder) the moment a first-order-
     // only coupon is actually applied to an order, not just when

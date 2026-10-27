@@ -106,6 +106,19 @@ const makeOrder = async ({ ageMinutes, user, product, ...overrides } = {}) => {
     );
   }
 
+  // A real checkout deducts redeemed points with a ledger entry, and a
+  // cancellation refunds exactly what that entry took.
+  if (overrides.pointsRedeemed > 0) {
+    await LoyaltyTransaction.create({
+      user: customer._id,
+      type: "redeemed",
+      points: -overrides.pointsRedeemed,
+      balanceAfter: customer.loyaltyPoints || 0,
+      order: order._id,
+      description: `Redeemed on order ${order._id}`,
+    });
+  }
+
   return { order, user: customer, product: item };
 };
 

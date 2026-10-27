@@ -2,7 +2,9 @@ import mongoose from "mongoose";
 import Review from "../models/Review.js";
 import Order from "../models/Order.js";
 import cloudinary from "../config/cloudinary.js";
+import LoyaltyLot from "../models/LoyaltyLot.js";
 import { applyLoyaltyPointsChange } from "../utils/loyaltyPoints.js";
+import { withOptionalTransaction } from "../utils/orderTransactions.js";
 import { notifyUser } from "../utils/notify.js";
 import { deleteCloudinaryAssetsByUrl } from "../utils/cloudinaryCleanup.js";
 
@@ -299,23 +301,29 @@ export const approveReview = async (req, res) => {
     // twice concurrently, and (b) two different reviews on the same order
     // approved concurrently, both reading "0 awarded so far" and both
     // granting the full bonus, blowing past ORDER_REVIEW_BONUS_CAP. Both
-    // are closed below with single-document atomic updates (MongoDB
-    // serializes writes to one document on its own, so no transaction is
-    // needed) instead of the previous read-then-decide-then-write.
-    const claimedReview = await Review.findOneAndUpdate(
-      { _id: review._id, reviewPointsProcessed: { $ne: true } },
-      { $set: { reviewPointsProcessed: true } },
-      { new: false },
-    );
+    // are closed below with single-document atomic updates instead of the
+    // previous read-then-decide-then-write.
+    //
+    // The claim, the cap reservation, the points and pointsAwarded commit
+    // together in one transaction. The bonus is its own batch, available
+    // straight away and valid for 365 days from approval — it doesn't wait
+    // for (or share an expiry with) the order's own pending points.
+    const award = await withOptionalTransaction(async (session) => {
+      const claimedReview = await Review.findOneAndUpdate(
+        { _id: review._id, reviewPointsProcessed: { $ne: true } },
+        { $set: { reviewPointsProcessed: true } },
+        { new: false, session },
+      );
 
-    // null means another concurrent request already claimed (or a prior
-    // approval already processed) this exact review — nothing more to do.
-    if (claimedReview) {
+      // null means another concurrent request already claimed (or a prior
+      // approval already processed) this exact review — nothing more to do.
+      if (!claimedReview) return null;
+
       // No matching Delivered order means no verified purchase — this is
       // a "reward for buying" scheme, not a reward for reviewing, so an
       // unverified review earns nothing (it can still be approved and
       // shown publicly; it just carries no bonus).
-      let award = 0;
+      let points = 0;
 
       if (review.order) {
         // Atomically reserve headroom against the order's shared cap.
@@ -341,33 +349,42 @@ export const approveReview = async (req, res) => {
               },
             },
           ],
-          { new: false, updatePipeline: true },
+          { new: false, updatePipeline: true, session },
         );
 
         const alreadyAwarded = orderBefore?.reviewBonusAwarded || 0;
 
-        award = Math.max(0, Math.min(REVIEW_BONUS_POINTS, ORDER_REVIEW_BONUS_CAP - alreadyAwarded));
+        points = Math.max(0, Math.min(REVIEW_BONUS_POINTS, ORDER_REVIEW_BONUS_CAP - alreadyAwarded));
       }
 
-      if (award > 0) {
+      if (points > 0) {
         await applyLoyaltyPointsChange({
           userId: review.user,
           type: "earned",
-          points: award,
+          source: "review",
+          points,
+          key: `review:${review._id}`,
+          order: review.order || null,
+          review: review._id,
           description: "Bonus for an approved product review",
-        });
-
-        notifyUser({
-          userId: review.user,
-          type: "loyalty_points",
-          title: "You earned bonus loyalty points!",
-          message: `Your review was approved — ${award} bonus points added to your account.`,
-          link: "/account",
+          session,
         });
       }
 
-      review.pointsAwarded = award;
-      await review.save();
+      await Review.updateOne({ _id: review._id }, { $set: { pointsAwarded: points } }, { session });
+      return points;
+    });
+
+    if (award !== null) review.pointsAwarded = award;
+
+    if (award > 0) {
+      notifyUser({
+        userId: review.user,
+        type: "loyalty_points",
+        title: "You earned bonus loyalty points!",
+        message: `Your review was approved — ${award} bonus points added to your account.`,
+        link: "/loyalty-history",
+      });
     }
 
     res.status(200).json({
@@ -422,34 +439,53 @@ export const markReviewSeen = async (req, res) => {
 // ============================
 export const deleteReview = async (req, res) => {
   try {
-    const review = await Review.findByIdAndDelete(req.params.id);
-
-    if (!review) {
-      return res.status(404).json({
-        success: false,
-        message: "Review not found",
-      });
-    }
-
     // Claw back any bonus already paid for this review, and free up its
     // share of the order's cap. Without this, deleting a review (e.g. an
     // admin rejecting it as spam after approving it) let the user keep
     // the points while a resubmitted review for the same product/order
     // wrongly saw the cap as still fully used — the combination let a
     // user end up over the per-order cap by deleting and resubmitting.
-    if (review.pointsAwarded > 0) {
-      await applyLoyaltyPointsChange({
-        userId: review.user,
-        type: "clawback",
-        points: -review.pointsAwarded,
-        description: "Reversed bonus for a deleted review",
-      });
+    // The delete and the reversal commit together; points already spent
+    // are recorded as owed.
+    const review = await withOptionalTransaction(async (session) => {
+      const deleted = await Review.findByIdAndDelete(req.params.id, { session });
 
-      if (review.order) {
-        await Order.findByIdAndUpdate(review.order, {
-          $inc: { reviewBonusAwarded: -review.pointsAwarded },
+      if (deleted?.pointsAwarded > 0) {
+        const bonusLot = await LoyaltyLot.findOne({ key: `review:${deleted._id}` })
+          .select("_id")
+          .session(session);
+
+        await applyLoyaltyPointsChange({
+          userId: deleted.user,
+          type: "clawback",
+          source: "review",
+          points: -deleted.pointsAwarded,
+          key: `review-reversal:${deleted._id}`,
+          order: deleted.order || null,
+          review: deleted._id,
+          description: "Reversed bonus for a deleted review",
+          preferLotIds: bonusLot ? [bonusLot._id] : [],
+          allowShortfall: true,
+          session,
         });
+
+        if (deleted.order) {
+          await Order.findByIdAndUpdate(
+            deleted.order,
+            { $inc: { reviewBonusAwarded: -deleted.pointsAwarded } },
+            { session },
+          );
+        }
       }
+
+      return deleted;
+    });
+
+    if (!review) {
+      return res.status(404).json({
+        success: false,
+        message: "Review not found",
+      });
     }
 
     await deleteCloudinaryAssetsByUrl([...review.images, review.video]);

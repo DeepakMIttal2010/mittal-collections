@@ -458,6 +458,9 @@ export const getReportsData = async (req, res) => {
       referralSignups,
       referralConversions,
       referralPointsPaidAgg,
+      loyaltyBreakdownAgg,
+      pointsPendingAgg,
+      pointsOwedAgg,
     ] = await Promise.all([
       Order.countDocuments({ createdAt: dateRange }),
 
@@ -768,7 +771,7 @@ export const getReportsData = async (req, res) => {
       LoyaltyTransaction.aggregate([
         {
           $match: {
-            type: { $in: ["earned", "referral_bonus", "clawback"] },
+            type: { $in: ["earned", "referral_bonus", "clawback", "debt_recovered"] },
             createdAt: dateRange,
           },
         },
@@ -802,6 +805,50 @@ export const getReportsData = async (req, res) => {
       LoyaltyTransaction.aggregate([
         { $match: { type: "referral_bonus", createdAt: dateRange } },
         { $group: { _id: null, total: { $sum: "$points" } } },
+      ]),
+
+      // Review bonuses, refunds and clawbacks in range. Review bonuses
+      // from before the batch scheme carry no `source` — they're the only
+      // "earned" entries with this description.
+      LoyaltyTransaction.aggregate([
+        { $match: { createdAt: dateRange, type: { $in: ["earned", "refunded", "clawback", "debt_recovered"] } } },
+        {
+          $group: {
+            _id: {
+              type: "$type",
+              review: {
+                $or: [
+                  { $eq: ["$source", "review"] },
+                  { $eq: ["$description", "Bonus for an approved product review"] },
+                ],
+              },
+            },
+            total: { $sum: "$points" },
+          },
+        },
+      ]),
+
+      // Snapshots, not range metrics: points waiting for a return window
+      // to close, and points customers currently owe after clawbacks.
+      Order.aggregate([
+        {
+          $match: {
+            orderStatus: "Delivered",
+            pointsCredited: { $ne: true },
+            pointsAvailableAt: { $exists: true },
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: { $subtract: ["$pointsEarned", { $ifNull: ["$pointsClawedBack", 0] }] } },
+          },
+        },
+      ]),
+
+      User.aggregate([
+        { $match: { loyaltyPointsOwed: { $gt: 0 } } },
+        { $group: { _id: null, total: { $sum: "$loyaltyPointsOwed" } } },
       ]),
     ]);
 
@@ -910,6 +957,10 @@ export const getReportsData = async (req, res) => {
     const pointsRedeemed = Math.abs(pointsRedeemedAgg[0]?.total || 0);
     const pointsExpired = Math.abs(pointsExpiredAgg[0]?.total || 0);
     const referralPointsPaid = referralPointsPaidAgg[0]?.total || 0;
+    const breakdown = (type, review) =>
+      loyaltyBreakdownAgg
+        .filter((row) => row._id.type === type && (review === undefined || row._id.review === review))
+        .reduce((sum, row) => sum + row.total, 0);
 
     const loyalty = {
       pointsEarned,
@@ -923,6 +974,11 @@ export const getReportsData = async (req, res) => {
       referralSignups,
       referralConversions,
       referralPointsPaid,
+      reviewBonusPoints: breakdown("earned", true),
+      pointsRefunded: breakdown("refunded"),
+      pointsClawedBack: Math.abs(breakdown("clawback") + breakdown("debt_recovered")),
+      pointsPendingNow: pointsPendingAgg[0]?.total || 0,
+      pointsOwedNow: pointsOwedAgg[0]?.total || 0,
     };
 
     res.status(200).json({

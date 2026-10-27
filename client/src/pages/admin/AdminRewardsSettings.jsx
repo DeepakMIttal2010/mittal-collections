@@ -15,9 +15,7 @@ function AdminRewardsSettings() {
   const [loyalty, setLoyalty] = useState({
     earnRate: 20,
     redeemValue: 1,
-    maxRedeemPercent: 0.5,
-    minRedeemPoints: 50,
-    expiryMonths: 12,
+    maxRedeemPercent: 0.1,
   });
 
   const [referral, setReferral] = useState({
@@ -35,8 +33,6 @@ function AdminRewardsSettings() {
         earnRate: response.loyalty.earnRate,
         redeemValue: response.loyalty.redeemValue,
         maxRedeemPercent: response.loyalty.maxRedeemPercent,
-        minRedeemPoints: response.loyalty.minRedeemPoints,
-        expiryMonths: response.loyalty.expiryMonths,
       });
       setReferral({
         referrerPoints: response.referral.referrerPoints,
@@ -141,14 +137,14 @@ function AdminRewardsSettings() {
 
           <div>
             <label htmlFor="loyaltyMaxRedeemPercent" className="block text-sm font-medium text-slate-700 mb-1">
-              Max redeemable (% of order subtotal)
+              Max redeemable (fraction of item total after discounts)
             </label>
             <input
               id="loyaltyMaxRedeemPercent"
               type="number"
               min={0}
               max={1}
-              step={0.05}
+              step={0.01}
               value={loyalty.maxRedeemPercent}
               onChange={(e) =>
                 setLoyalty({
@@ -159,49 +155,25 @@ function AdminRewardsSettings() {
               className={inputClass}
             />
             <p className="text-xs text-slate-500 mt-1">
-              e.g. 0.5 means points can cover at most 50% of an order
+              Currently {Math.round((loyalty.maxRedeemPercent || 0) * 100)}% — e.g. 0.1
+              means points can cover at most 10% of the items (delivery and COD
+              charges are never included).
             </p>
           </div>
 
-          <div>
-            <label htmlFor="loyaltyMinRedeemPoints" className="block text-sm font-medium text-slate-700 mb-1">
-              Minimum points required to redeem
-            </label>
-            <input
-              id="loyaltyMinRedeemPoints"
-              type="number"
-              min={0}
-              value={loyalty.minRedeemPoints}
-              onChange={(e) =>
-                setLoyalty({
-                  ...loyalty,
-                  minRedeemPoints: Number(e.target.value),
-                })
-              }
-              className={inputClass}
-            />
-          </div>
-
-          <div>
-            <label htmlFor="loyaltyExpiryMonths" className="block text-sm font-medium text-slate-700 mb-1">
-              Points expire after (months of inactivity)
-            </label>
-            <input
-              id="loyaltyExpiryMonths"
-              type="number"
-              min={1}
-              value={loyalty.expiryMonths}
-              onChange={(e) =>
-                setLoyalty({
-                  ...loyalty,
-                  expiryMonths: Number(e.target.value),
-                })
-              }
-              className={inputClass}
-            />
-            <p className="text-xs text-slate-500 mt-1">
-              If a customer earns no new points for this many months, their
-              remaining balance expires.
+          <div className="text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded-lg p-3 space-y-1">
+            <p>
+              <strong>No minimum:</strong> customers can redeem from 1 available
+              point.
+            </p>
+            <p>
+              <strong>Expiry:</strong> every batch of points expires 365 days after
+              the day it was credited (end of that day, IST); the earliest-expiring
+              points are used first.
+            </p>
+            <p>
+              <strong>Pending:</strong> order points become usable only after the
+              order&apos;s return window closes with no open return.
             </p>
           </div>
 
@@ -221,7 +193,7 @@ function AdminRewardsSettings() {
           <h3 className="font-semibold text-slate-800">Referral Program</h3>
           <p className="text-sm text-slate-500 -mt-2">
             Paid out once the referred customer&apos;s first order is
-            delivered.
+            delivered and its return window has closed.
           </p>
 
           <div>

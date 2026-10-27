@@ -84,24 +84,24 @@ function Rewards() {
       title: t("Loyalty Points", "लॉयल्टी पॉइंट्स"),
       points: [
         t(
-          `Earn 1 point for every ₹${rewards.loyalty.earnRate} you spend.`,
-          `हर ₹${rewards.loyalty.earnRate} खर्च पर 1 पॉइंट कमाएं।`,
+          `Earn 1 point for every ₹${rewards.loyalty.earnRate} of products you buy — delivery and COD charges don't count.`,
+          `हर ₹${rewards.loyalty.earnRate} के प्रोडक्ट पर 1 पॉइंट कमाएं — डिलीवरी और COD चार्ज शामिल नहीं।`,
         ),
         t(
-          "Points are credited automatically once your order is delivered.",
-          "ऑर्डर डिलीवर होने पर पॉइंट्स अपने आप क्रेडिट हो जाते हैं।",
+          "Points show as pending after delivery and become usable automatically once the return window closes.",
+          "डिलीवरी के बाद पॉइंट्स पेंडिंग दिखते हैं और रिटर्न अवधि खत्म होने पर अपने आप इस्तेमाल के लिए उपलब्ध हो जाते हैं।",
         ),
         t(
           `Each point is worth ₹${rewards.loyalty.redeemValue} off at checkout.`,
           `हर पॉइंट चेकआउट पर ₹${rewards.loyalty.redeemValue} की छूट के बराबर है।`,
         ),
         t(
-          `Points can cover up to ${Math.round(rewards.loyalty.maxRedeemPercent * 100)}% of an order — you need at least ${rewards.loyalty.minRedeemPoints} points to redeem.`,
-          `पॉइंट्स ऑर्डर के ${Math.round(rewards.loyalty.maxRedeemPercent * 100)}% तक कवर कर सकते हैं — रिडीम करने के लिए कम से कम ${rewards.loyalty.minRedeemPoints} पॉइंट्स चाहिए।`,
+          `Use them from just 1 point — up to ${Math.round(rewards.loyalty.maxRedeemPercent * 100)}% of your item total after discounts.`,
+          `सिर्फ़ 1 पॉइंट से इस्तेमाल करें — डिस्काउंट के बाद आइटम टोटल के ${Math.round(rewards.loyalty.maxRedeemPercent * 100)}% तक।`,
         ),
         t(
-          `Points expire after ${rewards.loyalty.expiryMonths} months of inactivity.`,
-          `${rewards.loyalty.expiryMonths} महीने तक इस्तेमाल न होने पर पॉइंट्स समाप्त हो जाते हैं।`,
+          `Each batch of points is valid for ${rewards.loyalty.pointsValidityDays || 365} days from the day it's credited — the earliest-expiring points are used first.`,
+          `पॉइंट्स का हर बैच क्रेडिट होने के दिन से ${rewards.loyalty.pointsValidityDays || 365} दिन तक मान्य है — सबसे पहले खत्म होने वाले पॉइंट्स पहले इस्तेमाल होते हैं।`,
         ),
       ],
     },
@@ -119,8 +119,8 @@ function Rewards() {
           "वे आपके लिंक से खाता बनाकर ऑर्डर करते हैं — अलग से कोड की ज़रूरत नहीं।",
         ),
         t(
-          `Once their first order is delivered, you get ${rewards.referral.referrerPoints} points and they get ${rewards.referral.referredPoints} points, automatically.`,
-          `उनका पहला ऑर्डर डिलीवर होते ही, आपको ${rewards.referral.referrerPoints} पॉइंट्स और उन्हें ${rewards.referral.referredPoints} पॉइंट्स अपने आप मिल जाते हैं।`,
+          `Once their first order is delivered and its return window has closed, you get ${rewards.referral.referrerPoints} points and they get ${rewards.referral.referredPoints} points, automatically.`,
+          `उनका पहला ऑर्डर डिलीवर होने और उसकी रिटर्न अवधि खत्म होने पर, आपको ${rewards.referral.referrerPoints} पॉइंट्स और उन्हें ${rewards.referral.referredPoints} पॉइंट्स अपने आप मिल जाते हैं।`,
         ),
         t(
           "Find your referral link on your Account page once you're logged in.",

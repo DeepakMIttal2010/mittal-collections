@@ -34,6 +34,7 @@ function CustomerDetails() {
   const [totalOrders, setTotalOrders] = useState(0);
   const [totalSpent, setTotalSpent] = useState(0);
   const [loyaltyTransactions, setLoyaltyTransactions] = useState([]);
+  const [loyaltySummary, setLoyaltySummary] = useState(null);
   const [wishlistItems, setWishlistItems] = useState([]);
   const [cartItems, setCartItems] = useState([]);
   const [recentVisits, setRecentVisits] = useState([]);
@@ -57,6 +58,7 @@ function CustomerDetails() {
       setTotalOrders(response.totalOrders);
       setTotalSpent(response.totalSpent);
       setLoyaltyTransactions(response.loyaltyTransactions || []);
+      setLoyaltySummary(response.loyaltySummary || null);
       setWishlistItems(response.wishlistItems || []);
       setCartItems(response.cartItems || []);
       setRecentVisits(response.recentVisits || []);
@@ -212,6 +214,27 @@ function CustomerDetails() {
                 {customer.loyaltyPoints || 0} pts
               </span>
             </p>
+            {loyaltySummary && (
+              <p className="text-xs text-slate-500 mt-1">
+                Available now: {loyaltySummary.available} · Pending (return window):{" "}
+                {loyaltySummary.pendingTotal}
+                {loyaltySummary.owed > 0 && <> · Owed: {loyaltySummary.owed}</>}
+                {loyaltySummary.legacyUnbatched > 0 && (
+                  <> · Not yet split into batches: {loyaltySummary.legacyUnbatched}</>
+                )}
+                {loyaltySummary.nextExpiry && (
+                  <>
+                    {" "}· Next expiry: {loyaltySummary.nextExpiry.points} pts on{" "}
+                    {new Date(loyaltySummary.nextExpiry.expiresAt).toLocaleDateString("en-IN", {
+                      day: "2-digit",
+                      month: "short",
+                      year: "numeric",
+                      timeZone: "Asia/Kolkata",
+                    })}
+                  </>
+                )}
+              </p>
+            )}
           </div>
         </div>
 
