@@ -19,8 +19,13 @@ import {
   pointsEarnedFor,
   maxRedeemablePoints,
   applyLoyaltyPointsChange,
+  getSpendablePoints,
+  eligibleEarnBase,
+  pointsAvailableAtFor,
+  refundRedeemedPoints,
+  reverseOrderEarn,
+  reverseReferralBonus,
 } from "../utils/loyaltyPoints.js";
-import { getReferralSettings } from "../utils/referral.js";
 import { calculateDeliveryFee } from "../utils/shipping.js";
 import { calculateBundleDiscount } from "../utils/bundleDiscount.js";
 import { sendEmail } from "../config/mailer.js";
@@ -454,30 +459,16 @@ const releaseOrderResources = async (
 
   const restocked = await restoreStock(stillOut, { session });
 
-  // Give back any points spent on this order...
+  // Give back any points spent on this order, into the batches they came
+  // from...
   if (order.pointsRedeemed > 0) {
-    await applyLoyaltyPointsChange({
-      userId: order.user,
-      type: "refunded",
-      points: order.pointsRedeemed,
-      order: order._id,
-      description: refundDescription,
-      session,
-    });
+    await refundRedeemedPoints({ order, session, description: refundDescription });
   }
 
-  // ...and claw back any points already earned from it (covers a
-  // delivered order later being marked cancelled, e.g. a return).
-  if (order.pointsCredited && order.pointsEarned > 0) {
-    await applyLoyaltyPointsChange({
-      userId: order.user,
-      type: "clawback",
-      points: -order.pointsEarned,
-      order: order._id,
-      description: `Reversed earn from cancelled order ${order._id}`,
-      session,
-    });
-  }
+  // ...and take back points already credited from it (a delivered order
+  // cancelled after its return window). Points still pending are simply
+  // never credited — the credit job only credits Delivered orders.
+  await reverseOrderEarn({ order, session });
 
   // ...and give back their one-time first-order-coupon eligibility
   // if this order is the one that claimed it (createOrder sets
@@ -502,37 +493,7 @@ const releaseOrderResources = async (
   // order, getting it marked Delivered, then cancelling/returning
   // it. Also releases referralRewarded so a genuinely-delivered
   // later order can still earn the bonus once, for real.
-  if (order.referralBonusPaid) {
-    const referredUser = await User.findById(order.user).select("referredBy").session(session);
-
-    if (referredUser?.referredBy && order.referralBonusPoints.referrer > 0) {
-      await applyLoyaltyPointsChange({
-        userId: referredUser.referredBy,
-        type: "clawback",
-        points: -order.referralBonusPoints.referrer,
-        order: order._id,
-        description: `Reversed referral bonus — order ${order._id} cancelled`,
-        session,
-      });
-    }
-
-    if (order.referralBonusPoints.referred > 0) {
-      await applyLoyaltyPointsChange({
-        userId: order.user,
-        type: "clawback",
-        points: -order.referralBonusPoints.referred,
-        order: order._id,
-        description: `Reversed referral signup bonus — order ${order._id} cancelled`,
-        session,
-      });
-    }
-
-    await User.updateOne(
-      { _id: order.user },
-      { $set: { referralRewarded: false } },
-      { session },
-    );
-  }
+  await reverseReferralBonus({ order, session });
 
   return restocked;
 };
@@ -634,7 +595,7 @@ export const createOrder = async (req, res) => {
     // latency) into 1. The two conditional ones (coupon, currentUser)
     // resolve to null when their trigger isn't present, same as the old
     // code simply never running them.
-    const [settingsDoc, bundleResult, loyaltySettings, coupon, currentUser] =
+    const [settingsDoc, bundleResult, loyaltySettings, coupon, spendablePoints] =
       await Promise.all([
         SiteSettings.findOne(),
         calculateBundleDiscount(verifiedItems),
@@ -645,9 +606,12 @@ export const createOrder = async (req, res) => {
               isActive: true,
             })
           : Promise.resolve(null),
+        // Available, unexpired points only — pending points were never
+        // in the balance, and a batch past its expiry doesn't count even
+        // before the expiry job has processed it.
         redeemPoints && Number(redeemPoints) > 0
-          ? User.findById(req.user._id).select("loyaltyPoints")
-          : Promise.resolve(null),
+          ? getSpendablePoints(req.user._id)
+          : Promise.resolve(0),
       ]);
 
     const settings = settingsDoc || {};
@@ -698,29 +662,19 @@ export const createOrder = async (req, res) => {
     );
     remainingAfterDiscounts -= bundleDiscountAmount;
 
-    // Loyalty points redemption — capped to what the user actually holds
-    // and to half of whatever's left after the coupon/bundle discounts
-    // above, so points can never fully zero an order on their own or in
-    // combination with the other two.
+    // Loyalty points redemption — no minimum (from 1 point), capped to
+    // what the user can actually spend and to maxRedeemPercent (10%) of
+    // the merchandise left after the coupon/bundle discounts above, so it
+    // can never take the order below zero. Delivery and COD charges are
+    // never part of that base.
     let pointsRedeemed = 0;
     let pointsDiscount = 0;
 
-    // minRedeemPoints (an admin-configured floor, e.g. "must hold at
-    // least 50 to redeem any") existed on LoyaltySettings and was
-    // editable in admin, but was never actually checked here -- a
-    // customer could redeem e.g. 1 point via a direct API call
-    // regardless of the configured minimum, bypassing a rule that was
-    // presumably only ever enforced client-side (deep bug sweep,
-    // 2026-10-20).
-    if (
-      redeemPoints &&
-      Number(redeemPoints) > 0 &&
-      (currentUser?.loyaltyPoints || 0) >= loyaltySettings.minRedeemPoints
-    ) {
+    if (redeemPoints && Number(redeemPoints) > 0) {
       const requestedPoints = Math.floor(Number(redeemPoints));
       const allowed = maxRedeemablePoints(
         remainingAfterDiscounts,
-        currentUser?.loyaltyPoints || 0,
+        spendablePoints,
         loyaltySettings,
       );
 
@@ -838,13 +792,7 @@ export const createOrder = async (req, res) => {
       await restoreStock(verifiedItems);
 
       if (pointsActuallyDeducted) {
-        await applyLoyaltyPointsChange({
-          userId: req.user._id,
-          type: "refunded",
-          points: pointsRedeemed,
-          order: order._id,
-          description: `Refund for cancelled order ${order._id}`,
-        });
+        await refundRedeemedPoints({ order });
       }
 
       if (order.firstOrderCouponApplied) {
@@ -861,14 +809,16 @@ export const createOrder = async (req, res) => {
       const pointsResult = await applyLoyaltyPointsChange({
         userId: req.user._id,
         type: "redeemed",
+        source: "order",
         points: -pointsRedeemed,
+        key: `redeem:order:${order._id}`,
         order: order._id,
         description: `Redeemed on order ${order._id}`,
       });
 
-      // null means the atomic balance-guard above lost the race (the
-      // user's real balance no longer covers pointsRedeemed — e.g. two
-      // tabs/requests redeeming near-simultaneously).
+      // null means the spendable balance no longer covers pointsRedeemed
+      // — e.g. two tabs/requests redeeming near-simultaneously, or a batch
+      // expiring in between; the deduction is all-or-nothing.
       if (!pointsResult) {
         return cancelAndReject(
           "Your loyalty points balance changed — please review your order and try again.",
@@ -1427,21 +1377,24 @@ export const updateOrderStatus = async (req, res) => {
 
     const originalStatus = order.orderStatus;
     const wasAlreadyCancelled = order.orderStatus === "Cancelled";
-    const wasAlreadyCredited = order.pointsCredited;
+    const isFirstDelivery = status === "Delivered" && originalStatus !== "Delivered";
 
     const setFields = { orderStatus: status };
 
-    if (status === "Delivered") {
-      setFields.deliveredAt = Date.now();
-    }
-
-    if (status === "Delivered" && !wasAlreadyCredited) {
+    // Points earned on delivery are pending, not credited: they become
+    // spendable only once every item's return window has closed with no
+    // return still open (creditDueOrderPoints, run by the loyalty cron).
+    // Re-saving an already-Delivered order changes none of this — it used
+    // to restart deliveredAt, quietly extending the return window.
+    if (isFirstDelivery) {
+      const deliveredAt = new Date();
       const loyaltySettings = await getLoyaltySettings();
-      setFields.pointsEarned = pointsEarnedFor(
-        order.totalPrice,
-        loyaltySettings.earnRate,
-      );
-      setFields.pointsCredited = true;
+      const earnBase = eligibleEarnBase(order);
+
+      setFields.deliveredAt = deliveredAt;
+      setFields.loyaltyEarnBase = earnBase;
+      setFields.pointsEarned = pointsEarnedFor(earnBase, loyaltySettings.earnRate);
+      setFields.pointsAvailableAt = await pointsAvailableAtFor(order, deliveredAt);
     }
 
     // Atomic claim, same mechanism this function already uses a few lines
@@ -1514,62 +1467,16 @@ export const updateOrderStatus = async (req, res) => {
 
     if (isCancelling) {
       notifyRestocked(restocked);
-    } else if (status === "Delivered" && !wasAlreadyCredited) {
-      if (order.pointsEarned > 0) {
-        await applyLoyaltyPointsChange({
-          userId: order.user,
-          type: "earned",
-          points: order.pointsEarned,
-          order: order._id,
-          description: `Earned on order ${order._id}`,
-        });
-      }
-
-      // First delivered order for a referred customer pays out the
-      // referral bonus to both sides, once only. Used to be a plain
-      // read (referredUser?.referredBy && !referredUser.referralRewarded)
-      // followed much later by referredUser.referralRewarded = true —
-      // two orders for the same referred customer both marked
-      // Delivered close together (two tabs, a fast double-click) would
-      // both read referralRewarded: false and both pay out in full,
-      // doubling the payout. Same class of race reviewController.js's
-      // reviewPointsProcessed guard already closes for review bonuses;
-      // applied the identical pattern here — one atomic
-      // findOneAndUpdate claims referralRewarded before either bonus
-      // is paid, so a losing concurrent request gets null back and
-      // pays out nothing.
-      const claimedReferral = await User.findOneAndUpdate(
-        { _id: order.user, referredBy: { $ne: null }, referralRewarded: { $ne: true } },
-        { $set: { referralRewarded: true } },
-        { new: false },
-      );
-
-      if (claimedReferral) {
-        const referralSettings = await getReferralSettings();
-
-        await applyLoyaltyPointsChange({
-          userId: claimedReferral.referredBy,
-          type: "referral_bonus",
-          points: referralSettings.referrerPoints,
-          order: order._id,
-          description: `Referral bonus for inviting ${claimedReferral.name}`,
-        });
-
-        await applyLoyaltyPointsChange({
-          userId: claimedReferral._id,
-          type: "referral_bonus",
-          points: referralSettings.referredPoints,
-          order: order._id,
-          description: "Referral signup bonus",
-        });
-
-        order.referralBonusPaid = true;
-        order.referralBonusPoints = {
-          referrer: referralSettings.referrerPoints,
-          referred: referralSettings.referredPoints,
-        };
-        await order.save();
-      }
+    } else if (isFirstDelivery && order.pointsEarned > 0) {
+      // The referral bonus (for a referred customer's first kept order)
+      // is paid by the same job, once this order's return window closes.
+      notifyUser({
+        userId: order.user,
+        type: "loyalty_points",
+        title: "Loyalty points on their way",
+        message: `${order.pointsEarned} points from this order become available on ${order.pointsAvailableAt.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Kolkata" })}, once the return window closes.`,
+        link: "/loyalty-history",
+      });
     }
 
     // Shipped/Delivered orders post their sale; a cancel voids it.

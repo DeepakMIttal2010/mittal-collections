@@ -3,11 +3,13 @@ import Product from "../models/Product.js";
 import User from "../models/User.js";
 import OfflineSale from "../models/OfflineSale.js";
 import OfflineSaleCost from "../models/OfflineSaleCost.js";
+import LoyaltyLot from "../models/LoyaltyLot.js";
 import {
   getLoyaltySettings,
   pointsEarnedFor,
   applyLoyaltyPointsChange,
 } from "../utils/loyaltyPoints.js";
+import { withOptionalTransaction } from "../utils/orderTransactions.js";
 import { istDayStart, istDayEnd } from "../utils/istDate.js";
 import { syncPosSale, postSafely } from "../utils/accountingPosting.js";
 
@@ -269,6 +271,44 @@ const restoreStockForItems = async (items) => {
   }
 };
 
+// In-store points are credited at the sale itself (there is no in-store
+// return window to wait out — a sale is corrected by editing, voiding or
+// deleting it). Each version of a sale (loyaltyRevision) gets its own
+// award/reversal keys, so a retried request can't apply either twice.
+const awardPosPoints = (sale, userId, points, description, session = null) =>
+  applyLoyaltyPointsChange({
+    userId,
+    type: "earned",
+    source: "pos",
+    points,
+    key: `pos:${sale._id}:${sale.loyaltyRevision || 0}`,
+    offlineSale: sale._id,
+    description,
+    session,
+  });
+
+const reversePosPoints = async (sale, description, session = null) => {
+  if (!(sale.loyaltyPointsAwarded > 0) || !sale.customerUser) return null;
+
+  const revision = sale.loyaltyRevision || 0;
+  const lot = await LoyaltyLot.findOne({ key: `pos:${sale._id}:${revision}` })
+    .select("_id")
+    .session(session);
+
+  return applyLoyaltyPointsChange({
+    userId: sale.customerUser,
+    type: "clawback",
+    source: "pos",
+    points: -sale.loyaltyPointsAwarded,
+    key: `pos-reverse:${sale._id}:${revision}`,
+    offlineSale: sale._id,
+    description,
+    preferLotIds: lot ? [lot._id] : [],
+    allowShortfall: true,
+    session,
+  });
+};
+
 // POST /api/admin/pos/sale
 // body: { items: [{ productId, quantity, unitPrice, size? }], paymentMethod, customerMobile, customerName }
 export const recordOfflineSale = async (req, res) => {
@@ -393,12 +433,7 @@ export const recordOfflineSale = async (req, res) => {
     await saveSaleCost(sale._id, safeItems, stockResult.products);
 
     if (loyaltyPointsAwarded > 0) {
-      await applyLoyaltyPointsChange({
-        userId: customerUser._id,
-        type: "earned",
-        points: loyaltyPointsAwarded,
-        description: "Earned on in-store purchase",
-      });
+      await awardPosPoints(sale, customerUser._id, loyaltyPointsAwarded, "Earned on in-store purchase");
     }
 
     await postSafely(syncPosSale, sale._id);
@@ -681,25 +716,31 @@ export const updateOfflineSale = async (req, res) => {
     // matched customer changed too), then award fresh points for the new
     // version. One clawback-then-award pair handles every case (same
     // customer's total changed, a different customer now matched, or no
-    // customer either time) without trying to diff old vs new.
-    if (sale.loyaltyPointsAwarded > 0 && sale.customerUser) {
-      await applyLoyaltyPointsChange({
-        userId: sale.customerUser,
-        type: "clawback",
-        points: -sale.loyaltyPointsAwarded,
-        description: `Reversed — sale edited (${sale._id})`,
-      });
-    }
+    // customer either time) without trying to diff old vs new. Both, and
+    // the new revision number, commit together.
+    const nextRevision = (sale.loyaltyRevision || 0) + 1;
 
-    if (loyaltyPointsAwarded > 0) {
-      await applyLoyaltyPointsChange({
-        userId: customerUser._id,
-        type: "earned",
-        points: loyaltyPointsAwarded,
-        description: `Earned — sale edited (${sale._id})`,
-      });
-    }
+    await withOptionalTransaction(async (session) => {
+      await reversePosPoints(sale, `Reversed — sale edited (${sale._id})`, session);
 
+      if (loyaltyPointsAwarded > 0) {
+        await awardPosPoints(
+          { _id: sale._id, loyaltyRevision: nextRevision },
+          customerUser._id,
+          loyaltyPointsAwarded,
+          `Earned — sale edited (${sale._id})`,
+          session,
+        );
+      }
+
+      await OfflineSale.updateOne(
+        { _id: sale._id },
+        { $set: { loyaltyRevision: nextRevision, loyaltyPointsAwarded } },
+        { session },
+      );
+    });
+
+    sale.loyaltyRevision = nextRevision;
     sale.items = saleItems;
     sale.discountAmount = discountAmount;
     sale.totalAmount = totalAmount;
@@ -789,14 +830,7 @@ export const deleteOfflineSale = async (req, res) => {
           })),
         );
 
-        if (sale.loyaltyPointsAwarded > 0 && sale.customerUser) {
-          await applyLoyaltyPointsChange({
-            userId: sale.customerUser,
-            type: "clawback",
-            points: -sale.loyaltyPointsAwarded,
-            description: `Reversed — sale deleted (${sale._id})`,
-          });
-        }
+        await reversePosPoints(sale, `Reversed — sale deleted (${sale._id})`);
       }
     }
 
@@ -854,14 +888,7 @@ export const voidOfflineSale = async (req, res) => {
       })),
     );
 
-    if (sale.loyaltyPointsAwarded > 0 && sale.customerUser) {
-      await applyLoyaltyPointsChange({
-        userId: sale.customerUser,
-        type: "clawback",
-        points: -sale.loyaltyPointsAwarded,
-        description: `Reversed for voided in-store sale (${sale._id})`,
-      });
-    }
+    await reversePosPoints(sale, `Reversed for voided in-store sale (${sale._id})`);
 
     sale.voided = true;
     sale.voidedAt = new Date();

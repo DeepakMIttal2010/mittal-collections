@@ -1330,6 +1330,11 @@ function AdminReports() {
           "Referral Signups": report.loyalty.referralSignups,
           "Referral Conversions": report.loyalty.referralConversions,
           "Referral Points Paid Out": report.loyalty.referralPointsPaid,
+          "Review Bonus Points": report.loyalty.reviewBonusPoints ?? 0,
+          "Points Refunded": report.loyalty.pointsRefunded ?? 0,
+          "Points Clawed Back": report.loyalty.pointsClawedBack ?? 0,
+          "Points Pending Now": report.loyalty.pointsPendingNow ?? 0,
+          "Points Owed Now": report.loyalty.pointsOwedNow ?? 0,
         },
       ]),
     );
@@ -2105,6 +2110,33 @@ function AdminReports() {
             icon={<FaUserCheck />}
             label={`Referral Conversions — ${rangeLabel}`}
             value={formatNumber(report.loyalty.referralConversions)}
+          />
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mt-4">
+          <StatTile
+            icon={<FaGift />}
+            label="Review Bonus Points"
+            value={formatNumber(report.loyalty.reviewBonusPoints ?? 0)}
+          />
+          <StatTile
+            icon={<FaGift />}
+            label="Points Refunded"
+            value={formatNumber(report.loyalty.pointsRefunded ?? 0)}
+          />
+          <StatTile
+            icon={<FaHourglassEnd />}
+            label="Points Clawed Back"
+            value={formatNumber(report.loyalty.pointsClawedBack ?? 0)}
+          />
+          <StatTile
+            icon={<FaHourglassEnd />}
+            label="Pending Now (return window)"
+            value={formatNumber(report.loyalty.pointsPendingNow ?? 0)}
+          />
+          <StatTile
+            icon={<FaHourglassEnd />}
+            label="Owed Now (after clawbacks)"
+            value={formatNumber(report.loyalty.pointsOwedNow ?? 0)}
           />
         </div>
       </div>

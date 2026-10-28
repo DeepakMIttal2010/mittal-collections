@@ -186,7 +186,7 @@ be left on cron-job.org's GET default.)
 | Job name | URL | Schedule | Notes |
 |---|---|---|---|
 | Abandoned Cart Reminders | `https://mittal-collections-api.onrender.com/api/cart/send-abandoned-reminders?secret=<CRON_SECRET>` | Hourly | |
-| Rewards Expire Points | `https://mittal-collections-api.onrender.com/api/rewards/expire-points?secret=<CRON_SECRET>` | Daily | |
+| Rewards Expire Points | `https://mittal-collections-api.onrender.com/api/rewards/expire-points?secret=<CRON_SECRET>` | Daily (or more often) | Since loyalty v2 it does both loyalty jobs: credits delivered orders whose return window has closed (+ referral bonus on a referred customer's first kept order), then expires batches past their 365 days. Safe to rerun or overlap. Pending points only become usable when this runs. |
 | Post-Delivery Review Request | `https://mittal-collections-api.onrender.com/api/orders/send-review-requests?secret=<CRON_SECRET>` | Daily | **New 2026-08-24, confirmed set up on cron-job.org 2026-08-25.** Emails a review request for each Delivered order 8+ days past delivery that hasn't been emailed yet. |
 | Pending Razorpay Payments | `https://mittal-collections-api.onrender.com/api/orders/cancel-stale-razorpay?secret=<CRON_SECRET>` | Every 15-20 min (move to every 5 min only after the 2026-10-26 change is verified live) | Registered 2026-09-17. Same URL since the 2026-10-26 rewrite (reminders at 30 min / 3 h, auto-cancel at 6 h, late-payment rechecks); `/api/orders/process-pending-payments` is an alias. Needs MongoDB transactions (Atlas replica set) to auto-cancel — it logs and skips cancelling otherwise. |
 | Wishlist Price-Drop Alerts | `https://mittal-collections-api.onrender.com/api/wishlist/send-price-drop-alerts?secret=<CRON_SECRET>` | Daily (suggested — matches the other content-driven jobs above) | **New 2026-08-26. Not yet confirmed set up on the cron-job.org dashboard** — the endpoint itself works (verified server-side), but someone with dashboard access needs to add the job and trigger one real run to confirm end-to-end, same as the review-request row above. |
@@ -452,6 +452,81 @@ git push origin main            # re-triggers Vercel + Render deploy
 ```
 Database changes made via one-off scripts (see below) are **not**
 covered by git revert — they must be manually undone if needed.
+
+### Loyalty v2 (batch-based points): roll forward only
+
+Owner decision 2026-10-27: once the loyalty v2 code (LoyaltyLot batches)
+is deployed, **never revert to the pre-batch code** — fix problems with a
+hotfix instead. The old code changes balances without touching batches
+(redemptions, clawbacks, old expiry), never credits orders left pending
+by the new code, and ignores `pointsClawedBack`; reverting would leave
+balances and batches out of step, which nothing reconciles automatically.
+If a loyalty bug is serious, pause the "Rewards Expire Points" cron job
+while the hotfix is prepared (pending points simply wait; nothing is lost).
+
+### Loyalty v2 legacy-balance migration (one time, after the v2 deploy)
+
+`server/scripts/migrate-loyalty-lots.mjs` splits pre-v2 balances into
+batches (rule: `server/utils/loyaltyMigration.js`). Dry run by default;
+writes only with `--apply`.
+
+**Status: done in production on 2026-10-28** — 1 customer, 16 points, 1
+batch (expires 2027-10-26), verified by a second dry run and in Admin >
+Customers. Rerunning is a safe no-op; the steps below are kept for
+reference.
+
+Credentials never go on the command line or into the repo: put the
+connection string in an env file **outside the repository** (e.g.
+`%USERPROFILE%\mc-loyalty-readonly.env`, one line `MONGODB_URI=...`),
+pass it with Node's `--env-file` (it takes precedence over `server/.env`),
+and delete the file and the temporary Atlas user afterwards. Never put
+production credentials in `server/.env` — local dev, tests and scripts
+read it.
+
+1. **Read-only dry run first.** In Atlas, create a temporary database
+   user with **Specific Privileges → `read` @ `mittal-collections`**, with
+   a 6-hour expiry. Env file line:
+   `MONGODB_URI=mongodb+srv://<reader>:<pwd>@<cluster>/mittal-collections?readPreference=secondaryPreferred`.
+   Then, from `server/`:
+   ```bash
+   node --env-file=<path-to-readonly.env> scripts/migrate-loyalty-lots.mjs --out <local-path>/prod-dryrun.json
+   ```
+   Check that the printed database name is right and that it exits 0 with
+   `writeCommandsObserved: []` (exit code 2 means a write was attempted).
+   Keep the report outside the repo (it has user ids and balances).
+2. **Review before `--apply`:** `unbatchedTotal` equals the sum of all
+   positive balances; `lotsExceedBalance`, `negativeBalances`,
+   `clampedLots` and `usersFailed` are 0; every row with `ledgerDiff ≠ 0`
+   is explained; `orphanedLedgerUsers` listed; per-user `residual` /
+   `droppedHistory` reviewed; spot-check 3–5 customers in Admin >
+   Customers.
+3. **Backup first.** The cluster is Atlas free tier (M0), which has **no
+   snapshots** — the only backup is the GitHub Actions "MongoDB Backup"
+   workflow (section 6a). Actions → MongoDB Backup → Run workflow, wait
+   for green, then open the run and check the artifact **size** (a few
+   hundred KB or more; a few hundred bytes means an empty dump) and
+   download it. A failing "Dump database" step with `bad auth` means the
+   repo secret `MONGODB_URI` is stale — update it from Render's
+   `MONGODB_URI` and rerun.
+4. **Apply** only after the v2 deploy is live and the backup is
+   confirmed, with a temporary Atlas user that has **`readWrite` @
+   `mittal-collections`** (6-hour expiry). Its env-file URI must **not**
+   contain `readPreference` — the migration runs in transactions, which
+   need the primary:
+   `MONGODB_URI=mongodb+srv://<writer>:<pwd>@<cluster>/mittal-collections`
+   ```bash
+   node --env-file=<path-to-apply.env> scripts/migrate-loyalty-lots.mjs --apply --out <local-path>/prod-applied.json
+   ```
+   Run it once, from one terminal. It is still safe to rerun and safe if
+   two runs overlap (per-customer claim in a transaction); exit code 3
+   means some customers failed and can be rerun.
+5. **Verify:** rerun the dry run (same env file, without `--apply`) —
+   `usersToMigrate` 0, `migratedButUnbatched` 0, each migrated customer's
+   `lotTotal` equal to their balance, `writeCommandsObserved: []`. In
+   Admin > Customers, a migrated customer shows their next expiry and no
+   "Not yet split into batches" line; Admin > Reports loyalty totals
+   (Pending Now, Owed Now) are unchanged. Then delete the env files and
+   both temporary Atlas users.
 
 ## 8. One-Off Data/Migration Scripts
 

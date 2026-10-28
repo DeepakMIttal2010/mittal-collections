@@ -348,14 +348,20 @@ function OrderDetails() {
                   </button>
                 )}
 
-              {order.pointsEarned > 0 && (
-                <p className="text-amber-600">
-                  {t(
-                    `You earned ${order.pointsEarned} loyalty points on this order`,
-                    `इस ऑर्डर पर आपको ${order.pointsEarned} लॉयल्टी पॉइंट्स मिले`,
-                  )}
-                </p>
-              )}
+              {order.orderStatus !== "Cancelled" &&
+                order.pointsEarned - (order.pointsClawedBack || 0) > 0 && (
+                  <p className="text-amber-600">
+                    {order.pointsCredited || !order.pointsAvailableAt
+                      ? t(
+                          `You earned ${order.pointsEarned - (order.pointsClawedBack || 0)} loyalty points on this order`,
+                          `इस ऑर्डर पर आपको ${order.pointsEarned - (order.pointsClawedBack || 0)} लॉयल्टी पॉइंट्स मिले`,
+                        )
+                      : t(
+                          `${order.pointsEarned - (order.pointsClawedBack || 0)} loyalty points pending — usable from ${new Date(order.pointsAvailableAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Kolkata" })}, after the return window`,
+                          `${order.pointsEarned - (order.pointsClawedBack || 0)} लॉयल्टी पॉइंट्स पेंडिंग — रिटर्न अवधि के बाद ${new Date(order.pointsAvailableAt).toLocaleDateString("hi-IN", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Kolkata" })} से इस्तेमाल योग्य`,
+                        )}
+                  </p>
+                )}
             </div>
           </div>
         </div>

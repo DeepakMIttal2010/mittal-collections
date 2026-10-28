@@ -293,10 +293,13 @@ deleting an approved review claws those points back automatically.
 Configure the loyalty and referral programs — no code changes needed
 for any of this:
 
-- **Loyalty**: earn rate (₹ spent per point), redeem value (₹ discount
-  per point), max redeemable % of an order, minimum points required to
-  redeem, and points-expiry period (months of inactivity before a
-  balance expires).
+- **Loyalty**: earn rate (₹ of products per point), redeem value (₹
+  discount per point) and max redeemable fraction of the item total after
+  discounts (0.1 = 10%). Fixed rules, not settings: no minimum to redeem;
+  order points stay pending until the return window closes; every batch of
+  points expires 365 days after its own credit date (earliest-expiring
+  spent first). The `/api/rewards/expire-points` cron credits due pending
+  points and expires due batches.
 - **Referral**: points awarded to the referrer and to the referred
   customer.
 - Every change here is logged (old value → new value, who changed it,

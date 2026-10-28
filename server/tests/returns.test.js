@@ -7,6 +7,7 @@ import User from "../models/User.js";
 import Product from "../models/Product.js";
 import ReturnRequest from "../models/ReturnRequest.js";
 import LoyaltyTransaction from "../models/LoyaltyTransaction.js";
+import { creditDueOrderPoints } from "../utils/loyaltyPoints.js";
 import {
   createUser,
   signToken,
@@ -193,6 +194,11 @@ describe("Return approval side effects (stock restore + loyalty clawback)", () =
       .put(`/api/orders/${order._id}/status`)
       .set("Authorization", `Bearer ${adminToken}`)
       .send({ status: "Delivered" });
+
+    // Points stay pending through the return window, then the loyalty
+    // job credits them.
+    expect((await User.findById(user._id)).loyaltyPoints).toBe(0);
+    await creditDueOrderPoints({ now: new Date(Date.now() + 8 * 24 * 60 * 60 * 1000) });
 
     const userAfterDelivery = await User.findById(user._id);
     expect(userAfterDelivery.loyaltyPoints).toBe(75);

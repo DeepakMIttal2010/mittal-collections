@@ -180,9 +180,28 @@ const orderSchema = new mongoose.Schema(
       default: 0,
     },
 
+    // True once this order's earn has been settled into the customer's
+    // balance. Since the batch-based scheme, that happens only after the
+    // return window closes (pointsAvailableAt) with no return still open
+    // — until then pointsEarned is pending and can't be redeemed. Orders
+    // delivered before the scheme were credited on delivery.
     pointsCredited: {
       type: Boolean,
       default: false,
+    },
+
+    // Set on delivery: the merchandise value the earn was worked out from
+    // (items after coupon, bundle and points discounts — never delivery or
+    // COD charges), and when the pending points become available.
+    loyaltyEarnBase: Number,
+    pointsAvailableAt: Date,
+    pointsCreditedAt: Date,
+
+    // Running total of pointsEarned taken back by returns/cancellation —
+    // from the pending amount before credit, from the balance after.
+    pointsClawedBack: {
+      type: Number,
+      default: 0,
     },
 
     // Recorded only on the specific order whose Delivered transition
@@ -397,6 +416,8 @@ orderSchema.index({ convertedToCodAt: 1 });
 orderSchema.index({ paymentReviewNeeded: 1 });
 // The Razorpay webhook only knows Razorpay's order id.
 orderSchema.index({ razorpayOrderId: 1 });
+// Loyalty job: delivered orders whose pending points are due.
+orderSchema.index({ orderStatus: 1, pointsCredited: 1, pointsAvailableAt: 1 });
 orderSchema.index(
   { user: 1, clientRequestId: 1 },
   { unique: true, partialFilterExpression: { clientRequestId: { $type: "string" } } },

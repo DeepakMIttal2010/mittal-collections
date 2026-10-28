@@ -47,6 +47,20 @@ export const getMyLoyaltyTransactions = async (page = 1) => {
   }
 };
 
+// Available (spendable) vs pending points, each batch with its expiry date,
+// and lifetime totals — see getLoyaltySummary on the server.
+export const getMyLoyaltySummary = async () => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/rewards/my-summary`, {
+      headers: { Authorization: `Bearer ${getToken()}` },
+    });
+    return await response.json();
+  } catch (error) {
+    console.error("Get My Loyalty Summary Error:", error);
+    return { success: false };
+  }
+};
+
 export const getRewardsSettingsAdmin = async () => {
   try {
     const response = await fetch(`${API_BASE_URL}/rewards/admin`, {

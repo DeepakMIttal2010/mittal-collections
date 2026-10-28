@@ -130,9 +130,10 @@ New 2026-08-10, admin-only (`authMiddleware` + `adminMiddleware`) on every route
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| GET | `/public` | Public | Current loyalty (`earnRate`, `redeemValue`, `maxRedeemPercent`, `minRedeemPoints`, `expiryMonths`) and referral (`referrerPoints`, `referredPoints`) settings — what every "you'll earn N points" preview is computed from. |
-| POST | `/expire-points` | Secret | Scheduled job entry point (daily). Expires the full balance of any user inactive past `expiryMonths`, emails them. Accepts `GET` too as of 2026-08-13 (same fix as the abandoned-cart-reminders endpoint — see Cart section above). |
-| GET | `/my-transactions` | User | Paginated loyalty ledger for the current user. |
+| GET | `/public` | Public | Current loyalty (`earnRate`, `redeemValue`, `maxRedeemPercent`, `pointsValidityDays`; `minRedeemPoints` always 0, kept for old clients) and referral (`referrerPoints`, `referredPoints`) settings — what every "you'll earn N points" preview is computed from. |
+| POST | `/expire-points` | Secret | Scheduled loyalty job (daily or more often; safe to overlap). Credits delivered orders whose return window has closed (plus a referral bonus on a referred customer's first kept order), then expires batches past their 365 days and notifies once per customer. Accepts `GET` too as of 2026-08-13 (same fix as the abandoned-cart-reminders endpoint — see Cart section above). |
+| GET | `/my-transactions` | User | Paginated loyalty ledger for the current user (max 100 per page; admin identity, keys and lot allocations omitted). |
+| GET | `/my-summary` | User | Available (spendable) vs pending points, each batch with its expiry date, points owed, lifetime totals. |
 | GET | `/admin` | Admin | Loyalty + referral settings plus the audit-trail change log. |
 | PUT | `/admin/loyalty` | Admin | Update loyalty settings (logs each changed field). |
 | PUT | `/admin/referral` | Admin | Update referral settings (logs each changed field). |
