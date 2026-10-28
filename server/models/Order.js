@@ -323,8 +323,10 @@ const orderSchema = new mongoose.Schema(
     // Set when the payment state needs a human: an authorized-but-not-
     // captured payment, repeated inconclusive Razorpay checks, an amount
     // mismatch, money taken after cancellation or after conversion to COD,
-    // or a second payment on an already-paid order. Never auto-cancelled
-    // while set on a Pending order.
+    // a second payment on an already-paid order, or an admin cancelling an
+    // order that was already paid (paid_order_cancelled — the refund is due
+    // and is issued by hand; this stays open until an admin notes it).
+    // Never auto-cancelled while set on a Pending order.
     paymentReviewNeeded: {
       type: Boolean,
       default: false,
@@ -338,6 +340,7 @@ const orderSchema = new mongoose.Schema(
         "paid_after_cancellation",
         "paid_after_cod_conversion",
         "duplicate_payment",
+        "paid_order_cancelled",
       ],
     },
     paymentReviewFlaggedAt: Date,

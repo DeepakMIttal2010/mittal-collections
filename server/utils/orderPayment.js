@@ -130,6 +130,7 @@ export const PAYMENT_REVIEW_LABELS = {
   paid_after_cancellation: "Paid after the order was cancelled",
   paid_after_cod_conversion: "Paid online after conversion to COD",
   duplicate_payment: "Second payment on an already-paid order",
+  paid_order_cancelled: "Paid order cancelled — refund due",
 };
 
 // Sends the review alert now, or — for a caller that must answer quickly

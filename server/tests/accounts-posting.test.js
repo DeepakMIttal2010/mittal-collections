@@ -245,7 +245,11 @@ describe("auto-posting: live hooks", () => {
     expect(courier.status).toBe(200);
     expect((await live("order-courier"))[0].totalPaise).toBe(8400);
 
-    const cancel = await request(app).put(`/api/orders/${order._id}/status`).set(auth).send({ status: "Cancelled" });
+    // A paid order's cancel needs the explicit confirmation the admin panel sends.
+    const cancel = await request(app)
+      .put(`/api/orders/${order._id}/status`)
+      .set(auth)
+      .send({ status: "Cancelled", confirmPaidCancellation: true });
     expect(cancel.status).toBe(200);
     expect(await live("order-sale")).toHaveLength(0);
     expect(await live("order-cogs")).toHaveLength(0);
