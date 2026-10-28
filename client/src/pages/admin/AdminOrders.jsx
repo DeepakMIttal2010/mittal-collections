@@ -33,6 +33,7 @@ const PAYMENT_REVIEW_LABELS = {
   paid_after_cancellation: "Paid after cancellation",
   paid_after_cod_conversion: "Paid online after COD conversion — don't collect cash",
   duplicate_payment: "Possible double payment",
+  paid_order_cancelled: "Paid order cancelled — refund due",
 };
 
 const CANCELLATION_REASON_LABELS = {
@@ -179,16 +180,24 @@ function AdminOrders() {
     // being able to reach "Cancelled" (triggers a real stock restore +
     // points/coupon/referral clawback server-side) with a single misclick
     // in a dense summary row.
+    const target = orders.find((o) => o._id === id);
+    // Cancelling a paid order doesn't refund it — the server insists on an
+    // explicit confirmation for that and opens a refund-due review.
+    const cancellingPaid = newStatus === "Cancelled" && Boolean(target?.isPaid);
+
     if (
       newStatus === "Cancelled" &&
-      !window.confirm("Cancel this order? Stock and any points/coupon used will be reversed.")
+      !window.confirm(
+        cancellingPaid
+          ? `This order was PAID online (₹${target.totalPrice}). Cancelling reverses stock and any points/coupon but does NOT refund the customer — issue the refund yourself in the Razorpay dashboard. It stays on the payment review list until you mark the refund done. Cancel anyway?`
+          : "Cancel this order? Stock and any points/coupon used will be reversed.",
+      )
     ) {
       return;
     }
 
     // Nothing here captures a payment — an authorized one is left for
     // Razorpay to capture or release per the dashboard settings.
-    const target = orders.find((o) => o._id === id);
     if (
       newStatus === "Cancelled" &&
       target?.paymentReviewNeeded &&
@@ -202,7 +211,21 @@ function AdminOrders() {
 
     setUpdatingId(id);
 
-    const response = await updateOrderStatus(id, newStatus);
+    let response = await updateOrderStatus(
+      id,
+      newStatus,
+      cancellingPaid ? { confirmPaidCancellation: true } : {},
+    );
+
+    // Paid since this list was loaded: the server asks for the paid-order
+    // confirmation (its message is the prompt), then it's sent again.
+    if (response?.code === "PAID_CANCEL_CONFIRM_REQUIRED") {
+      if (!window.confirm(response.message)) {
+        setUpdatingId(null);
+        return;
+      }
+      response = await updateOrderStatus(id, newStatus, { confirmPaidCancellation: true });
+    }
 
     if (response.success) {
       // Use the server's returned order (statusHistory included) instead

@@ -58,7 +58,8 @@ export const getOrderById = async (id) => {
 // ==============================
 // UPDATE ORDER STATUS
 // ==============================
-export const updateOrderStatus = async (id, status) => {
+// `extra` carries confirmPaidCancellation for a paid order's cancel.
+export const updateOrderStatus = async (id, status, extra = {}) => {
   try {
     const response = await fetch(`${API_BASE_URL}/orders/${id}/status`, {
       method: "PUT",
@@ -66,7 +67,7 @@ export const updateOrderStatus = async (id, status) => {
         "Content-Type": "application/json",
         Authorization: `Bearer ${getToken()}`,
       },
-      body: JSON.stringify({ status }),
+      body: JSON.stringify({ status, ...extra }),
     });
 
     return await response.json();

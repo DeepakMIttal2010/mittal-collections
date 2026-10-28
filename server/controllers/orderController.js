@@ -1382,6 +1382,15 @@ const isValidStatusTransition = (from, to) => {
 // Update Order Status (Admin)
 // ============================
 
+// Doubles as the admin panel's confirm prompt (AdminOrders.jsx resends
+// with confirmPaidCancellation: true once the admin agrees).
+const sendPaidCancelConfirmRequired = (res, order) =>
+  res.status(409).json({
+    success: false,
+    code: "PAID_CANCEL_CONFIRM_REQUIRED",
+    message: `This order was paid online (₹${order.totalPrice}). Cancelling it will NOT refund the customer — issue the refund yourself in the Razorpay dashboard. It will stay on the payment review list until you mark the refund done. Cancel it anyway?`,
+  });
+
 export const updateOrderStatus = async (req, res) => {
   try {
     const { status } = req.body;
@@ -1453,9 +1462,33 @@ export const updateOrderStatus = async (req, res) => {
     const isCancelling = status === "Cancelled" && !wasAlreadyCancelled;
     let restocked = [];
 
+    // A paid order (Razorpay money already taken) can still be cancelled —
+    // out of stock, damaged — but only on purpose and never without a
+    // trace: the admin has to confirm it explicitly, and the same
+    // transaction opens a "paid_order_cancelled" payment review, the
+    // refund-due record that stays open until an admin closes it with a
+    // note on the refund they issued. Nothing is refunded automatically.
+    const cancellingPaid = isCancelling && order.isPaid === true;
+    if (cancellingPaid && req.body.confirmPaidCancellation !== true) {
+      return sendPaidCancelConfirmRequired(res, order);
+    }
+    let reviewOpened = false;
+
     const claimOrder = async (session) => {
+      reviewOpened = false;
       const claim = await Order.findOneAndUpdate(
-        { _id: order._id, orderStatus: originalStatus },
+        {
+          _id: order._id,
+          orderStatus: originalStatus,
+          // ...and on the payment state that decision was made on: a
+          // payment recorded since the read above (verify, webhook, cron)
+          // makes this match nothing instead of cancelling a now-paid
+          // order unconfirmed. One landing after this transaction's read
+          // but before its write is a write conflict; the retry re-reads
+          // it here. One landing after the commit is markOrderPaid's
+          // paid_after_cancellation case.
+          ...(isCancelling && { isPaid: cancellingPaid ? true : { $ne: true } }),
+        },
         {
           $set: isCancelling
             ? {
@@ -1472,6 +1505,26 @@ export const updateOrderStatus = async (req, res) => {
 
       if (claim && isCancelling) {
         restocked = await releaseOrderResources(claim, { session });
+
+        if (claim.isPaid) {
+          // An already-open review (its own reason and alert) is left as is.
+          const review = await Order.updateOne(
+            { _id: claim._id, paymentReviewNeeded: { $ne: true } },
+            {
+              $set: {
+                paymentReviewNeeded: true,
+                paymentReviewReason: "paid_order_cancelled",
+                paymentReviewFlaggedAt: new Date(),
+                paymentReviewResolvedAt: null,
+                paymentReviewResolvedBy: null,
+                paymentReviewNote: null,
+              },
+              $unset: { "paymentNotices.reviewAlert": 1, "paymentNotices.reviewFollowUp": 1 },
+            },
+            { session },
+          );
+          reviewOpened = review.modifiedCount > 0;
+        }
       }
 
       return claim;
@@ -1491,6 +1544,15 @@ export const updateOrderStatus = async (req, res) => {
     }
 
     if (!claimed) {
+      // Paid since this request read it: same explicit confirmation as
+      // any paid order, now that the payment is known.
+      if (isCancelling && !cancellingPaid) {
+        const fresh = await Order.findById(order._id).select("isPaid orderStatus totalPrice");
+        if (fresh?.isPaid && fresh.orderStatus === originalStatus) {
+          return sendPaidCancelConfirmRequired(res, fresh);
+        }
+      }
+
       return res.status(409).json({
         success: false,
         message: "This order's status was just changed elsewhere — refresh and try again.",
@@ -1501,6 +1563,14 @@ export const updateOrderStatus = async (req, res) => {
 
     if (isCancelling) {
       notifyRestocked(restocked);
+
+      // After the commit, so a failed email can't undo the review; one
+      // that fails is retried by the pending-payment cron's alert sweep.
+      if (reviewOpened) {
+        sendPaymentReviewAlert(order._id).catch((error) =>
+          console.error(`Paid-order cancel review alert for order ${order._id} failed:`, error),
+        );
+      }
     } else if (isFirstDelivery && order.pointsEarned > 0) {
       // The referral bonus (for a referred customer's first kept order)
       // is paid by the same job, once this order's return window closes.
