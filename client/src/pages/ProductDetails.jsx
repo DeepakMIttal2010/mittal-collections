@@ -213,10 +213,18 @@ function ProductDetails() {
         // A ?size=... link (the Google Shopping feed sends one per size,
         // and each size's Offer url points at one) opens that size, so the
         // price shown matches the listing; otherwise default to the first
-        // size, matching what the top-level price/stock reflect.
+        // size that's in stock — opening on a sold-out first size showed
+        // "Out of stock" with Add to Cart disabled while other sizes were
+        // available. Only when every size is sold out does it fall back
+        // to the first one.
         const wantedSize = new URLSearchParams(window.location.search).get("size");
         const variants = response.product.variants || [];
-        setSelectedVariant((wantedSize && variants.find((v) => v.size === wantedSize)) || variants[0] || null);
+        setSelectedVariant(
+          (wantedSize && variants.find((v) => v.size === wantedSize)) ||
+            variants.find((v) => v.stock > 0) ||
+            variants[0] ||
+            null,
+        );
         setQuantity(1);
         addRecentlyViewed(response.product._id);
         trackViewItem(response.product);
@@ -326,6 +334,10 @@ function ProductDetails() {
 
     const wantHindi = language === "hi";
     if (wantHindi === isHindi) return;
+    // Same guard as ArticleDetail.jsx: with no Hindi name there's no /hi/
+    // page (the render below redirects it to English), so following the
+    // toggle there bounced English <-> /hi/ forever.
+    if (wantHindi && !product.nameHi) return;
     navigate(productUrl(product, wantHindi), { replace: true });
   }, [isHindi, language, product, navigate, setLanguage]);
 

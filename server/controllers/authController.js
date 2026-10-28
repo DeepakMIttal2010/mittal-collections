@@ -11,6 +11,33 @@ import { escapeHtml } from "../utils/escapeHtml.js";
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_OAUTH_CLIENT_ID);
 
+// "shopper@example.com" -> "sh***@example.com"
+const maskEmail = (email) => {
+  const at = email.lastIndexOf("@");
+  if (at < 1) return "***";
+  return `${email.slice(0, Math.min(2, at))}***${email.slice(at)}`;
+};
+
+// Replaces the old BCC of the registration code email: tells the admin
+// a code email was handed to the mail provider, without the code itself
+// or anything else that could be used to finish the signup. "Accepted"
+// is all Brevo's 2xx means — it doesn't confirm inbox delivery, and the
+// note says so. Same opt-in env var as the other admin copies; unset
+// means no note.
+const notifyAdminOtpSent = async (email) => {
+  const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL;
+  if (!adminEmail) return;
+
+  await sendEmail({
+    to: adminEmail,
+    subject: "Registration code email sent",
+    html: `
+      <p>A registration verification code email for <strong>${escapeHtml(maskEmail(email))}</strong> was accepted by the email provider.</p>
+      <p>This confirms the provider accepted it, not that it reached the customer's inbox. The code is not included here.</p>
+    `,
+  });
+};
+
 // Step 1 of registration: validates the submitted details, then emails
 // a code instead of creating the account directly. Nothing is written
 // to the User collection until the code is confirmed via
@@ -96,9 +123,16 @@ export const register = async (req, res) => {
         referredById: referrer?._id || null,
         preferredLanguage,
       },
-      bcc: process.env.ADMIN_NOTIFICATION_EMAIL,
+      // No admin BCC: a copy of the code in the admin mailbox let anyone
+      // with access to it complete any signup. The admin still gets
+      // send visibility from the code-free note below (deep bug sweep
+      // round 30).
       language: preferredLanguage,
     });
+
+    notifyAdminOtpSent(normalizedEmail).catch((error) =>
+      console.error("Registration OTP admin note failed:", error.message),
+    );
 
     res.status(200).json({
       success: true,

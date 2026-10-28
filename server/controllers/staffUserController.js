@@ -3,8 +3,11 @@ import mongoose from "mongoose";
 
 import User from "../models/User.js";
 import Role from "../models/Role.js";
-import { hasAdminPermission } from "../utils/adminAccess.js";
 import { isSubsetOfCallerAccess } from "../utils/rbacSubset.js";
+
+// A Full Admin is an admin with no Role restriction (requirePermission.js
+// lets them through every permission check).
+const callerIsFullAdmin = (caller) => caller.role === "admin" && !caller.adminRole;
 
 // This file manages admin-panel login accounts (role: "admin") —
 // deliberately separate from userController.js, which manages customer
@@ -151,13 +154,15 @@ export const addStaffUser = async (req, res) => {
       }
 
       roleId = role._id;
-    } else if (!hasAdminPermission(req.user, "roles")) {
+    } else if (!callerIsFullAdmin(req.user)) {
       // Granting "Full Admin" (no role = unrestricted access, see
       // requirePermission.js) is equivalent to granting every permission
       // there is, including ones this caller doesn't hold themselves —
-      // require the same "roles" permission Roles & Permissions itself
-      // is gated behind, so "staff-users" alone can't mint a backdoor
-      // full-admin account.
+      // so only a caller who is already a Full Admin may do it. The
+      // "roles" permission alone used to be enough, which let a
+      // restricted staff account holding "roles" + "staff-users" mint an
+      // unrestricted admin past the isSubsetOfCallerAccess ceiling every
+      // other role path enforces (deep bug sweep round 30).
       return res.status(403).json({
         success: false,
         message: "You don't have permission to create a Full Admin account.",
@@ -287,10 +292,10 @@ export const updateStaffUser = async (req, res) => {
         }
 
         staffUser.adminRole = role._id;
-      } else if (!hasAdminPermission(req.user, "roles")) {
+      } else if (!callerIsFullAdmin(req.user)) {
         // Same gate as addStaffUser — removing another staff account's
-        // role restriction makes it a full/unrestricted admin, which
-        // "staff-users" permission alone shouldn't be able to grant.
+        // role restriction makes it a full/unrestricted admin, which only
+        // an existing Full Admin may grant.
         return res.status(403).json({
           success: false,
           message: "You don't have permission to grant Full Admin access.",

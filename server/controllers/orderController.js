@@ -274,6 +274,17 @@ const verifyOrderItems = async (rawItems) => {
 
       price = variant.price;
       stock = variant.stock;
+    } else if (product.variants?.length > 0) {
+      // A sized product's top-level price/stock only mirror the first
+      // size / the sum of all sizes. Accepting it without a size charged
+      // the first size's price, reserved stock from the summed total
+      // only (silently undone on the next product save, which re-sums
+      // the variants) and left the order with no size to ship. Every
+      // storefront add-to-cart already sends a size for these.
+      return {
+        success: false,
+        message: `Please choose a size for "${product.name}".`,
+      };
     } else {
       price = product.price;
       stock = product.stock;
@@ -1109,7 +1120,18 @@ export const verifyRazorpayPayment = async (req, res) => {
       .update(`${razorpay_order_id}|${razorpay_payment_id}`)
       .digest("hex");
 
-    if (expectedSignature !== razorpay_signature) {
+    // Constant-time compare, like the webhook's: a plain !== returns
+    // early at the first differing character. The format check first
+    // guarantees both buffers are the same 32 bytes timingSafeEqual
+    // requires (it throws on a length mismatch).
+    const signatureMatches =
+      /^[0-9a-f]{64}$/i.test(razorpay_signature) &&
+      crypto.timingSafeEqual(
+        Buffer.from(razorpay_signature, "hex"),
+        Buffer.from(expectedSignature, "hex"),
+      );
+
+    if (!signatureMatches) {
       return res.status(400).json({
         success: false,
         message: "Payment verification failed",

@@ -1711,16 +1711,19 @@ const buildMeta = async (path, query = {}) => {
     // Mirrors ProductDetails.jsx's displayPrice/displayStock — a
     // variant product's flat p.price only mirrors variants[0], but flat
     // p.stock is the SUM of every variant (see Product.js). Bots see
-    // the same default-selected variant a visitor would on first load
-    // (variants[0]), so the offer must reflect THAT variant's own
-    // price/stock, not the misleading summed stock -- otherwise a
-    // sold-out default variant with stock left in another size still
-    // reports InStock here while the page itself would show Out of
-    // Stock, a real Merchant Center suspension risk.
-    // A ?size= link (one per size in the Shopping feed) shows that size,
-    // like ProductDetails.jsx does, so the price matches the listing.
+    // the same default-selected variant a visitor would on first load,
+    // so the offer must reflect THAT variant's own price/stock, not the
+    // misleading summed stock. Same rule as ProductDetails.jsx: a ?size=
+    // link (one per size in the Shopping feed) shows that size, so the
+    // price matches the listing; otherwise the first size in stock, and
+    // variants[0] only when every size is sold out. Picking variants[0]
+    // regardless told bots (and the prepaint) "Out of Stock" at the
+    // wrong price for a product a visitor could actually buy in another
+    // size (deep bug sweep round 30).
     const defaultVariant =
-      (typeof size === "string" && size && p.variants?.find((v) => v.size === size)) || p.variants?.[0];
+      (typeof size === "string" && size && p.variants?.find((v) => v.size === size)) ||
+      p.variants?.find((v) => v.stock > 0) ||
+      p.variants?.[0];
     const offerPrice = defaultVariant ? defaultVariant.price : p.price;
     const offerStock = defaultVariant ? defaultVariant.stock : p.stock;
 

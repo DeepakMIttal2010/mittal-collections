@@ -79,12 +79,23 @@ function Cart() {
     (async () => {
       let priceChanged = false;
       let stockReduced = false;
+      let checkFailed = false;
 
       for (const item of itemsToCheck) {
         const response = await getProductById(item.productId);
         const product = response.success ? response.product : null;
 
-        // getProductById already 404s (success: false) for a soft-deleted,
+        // A 5xx, a cold-starting backend or a network blip says nothing
+        // about whether the product still exists — keep the item as it is
+        // (checkout re-validates price and stock on the server anyway).
+        // Treating it as "gone" emptied whole carts whenever the API
+        // hiccuped (deep bug sweep round 30).
+        if (!product && !response.notFound) {
+          checkFailed = true;
+          continue;
+        }
+
+        // getProductById already 404s (notFound) for a soft-deleted,
         // deactivated, or offline-visibility product — no separate
         // isActive check needed here.
         if (!product) {
@@ -160,6 +171,14 @@ function Cart() {
           t(
             "Some quantities in your cart were adjusted due to limited stock",
             "सीमित स्टॉक के कारण आपके कार्ट में कुछ मात्राएं समायोजित की गई हैं",
+          ),
+        );
+      }
+      if (checkFailed) {
+        toast.info(
+          t(
+            "We couldn't refresh the latest prices right now — they'll be confirmed at checkout",
+            "अभी नवीनतम कीमतें अपडेट नहीं हो सकीं — चेकआउट पर इनकी पुष्टि होगी",
           ),
         );
       }
