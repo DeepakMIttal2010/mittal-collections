@@ -174,6 +174,100 @@ describe("POST /api/auth/register", () => {
   });
 });
 
+// The code email used to be BCC'd to ADMIN_NOTIFICATION_EMAIL, putting a
+// working signup code in the admin mailbox. Now the admin gets a separate
+// note that carries no code and only a masked address (round 30).
+describe("Registration code email and the admin copy", () => {
+  const ADMIN = "admin-copy@example.com";
+
+  const withAdminEmail = async (fn) => {
+    const previous = process.env.ADMIN_NOTIFICATION_EMAIL;
+    process.env.ADMIN_NOTIFICATION_EMAIL = ADMIN;
+    try {
+      await fn();
+    } finally {
+      if (previous === undefined) delete process.env.ADMIN_NOTIFICATION_EMAIL;
+      else process.env.ADMIN_NOTIFICATION_EMAIL = previous;
+    }
+  };
+
+  it("sends the code only to the customer and a code-free note to the admin", async () => {
+    await withAdminEmail(async () => {
+      sendEmail.mockClear();
+
+      const res = await register(validPayload);
+      expect(res.status).toBe(200);
+
+      const calls = sendEmail.mock.calls.map(([args]) => args);
+      const codeEmail = calls.find((c) => c.to === "shopper@example.com");
+      const adminNote = calls.find((c) => c.to === ADMIN);
+
+      expect(codeEmail.bcc).toBeUndefined();
+      const code = codeEmail.html.match(/(\d{6})/)[1];
+
+      expect(adminNote).toBeDefined();
+      expect(adminNote.bcc).toBeUndefined();
+      expect(adminNote.html).not.toContain(code);
+      expect(adminNote.html).not.toMatch(/\d{6}/);
+      expect(adminNote.html).not.toContain("shopper@example.com");
+      expect(adminNote.html).toContain("sh***@example.com");
+      expect(adminNote.html).toMatch(/not that it reached/i);
+      expect(calls).toHaveLength(2);
+    });
+  });
+
+  it("sends no admin note when ADMIN_NOTIFICATION_EMAIL is unset", async () => {
+    const previous = process.env.ADMIN_NOTIFICATION_EMAIL;
+    delete process.env.ADMIN_NOTIFICATION_EMAIL;
+    try {
+      sendEmail.mockClear();
+      const res = await register(validPayload);
+
+      expect(res.status).toBe(200);
+      expect(sendEmail).toHaveBeenCalledTimes(1);
+      expect(sendEmail.mock.calls[0][0].to).toBe("shopper@example.com");
+      expect(sendEmail.mock.calls[0][0].bcc).toBeUndefined();
+    } finally {
+      if (previous !== undefined) process.env.ADMIN_NOTIFICATION_EMAIL = previous;
+    }
+  });
+
+  it("still succeeds for the customer when the admin note fails to send", async () => {
+    await withAdminEmail(async () => {
+      sendEmail.mockClear();
+      sendEmail.mockImplementation(async ({ to }) => {
+        if (to === ADMIN) throw new Error("provider down");
+      });
+
+      try {
+        const res = await register(validPayload);
+        expect(res.status).toBe(200);
+        expect(await Otp.countDocuments({ target: "shopper@example.com", purpose: "register" })).toBe(1);
+      } finally {
+        sendEmail.mockImplementation(async () => undefined);
+      }
+    });
+  });
+
+  it("keeps the welcome email's admin BCC unchanged", async () => {
+    await withAdminEmail(async () => {
+      sendEmail.mockClear();
+      await register(validPayload);
+      const code = sendEmail.mock.calls
+        .map(([args]) => args)
+        .find((c) => c.to === "shopper@example.com")
+        .html.match(/(\d{6})/)[1];
+
+      const res = await verifyOtp({ email: "shopper@example.com", otp: code });
+      expect(res.status).toBe(201);
+
+      const welcome = sendEmail.mock.calls.at(-1)[0];
+      expect(welcome.to).toBe("shopper@example.com");
+      expect(welcome.bcc).toBe(ADMIN);
+    });
+  });
+});
+
 describe("POST /api/auth/register/verify-otp", () => {
   it("creates the account on a correct code and sends a welcome email", async () => {
     sendEmail.mockClear();

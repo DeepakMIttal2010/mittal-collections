@@ -325,6 +325,58 @@ describe("POST /api/orders", () => {
       expect(large.stock).toBe(9);
       expect(small.stock).toBe(10); // untouched
     });
+
+    it("rejects a sized product sent without a size and leaves every stock count untouched", async () => {
+      const user = await createUser();
+      const token = signToken(user);
+      const product = await createProduct({
+        price: 300,
+        stock: 20,
+        variants: [
+          { size: "Small", price: 300, stock: 10 },
+          { size: "Large", price: 700, stock: 10 },
+        ],
+      });
+      await seedSiteSettings({ codCharge: 0 });
+
+      for (const size of [undefined, ""]) {
+        const res = await request(app)
+          .post("/api/orders")
+          .set("Authorization", `Bearer ${token}`)
+          .send({
+            orderItems: [orderItem(product, { quantity: 1, size })],
+            shippingAddress,
+            paymentMethod: "COD",
+          });
+
+        expect(res.status).toBe(400);
+        expect(res.body.message).toMatch(/choose a size/i);
+      }
+
+      expect(await Order.countDocuments()).toBe(0);
+      const reloaded = await Product.findById(product._id);
+      expect(reloaded.stock).toBe(20);
+      expect(reloaded.variants.map((v) => v.stock)).toEqual([10, 10]);
+    });
+
+    it("still accepts a product without sizes sent without a size", async () => {
+      const user = await createUser();
+      const token = signToken(user);
+      const product = await createProduct({ price: 250, stock: 5 });
+      await seedSiteSettings({ codCharge: 0 });
+
+      const res = await request(app)
+        .post("/api/orders")
+        .set("Authorization", `Bearer ${token}`)
+        .send({
+          orderItems: [orderItem(product, { quantity: 2 })],
+          shippingAddress,
+          paymentMethod: "COD",
+        });
+
+      expect(res.status).toBe(201);
+      expect((await Product.findById(product._id)).stock).toBe(3);
+    });
   });
 });
 
@@ -606,6 +658,50 @@ describe("POST /api/orders/verify-payment", () => {
 
     expect(res.status).toBe(400);
     expect((await Order.findById(order._id)).isPaid).toBe(false);
+  });
+
+  // The signature is compared in constant time, which needs both sides
+  // to be the same length — a wrong-length, non-hex, or one-character-off
+  // value must be a clean 400, never a thrown 500 or a paid order.
+  it.each([
+    ["one hex character off", () => {
+      const sig = validSignature();
+      return `${sig.slice(0, -1)}${sig.endsWith("0") ? "1" : "0"}`;
+    }],
+    ["too short", () => validSignature().slice(0, 63)],
+    ["too long", () => `${validSignature()}00`],
+    ["right length but not hex", () => "z".repeat(64)],
+    ["empty-looking whitespace", () => " ".repeat(64)],
+  ])("rejects a signature that is %s without marking the order paid", async (_label, makeSignature) => {
+    const user = await createUser();
+    const token = signToken(user);
+    const order = await createTestOrder({
+      user: user._id,
+      paymentMethod: "Razorpay",
+      razorpayOrderId,
+    });
+
+    const res = await verify(token, order._id, makeSignature());
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toBe("Payment verification failed");
+    expect((await Order.findById(order._id)).isPaid).toBe(false);
+  });
+
+  it("accepts a valid signature sent in upper case", async () => {
+    const user = await createUser();
+    const token = signToken(user);
+    const order = await createTestOrder({
+      user: user._id,
+      paymentMethod: "Razorpay",
+      razorpayOrderId,
+      orderStatus: "Pending",
+    });
+
+    const res = await verify(token, order._id, validSignature().toUpperCase());
+
+    expect(res.status).toBe(200);
+    expect((await Order.findById(order._id)).isPaid).toBe(true);
   });
 
   it("marks a Pending order paid on a valid signature", async () => {

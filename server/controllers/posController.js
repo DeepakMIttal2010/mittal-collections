@@ -37,7 +37,9 @@ const parseSafeItems = (rawItems) => {
     if (
       typeof item.productId !== "string" ||
       !mongoose.Types.ObjectId.isValid(item.productId) ||
-      !qty ||
+      // Whole units only, same rule as online orders' verifyOrderItems —
+      // 1.5 used to pass and wrote fractional stock and sale lines.
+      !Number.isInteger(qty) ||
       qty < 1 ||
       !price ||
       price < 0

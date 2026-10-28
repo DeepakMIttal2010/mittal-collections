@@ -408,11 +408,15 @@ function CategoryPage() {
 
     const wantHindi = language === "hi";
     if (wantHindi === isHindi) return;
+    // Same guard as ArticleDetail.jsx: with no Hindi name there's no /hi/
+    // page (the render below redirects it to English), so following the
+    // toggle there bounced English <-> /hi/ forever.
+    if (wantHindi && (!category?.nameHi || (activeSubcategory && !activeSubcategory.nameHi))) return;
     navigate(
       `${wantHindi ? "/hi" : ""}/category/${categorySlug}${subcategorySlug ? `/${subcategorySlug}` : ""}`,
       { replace: true },
     );
-  }, [status, isHindi, language, categorySlug, subcategorySlug, navigate, setLanguage]);
+  }, [status, isHindi, language, categorySlug, subcategorySlug, category, activeSubcategory, navigate, setLanguage]);
 
   // Slider/number-box bounds — rounded up to a clean ₹100 so the top
   // handle doesn't sit at an odd number like ₹1,847.

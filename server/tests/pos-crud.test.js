@@ -199,6 +199,61 @@ describe("PUT /api/admin/pos/sales/:id — edit", () => {
   });
 });
 
+describe("POS quantities must be whole units", () => {
+  it("rejects a fractional quantity on a new sale and leaves stock untouched", async () => {
+    const admin = await createUser({ role: "admin" });
+    const token = signToken(admin);
+    const product = await createProduct({ price: 100, stock: 10 });
+
+    const res = await recordSale(token, {
+      productId: product._id.toString(),
+      quantity: 1.5,
+      unitPrice: 100,
+    });
+
+    expect(res.status).toBe(400);
+    expect(await OfflineSale.countDocuments()).toBe(0);
+    expect((await Product.findById(product._id)).stock).toBe(10);
+  });
+
+  it("rejects a fractional quantity on an edit and keeps the original sale and stock", async () => {
+    const admin = await createUser({ role: "admin" });
+    const token = signToken(admin);
+    const product = await createProduct({ price: 100, stock: 10 });
+
+    const created = await recordSale(token, {
+      productId: product._id.toString(),
+      quantity: 2,
+      unitPrice: 100,
+    });
+    expect(created.status).toBe(201);
+
+    const res = await saleRequest("put", `/api/admin/pos/sales/${created.body.sale._id}`, token, {
+      items: [{ productId: product._id.toString(), quantity: 2.5, unitPrice: 100 }],
+      paymentMethod: "Cash",
+    });
+
+    expect(res.status).toBe(400);
+    expect((await OfflineSale.findById(created.body.sale._id)).items[0].quantity).toBe(2);
+    expect((await Product.findById(product._id)).stock).toBe(8);
+  });
+
+  it("still records a whole-number quantity", async () => {
+    const admin = await createUser({ role: "admin" });
+    const token = signToken(admin);
+    const product = await createProduct({ price: 100, stock: 10 });
+
+    const res = await recordSale(token, {
+      productId: product._id.toString(),
+      quantity: 3,
+      unitPrice: 100,
+    });
+
+    expect(res.status).toBe(201);
+    expect((await Product.findById(product._id)).stock).toBe(7);
+  });
+});
+
 describe("DELETE /api/admin/pos/sales/:id", () => {
   it("restores stock and claws back loyalty for an active sale before deleting it", async () => {
     await seedLoyaltySettings({ earnRate: 20 });

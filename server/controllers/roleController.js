@@ -159,6 +159,22 @@ export const updateRole = async (req, res) => {
       });
     }
 
+    // Same ceiling deleteRole applies, on the role as it stands now: a
+    // restricted "roles" holder could otherwise strip permissions from
+    // (or rename) a role broader than their own access, locking out the
+    // more privileged staff assigned to it.
+    if (
+      !isSubsetOfCallerAccess(req.user, {
+        permissions: role.permissions,
+        writeAccess: role.writeAccess,
+      })
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: "You can't change a role with permissions you don't have yourself.",
+      });
+    }
+
     const { name, description, permissions, writeAccess } = req.body;
 
     if (name) role.name = name;
