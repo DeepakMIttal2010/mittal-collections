@@ -123,6 +123,11 @@ function EditProduct() {
   // else saved changes in the meantime. A ref, not state — it's only
   // read at submit time and shouldn't trigger re-renders.
   const productVersionRef = useRef(null);
+  // The stock this form was loaded with — sent as stockBaseline so the
+  // server applies only the change made here, on top of whatever sold or
+  // came back since (see updateProduct), instead of writing this copy's
+  // number back over those sales.
+  const stockBaselineRef = useRef(null);
 
   const loadProduct = async () => {
     const [productRes, categoriesRes, subcategoriesRes, settingsRes] =
@@ -143,6 +148,7 @@ function EditProduct() {
       const product = productRes.product;
 
       productVersionRef.current = product.__v;
+      stockBaselineRef.current = product.stock ?? null;
 
       setFormData({
         name: product.name || "",
@@ -212,6 +218,9 @@ function EditProduct() {
             oldPrice: v.oldPrice ?? "",
             stock: v.stock ?? "",
             purchasePrice: v.purchasePrice ?? "",
+            // Same idea per size; kept with the size it belongs to, so a
+            // renamed row doesn't carry another size's baseline.
+            baseline: { size: v.size || "", stock: v.stock ?? 0 },
           })),
         );
       } else {
@@ -513,9 +522,20 @@ function EditProduct() {
       "additionalCategories",
       JSON.stringify(formData.additionalCategories),
     );
-    data.append("variants", JSON.stringify(cleanVariants));
+    data.append(
+      "variants",
+      JSON.stringify(
+        cleanVariants.map(({ baseline, ...v }) => ({
+          ...v,
+          ...(baseline?.size === v.size.trim() && { stockBaseline: baseline.stock }),
+        })),
+      ),
+    );
     if (productVersionRef.current !== null) {
       data.append("version", productVersionRef.current);
+    }
+    if (stockBaselineRef.current !== null) {
+      data.append("stockBaseline", stockBaselineRef.current);
     }
     data.append("existingImages", JSON.stringify(existingImages));
     data.append("mainImageIndex", mainImageIndex);

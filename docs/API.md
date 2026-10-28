@@ -56,6 +56,8 @@ Registration is a **2-step OTP flow** (changed 2026-08-08) — `POST /register` 
 
 **Concurrent-edit protection:** `Product` has Mongoose's `optimisticConcurrency` enabled — two admins opening the same product's Edit page and both saving no longer results in a silent last-write-wins data loss; the second `PUT /:id` fails with a conflict instead of quietly reverting the first admin's fields.
 
+**Stock edits — `stockBaseline` (added 2026-10-28):** orders, POS sales, cancellations and returns change stock with an atomic `$inc`, which doesn't bump `__v`, so the version check above can't see them. The admin Edit page therefore also sends `stockBaseline` — the stock it showed when it loaded — as a top-level field and on each loaded `variants[]` row whose size wasn't renamed. `PUT /:id` applies only the change (`stock − stockBaseline`) to the stock as it is at save time, inside a MongoDB transaction (a sale landing mid-save makes the save retry on fresh stock); a change that would take stock below zero is rejected with 409 and nothing is written. Without `stockBaseline` (a newly added or renamed size, older clients, scripts) the legacy behaviour stays: the sent stock is written as-is, so a script that adjusts stock should send `stockBaseline` too. Because the save needs a transaction, a standalone mongod without a replica set gets 503 unless `ALLOW_NON_TRANSACTIONAL_ORDER_WRITES=true` (local only, never in production — see DEPLOYMENT.md).
+
 ## Categories — `/api/categories` · Subcategories — `/api/subcategories`
 
 Same CRUD shape as Products (list/admin-list/get/create/update/restore/soft-delete), scoped to `isActive`. Subcategories additionally filter by `?category=<id>`.

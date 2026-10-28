@@ -19,6 +19,7 @@ import {
   decodeProductNumber,
 } from "../utils/costCipher.js";
 import { deleteCloudinaryAssetsByUrl } from "../utils/cloudinaryCleanup.js";
+import { withOptionalTransaction, TransactionsUnavailableError } from "../utils/orderTransactions.js";
 import { sanitizeProductDescription } from "../utils/sanitizeProductDescription.js";
 import { escapeRegex } from "../utils/escapeRegex.js";
 import { COST_FIELDS } from "../utils/productCostFields.js";
@@ -52,6 +53,14 @@ const generateSlug = (name) =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)/g, "");
 
+// A stockBaseline the edit form sent, or null when it sent none (an older
+// admin client, a script) — a whole number >= 0 or it doesn't count.
+const parseStockBaseline = (raw) => {
+  if (raw === undefined || raw === null || raw === "") return null;
+  const value = Number(raw);
+  return Number.isInteger(value) && value >= 0 ? value : null;
+};
+
 // Size variants (e.g. Curtains sold as 7x4/9x4, same fabric/quality, each
 // with its own price/MRP/stock) arrive as a JSON string in the multipart
 // form, same pattern as existingImages/existingVideos below.
@@ -70,6 +79,11 @@ const parseVariants = (raw) => {
         oldPrice: Number(v.oldPrice) || 0,
         stock: Math.max(Number(v.stock) || 0, 0),
         purchasePrice: Math.max(Number(v.purchasePrice) || 0, 0),
+        // Edit form only: the stock this row showed when the form was
+        // loaded (see updateProduct). Never stored — the schema drops it.
+        ...(parseStockBaseline(v.stockBaseline) !== null && {
+          stockBaseline: parseStockBaseline(v.stockBaseline),
+        }),
       }));
 
     // Server-side backstop for the same dedup the admin forms now
@@ -1479,200 +1493,248 @@ export const updateProduct = async (req, res) => {
   let newVideos = [];
 
   try {
-    const product = await Product.findById(req.params.id);
+    newImages = (req.files?.images || []).map((file) => file.path);
+    newVideos = (req.files?.videos || []).map((file) => file.path);
 
-    if (!product) {
+    // Load, edit and save inside one transaction. Orders, POS sales,
+    // cancellations and returns change stock with a plain $inc between
+    // this read and its save; in a transaction that makes the save hit a
+    // write conflict, and withTransaction re-runs this with the fresh
+    // stock instead of writing the stale value over the sale. It may run
+    // more than once, so it only does database work -- uploads clean-up,
+    // emails and the response all happen after it.
+    const edit = await withOptionalTransaction(async (session) => {
+      const product = await Product.findById(req.params.id).session(session);
+
+      if (!product) return { notFound: true };
+
+      // The admin's form was loaded from a specific version of this product;
+      // if someone else has saved changes since then, this submission is
+      // working from stale data and would silently overwrite their edit
+      // with a full-form replace (schema-level optimisticConcurrency below
+      // only catches two saves racing at the same instant — this catches
+      // the far more common case of a form left open across someone else's
+      // edit). Only enforced when the client actually sends a version.
+      if (
+        req.body.version !== undefined &&
+        Number(req.body.version) !== product.__v
+      ) {
+        return { versionConflict: true };
+      }
+
+      const wasOutOfStock = product.stock <= 0;
+      // Snapshot of each variant's stock before this edit overwrites it,
+      // so a specific size's own 0->positive transition can be detected
+      // below (a product-level restock notification was firing/missing
+      // based only on the SUMMED stock across sizes — see this file's
+      // notifyStockAlertSubscribers for the full explanation).
+      const oldVariantStockBySize = new Map(
+        (product.variants || []).map((v) => [v.size, v.stock]),
+      );
+
+      product.name = req.body.name;
+      product.slug = generateSlug(req.body.name);
+      product.description = sanitizeProductDescription(req.body.description);
+      product.nameHi = req.body.nameHi || "";
+      product.descriptionHi = sanitizeProductDescription(req.body.descriptionHi);
+      // Whether this specific request included a `variants` field at all
+      // — not just whether it happened to be non-empty. Omitting it
+      // (a partial-update script, anything that isn't the exact admin
+      // edit form re-sending the full array) must fall back to the
+      // product's EXISTING variants, not silently wipe them to [] and
+      // start trusting req.body.price/stock instead — the same class of
+      // footgun mainImageIndex/adminRemarks already guard against
+      // elsewhere in this function via an explicit `!== undefined` check.
+      const variantsProvided = req.body.variants !== undefined;
+      const variants = variantsProvided
+        ? parseVariants(req.body.variants)
+        : product.variants;
+      const hasVariants = variants.length > 0;
+
+      // Same rule as addProduct — once variants exist they're the source of
+      // truth for price/oldPrice/stock, not whatever was separately sent.
+      product.price = hasVariants ? variants[0].price : req.body.price;
+      product.oldPrice = hasVariants ? variants[0].oldPrice : req.body.oldPrice;
+      product.category = req.body.category;
+      product.subcategories = parseSubcategories(req.body.subcategories);
+      product.additionalCategories = parseSubcategories(
+        req.body.additionalCategories,
+      );
+      // Stock the form sent with a stockBaseline (what it showed when it
+      // was loaded) is a change of (stock - stockBaseline), applied to the
+      // stock as it is NOW -- writing the form's own number back would undo
+      // every sale, cancellation and return since the form was opened
+      // ($inc writers don't bump __v, so the version check above can't
+      // see them). An untouched stock field is a change of 0. Rows without
+      // a baseline (a newly added size, an older client, a script) are set
+      // as sent, as before.
+      for (const v of variantsProvided ? variants : []) {
+        if (v.stockBaseline !== undefined && oldVariantStockBySize.has(v.size)) {
+          const current = oldVariantStockBySize.get(v.size);
+          v.stock = current + (v.stock - v.stockBaseline);
+          if (v.stock < 0) return { stockConflict: { size: v.size, available: current } };
+        }
+        delete v.stockBaseline;
+      }
+      let stock = req.body.stock;
+      const stockBaseline = parseStockBaseline(req.body.stockBaseline);
+      if (!hasVariants && stockBaseline !== null && Number.isFinite(Number(stock))) {
+        stock = product.stock + (Number(stock) - stockBaseline);
+        if (stock < 0) return { stockConflict: { available: product.stock } };
+      }
+      product.stock = hasVariants
+        ? variants.reduce((sum, v) => sum + v.stock, 0)
+        : stock;
+      if (variantsProvided) {
+        product.variants = variants;
+      }
+
+      product.featured = req.body.featured === "true";
+      product.isActive = req.body.isActive === "true";
+      product.isTrending = req.body.isTrending === "true";
+      product.trendingRank = req.body.trendingRank || 0;
+      product.showInNewArrivals =
+        req.body.showInNewArrivals === undefined
+          ? true
+          : req.body.showInNewArrivals === "true";
+      product.isGiftingItem = req.body.isGiftingItem === "true";
+      product.willRestock =
+        req.body.willRestock === undefined
+          ? true
+          : req.body.willRestock === "true";
+      product.visibility = ["both", "online", "offline"].includes(
+        req.body.visibility,
+      )
+        ? req.body.visibility
+        : "both";
+
+      product.fabric = req.body.fabric || "";
+      product.fabricHi = req.body.fabricHi || "";
+      product.color = req.body.color || "";
+      product.pattern = req.body.pattern || "";
+      product.size = req.body.size || "";
+      product.gsm = req.body.gsm || "";
+      product.gsmHi = req.body.gsmHi || "";
+      product.washCare = req.body.washCare || "";
+      product.washCareHi = req.body.washCareHi || "";
+      product.brand = req.body.brand || "";
+      product.brandHi = req.body.brandHi || "";
+      product.countryOfOrigin = req.body.countryOfOrigin || "";
+      product.countryOfOriginHi = req.body.countryOfOriginHi || "";
+      product.whatsIncluded = req.body.whatsIncluded || "";
+      product.colorVariesNote = req.body.colorVariesNote || "";
+      product.colorVariesNoteHi = req.body.colorVariesNoteHi || "";
+      product.localDeliveryOnly = req.body.localDeliveryOnly === "true";
+
+      // Only bump the timestamp when the note itself actually changed —
+      // otherwise re-saving the product for an unrelated edit (price,
+      // stock, ...) would silently make a stale remark look freshly
+      // reviewed. undefined here means the caller didn't send the field
+      // at all (e.g. an older admin script) — leave the note untouched
+      // rather than wiping it, same convention as the other optional
+      // fields above already default to "" rather than staying undefined.
+      if (req.body.adminRemarks !== undefined) {
+        const nextRemarks = req.body.adminRemarks || "";
+        if (nextRemarks !== product.adminRemarks) {
+          product.adminRemarksUpdatedAt = new Date();
+        }
+        product.adminRemarks = nextRemarks;
+      }
+
+      product.isReturnable =
+        req.body.isReturnable === undefined
+          ? true
+          : req.body.isReturnable === "true";
+      product.returnPeriodDays = req.body.returnPeriodDays || 0;
+
+      product.restockAlertEnabled = req.body.restockAlertEnabled === "true";
+      product.restockAlertQuantity = req.body.restockAlertQuantity || 0;
+
+      product.purchasePrice = hasVariants
+        ? variants[0].purchasePrice
+        : req.body.purchasePrice || 0;
+      product.miscExpenses = req.body.miscExpenses || 0;
+      if (req.body.purchaseDate) product.purchaseDate = req.body.purchaseDate;
+
+      const oldImages = product.images.length
+        ? product.images
+        : [product.image].filter(Boolean);
+      const oldVideos = product.videos || [];
+
+      let existingImages = oldImages;
+
+      if (req.body.existingImages !== undefined) {
+        try {
+          existingImages = JSON.parse(req.body.existingImages);
+        } catch {
+          existingImages = [];
+        }
+      }
+
+      const finalImages = [...existingImages, ...newImages];
+
+      if (finalImages.length === 0) return { noImages: true };
+
+      // Preserve the current cover image when mainImageIndex isn't sent at
+      // all, the same way existingImages/existingVideos already do above —
+      // otherwise any script or caller that omits this field (there's no
+      // reason to resend it when neither the image list nor the chosen
+      // cover is changing) silently resets the cover back to the first
+      // image, undoing whatever the admin had deliberately picked.
+      let mainIndex = Math.max(existingImages.indexOf(product.image), 0);
+
+      if (req.body.mainImageIndex !== undefined) {
+        mainIndex = Math.min(
+          Math.max(parseInt(req.body.mainImageIndex, 10) || 0, 0),
+          finalImages.length - 1,
+        );
+      }
+
+      product.images = finalImages;
+      product.image = finalImages[mainIndex];
+
+      let existingVideos = oldVideos;
+
+      if (req.body.existingVideos !== undefined) {
+        try {
+          existingVideos = JSON.parse(req.body.existingVideos);
+        } catch {
+          existingVideos = [];
+        }
+      }
+
+      product.videos = [...existingVideos, ...newVideos];
+
+      await product.save();
+      return { product, wasOutOfStock, oldVariantStockBySize, hasVariants, oldImages, oldVideos, finalImages };
+    });
+
+    if (edit.notFound) {
       return res.status(404).json({
         success: false,
         message: "Product not found",
       });
     }
-
-    newImages = (req.files?.images || []).map((file) => file.path);
-    newVideos = (req.files?.videos || []).map((file) => file.path);
-
-    // The admin's form was loaded from a specific version of this product;
-    // if someone else has saved changes since then, this submission is
-    // working from stale data and would silently overwrite their edit
-    // with a full-form replace (schema-level optimisticConcurrency below
-    // only catches two saves racing at the same instant — this catches
-    // the far more common case of a form left open across someone else's
-    // edit). Only enforced when the client actually sends a version.
-    if (
-      req.body.version !== undefined &&
-      Number(req.body.version) !== product.__v
-    ) {
+    if (edit.versionConflict) {
       await deleteCloudinaryAssetsByUrl([...newImages, ...newVideos]);
       return sendVersionConflictResponse(res);
     }
-
-    const wasOutOfStock = product.stock <= 0;
-    // Snapshot of each variant's stock before this edit overwrites it,
-    // so a specific size's own 0->positive transition can be detected
-    // below (a product-level restock notification was firing/missing
-    // based only on the SUMMED stock across sizes — see this file's
-    // notifyStockAlertSubscribers for the full explanation).
-    const oldVariantStockBySize = new Map(
-      (product.variants || []).map((v) => [v.size, v.stock]),
-    );
-
-    product.name = req.body.name;
-    product.slug = generateSlug(req.body.name);
-    product.description = sanitizeProductDescription(req.body.description);
-    product.nameHi = req.body.nameHi || "";
-    product.descriptionHi = sanitizeProductDescription(req.body.descriptionHi);
-    // Whether this specific request included a `variants` field at all
-    // — not just whether it happened to be non-empty. Omitting it
-    // (a partial-update script, anything that isn't the exact admin
-    // edit form re-sending the full array) must fall back to the
-    // product's EXISTING variants, not silently wipe them to [] and
-    // start trusting req.body.price/stock instead — the same class of
-    // footgun mainImageIndex/adminRemarks already guard against
-    // elsewhere in this function via an explicit `!== undefined` check.
-    const variantsProvided = req.body.variants !== undefined;
-    const variants = variantsProvided
-      ? parseVariants(req.body.variants)
-      : product.variants;
-    const hasVariants = variants.length > 0;
-
-    // Same rule as addProduct — once variants exist they're the source of
-    // truth for price/oldPrice/stock, not whatever was separately sent.
-    product.price = hasVariants ? variants[0].price : req.body.price;
-    product.oldPrice = hasVariants ? variants[0].oldPrice : req.body.oldPrice;
-    product.category = req.body.category;
-    product.subcategories = parseSubcategories(req.body.subcategories);
-    product.additionalCategories = parseSubcategories(
-      req.body.additionalCategories,
-    );
-    product.stock = hasVariants
-      ? variants.reduce((sum, v) => sum + v.stock, 0)
-      : req.body.stock;
-    if (variantsProvided) {
-      product.variants = variants;
+    if (edit.stockConflict) {
+      await deleteCloudinaryAssetsByUrl([...newImages, ...newVideos]);
+      const { size, available } = edit.stockConflict;
+      return res.status(409).json({
+        success: false,
+        message: `Stock changed while you were editing: ${size ? `size ${size} has` : "this product has"} only ${available} left now, so that reduction would go below zero. Please reload and try again.`,
+      });
     }
-
-    product.featured = req.body.featured === "true";
-    product.isActive = req.body.isActive === "true";
-    product.isTrending = req.body.isTrending === "true";
-    product.trendingRank = req.body.trendingRank || 0;
-    product.showInNewArrivals =
-      req.body.showInNewArrivals === undefined
-        ? true
-        : req.body.showInNewArrivals === "true";
-    product.isGiftingItem = req.body.isGiftingItem === "true";
-    product.willRestock =
-      req.body.willRestock === undefined
-        ? true
-        : req.body.willRestock === "true";
-    product.visibility = ["both", "online", "offline"].includes(
-      req.body.visibility,
-    )
-      ? req.body.visibility
-      : "both";
-
-    product.fabric = req.body.fabric || "";
-    product.fabricHi = req.body.fabricHi || "";
-    product.color = req.body.color || "";
-    product.pattern = req.body.pattern || "";
-    product.size = req.body.size || "";
-    product.gsm = req.body.gsm || "";
-    product.gsmHi = req.body.gsmHi || "";
-    product.washCare = req.body.washCare || "";
-    product.washCareHi = req.body.washCareHi || "";
-    product.brand = req.body.brand || "";
-    product.brandHi = req.body.brandHi || "";
-    product.countryOfOrigin = req.body.countryOfOrigin || "";
-    product.countryOfOriginHi = req.body.countryOfOriginHi || "";
-    product.whatsIncluded = req.body.whatsIncluded || "";
-    product.colorVariesNote = req.body.colorVariesNote || "";
-    product.colorVariesNoteHi = req.body.colorVariesNoteHi || "";
-    product.localDeliveryOnly = req.body.localDeliveryOnly === "true";
-
-    // Only bump the timestamp when the note itself actually changed —
-    // otherwise re-saving the product for an unrelated edit (price,
-    // stock, ...) would silently make a stale remark look freshly
-    // reviewed. undefined here means the caller didn't send the field
-    // at all (e.g. an older admin script) — leave the note untouched
-    // rather than wiping it, same convention as the other optional
-    // fields above already default to "" rather than staying undefined.
-    if (req.body.adminRemarks !== undefined) {
-      const nextRemarks = req.body.adminRemarks || "";
-      if (nextRemarks !== product.adminRemarks) {
-        product.adminRemarksUpdatedAt = new Date();
-      }
-      product.adminRemarks = nextRemarks;
-    }
-
-    product.isReturnable =
-      req.body.isReturnable === undefined
-        ? true
-        : req.body.isReturnable === "true";
-    product.returnPeriodDays = req.body.returnPeriodDays || 0;
-
-    product.restockAlertEnabled = req.body.restockAlertEnabled === "true";
-    product.restockAlertQuantity = req.body.restockAlertQuantity || 0;
-
-    product.purchasePrice = hasVariants
-      ? variants[0].purchasePrice
-      : req.body.purchasePrice || 0;
-    product.miscExpenses = req.body.miscExpenses || 0;
-    if (req.body.purchaseDate) product.purchaseDate = req.body.purchaseDate;
-
-    const oldImages = product.images.length
-      ? product.images
-      : [product.image].filter(Boolean);
-    const oldVideos = product.videos || [];
-
-    let existingImages = oldImages;
-
-    if (req.body.existingImages !== undefined) {
-      try {
-        existingImages = JSON.parse(req.body.existingImages);
-      } catch {
-        existingImages = [];
-      }
-    }
-
-    const finalImages = [...existingImages, ...newImages];
-
-    if (finalImages.length === 0) {
+    if (edit.noImages) {
       return res.status(400).json({
         success: false,
         message: "At least one product image is required",
       });
     }
 
-    // Preserve the current cover image when mainImageIndex isn't sent at
-    // all, the same way existingImages/existingVideos already do above —
-    // otherwise any script or caller that omits this field (there's no
-    // reason to resend it when neither the image list nor the chosen
-    // cover is changing) silently resets the cover back to the first
-    // image, undoing whatever the admin had deliberately picked.
-    let mainIndex = Math.max(existingImages.indexOf(product.image), 0);
-
-    if (req.body.mainImageIndex !== undefined) {
-      mainIndex = Math.min(
-        Math.max(parseInt(req.body.mainImageIndex, 10) || 0, 0),
-        finalImages.length - 1,
-      );
-    }
-
-    product.images = finalImages;
-    product.image = finalImages[mainIndex];
-
-    let existingVideos = oldVideos;
-
-    if (req.body.existingVideos !== undefined) {
-      try {
-        existingVideos = JSON.parse(req.body.existingVideos);
-      } catch {
-        existingVideos = [];
-      }
-    }
-
-    product.videos = [...existingVideos, ...newVideos];
-
-    await product.save();
+    const { product, wasOutOfStock, oldVariantStockBySize, hasVariants, oldImages, oldVideos, finalImages } = edit;
     // From here on, newImages/newVideos are legitimately part of the
     // saved product -- if anything below throws, the catch block below
     // must NOT delete them (they're no longer orphaned uploads, they're
@@ -1721,6 +1783,13 @@ export const updateProduct = async (req, res) => {
 
     if (isVersionConflict(error)) {
       return sendVersionConflictResponse(res);
+    }
+
+    if (error instanceof TransactionsUnavailableError) {
+      return res.status(503).json({
+        success: false,
+        message: "Product changes can't be saved right now. Please try again in a moment.",
+      });
     }
 
     console.error(error);
