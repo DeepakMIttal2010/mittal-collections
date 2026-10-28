@@ -999,9 +999,14 @@ export const resumeRazorpayPayment = async (req, res) => {
       });
     }
 
-    const razorpayOrder = await getRazorpay().orders.fetch(
-      order.razorpayOrderId,
-    );
+    // Razorpay's own view of the order and its payments decides, through
+    // the same reconcileRazorpayOrder the pending-payment cron and Convert
+    // to COD use. This used to reopen checkout unless the Razorpay order
+    // was already "paid" -- so a customer whose earlier payment was
+    // authorized but not yet captured (a slow bank or UPI) could pay a
+    // second time -- and its self-heal marked the order paid without
+    // checking what was actually captured (deep bug sweep, 2026-10-28).
+    const check = await reconcileRazorpayOrder(order, getPendingPaymentConfig());
 
     // Payment actually succeeded on Razorpay's side but our own
     // verification step never ran (e.g. the browser closed right after
@@ -1014,16 +1019,11 @@ export const resumeRazorpayPayment = async (req, res) => {
     // markOrderPaid every other payment path uses (two tabs hitting
     // "Pay Now" at once shouldn't both fire the notification below)
     // (deep bug sweep, 2026-10-20).
-    if (razorpayOrder.status === "paid") {
-      const { items: payments } = await getRazorpay().orders.fetchPayments(
-        order.razorpayOrderId,
-      );
-      const captured = payments.find((p) => p.status === "captured");
-
+    if (check.verdict === "PAID") {
       const result = await markOrderPaid({
         orderId: order._id,
         razorpayOrderId: order.razorpayOrderId,
-        paymentId: captured?.id,
+        paymentId: check.paymentId,
         source: "resume",
       });
 
@@ -1044,12 +1044,46 @@ export const resumeRazorpayPayment = async (req, res) => {
       });
     }
 
+    // Money was captured, but not the amount/currency this order asked
+    // for: never marked paid here — an admin checks it, same as the cron.
+    if (check.verdict === "MISMATCH") {
+      await flagPaymentReview(order._id, "amount_mismatch");
+
+      return res.status(409).json({
+        success: false,
+        message:
+          "We've received a payment for this order that we need to check before confirming it — please don't pay again. We'll update you shortly.",
+      });
+    }
+
+    if (check.verdict === "AUTHORIZED") {
+      return res.status(409).json({
+        success: false,
+        message:
+          "Your earlier payment for this order is still being confirmed by your bank — please don't pay again. Check back in a few minutes.",
+      });
+    }
+
+    // Couldn't tell what Razorpay has (API error, odd response): fail
+    // closed rather than risk a second charge.
+    if (check.verdict === "INCONCLUSIVE") {
+      console.error(`Resume Razorpay Payment Check Error (order ${order._id}):`, check.error);
+
+      return res.status(502).json({
+        success: false,
+        message: "We couldn't check this order's payment status right now — please try again in a minute.",
+      });
+    }
+
+    // UNPAID or IN_FLIGHT: nothing taken yet, so checkout can be retried
+    // (an attempt still in flight isn't blocked — that would stop a
+    // customer from retrying an abandoned attempt for half an hour).
     res.status(200).json({
       success: true,
       razorpayOrder: {
-        id: razorpayOrder.id,
-        amount: razorpayOrder.amount,
-        currency: razorpayOrder.currency,
+        id: check.razorpayOrder.id,
+        amount: check.razorpayOrder.amount,
+        currency: check.razorpayOrder.currency,
       },
       razorpayKeyId: process.env.RAZORPAY_KEY_ID,
     });
@@ -1830,7 +1864,8 @@ const reconcileRazorpayOrder = async (order, { inFlightGraceMinutes }) => {
     (p) => p.status === "created" && (!p.created_at || p.created_at * 1000 > graceStart),
   );
 
-  return { verdict: inFlight ? "IN_FLIGHT" : "UNPAID" };
+  // razorpayOrder: what resumeRazorpayPayment reopens checkout with.
+  return { verdict: inFlight ? "IN_FLIGHT" : "UNPAID", razorpayOrder };
 };
 
 // Answers that mean money may already have been taken — convertOrderToCod
