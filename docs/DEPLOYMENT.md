@@ -468,32 +468,65 @@ while the hotfix is prepared (pending points simply wait; nothing is lost).
 
 `server/scripts/migrate-loyalty-lots.mjs` splits pre-v2 balances into
 batches (rule: `server/utils/loyaltyMigration.js`). Dry run by default;
-writes only with `--apply`. Steps:
+writes only with `--apply`.
+
+**Status: done in production on 2026-10-28** — 1 customer, 16 points, 1
+batch (expires 2027-10-26), verified by a second dry run and in Admin >
+Customers. Rerunning is a safe no-op; the steps below are kept for
+reference.
+
+Credentials never go on the command line or into the repo: put the
+connection string in an env file **outside the repository** (e.g.
+`%USERPROFILE%\mc-loyalty-readonly.env`, one line `MONGODB_URI=...`),
+pass it with Node's `--env-file` (it takes precedence over `server/.env`),
+and delete the file and the temporary Atlas user afterwards. Never put
+production credentials in `server/.env` — local dev, tests and scripts
+read it.
 
 1. **Read-only dry run first.** In Atlas, create a temporary database
-   user with the built-in `read` role on `mittal-collections` only, with
-   a 6-hour expiry. Then, from `server/`:
+   user with **Specific Privileges → `read` @ `mittal-collections`**, with
+   a 6-hour expiry. Env file line:
+   `MONGODB_URI=mongodb+srv://<reader>:<pwd>@<cluster>/mittal-collections?readPreference=secondaryPreferred`.
+   Then, from `server/`:
    ```bash
-   MONGODB_URI="mongodb+srv://<reader>:<pwd>@<cluster>/mittal-collections?readPreference=secondaryPreferred" \
-     node scripts/migrate-loyalty-lots.mjs --out prod-dryrun.json
+   node --env-file=<path-to-readonly.env> scripts/migrate-loyalty-lots.mjs --out <local-path>/prod-dryrun.json
    ```
    Check that the printed database name is right and that it exits 0 with
    `writeCommandsObserved: []` (exit code 2 means a write was attempted).
-   Keep the report local (it has user ids and balances), and delete the
-   temporary user afterwards.
+   Keep the report outside the repo (it has user ids and balances).
 2. **Review before `--apply`:** `unbatchedTotal` equals the sum of all
    positive balances; `lotsExceedBalance`, `negativeBalances`,
    `clampedLots` and `usersFailed` are 0; every row with `ledgerDiff ≠ 0`
    is explained; `orphanedLedgerUsers` listed; per-user `residual` /
    `droppedHistory` reviewed; spot-check 3–5 customers in Admin >
    Customers.
-3. **Apply** only after the v2 deploy is live, with an Atlas snapshot
-   taken first and normal (write) credentials:
-   `node scripts/migrate-loyalty-lots.mjs --apply --out prod-applied.json`.
-   Safe to rerun and safe if two runs overlap (per-customer claim in a
-   transaction); exit code 3 means some customers failed and can be rerun.
-4. **Verify:** rerun the dry run — `usersToMigrate` 0, `migratedButUnbatched`
-   0 — and check a few customers' Points History pages.
+3. **Backup first.** The cluster is Atlas free tier (M0), which has **no
+   snapshots** — the only backup is the GitHub Actions "MongoDB Backup"
+   workflow (section 6a). Actions → MongoDB Backup → Run workflow, wait
+   for green, then open the run and check the artifact **size** (a few
+   hundred KB or more; a few hundred bytes means an empty dump) and
+   download it. A failing "Dump database" step with `bad auth` means the
+   repo secret `MONGODB_URI` is stale — update it from Render's
+   `MONGODB_URI` and rerun.
+4. **Apply** only after the v2 deploy is live and the backup is
+   confirmed, with a temporary Atlas user that has **`readWrite` @
+   `mittal-collections`** (6-hour expiry). Its env-file URI must **not**
+   contain `readPreference` — the migration runs in transactions, which
+   need the primary:
+   `MONGODB_URI=mongodb+srv://<writer>:<pwd>@<cluster>/mittal-collections`
+   ```bash
+   node --env-file=<path-to-apply.env> scripts/migrate-loyalty-lots.mjs --apply --out <local-path>/prod-applied.json
+   ```
+   Run it once, from one terminal. It is still safe to rerun and safe if
+   two runs overlap (per-customer claim in a transaction); exit code 3
+   means some customers failed and can be rerun.
+5. **Verify:** rerun the dry run (same env file, without `--apply`) —
+   `usersToMigrate` 0, `migratedButUnbatched` 0, each migrated customer's
+   `lotTotal` equal to their balance, `writeCommandsObserved: []`. In
+   Admin > Customers, a migrated customer shows their next expiry and no
+   "Not yet split into batches" line; Admin > Reports loyalty totals
+   (Pending Now, Owed Now) are unchanged. Then delete the env files and
+   both temporary Atlas users.
 
 ## 8. One-Off Data/Migration Scripts
 
