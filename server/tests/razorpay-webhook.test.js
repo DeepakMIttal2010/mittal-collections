@@ -257,6 +257,11 @@ describe("Razorpay webhook: idempotency and ordering", () => {
       .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
       .update(`${order.razorpayOrderId}|pay_ok`)
       .digest("hex");
+    // verify asks Razorpay too, and sees the same captured payment.
+    rzp.fetch.mockResolvedValue({ id: order.razorpayOrderId, amount: 99900, status: "paid" });
+    rzp.fetchPayments.mockResolvedValue({
+      items: [{ id: "pay_ok", status: "captured", amount: 99900, currency: "INR" }],
+    });
 
     const [hook, verify] = await Promise.all([
       deliver(paymentCaptured({ razorpayOrderId: order.razorpayOrderId })),

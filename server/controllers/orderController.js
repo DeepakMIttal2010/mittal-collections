@@ -1100,6 +1100,15 @@ export const resumeRazorpayPayment = async (req, res) => {
 // ============================
 // Verify Razorpay Payment
 // ============================
+
+// The one pause verifyRazorpayPayment allows before rechecking an
+// AUTHORIZED payment (tests shorten it).
+const CAPTURE_RECHECK_DELAY_MS = 2500;
+let captureRecheckDelayMs = CAPTURE_RECHECK_DELAY_MS;
+export const __setCaptureRecheckDelayForTests = (ms = CAPTURE_RECHECK_DELAY_MS) => {
+  captureRecheckDelayMs = ms;
+};
+
 export const verifyRazorpayPayment = async (req, res) => {
   try {
     const {
@@ -1172,17 +1181,62 @@ export const verifyRazorpayPayment = async (req, res) => {
       });
     }
 
-    // A valid signature means Razorpay genuinely took the money,
-    // regardless of what state our own order is in. markOrderPaid records
-    // that atomically and, if the order had meanwhile been cancelled (the
-    // pending-payment cron, possibly with its stock already sold on) or
-    // switched to Cash on Delivery by an admin, flags it for manual
-    // review and alerts the admin instead of reviving it. Re-verifying an
-    // already-paid order is a harmless no-op.
+    // A valid signature only proves Razorpay's checkout reported success
+    // for this order and payment id — not that the money was captured
+    // (an authorized payment isn't, until Razorpay's capture settings say
+    // so) or that it's for the right amount. So, unless the order is
+    // already paid, Razorpay is asked first, through the same
+    // reconcileRazorpayOrder the cron, Pay Now and Convert to COD use, and
+    // only a captured payment for the right amount marks it paid. Anything
+    // else leaves the order (and its reserved stock) as it is for the
+    // webhook or the pending-payment cron to settle, and tells the
+    // customer it's being confirmed — never that it failed, which would
+    // invite a second payment (deep bug sweep, 2026-10-29).
+    let paymentId = razorpay_payment_id;
+
+    if (!order.isPaid) {
+      let check = await reconcileRazorpayOrder(order, getPendingPaymentConfig());
+
+      // Automatic capture usually lands moments after checkout's success
+      // callback, so an AUTHORIZED answer gets exactly one more look after
+      // a short pause before the customer is told it's pending — without
+      // a live webhook, pending waits for the cron. One recheck, no loop.
+      if (check.verdict === "AUTHORIZED") {
+        await new Promise((resolve) => setTimeout(resolve, captureRecheckDelayMs));
+        check = await reconcileRazorpayOrder(order, getPendingPaymentConfig());
+      }
+
+      if (check.verdict === "MISMATCH") {
+        await flagPaymentReview(order._id, "amount_mismatch");
+      }
+
+      if (check.verdict !== "PAID") {
+        if (check.verdict === "INCONCLUSIVE") {
+          console.error(`Verify Razorpay Payment Check Error (order ${order._id}):`, check.error);
+        }
+
+        return res.status(202).json({
+          success: false,
+          pending: true,
+          code: "PAYMENT_CONFIRMATION_PENDING",
+          message:
+            "Payment received — we're confirming it with your bank. Please don't pay again; your order will update shortly.",
+        });
+      }
+
+      paymentId = check.paymentId;
+    }
+
+    // markOrderPaid records that atomically and, if the order had meanwhile
+    // been cancelled (the pending-payment cron, possibly with its stock
+    // already sold on) or switched to Cash on Delivery by an admin, flags
+    // it for manual review and alerts the admin instead of reviving it.
+    // Re-verifying an already-paid order is a harmless no-op — or, with a
+    // different payment id, records a possible second charge for review.
     const result = await markOrderPaid({
       orderId: order._id,
       razorpayOrderId: razorpay_order_id,
-      paymentId: razorpay_payment_id,
+      paymentId,
       source: "verify",
     });
     const paidOrder = result.order || order;
