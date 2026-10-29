@@ -39,6 +39,7 @@ export const resumeOrderPayment = async ({
   onSuccess,
   onFailure,
   onDismiss,
+  onPending,
 }) => {
   const scriptLoaded = await loadRazorpayScript();
 
@@ -92,6 +93,15 @@ export const resumeOrderPayment = async ({
         // to silently undercount GA4 revenue.
         trackPurchase(verifyResponse.order);
         onSuccess();
+      } else if (verifyResponse?.pending) {
+        // Razorpay hasn't confirmed the capture yet (or couldn't be
+        // reached): not a failure, and the customer mustn't pay again.
+        (onPending || onFailure)(
+          t(
+            "Payment received — we're confirming it with your bank. Please don't pay again; your order will update shortly.",
+            "पेमेंट मिल गया — हम बैंक से इसकी पुष्टि कर रहे हैं। कृपया दोबारा पेमेंट न करें; आपका ऑर्डर जल्द अपडेट हो जाएगा।",
+          ),
+        );
       } else {
         onFailure(
           t(

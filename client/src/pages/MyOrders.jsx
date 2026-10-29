@@ -322,6 +322,11 @@ function MyOrders() {
         toast.error(message);
         setPayingId(null);
       },
+      onPending: (message) => {
+        toast.info(message);
+        setPayingId(null);
+        loadOrders();
+      },
       onDismiss: () => {
         setPayingId(null);
       },

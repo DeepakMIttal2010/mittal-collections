@@ -472,6 +472,8 @@ describe("late payments and races", () => {
     const { order, user, product } = await makeOrder({ ageMinutes: 361 });
     await runCron();
 
+    // The payment shows up captured in Razorpay only after the cancel.
+    razorpaySays({ status: "paid", payments: [captured()] });
     const res = await verify(user, order);
     expect(res.status).toBe(200);
 
@@ -490,6 +492,7 @@ describe("late payments and races", () => {
 
   it("verify before the cron: the cron then leaves the paid order alone", async () => {
     const { order, user, product } = await makeOrder({ ageMinutes: 361 });
+    razorpaySays({ status: "paid", payments: [captured()] });
     await verify(user, order);
     await runCron();
 
@@ -501,6 +504,14 @@ describe("late payments and races", () => {
 
   it("verify and the cron racing: one consistent outcome, stock released at most once", async () => {
     const { order, user, product } = await makeOrder({ ageMinutes: 361 });
+    // The capture lands in between: whichever asks Razorpay first still
+    // sees no payment, the other sees it captured.
+    rzp.fetch
+      .mockResolvedValueOnce({ id: "order_rzp", amount: 99900, status: "attempted" })
+      .mockResolvedValue({ id: "order_rzp", amount: 99900, status: "paid" });
+    rzp.fetchPayments
+      .mockResolvedValueOnce({ items: [{ status: "failed" }] })
+      .mockResolvedValue({ items: [captured()] });
 
     await Promise.all([verify(user, order), runCron()]);
 
@@ -535,6 +546,7 @@ describe("late payments and races", () => {
 
   it("records a second payment on an already-paid order as a possible double charge, once", async () => {
     const { order, user } = await makeOrder({ ageMinutes: 10 });
+    razorpaySays({ status: "paid", payments: [captured("pay_one")] });
     await verify(user, order, "pay_one");
     await verify(user, order, "pay_two");
     await verify(user, order, "pay_two");
@@ -565,6 +577,7 @@ describe("convert-to-COD with late payments", () => {
     const { order, user } = await cancelledOrder();
     expect((await convert(order)).status).toBe(200);
 
+    razorpaySays({ status: "paid", payments: [captured()] });
     const res = await verify(user, order);
     expect(res.body.message).toMatch(/switched to Cash on Delivery/);
 

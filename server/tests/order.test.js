@@ -1,7 +1,24 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import request from "supertest";
 import mongoose from "mongoose";
 import crypto from "crypto";
+
+// Razorpay is mocked: order creation still fails the way the real SDK does
+// without credentials here, and verify-payment gets told what Razorpay has.
+const { rzp } = vi.hoisted(() => ({
+  rzp: {
+    create: vi.fn(() => Promise.reject(new Error("`key_id` or `oauthToken` is mandatory"))),
+    fetch: vi.fn(),
+    fetchPayments: vi.fn(),
+  },
+}));
+vi.mock("razorpay", () => ({
+  default: class {
+    constructor() {
+      this.orders = { create: rzp.create, fetch: rzp.fetch, fetchPayments: rzp.fetchPayments };
+    }
+  },
+}));
 
 import "./setup.js";
 import app from "../app.js";
@@ -611,6 +628,16 @@ describe("POST /api/orders/verify-payment", () => {
       .update(`${razorpayOrderId}|${razorpayPaymentId}`)
       .digest("hex");
 
+  // A valid signature alone no longer marks an order paid — Razorpay must
+  // also report the payment captured for the order's amount.
+  const razorpayCaptured = (order) => {
+    const amount = Math.round(order.totalPrice * 100);
+    rzp.fetch.mockResolvedValue({ id: razorpayOrderId, amount, currency: "INR", status: "paid" });
+    rzp.fetchPayments.mockResolvedValue({
+      items: [{ id: razorpayPaymentId, status: "captured", amount, currency: "INR" }],
+    });
+  };
+
   const verify = (token, orderId, signature) =>
     request(app)
       .post("/api/orders/verify-payment")
@@ -697,6 +724,7 @@ describe("POST /api/orders/verify-payment", () => {
       razorpayOrderId,
       orderStatus: "Pending",
     });
+    razorpayCaptured(order);
 
     const res = await verify(token, order._id, validSignature().toUpperCase());
 
@@ -713,6 +741,7 @@ describe("POST /api/orders/verify-payment", () => {
       razorpayOrderId,
       orderStatus: "Pending",
     });
+    razorpayCaptured(order);
 
     const res = await verify(token, order._id, validSignature());
 
@@ -740,6 +769,7 @@ describe("POST /api/orders/verify-payment", () => {
       razorpayOrderId,
       orderStatus: "Cancelled",
     });
+    razorpayCaptured(order);
 
     const res = await verify(token, order._id, validSignature());
 

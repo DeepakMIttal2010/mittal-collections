@@ -89,6 +89,11 @@ function OrderDetails() {
         toast.error(message);
         setPaying(false);
       },
+      onPending: (message) => {
+        toast.info(message);
+        setPaying(false);
+        load();
+      },
       onDismiss: () => {
         setPaying(false);
       },
