@@ -26,6 +26,23 @@ export const getShowcaseReviews = async () => {
   }
 };
 
+// Whether the logged-in customer can review this product (bought and
+// received it, and hasn't reviewed it yet). The server re-checks on submit.
+export const getReviewEligibility = async (productId) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/reviews/eligibility/${productId}`, {
+      headers: {
+        Authorization: `Bearer ${getToken()}`,
+      },
+    });
+
+    return await response.json();
+  } catch (error) {
+    console.error("Get Review Eligibility Error:", error);
+    return { success: false };
+  }
+};
+
 export const submitReview = async (formData) => {
   try {
     const response = await fetch(`${API_BASE_URL}/reviews`, {

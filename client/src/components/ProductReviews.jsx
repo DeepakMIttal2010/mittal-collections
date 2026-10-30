@@ -4,7 +4,7 @@ import { FaStar, FaRegStar } from "react-icons/fa";
 
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
-import { getProductReviews, submitReview } from "../services/reviewService";
+import { getProductReviews, getReviewEligibility, submitReview } from "../services/reviewService";
 import { imgUrl } from "../services/api";
 import { dateLocale } from "../utils/dateLocale";
 
@@ -19,6 +19,8 @@ function Stars({ value, size = "text-sm" }) {
 }
 
 const MAX_REVIEW_IMAGES = 3;
+// Must match REVIEW_CONTENT_MAX_LENGTH in server/models/Review.js.
+const MAX_REVIEW_LENGTH = 2000;
 
 function ProductReviews({ productId }) {
   const { isLoggedIn } = useAuth();
@@ -36,6 +38,11 @@ function ProductReviews({ productId }) {
   const [imagePreviews, setImagePreviews] = useState([]);
   const [video, setVideo] = useState(null);
   const [videoPreview, setVideoPreview] = useState("");
+  // null until known. If the check itself fails, the button is shown
+  // anyway — submitReview makes the real decision server-side.
+  const [eligibility, setEligibility] = useState(null);
+
+  const canWriteReview = eligibility ? eligibility.eligible : true;
 
   const loadReviews = async () => {
     setLoading(true);
@@ -61,10 +68,28 @@ function ProductReviews({ productId }) {
   // — open the form immediately too, since the whole point of that link
   // is "write a review right now", not just "look at this section".
   useEffect(() => {
-    if (isLoggedIn && window.location.hash === "#reviews") {
-      setShowForm(true);
+    if (!isLoggedIn) {
+      setEligibility(null);
+      return undefined;
     }
-  }, [isLoggedIn]);
+
+    let cancelled = false;
+
+    getReviewEligibility(productId).then((response) => {
+      if (cancelled) return;
+
+      const known = response.success ? response : null;
+      setEligibility(known);
+
+      if (window.location.hash === "#reviews" && (!known || known.eligible)) {
+        setShowForm(true);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isLoggedIn, productId]);
 
   // Object URLs for the picked-but-not-yet-uploaded files — revoked whenever
   // the selection changes so we don't leak them across re-renders.
@@ -127,6 +152,16 @@ function ProductReviews({ productId }) {
       setImages([]);
       setVideo(null);
       setShowForm(false);
+      setEligibility((prev) => ({ ...prev, eligible: false, alreadyReviewed: true }));
+    } else if (response.code === "NOT_ELIGIBLE") {
+      setFormMessage(
+        t(
+          "You can review products you have bought and received.",
+          "आप उन्हीं प्रोडक्ट्स का रिव्यू कर सकते हैं जो आपने खरीदे हैं और आपको मिल चुके हैं।",
+        ),
+      );
+      setEligibility((prev) => ({ ...prev, eligible: false, hasPurchased: false }));
+      setShowForm(false);
     } else {
       setFormMessage(response.message || t("Unable to submit review", "रिव्यू सबमिट नहीं हो सका"));
     }
@@ -174,7 +209,7 @@ function ProductReviews({ productId }) {
         </div>
 
         <div>
-          {isLoggedIn ? (
+          {isLoggedIn && canWriteReview ? (
             <button
               type="button"
               onClick={() => setShowForm((v) => !v)}
@@ -182,6 +217,15 @@ function ProductReviews({ productId }) {
             >
               {t("Write a Review", "रिव्यू लिखें")}
             </button>
+          ) : isLoggedIn ? (
+            <p className="text-sm text-slate-500 max-w-[16rem]">
+              {eligibility?.alreadyReviewed
+                ? t("You have already reviewed this product.", "आप इस प्रोडक्ट का रिव्यू पहले ही कर चुके हैं।")
+                : t(
+                    "You can review this product once it has been delivered to you.",
+                    "यह प्रोडक्ट आपको डिलीवर होने के बाद आप इसका रिव्यू कर सकते हैं।",
+                  )}
+            </p>
           ) : (
             <Link
               to={`/login?redirect=/product/${productId}`}
@@ -226,12 +270,16 @@ function ProductReviews({ productId }) {
           <textarea
             required
             rows={3}
+            maxLength={MAX_REVIEW_LENGTH}
             value={formData.content}
             onChange={(e) =>
               setFormData((f) => ({ ...f, content: e.target.value }))
             }
-            className="w-full border border-slate-300 rounded-lg px-3 py-2 mb-4 focus:outline-none focus:ring-2 focus:ring-amber-500"
+            className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500"
           />
+          <p className="text-xs text-slate-400 text-right mb-4">
+            {formData.content.length}/{MAX_REVIEW_LENGTH}
+          </p>
 
           <label className="block text-sm font-medium text-slate-700 mb-1">
             {t("Photos", "फ़ोटो")}{" "}

@@ -5,6 +5,8 @@ import {
   getProductReviews,
   getShowcaseReviews,
   submitReview,
+  validateReviewSubmission,
+  getReviewEligibility,
   getAllReviewsAdmin,
   approveReview,
   markReviewSeen,
@@ -25,6 +27,7 @@ const perm = requirePermission("reviews");
 
 router.get("/showcase", getShowcaseReviews);
 router.get("/product/:productId", getProductReviews);
+router.get("/eligibility/:productId", authMiddleware, getReviewEligibility);
 router.post(
   "/",
   authMiddleware,
@@ -33,6 +36,10 @@ router.post(
     { name: "images", maxCount: 3 },
     { name: "video", maxCount: 1 },
   ]),
+  // Before imageOptimizer, which is what uploads to Cloudinary: an
+  // ineligible or invalid submission is turned away with its files still
+  // only in memory, never stored.
+  validateReviewSubmission,
   imageOptimizer,
   submitReview,
 );

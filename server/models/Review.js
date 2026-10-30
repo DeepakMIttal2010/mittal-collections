@@ -1,5 +1,9 @@
 import mongoose from "mongoose";
 
+// Shared with submitReview's own check (which answers with a clear message
+// before the document is ever built) and mirrored in ProductReviews.jsx.
+export const REVIEW_CONTENT_MAX_LENGTH = 2000;
+
 const reviewSchema = new mongoose.Schema(
   {
     product: {
@@ -15,11 +19,12 @@ const reviewSchema = new mongoose.Schema(
       required: true,
     },
 
-    // The Delivered order (if any) that made this product reviewable —
-    // set at submission time by looking up the reviewer's own order
-    // history. Used only to group multiple reviews from the same order
-    // for the per-order loyalty-bonus cap (see approveReview); null for
-    // a review with no matching order on file (e.g. seeded/test data).
+    // The delivered order that made this product reviewable — set at
+    // submission time from the reviewer's own order history (see
+    // findDeliveredPurchase), and required for every new review. Also
+    // groups reviews from the same order for the per-order loyalty-bonus
+    // cap (see approveReview). null only on older reviews submitted before
+    // a delivered purchase was required.
     order: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Order",
@@ -31,6 +36,10 @@ const reviewSchema = new mongoose.Schema(
       required: true,
       min: 1,
       max: 5,
+      validate: {
+        validator: Number.isInteger,
+        message: "Rating must be a whole number from 1 to 5",
+      },
     },
 
     // No separate title field — just a rating and free-text review, kept
@@ -46,6 +55,7 @@ const reviewSchema = new mongoose.Schema(
       type: String,
       required: true,
       trim: true,
+      maxlength: [REVIEW_CONTENT_MAX_LENGTH, `Review must be ${REVIEW_CONTENT_MAX_LENGTH} characters or fewer`],
     },
 
     // Cloudinary URLs — optional, capped at 3 (enforced in the
