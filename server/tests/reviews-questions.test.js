@@ -18,6 +18,7 @@ describe("Reviews", () => {
     const user = await createUser();
     const token = signToken(user);
     const product = await createProduct();
+    await createOrder({ user, products: [product] });
 
     const first = await request(app)
       .post("/api/reviews")
@@ -37,6 +38,8 @@ describe("Reviews", () => {
     const userB = await createUser();
     const admin = await createUser({ role: "admin" });
     const product = await createProduct();
+    await createOrder({ user: userA, products: [product] });
+    await createOrder({ user: userB, products: [product] });
 
     const reviewA = await request(app)
       .post("/api/reviews")
@@ -107,20 +110,24 @@ describe("Reviews", () => {
     expect(user2.loyaltyPoints).toBe(REVIEW_BONUS_POINTS);
   });
 
-  it("awards no bonus for a review with no matching Delivered order (no verified purchase)", async () => {
+  it("awards no bonus for an older review with no linked order (no verified purchase)", async () => {
     const user = await createUser();
     const admin = await createUser({ role: "admin" });
     const product = await createProduct();
 
-    const submitted = await request(app)
-      .post("/api/reviews")
-      .set("Authorization", `Bearer ${signToken(user)}`)
-      .send({ productId: product._id.toString(), rating: 5, content: "Looks nice in photos" });
+    // New submissions now require a delivered purchase, so an order-less
+    // review can only be one stored before that rule — created directly.
+    const legacy = await Review.create({
+      product: product._id,
+      user: user._id,
+      rating: 5,
+      content: "Looks nice in photos",
+    });
 
-    expect(submitted.body.review.order).toBeFalsy();
+    expect(legacy.order).toBeFalsy();
 
     const res = await request(app)
-      .put(`/api/reviews/${submitted.body.review._id}/approve`)
+      .put(`/api/reviews/${legacy._id}/approve`)
       .set("Authorization", `Bearer ${signToken(admin)}`);
 
     expect(res.status).toBe(200);
@@ -349,6 +356,7 @@ describe("Reviews", () => {
   it("does not require a review title", async () => {
     const user = await createUser();
     const product = await createProduct();
+    await createOrder({ user, products: [product] });
 
     const submitted = await request(app)
       .post("/api/reviews")

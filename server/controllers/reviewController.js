@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
-import Review from "../models/Review.js";
+import Review, { REVIEW_CONTENT_MAX_LENGTH } from "../models/Review.js";
 import Order from "../models/Order.js";
+import { findDeliveredPurchase } from "../utils/reviewEligibility.js";
 import cloudinary from "../config/cloudinary.js";
 import LoyaltyLot from "../models/LoyaltyLot.js";
 import { applyLoyaltyPointsChange } from "../utils/loyaltyPoints.js";
@@ -83,63 +84,146 @@ export const getProductReviews = async (req, res) => {
   }
 };
 
+// Every reason to turn a submission away that doesn't need the uploaded
+// media itself. Returns { reject: { status, body } } or { submission }.
+const checkReviewSubmission = async (req) => {
+  const { productId, rating, title, content } = req.body;
+
+  // productId comes straight from the request body (unlike a route
+  // param, which Express always parses as a plain string) — an object
+  // payload like {"$gt": ""} here would otherwise flow into the
+  // Review.findOne/Order.findOne queries below as a raw Mongo query
+  // operator instead of a literal id. The explicit typeof check (not
+  // just ObjectId.isValid, which also accepts 12-byte buffers) is
+  // what closes off an object-shaped payload in a way static analysis
+  // can actually verify.
+  if (
+    typeof productId !== "string" ||
+    !mongoose.Types.ObjectId.isValid(productId) ||
+    !rating ||
+    typeof content !== "string" ||
+    !content.trim()
+  ) {
+    return { reject: { status: 400, body: { success: false, message: "Product, rating and content are required" } } };
+  }
+
+  // Multipart bodies send the rating as a string. Only a single
+  // string/number value is accepted (Number(["4"]) would otherwise
+  // quietly read as 4), and it must be a whole star — 4.5 used to be
+  // stored, and then fell outside the 5..1 star breakdown on the page.
+  const ratingValue = Number(rating);
+
+  if (
+    !["string", "number"].includes(typeof rating) ||
+    !Number.isInteger(ratingValue) ||
+    ratingValue < 1 ||
+    ratingValue > 5
+  ) {
+    return { reject: { status: 400, body: { success: false, message: "Rating must be a whole number from 1 to 5" } } };
+  }
+
+  if (content.trim().length > REVIEW_CONTENT_MAX_LENGTH) {
+    return {
+      reject: {
+        status: 400,
+        body: { success: false, message: `Review must be ${REVIEW_CONTENT_MAX_LENGTH} characters or fewer` },
+      },
+    };
+  }
+
+  // A real ObjectId instance (not just a validated string) for the
+  // raw query-filter/document objects below — guarantees those object
+  // literals can never carry an object-shaped value.
+  const safeProductId = new mongoose.Types.ObjectId(productId);
+
+  // Verified purchases only: the customer must have bought this product
+  // and had it delivered. A later return or post-delivery cancellation
+  // doesn't take that away (see reviewEligibility.js) — someone who sent
+  // it back can still say why.
+  const order = await findDeliveredPurchase(req.user._id, safeProductId);
+
+  if (!order) {
+    return {
+      reject: {
+        status: 403,
+        body: {
+          success: false,
+          code: "NOT_ELIGIBLE",
+          message: "You can review products you have bought and received.",
+        },
+      },
+    };
+  }
+
+  const existing = await Review.exists({ product: safeProductId, user: req.user._id });
+
+  if (existing) {
+    return { reject: { status: 400, body: { success: false, message: "You have already reviewed this product" } } };
+  }
+
+  return {
+    submission: { productId: safeProductId, order, rating: ratingValue, title: title || "", content },
+  };
+};
+
+// ============================
+// VALIDATE A REVIEW BEFORE ITS MEDIA IS UPLOADED (Logged-in user)
+// ============================
+// Runs between uploadReviewMedia and imageOptimizer (see reviewRoutes.js).
+// multer keeps files in memory only (memoryStorage) and it's imageOptimizer
+// that sends them to Cloudinary — so turning a request away here means a
+// customer who isn't allowed to review (or whose form is invalid) never
+// gets a single photo or video stored, even by calling the API directly.
+export const validateReviewSubmission = async (req, res, next) => {
+  try {
+    const { reject, submission } = await checkReviewSubmission(req);
+
+    if (reject) return res.status(reject.status).json(reject.body);
+
+    req.reviewSubmission = submission;
+    next();
+  } catch (error) {
+    console.error("Validate Review Submission Error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};
+
 // ============================
 // SUBMIT REVIEW (Logged-in user)
 // ============================
 export const submitReview = async (req, res) => {
-  // uploadReviewMedia + imageOptimizer run before this controller, so by
-  // the time we get here any images/video are already live Cloudinary
-  // assets — every early-return/error path below must clean these up
-  // (same leak class already fixed for bannerController.js's addBanner),
-  // or a rejected/failed submission leaves orphaned uploads behind.
+  // imageOptimizer runs before this controller, so by the time we get here
+  // any images/video are already live Cloudinary assets — every
+  // early-return/error path below must clean these up (same leak class
+  // already fixed for bannerController.js's addBanner), or a
+  // rejected/failed submission leaves orphaned uploads behind.
   const uploadedUrls = [
     ...(req.files?.images || []).map((file) => file.path),
     ...(req.files?.video ? [req.files.video[0].path] : []),
   ];
 
   try {
-    const { productId, rating, title, content } = req.body;
+    // Normally already checked by validateReviewSubmission before any
+    // upload; re-checked here only if this handler is ever mounted without
+    // it, so the rules can't be skipped.
+    let submission = req.reviewSubmission;
 
-    // productId comes straight from the request body (unlike a route
-    // param, which Express always parses as a plain string) — an object
-    // payload like {"$gt": ""} here would otherwise flow into the
-    // Review.findOne/Order.findOne queries below as a raw Mongo query
-    // operator instead of a literal id. The explicit typeof check (not
-    // just ObjectId.isValid, which also accepts 12-byte buffers) is
-    // what closes off an object-shaped payload in a way static analysis
-    // can actually verify.
-    if (
-      typeof productId !== "string" ||
-      !mongoose.Types.ObjectId.isValid(productId) ||
-      !rating ||
-      !content
-    ) {
-      await deleteCloudinaryAssetsByUrl(uploadedUrls);
+    if (!submission) {
+      const checked = await checkReviewSubmission(req);
 
-      return res.status(400).json({
-        success: false,
-        message: "Product, rating and content are required",
-      });
+      if (checked.reject) {
+        await deleteCloudinaryAssetsByUrl(uploadedUrls);
+        return res.status(checked.reject.status).json(checked.reject.body);
+      }
+
+      submission = checked.submission;
     }
 
-    // A real ObjectId instance (not just a validated string) for the
-    // raw query-filter/document objects below — guarantees those object
-    // literals can never carry an object-shaped value.
-    const safeProductId = new mongoose.Types.ObjectId(productId);
-
-    const existing = await Review.findOne({
-      product: safeProductId,
-      user: req.user._id,
-    });
-
-    if (existing) {
-      await deleteCloudinaryAssetsByUrl(uploadedUrls);
-
-      return res.status(400).json({
-        success: false,
-        message: "You have already reviewed this product",
-      });
-    }
+    const { productId: safeProductId, order, rating: ratingValue, title, content } = submission;
 
     const videoFile = req.files?.video?.[0];
 
@@ -163,24 +247,12 @@ export const submitReview = async (req, res) => {
 
     const images = (req.files?.images || []).map((file) => file.path);
 
-    // Only reviews tied to a Delivered order count toward the per-order
-    // bonus cap — a review with no matching order just gets the flat
-    // amount uncapped (e.g. seeded/legacy data). Deliberately NOT a
-    // gate on submission itself — any logged-in customer can review a
-    // product they haven't bought (no "Verified Purchase" requirement),
-    // confirmed intentional by this file's own test coverage.
-    const order = await Order.findOne({
-      user: req.user._id,
-      orderStatus: "Delivered",
-      "orderItems.product": safeProductId,
-    }).sort({ createdAt: -1 });
-
     const review = await Review.create({
       product: safeProductId,
       user: req.user._id,
-      order: order?._id || null,
-      rating,
-      title: title || "",
+      order: order._id,
+      rating: ratingValue,
+      title,
       content,
       images,
       video: videoFile?.path || "",
@@ -206,7 +278,46 @@ export const submitReview = async (req, res) => {
       });
     }
 
+    if (error.name === "ValidationError") {
+      return res.status(400).json({
+        success: false,
+        message: Object.values(error.errors)[0]?.message || "Invalid review",
+      });
+    }
+
     console.error("Submit Review Error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};
+
+// ============================
+// CAN I REVIEW THIS PRODUCT? (Logged-in user)
+// ============================
+// Lets the product page show the review form only to customers whose
+// submission would actually be accepted, instead of letting them write a
+// review and attach photos only to be turned away. submitReview still
+// makes the same check itself — this is a convenience, not the gate.
+export const getReviewEligibility = async (req, res) => {
+  try {
+    const productId = new mongoose.Types.ObjectId(req.params.productId);
+
+    const [order, existing] = await Promise.all([
+      findDeliveredPurchase(req.user._id, productId),
+      Review.exists({ product: productId, user: req.user._id }),
+    ]);
+
+    res.status(200).json({
+      success: true,
+      eligible: Boolean(order) && !existing,
+      hasPurchased: Boolean(order),
+      alreadyReviewed: Boolean(existing),
+    });
+  } catch (error) {
+    console.error("Get Review Eligibility Error:", error);
 
     res.status(500).json({
       success: false,

@@ -32,6 +32,7 @@ import { sendEmail } from "../config/mailer.js";
 import { notifyUser } from "../utils/notify.js";
 import { hasAdminPermission } from "../utils/adminAccess.js";
 import { REVIEW_BONUS_POINTS } from "./reviewController.js";
+import { loadReturnedQuantities, getSolicitableItems } from "../utils/reviewEligibility.js";
 import { escapeHtml } from "../utils/escapeHtml.js";
 import OrderCost from "../models/OrderCost.js";
 import { syncOrder, postSafely } from "../utils/accountingPosting.js";
@@ -1812,10 +1813,25 @@ export const sendReviewRequestEmails = async (req, res) => {
       .populate("user", "name email")
       .populate("orderItems.product", "slug");
 
+    // Returned units (any return request that wasn't Rejected) never get a
+    // review request; whatever the customer kept still does, down to a
+    // partial quantity of one line. One query for the whole batch.
+    const returnedQuantities = await loadReturnedQuantities(orders.map((order) => order._id));
+
     let sent = 0;
+    let skippedNoEligibleItems = 0;
 
     for (const order of orders) {
       if (!order.user?.email) continue;
+
+      const items = getSolicitableItems(order, returnedQuantities);
+
+      // Nothing left to ask about (every item returned) — left unclaimed,
+      // so an item whose return is later Rejected is picked up next run.
+      if (items.length === 0) {
+        skippedNoEligibleItems += 1;
+        continue;
+      }
 
       // Atomic per-order claim before sending — the N+1 fix (2026-10-13)
       // that batched this into one Order.updateMany AFTER the whole send
@@ -1833,13 +1849,11 @@ export const sendReviewRequestEmails = async (req, res) => {
 
       if (!claimed) continue;
 
-      const itemsHtml = order.orderItems
+      const itemsHtml = items
         .map((item) => {
           const product = item.product;
           const isPopulated = product && typeof product === "object";
           const productId = isPopulated ? product._id : product;
-
-          if (!productId) return `<li>${escapeHtml(item.name)}</li>`;
 
           // #reviews scrolls straight to (and auto-opens) the review form
           // — see ProductReviews.jsx — instead of leaving the customer to
@@ -1895,6 +1909,7 @@ export const sendReviewRequestEmails = async (req, res) => {
       message: `Sent ${sent} of ${orders.length} review requests`,
       sent,
       total: orders.length,
+      skippedNoEligibleItems,
     });
   } catch (error) {
     console.error("Send Review Request Emails Error:", error);
