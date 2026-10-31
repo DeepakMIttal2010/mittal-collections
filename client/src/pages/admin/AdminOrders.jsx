@@ -36,6 +36,13 @@ const PAYMENT_REVIEW_LABELS = {
   paid_order_cancelled: "Paid order cancelled — refund due",
 };
 
+// A paid order's refund counts as handled once its payment review was
+// closed at or after the cancellation (older orders have no cancelledAt).
+const isPaidCancelHandled = (order) =>
+  !order.paymentReviewNeeded &&
+  Boolean(order.paymentReviewResolvedAt) &&
+  (!order.cancelledAt || new Date(order.paymentReviewResolvedAt) >= new Date(order.cancelledAt));
+
 const CANCELLATION_REASON_LABELS = {
   payment_timeout: "Payment not received in time (automatic)",
   admin: "Cancelled by admin",
@@ -479,15 +486,28 @@ function AdminOrders() {
                       simply an admin cancelling an order that had
                       already been paid. Either way nothing in this
                       system tracks whether the refund itself was
-                      actually issued, so this stays visible until an
-                      admin has manually confirmed/handled it. */}
+                      actually issued, so this stays red until an admin
+                      closes the payment review that cancelling a paid
+                      order opens (paid_order_cancelled) — that closing
+                      note is the refund record. A review closed BEFORE
+                      the cancellation was about something else, so it
+                      doesn't count. */}
                   {order.isPaid && order.orderStatus === "Cancelled" && (
-                    <span
-                      className="text-xs font-semibold px-3 py-1 rounded-full w-fit bg-red-600 text-white"
-                      title="This order was paid via Razorpay but is now Cancelled — the customer was charged. Confirm a refund has actually been issued (or re-fulfil the order) manually."
-                    >
-                      ⚠ Paid & cancelled — needs refund/review
-                    </span>
+                    isPaidCancelHandled(order) ? (
+                      <span
+                        className="text-xs font-semibold px-3 py-1 rounded-full w-fit bg-slate-200 text-slate-700"
+                        title={order.paymentReviewNote || "Payment review closed after cancellation."}
+                      >
+                        Paid & cancelled — refund handled
+                      </span>
+                    ) : (
+                      <span
+                        className="text-xs font-semibold px-3 py-1 rounded-full w-fit bg-red-600 text-white"
+                        title="This order was paid via Razorpay but is now Cancelled — the customer was charged. Confirm a refund has actually been issued (or re-fulfil the order) manually."
+                      >
+                        ⚠ Paid & cancelled — needs refund/review
+                      </span>
+                    )
                   )}
 
                   {order.paymentReviewNeeded && (
