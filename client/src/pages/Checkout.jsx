@@ -86,6 +86,9 @@ function Checkout() {
   const [showDeliveryInfo, setShowDeliveryInfo] = useState(false);
   const [showBundleInfo, setShowBundleInfo] = useState(false);
   const [localDeliveryBlocked, setLocalDeliveryBlocked] = useState(false);
+  // Set when the selected address's PIN can't be ordered to (UP-only
+  // delivery for now) — { en, hi } message. The server enforces this too.
+  const [deliveryUnavailable, setDeliveryUnavailable] = useState(null);
 
   useEffect(() => {
     if (!isLoggedIn) {
@@ -187,16 +190,29 @@ function Checkout() {
   const hasLocalOnlyItems = cartItems.some((item) => item.localDeliveryOnly);
 
   useEffect(() => {
-    if (!hasLocalOnlyItems || !selectedAddress?.pincode) {
-      setLocalDeliveryBlocked(false);
-      return;
-    }
+    setLocalDeliveryBlocked(false);
+    setDeliveryUnavailable(null);
+
+    if (!selectedAddress?.pincode) return;
 
     let cancelled = false;
 
     checkPincodeDelivery(selectedAddress.pincode).then((response) => {
       if (cancelled) return;
-      setLocalDeliveryBlocked(!(response.success && response.fastDelivery));
+
+      // Only an explicit "not deliverable" blocks here; if the check
+      // itself fails, the server still decides when the order is placed.
+      if (response.success && response.deliverable === false) {
+        setDeliveryUnavailable({
+          en: response.message,
+          hi: response.messageHi || response.message,
+        });
+        return;
+      }
+
+      if (hasLocalOnlyItems) {
+        setLocalDeliveryBlocked(!(response.success && response.fastDelivery));
+      }
     });
 
     return () => {
@@ -304,6 +320,11 @@ function Checkout() {
       return;
     }
 
+    if (deliveryUnavailable) {
+      toast.error(t(deliveryUnavailable.en, deliveryUnavailable.hi));
+      return;
+    }
+
     if (localDeliveryBlocked) {
       toast.error(
         t(
@@ -345,7 +366,7 @@ function Checkout() {
 
     if (!response.success) {
       setPlacing(false);
-      toast.error(response.message);
+      toast.error(t(response.message, response.messageHi || response.message));
       return;
     }
 
@@ -721,7 +742,13 @@ function Checkout() {
         {/* Right: order summary */}
         <div>
           <div className="border border-slate-200 rounded-xl p-5 bg-white sticky top-4">
-            {localDeliveryBlocked && (
+            {deliveryUnavailable && (
+              <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2.5 mb-3">
+                {t(deliveryUnavailable.en, deliveryUnavailable.hi)}
+              </p>
+            )}
+
+            {!deliveryUnavailable && localDeliveryBlocked && (
               <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2.5 mb-3">
                 {t(
                   "Sorry, an item in your cart can't be delivered to this address. Remove it or choose a different address.",
@@ -733,7 +760,7 @@ function Checkout() {
             <button
               type="button"
               onClick={handlePlaceOrder}
-              disabled={placing || localDeliveryBlocked}
+              disabled={placing || localDeliveryBlocked || Boolean(deliveryUnavailable)}
               className="w-full bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-full py-3.5 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {placing ? t("Placing Order...", "ऑर्डर हो रहा है...") : t("Place Order", "ऑर्डर करें")}

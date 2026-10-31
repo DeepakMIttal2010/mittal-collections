@@ -22,7 +22,15 @@ function PincodeChecker({ localDeliveryOnly = false }) {
 
     if (!response.success) {
       setResult({ type: "error" });
-    } else if (!response.found) {
+    } else if (response.deliverable === false && response.reason !== "invalid") {
+      // Outside the delivery area (UP-only for now), or not verifiable
+      // right now — the server's own message says which.
+      setResult({
+        type: "unavailable",
+        en: response.message,
+        hi: response.messageHi || response.message,
+      });
+    } else if (!response.found || response.deliverable === false) {
       setResult({ type: "invalid" });
     } else if (response.fastDelivery) {
       setResult({ type: "fast", areaName: response.areaName });
@@ -95,6 +103,12 @@ function PincodeChecker({ localDeliveryOnly = false }) {
             "Standard delivery available (3-7 days)",
             "स्टैंडर्ड डिलीवरी उपलब्ध है (3-7 दिन)",
           )}
+        </p>
+      )}
+
+      {result?.type === "unavailable" && (
+        <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mt-2">
+          {t(result.en, result.hi)}
         </p>
       )}
 

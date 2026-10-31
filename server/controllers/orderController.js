@@ -11,6 +11,11 @@ import Ticket from "../models/Ticket.js";
 import { notifyStockAlertSubscribers } from "./productController.js";
 import { resolveFastDelivery } from "./deliveryController.js";
 import {
+  checkDeliveryEligibility,
+  checkCachedEligibilityBatch,
+  DELIVERY_UNAVAILABLE_MESSAGES,
+} from "../utils/deliveryEligibility.js";
+import {
   calculateDiscount,
   isEligibleForFirstOrderCoupon,
 } from "./couponController.js";
@@ -83,6 +88,21 @@ const buildOrderResponse = (order) => ({
       : null,
   razorpayKeyId: order.paymentMethod === "Razorpay" ? process.env.RAZORPAY_KEY_ID : null,
 });
+
+// 400 body for an order whose delivery PIN can't be ordered to — see
+// utils/deliveryEligibility.js. Carries both languages so checkout can
+// show the customer's one.
+const sendDeliveryUnavailable = (res, eligibility) => {
+  const copy = DELIVERY_UNAVAILABLE_MESSAGES[eligibility.reason] || DELIVERY_UNAVAILABLE_MESSAGES.not_serviceable;
+
+  return res.status(400).json({
+    success: false,
+    code: "DELIVERY_UNAVAILABLE",
+    reason: eligibility.reason,
+    message: copy.en,
+    messageHi: copy.hi,
+  });
+};
 
 // Computes per-item return eligibility (whether the product allows
 // returns at all, and whether "deliveredAt + return period" hasn't
@@ -549,8 +569,37 @@ export const createOrder = async (req, res) => {
       });
 
       if (existingOrder) {
+        // Handing back an unpaid order also hands back its Razorpay order
+        // id, i.e. a way to pay. Never for a cancelled one (it stays
+        // cancelled — the customer starts a new order), and for a live one
+        // only while its PIN is still eligible (an order created before
+        // the UP-only gate may not be). Paid orders are returned as before.
+        if (!existingOrder.isPaid && existingOrder.orderStatus === "Cancelled") {
+          return res.status(409).json({
+            success: false,
+            code: "ORDER_CANCELLED",
+            message: "This order was cancelled. Please refresh the page and place a new order.",
+            messageHi: "यह ऑर्डर रद्द हो चुका है। कृपया पेज रिफ्रेश करके नया ऑर्डर दें।",
+          });
+        }
+
+        if (!existingOrder.isPaid) {
+          const existingDelivery = await checkDeliveryEligibility(existingOrder.shippingAddress?.pincode);
+          if (!existingDelivery.eligible) return sendDeliveryUnavailable(res, existingDelivery);
+        }
+
         return res.status(200).json(buildOrderResponse(existingOrder));
       }
+    }
+
+    // Website orders only for eligible delivery PINs (UP-only while the
+    // business isn't GST-registered) — checked before any stock, coupon,
+    // points or Razorpay side effect. The PIN's state from India Post
+    // decides, never the state typed into the address.
+    const delivery = await checkDeliveryEligibility(shippingAddress?.pincode);
+
+    if (!delivery.eligible) {
+      return sendDeliveryUnavailable(res, delivery);
     }
 
     const verifyResult = await verifyOrderItems(orderItems);
@@ -1076,6 +1125,16 @@ export const resumeRazorpayPayment = async (req, res) => {
       });
     }
 
+    // Nothing taken yet — but payment only reopens for an order whose
+    // delivery PIN is still eligible (one created before the UP-only gate
+    // may not be). Checked after the reconcile above so a payment that did
+    // go through is still recorded.
+    const delivery = await checkDeliveryEligibility(order.shippingAddress?.pincode);
+
+    if (!delivery.eligible) {
+      return sendDeliveryUnavailable(res, delivery);
+    }
+
     // UNPAID or IN_FLIGHT: nothing taken yet, so checkout can be retried
     // (an attempt still in flight isn't blocked — that would stop a
     // customer from retrying an abandoned attempt for half an hour).
@@ -1313,9 +1372,24 @@ export const getAllOrders = async (req, res) => {
       .sort({ createdAt: sortOrder })
       .limit(2000);
 
+    // Dispatch warning for the admin list, from the PIN cache only (one
+    // query, no India Post calls). A PIN not in the cache is "unverified"
+    // — the typed address state is never taken as proof. Display only:
+    // updateOrderStatus is what actually blocks dispatch.
+    const deliveryByPin = await checkCachedEligibilityBatch(
+      orders.map((order) => order.shippingAddress?.pincode || ""),
+    );
+
     res.status(200).json({
       success: true,
-      orders,
+      orders: orders.map((order) => ({
+        ...order.toJSON(),
+        deliveryCheck: deliveryByPin.get(String(order.shippingAddress?.pincode || "").trim()) || {
+          eligible: false,
+          state: null,
+          reason: "invalid",
+        },
+      })),
     });
   } catch (error) {
     console.error("Get All Orders Error:", error);
@@ -1477,6 +1551,34 @@ export const updateOrderStatus = async (req, res) => {
     const wasAlreadyCancelled = order.orderStatus === "Cancelled";
     const isFirstDelivery = status === "Delivered" && originalStatus !== "Delivered";
 
+    // Final dispatch lock: this is the only place an order becomes
+    // Shipped or Delivered, so an order whose delivery PIN isn't eligible
+    // (or can't be verified) can't be dispatched even if an earlier check
+    // was bypassed. Pending/Processing → Delivered is checked too (the
+    // transition rule allows skipping ahead). The one exception is
+    // Shipped → Delivered: the parcel has already left, so that records
+    // reality — any open delivery_restricted review stays open.
+    const isDispatching =
+      (status === "Shipped" || status === "Delivered") &&
+      status !== originalStatus &&
+      !(status === "Delivered" && originalStatus === "Shipped");
+
+    if (isDispatching) {
+      const delivery = await checkDeliveryEligibility(order.shippingAddress?.pincode);
+
+      if (!delivery.eligible) {
+        return res.status(400).json({
+          success: false,
+          code: "DELIVERY_RESTRICTED",
+          reason: delivery.reason,
+          message:
+            delivery.reason === "unverified"
+              ? "Delivery PIN couldn't be verified right now — do not dispatch. Try again shortly."
+              : `Delivery restricted — this order's PIN (${delivery.pincode || "invalid"}${delivery.state ? `, ${delivery.state}` : ""}) is outside the allowed delivery area. Do not dispatch; hold it for refund/CA review.`,
+        });
+      }
+    }
+
     const setFields = { orderStatus: status };
 
     // Points earned on delivery are pending, not credited: they become
@@ -1562,7 +1664,8 @@ export const updateOrderStatus = async (req, res) => {
         restocked = await releaseOrderResources(claim, { session });
 
         if (claim.isPaid) {
-          // An already-open review (its own reason and alert) is left as is.
+          // An already-open review keeps its own reason and alert; the
+          // refund-due reason is recorded alongside it.
           const review = await Order.updateOne(
             { _id: claim._id, paymentReviewNeeded: { $ne: true } },
             {
@@ -1574,11 +1677,23 @@ export const updateOrderStatus = async (req, res) => {
                 paymentReviewResolvedBy: null,
                 paymentReviewNote: null,
               },
-              $unset: { "paymentNotices.reviewAlert": 1, "paymentNotices.reviewFollowUp": 1 },
+              $unset: {
+                paymentReviewOtherReasons: 1,
+                "paymentNotices.reviewAlert": 1,
+                "paymentNotices.reviewFollowUp": 1,
+              },
             },
             { session },
           );
           reviewOpened = review.modifiedCount > 0;
+
+          if (!reviewOpened) {
+            await Order.updateOne(
+              { _id: claim._id, paymentReviewNeeded: true, paymentReviewReason: { $ne: "paid_order_cancelled" } },
+              { $addToSet: { paymentReviewOtherReasons: "paid_order_cancelled" } },
+              { session },
+            );
+          }
         }
       }
 
@@ -2154,10 +2269,16 @@ const processDueOrder = async (order, cfg, counters, canCancel) => {
 
   // UNPAID. A review opened for an authorized / inconclusive payment that
   // has since cleared (failed, refunded, expired) goes back to the normal
-  // schedule.
+  // schedule — unless a delivery restriction or any other reason is still
+  // on it, which only a person may close.
   if (order.paymentReviewNeeded) {
-    await Order.updateOne(
-      { _id: order._id, paymentReviewNeeded: true },
+    const cleared = await Order.updateOne(
+      {
+        _id: order._id,
+        paymentReviewNeeded: true,
+        paymentReviewReason: { $ne: "delivery_restricted" },
+        $or: [{ paymentReviewOtherReasons: { $exists: false } }, { paymentReviewOtherReasons: { $size: 0 } }],
+      },
       {
         $set: {
           paymentReviewNeeded: false,
@@ -2166,7 +2287,7 @@ const processDueOrder = async (order, cfg, counters, canCancel) => {
         },
       },
     );
-    logPending(order, "review-cleared", `reason=${order.paymentReviewReason}`);
+    if (cleared.modifiedCount > 0) logPending(order, "review-cleared", `reason=${order.paymentReviewReason}`);
   }
 
   if (pastDeadline) {
@@ -2558,6 +2679,22 @@ export const convertOrderToCod = async (req, res) => {
         success: false,
         message:
           "This order used loyalty points or the first-order coupon (already refunded on cancel) — please place a fresh COD order instead.",
+      });
+    }
+
+    // Converting revives the order for dispatch — only for a delivery PIN
+    // that is still eligible.
+    const delivery = await checkDeliveryEligibility(order.shippingAddress?.pincode);
+
+    if (!delivery.eligible) {
+      return res.status(400).json({
+        success: false,
+        code: "DELIVERY_RESTRICTED",
+        reason: delivery.reason,
+        message:
+          delivery.reason === "unverified"
+            ? "Delivery PIN couldn't be verified right now — try again shortly."
+            : "Delivery restricted — this order's PIN is outside the allowed delivery area, so it can't be converted to COD.",
       });
     }
 

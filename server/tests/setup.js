@@ -2,6 +2,7 @@ import { MongoMemoryServer } from "mongodb-memory-server";
 import mongoose from "mongoose";
 import { beforeAll, afterAll, afterEach } from "vitest";
 import { __resetEngagementCacheForTests } from "../controllers/adminController.js";
+import "./seedPincodes.js";
 
 let mongod;
 

@@ -34,6 +34,25 @@ const PAYMENT_REVIEW_LABELS = {
   paid_after_cod_conversion: "Paid online after COD conversion — don't collect cash",
   duplicate_payment: "Possible double payment",
   paid_order_cancelled: "Paid order cancelled — refund due",
+  delivery_restricted: "Delivery Restricted — do not dispatch",
+};
+
+// Primary review reason plus any recorded alongside it, as one label.
+const reviewLabel = (order) =>
+  [order.paymentReviewReason, ...(order.paymentReviewOtherReasons || [])]
+    .filter(Boolean)
+    .map((reason) => PAYMENT_REVIEW_LABELS[reason] || reason)
+    .join(" + ");
+
+// Dispatch warning from the server's cache-only PIN check (GET /orders).
+// Not shown once an order is finished (Cancelled/Delivered). The server
+// refuses Shipped/Delivered for these orders regardless.
+const deliveryWarning = (order) => {
+  const check = order.deliveryCheck;
+  if (!check || check.eligible || ["Cancelled", "Delivered"].includes(order.orderStatus)) return null;
+  return check.reason === "not_serviceable" || check.reason === "ambiguous"
+    ? `⚠ Delivery restricted${check.state ? ` (${check.state})` : ""} — do not dispatch`
+    : "⚠ Verification required – do not dispatch";
 };
 
 // A paid order's refund counts as handled once its payment review was
@@ -240,8 +259,14 @@ function AdminOrders() {
       // never gain the new statusHistory entry, so expanding "Order
       // History" right after a change looked like it hadn't been
       // recorded, even though it had been server-side.
+      // The list's deliveryCheck (and populated customer) only come from
+      // GET /orders, so they're carried over from the row being replaced.
       setOrders((prev) =>
-        prev.map((order) => (order._id === id ? response.order : order)),
+        prev.map((order) =>
+          order._id === id
+            ? { ...response.order, user: order.user, deliveryCheck: order.deliveryCheck }
+            : order,
+        ),
       );
     } else {
       alert(response.message || "Unable to update order status");
@@ -312,7 +337,9 @@ function AdminOrders() {
     const response = await resolvePaymentReview(order._id, note.trim());
 
     if (response.success) {
-      setOrders((prev) => prev.map((o) => (o._id === order._id ? response.order : o)));
+      setOrders((prev) =>
+        prev.map((o) => (o._id === order._id ? { ...response.order, deliveryCheck: o.deliveryCheck } : o)),
+      );
     } else {
       alert(response.message || "Unable to mark the review as done");
     }
@@ -515,8 +542,16 @@ function AdminOrders() {
                       className="text-xs font-semibold px-3 py-1 rounded-full w-fit bg-red-600 text-white"
                       title="This order's payment needs a manual check in the Razorpay dashboard — open it for details."
                     >
-                      ⚠ Needs payment review:{" "}
-                      {PAYMENT_REVIEW_LABELS[order.paymentReviewReason] || order.paymentReviewReason}
+                      ⚠ Needs payment review: {reviewLabel(order)}
+                    </span>
+                  )}
+
+                  {deliveryWarning(order) && (
+                    <span
+                      className="text-xs font-semibold px-3 py-1 rounded-full w-fit bg-red-600 text-white"
+                      title="Before handing over any parcel, the order must have an eligible Uttar Pradesh PIN code. If restricted or verification is unavailable, do not dispatch."
+                    >
+                      {deliveryWarning(order)}
                     </span>
                   )}
 
@@ -771,7 +806,7 @@ function AdminOrders() {
                     >
                       <p className="font-semibold">
                         {order.paymentReviewNeeded ? "Needs payment review" : "Payment review closed"}:{" "}
-                        {PAYMENT_REVIEW_LABELS[order.paymentReviewReason] || order.paymentReviewReason}
+                        {reviewLabel(order)}
                       </p>
                       {order.paymentReviewFlaggedAt && (
                         <p className="text-xs mt-1">Flagged {formatDateTime(order.paymentReviewFlaggedAt)}</p>

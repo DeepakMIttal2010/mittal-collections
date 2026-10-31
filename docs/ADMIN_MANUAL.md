@@ -205,6 +205,33 @@ View every order, mark it seen, and update its status:
 - Paid-online orders (Razorpay) show the Razorpay order/payment
   reference on the order; COD orders don't.
 
+### Delivery area: Uttar Pradesh only (dispatch rule)
+
+The business is not GST-registered, so website orders are accepted only
+for delivery PIN codes in **Uttar Pradesh**. The PIN code's state (from
+India Post) decides, not the state the customer typed. The allowed state
+list is in `server/config/delivery.js`; changing it needs owner approval
+and a GST review first.
+
+- Checkout refuses orders, payments and payment retries for PIN codes
+  outside UP (or that can't be verified right now).
+- An order can't be moved to **Shipped** or **Delivered** unless its PIN
+  code is eligible. The one exception: an order that was already
+  **Shipped** can still be marked **Delivered**.
+- A red badge on the order list warns you:
+  - **⚠ Delivery restricted — do not dispatch**: the PIN is outside UP.
+  - **⚠ Verification required – do not dispatch**: the PIN hasn't been
+    verified yet.
+- If money arrives for such an order, it is recorded as paid and opens a
+  **Needs payment review: Delivery Restricted** review. Refund it in the
+  Razorpay dashboard (or get CA advice), cancel the order, then **Mark
+  reviewed** with a note.
+
+**Manual dispatch SOP:** before physically handing over any parcel,
+staff must check that the order has an eligible Uttar Pradesh PIN code in
+Admin. If it is restricted or verification is unavailable, do not
+dispatch.
+
 ### Send on WhatsApp
 
 Each order has a **Send on WhatsApp** button that opens a `wa.me` chat

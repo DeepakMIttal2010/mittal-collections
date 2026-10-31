@@ -1,4 +1,5 @@
 import { DELIVERY_AREAS } from "../utils/deliveryAreas.js";
+import { checkDeliveryEligibility, DELIVERY_UNAVAILABLE_MESSAGES } from "../utils/deliveryEligibility.js";
 
 // India Post's own pincode lookup — free, keyless, no rate limit info
 // published but used here for a single on-demand check per customer
@@ -82,9 +83,25 @@ export const checkPincode = async (req, res) => {
       });
     }
 
-    const result = await resolveFastDelivery(pincode);
+    // Whether website orders can be delivered here at all (UP-only gate),
+    // then the separate fast-delivery check. A fast-delivery lookup
+    // failure no longer fails the whole check.
+    const delivery = await checkDeliveryEligibility(pincode);
+    const fast = delivery.eligible
+      ? await resolveFastDelivery(pincode).catch(() => ({ found: true, fastDelivery: false }))
+      : { found: delivery.reason !== "invalid" && Boolean(delivery.state), fastDelivery: false };
+    const copy = delivery.eligible ? null : DELIVERY_UNAVAILABLE_MESSAGES[delivery.reason];
 
-    res.status(200).json({ success: true, ...result });
+    res.status(200).json({
+      success: true,
+      ...fast,
+      fastDelivery: delivery.eligible && Boolean(fast.fastDelivery),
+      district: fast.district || delivery.district || undefined,
+      deliverable: delivery.eligible,
+      state: delivery.state,
+      reason: delivery.reason,
+      ...(copy && { message: copy.en, messageHi: copy.hi }),
+    });
   } catch (error) {
     console.error("Check Pincode Error:", error);
 
