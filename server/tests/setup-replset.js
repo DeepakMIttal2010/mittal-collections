@@ -2,6 +2,7 @@ import { MongoMemoryReplSet } from "mongodb-memory-server";
 import mongoose from "mongoose";
 import { beforeAll, afterAll, afterEach } from "vitest";
 import { __resetEngagementCacheForTests } from "../controllers/adminController.js";
+import "./seedPincodes.js";
 
 // Same as setup.js, but on a single-member replica set so multi-document
 // transactions work — used only by the test files that exercise them

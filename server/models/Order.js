@@ -1,5 +1,16 @@
 import mongoose from "mongoose";
 
+export const PAYMENT_REVIEW_REASONS = [
+  "authorized_uncaptured",
+  "check_inconclusive",
+  "amount_mismatch",
+  "paid_after_cancellation",
+  "paid_after_cod_conversion",
+  "duplicate_payment",
+  "paid_order_cancelled",
+  "delivery_restricted",
+];
+
 const orderSchema = new mongoose.Schema(
   {
     user: {
@@ -325,7 +336,9 @@ const orderSchema = new mongoose.Schema(
     // mismatch, money taken after cancellation or after conversion to COD,
     // a second payment on an already-paid order, or an admin cancelling an
     // order that was already paid (paid_order_cancelled — the refund is due
-    // and is issued by hand; this stays open until an admin notes it).
+    // and is issued by hand; this stays open until an admin notes it), or
+    // money taken for an order whose delivery PIN isn't eligible or
+    // couldn't be verified (delivery_restricted — held, never dispatched).
     // Never auto-cancelled while set on a Pending order.
     paymentReviewNeeded: {
       type: Boolean,
@@ -333,15 +346,14 @@ const orderSchema = new mongoose.Schema(
     },
     paymentReviewReason: {
       type: String,
-      enum: [
-        "authorized_uncaptured",
-        "check_inconclusive",
-        "amount_mismatch",
-        "paid_after_cancellation",
-        "paid_after_cod_conversion",
-        "duplicate_payment",
-        "paid_order_cancelled",
-      ],
+      enum: PAYMENT_REVIEW_REASONS,
+    },
+    // Further reasons that applied while this review was already open
+    // (e.g. paid after cancellation AND delivery restricted). Kept so no
+    // reason is lost; cleared when a fresh review opens.
+    paymentReviewOtherReasons: {
+      type: [{ type: String, enum: PAYMENT_REVIEW_REASONS }],
+      default: undefined,
     },
     paymentReviewFlaggedAt: Date,
     paymentReviewResolvedAt: Date,

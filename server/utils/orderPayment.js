@@ -4,6 +4,7 @@ import { sendEmail } from "../config/mailer.js";
 import { escapeHtml } from "./escapeHtml.js";
 import { notifyUser } from "./notify.js";
 import { getPendingPaymentConfig } from "../config/pendingPayment.js";
+import { checkDeliveryEligibility } from "./deliveryEligibility.js";
 
 // ============================
 // Mark an order paid (single atomic write)
@@ -45,15 +46,77 @@ export const markOrderPaid = async ({ orderId, razorpayOrderId, paymentId, sourc
     return { status: "not_found", order: null };
   }
 
+  // Money for an order whose delivery PIN isn't eligible (or can't be
+  // verified) is still recorded exactly as received, but the order is held
+  // under a delivery_restricted review and can't be dispatched (see
+  // updateOrderStatus). Cache-only: a payment path never waits on India
+  // Post, and a PIN missing from the cache counts as unverified. The PIN
+  // is fixed at order creation, so reading it first can't race the write.
+  const target = await Order.findOne({ _id: orderId, razorpayOrderId: { $eq: razorpayOrderId } })
+    .select("shippingAddress.pincode")
+    .lean();
+  const delivery = target
+    ? await checkDeliveryEligibility(target.shippingAddress?.pincode, { cacheOnly: true })
+    : { eligible: true };
+  const restricted = !delivery.eligible;
+
+  // Review reasons are merged, never replaced: the reasons already on an
+  // OPEN review (its primary and paymentReviewOtherReasons) are carried
+  // over, the new ones (late payment, delivery restriction) are added with
+  // $setUnion (no duplicates), and the primary is kept out of the
+  // secondary list. A late reason becomes the primary, as before;
+  // otherwise an open review keeps its primary. A closed review's reasons
+  // were already resolved, so a fresh review starts from the new ones.
+  const nonNull = (input) => ({ $filter: { input, cond: { $ne: ["$$this", null] } } });
   const isLate = { $ne: ["$_lateReason", null] };
-  const settlesOpenReview = {
-    $and: [{ $eq: ["$_lateReason", null] }, { $eq: ["$paymentReviewNeeded", true] }],
-  };
+  const hasNewReasons = { $gt: [{ $size: "$_newReasons" }, 0] };
+  const hasCarriedOthers = { $gt: [{ $size: "$_carriedOthers" }, 0] };
+  // A normal payment settles an open "authorized / inconclusive" review
+  // on a still-live order only when no other reason is still on it.
+  const settlesOpenReview = { $and: ["$_isOpen", { $not: [hasNewReasons] }, { $not: [hasCarriedOthers] }] };
 
   const updated = await Order.findOneAndUpdate(
     { _id: orderId, razorpayOrderId: { $eq: razorpayOrderId }, isPaid: { $ne: true } },
     [
-      { $set: { _lateReason: lateReason } },
+      {
+        $set: {
+          _lateReason: lateReason,
+          _isOpen: { $eq: ["$paymentReviewNeeded", true] },
+        },
+      },
+      {
+        $set: {
+          _newReasons: nonNull(["$_lateReason", restricted ? "delivery_restricted" : null]),
+          _carriedOthers: { $cond: ["$_isOpen", nonNull({ $ifNull: ["$paymentReviewOtherReasons", []] }), []] },
+          _carriedPrimary: { $cond: ["$_isOpen", { $ifNull: ["$paymentReviewReason", null] }, null] },
+        },
+      },
+      {
+        $set: {
+          // Two-argument $ifNull nested, so it doesn't need MongoDB 5+.
+          _primary: {
+            $ifNull: [
+              "$_lateReason",
+              {
+                $ifNull: [
+                  "$_carriedPrimary",
+                  restricted ? "delivery_restricted" : { $ifNull: ["$paymentReviewReason", null] },
+                ],
+              },
+            ],
+          },
+        },
+      },
+      {
+        $set: {
+          _others: {
+            $setDifference: [
+              { $setUnion: [nonNull(["$_carriedPrimary"]), "$_carriedOthers", "$_newReasons"] },
+              nonNull(["$_primary"]),
+            ],
+          },
+        },
+      },
       {
         $set: {
           isPaid: true,
@@ -62,26 +125,31 @@ export const markOrderPaid = async ({ orderId, razorpayOrderId, paymentId, sourc
           paymentSource: source,
           nextPaymentCheckAt: null,
           paidAfterCancellation: isLate,
-          // A normal payment settles an open "authorized / inconclusive"
-          // review on a still-live order; a late one opens a fresh review.
-          paymentReviewNeeded: isLate,
-          paymentReviewReason: { $ifNull: ["$_lateReason", "$paymentReviewReason"] },
-          paymentReviewFlaggedAt: { $cond: [isLate, "$$NOW", "$paymentReviewFlaggedAt"] },
+          paymentReviewNeeded: { $or: [hasNewReasons, { $and: ["$_isOpen", hasCarriedOthers] }] },
+          paymentReviewReason: { $ifNull: ["$_primary", "$$REMOVE"] },
+          paymentReviewOtherReasons: {
+            $cond: [
+              hasNewReasons,
+              { $cond: [{ $gt: [{ $size: "$_others" }, 0] }, "$_others", "$$REMOVE"] },
+              "$paymentReviewOtherReasons",
+            ],
+          },
+          paymentReviewFlaggedAt: { $cond: [hasNewReasons, "$$NOW", "$paymentReviewFlaggedAt"] },
           paymentReviewResolvedAt: { $cond: [settlesOpenReview, "$$NOW", "$paymentReviewResolvedAt"] },
           paymentReviewResolvedBy: { $cond: [settlesOpenReview, "system", "$paymentReviewResolvedBy"] },
-          "paymentNotices.reviewAlert": { $cond: [isLate, "$$REMOVE", "$paymentNotices.reviewAlert"] },
+          "paymentNotices.reviewAlert": { $cond: [hasNewReasons, "$$REMOVE", "$paymentNotices.reviewAlert"] },
           "paymentNotices.reviewFollowUp": {
-            $cond: [isLate, "$$REMOVE", "$paymentNotices.reviewFollowUp"],
+            $cond: [hasNewReasons, "$$REMOVE", "$paymentNotices.reviewFollowUp"],
           },
         },
       },
-      { $unset: "_lateReason" },
+      { $unset: ["_lateReason", "_isOpen", "_newReasons", "_carriedOthers", "_carriedPrimary", "_primary", "_others"] },
     ],
     { new: true, updatePipeline: true },
   );
 
   if (updated) {
-    if (updated.paidAfterCancellation) {
+    if (updated.paidAfterCancellation || restricted) {
       await alertAdmin(updated._id, deferAlert);
     }
 
@@ -131,6 +199,7 @@ export const PAYMENT_REVIEW_LABELS = {
   paid_after_cod_conversion: "Paid online after conversion to COD",
   duplicate_payment: "Second payment on an already-paid order",
   paid_order_cancelled: "Paid order cancelled — refund due",
+  delivery_restricted: "Payment Review – Delivery Restricted (do not dispatch)",
 };
 
 // Sends the review alert now, or — for a caller that must answer quickly
@@ -150,7 +219,9 @@ const alertAdmin = async (orderId, deferAlert) => {
   );
 };
 
-// Opens a review (only if none is open) and alerts the admin once.
+// Opens a review (only if none is open) and alerts the admin once. When a
+// review is already open for a different reason, the new reason is added
+// to paymentReviewOtherReasons instead of being dropped.
 export const flagPaymentReview = async (orderId, reason, { deferAlert = false } = {}) => {
   const flagged = await Order.findOneAndUpdate(
     { _id: orderId, paymentReviewNeeded: { $ne: true } },
@@ -163,12 +234,23 @@ export const flagPaymentReview = async (orderId, reason, { deferAlert = false } 
         paymentReviewResolvedBy: null,
         paymentReviewNote: null,
       },
-      $unset: { "paymentNotices.reviewAlert": 1, "paymentNotices.reviewFollowUp": 1 },
+      $unset: {
+        paymentReviewOtherReasons: 1,
+        "paymentNotices.reviewAlert": 1,
+        "paymentNotices.reviewFollowUp": 1,
+      },
     },
     { new: true },
   );
 
-  if (flagged) await alertAdmin(flagged._id, deferAlert);
+  if (flagged) {
+    await alertAdmin(flagged._id, deferAlert);
+  } else {
+    await Order.updateOne(
+      { _id: orderId, paymentReviewNeeded: true, paymentReviewReason: { $ne: reason } },
+      { $addToSet: { paymentReviewOtherReasons: reason } },
+    );
+  }
 
   return Boolean(flagged);
 };
@@ -257,7 +339,10 @@ export const sendPaymentReviewAlert = async (orderId, { followUp = false } = {})
     filter: { paymentReviewNeeded: true },
     send: async (order) => {
       const to = process.env.ADMIN_NOTIFICATION_EMAIL;
-      const label = PAYMENT_REVIEW_LABELS[order.paymentReviewReason] || order.paymentReviewReason;
+      const label = [order.paymentReviewReason, ...(order.paymentReviewOtherReasons || [])]
+        .filter(Boolean)
+        .map((reason) => PAYMENT_REVIEW_LABELS[reason] || reason)
+        .join(" + ");
       const paymentIds = [order.razorpayPaymentId, ...(order.extraPaymentIds || [])].filter(Boolean);
       const mismatched = (order.mismatchedPayments || [])
         .map((p) => `${p.paymentId} (${Number.isFinite(p.amount) ? `₹${(p.amount / 100).toFixed(2)}` : "amount ?"} ${p.currency || "?"})`)
