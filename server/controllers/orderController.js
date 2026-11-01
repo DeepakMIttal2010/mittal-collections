@@ -39,6 +39,7 @@ import { hasAdminPermission } from "../utils/adminAccess.js";
 import { REVIEW_BONUS_POINTS } from "./reviewController.js";
 import { loadReturnedQuantities, getSolicitableItems } from "../utils/reviewEligibility.js";
 import { escapeHtml } from "../utils/escapeHtml.js";
+import { loadSellerEmailBlock } from "../utils/sellerEmailBlock.js";
 import OrderCost from "../models/OrderCost.js";
 import { syncOrder, postSafely } from "../utils/accountingPosting.js";
 import { getPendingPaymentConfig } from "../config/pendingPayment.js";
@@ -954,6 +955,8 @@ export const createOrder = async (req, res) => {
             `<li>${escapeHtml(item.name)}${item.size ? ` (${isHindi ? "साइज़" : "Size"}: ${escapeHtml(item.size)})` : ""} × ${item.quantity} — ₹${item.price * item.quantity}</li>`,
         )
         .join("");
+      // Optional seller/contact block; "" if unset or the read fails.
+      const sellerBlockHtml = await loadSellerEmailBlock(isHindi);
 
       await sendEmail({
         to: req.user.email,
@@ -972,6 +975,7 @@ export const createOrder = async (req, res) => {
           <p><strong>कुल: ₹${totalPrice}</strong></p>
           <p>भुगतान का तरीका: ${paymentMethod}</p>
           <p><a href="${process.env.CLIENT_URL}/my-orders/${order._id}">अपना ऑर्डर देखें</a></p>
+          ${sellerBlockHtml}
         `
           : `
           <p>Hi ${escapeHtml(req.user.name || "there")},</p>
@@ -983,6 +987,7 @@ export const createOrder = async (req, res) => {
           <p><strong>Total: ₹${totalPrice}</strong></p>
           <p>Payment method: ${paymentMethod}</p>
           <p><a href="${process.env.CLIENT_URL}/my-orders/${order._id}">View your order</a></p>
+          ${sellerBlockHtml}
         `,
       });
     } catch (error) {

@@ -16,6 +16,7 @@ import Seo from "../components/Seo";
 import { SITE_URL } from "../utils/siteUrl";
 import { useLanguage } from "../context/LanguageContext";
 import { buildLocalBusinessJsonLd } from "../utils/localBusinessJsonLd";
+import { buildSellerInfo } from "../utils/sellerInfo";
 
 const SUBJECT_OPTIONS = [
   { value: "General Inquiry", labelHi: "सामान्य पूछताछ" },
@@ -45,7 +46,7 @@ function Contact() {
     message: "",
   });
 
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   useEffect(() => {
     const loadSettings = async () => {
@@ -82,6 +83,8 @@ function Contact() {
   };
 
   const activeSocialLinks = SOCIAL_ICONS.filter((s) => settings[s.key]);
+  const seller = buildSellerInfo(settings, language === "hi");
+  const sellerContact = [seller.email, seller.phone].filter(Boolean).join(" · ");
   const inputClass =
     "w-full bg-slate-100 rounded-lg px-5 py-4 outline-none text-sm text-slate-800 placeholder:text-slate-500";
 
@@ -226,6 +229,40 @@ function Contact() {
               {settings.supportHours && (
                 <p className="text-sm text-slate-500 mt-1">
                   {settings.supportHours}
+                </p>
+              )}
+            </div>
+          )}
+
+          {(seller.proprietor || seller.grievanceOfficer) && (
+            <div>
+              <h2 className="text-xs font-semibold tracking-wide text-slate-400 uppercase mb-2">
+                {t("Seller & Grievance Officer", "विक्रेता और शिकायत अधिकारी")}
+              </h2>
+              {seller.proprietor && (
+                <p className="text-slate-700">
+                  {t(
+                    `Mittal Collections — Proprietor: ${seller.proprietor}`,
+                    `Mittal Collections — प्रोपराइटर: ${seller.proprietor}`,
+                  )}
+                </p>
+              )}
+              {seller.grievanceOfficer && (
+                <p className="text-slate-700">
+                  {t("Grievance Officer", "शिकायत अधिकारी")}: {seller.grievanceOfficer}
+                </p>
+              )}
+              {seller.grievanceOfficer && sellerContact && (
+                <p className="text-sm text-slate-500 mt-1 break-words">{sellerContact}</p>
+              )}
+              {/* E-Commerce Rules 2020, Rule 4(5) timelines; shown only
+                  once a grievance officer is named. */}
+              {seller.grievanceOfficer && (
+                <p className="text-sm text-slate-500 mt-1">
+                  {t(
+                    "We acknowledge consumer complaints within 48 hours and redress them within one month of receipt.",
+                    "हम उपभोक्ताओं की शिकायत प्राप्त होने के 48 घंटे के भीतर उसकी प्राप्ति की पुष्टि करते हैं और शिकायत मिलने की तारीख से एक महीने के भीतर उसका निवारण करते हैं।",
+                  )}
                 </p>
               )}
             </div>
