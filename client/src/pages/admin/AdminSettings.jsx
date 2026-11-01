@@ -24,6 +24,9 @@ function AdminSettings() {
     email: "",
     phone: "",
     supportHours: "",
+    proprietorName: "",
+    grievanceOfficerName: "",
+    grievanceOfficerDesignation: "",
     freeShippingThreshold: 499,
     deliveryFee: 49,
     codCharge: 50,
@@ -50,6 +53,10 @@ function AdminSettings() {
         email: response.settings.email || "",
         phone: response.settings.phone || "",
         supportHours: response.settings.supportHours || "",
+        proprietorName: response.settings.proprietorName || "",
+        grievanceOfficerName: response.settings.grievanceOfficerName || "",
+        grievanceOfficerDesignation:
+          response.settings.grievanceOfficerDesignation || "",
         freeShippingThreshold: response.settings.freeShippingThreshold ?? 499,
         deliveryFee: response.settings.deliveryFee ?? 49,
         codCharge: response.settings.codCharge ?? 50,
@@ -234,6 +241,36 @@ function AdminSettings() {
             className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
+
+        <hr className="border-slate-200" />
+
+        <h3 className="font-semibold text-slate-800">Seller & Grievance Officer</h3>
+        <p className="text-sm text-slate-500 -mt-2">
+          Shown in the footer, on the Contact page and in the order
+          confirmation email. Grievance contact uses the Email and Phone
+          above. Leave a field empty to hide its line.
+        </p>
+
+        {[
+          ["proprietorName", "settingsProprietorName", "Proprietor Name"],
+          ["grievanceOfficerName", "settingsGrievanceOfficerName", "Grievance Officer Name"],
+          ["grievanceOfficerDesignation", "settingsGrievanceOfficerDesignation", "Grievance Officer Designation"],
+        ].map(([name, id, label]) => (
+          <div key={name}>
+            <label htmlFor={id} className="block text-sm font-medium text-slate-700 mb-1">
+              {label}
+            </label>
+            <input
+              id={id}
+              type="text"
+              name={name}
+              maxLength={100}
+              value={formData[name]}
+              onChange={handleChange}
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+        ))}
 
         <hr className="border-slate-200" />
 

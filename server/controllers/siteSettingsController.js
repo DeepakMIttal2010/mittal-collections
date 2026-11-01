@@ -65,6 +65,9 @@ export const updateSiteSettings = async (req, res) => {
       email,
       phone,
       supportHours,
+      proprietorName,
+      grievanceOfficerName,
+      grievanceOfficerDesignation,
       freeShippingThreshold,
       deliveryFee,
       codCharge,
@@ -167,6 +170,23 @@ export const updateSiteSettings = async (req, res) => {
       }
     }
 
+    // Seller identity text is shown publicly; reject non-strings and
+    // over-long values with a 400 instead of a save-time 500.
+    const sellerFields = {
+      proprietorName,
+      grievanceOfficerName,
+      grievanceOfficerDesignation,
+    };
+    for (const [field, value] of Object.entries(sellerFields)) {
+      if (value === undefined) continue;
+      if (typeof value !== "string" || value.trim().length > 100) {
+        return res.status(400).json({
+          success: false,
+          message: `${field} must be text of at most 100 characters.`,
+        });
+      }
+    }
+
     let settings = await SiteSettings.findOne();
 
     if (!settings) {
@@ -181,6 +201,9 @@ export const updateSiteSettings = async (req, res) => {
     if (email !== undefined) settings.email = email;
     if (phone !== undefined) settings.phone = phone;
     if (supportHours !== undefined) settings.supportHours = supportHours;
+    for (const [field, value] of Object.entries(sellerFields)) {
+      if (value !== undefined) settings[field] = value;
+    }
     if (freeShippingThreshold !== undefined)
       settings.freeShippingThreshold = freeShippingThreshold;
     if (deliveryFee !== undefined) settings.deliveryFee = deliveryFee;

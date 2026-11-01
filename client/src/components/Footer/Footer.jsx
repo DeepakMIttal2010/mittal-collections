@@ -7,6 +7,7 @@ import {
   FaLinkedinIn,
   FaMapMarkerAlt,
   FaPhoneAlt,
+  FaEnvelope,
 } from "react-icons/fa";
 
 import { getCategories } from "../../services/categoryService";
@@ -18,6 +19,7 @@ import { useLanguage } from "../../context/LanguageContext";
 import { DELIVERY_AREAS } from "../../utils/deliveryAreas";
 import { useHindiLinks } from "../../utils/hindiPath";
 import { friendlyGroupLabel, friendlyGroupLabelHi } from "../../utils/groupLabels";
+import { buildSellerInfo } from "../../utils/sellerInfo";
 
 // Footer column order of subcategory groups; anything else goes last.
 const GROUP_ORDER = ["By Type", "Bed Size", "By Brand", "By Material", "By Pattern", "By Design", "Size"];
@@ -32,7 +34,7 @@ const SOCIAL_ICONS = [
 
 function Footer() {
   const isGhaziabad = useIsGhaziabadVisitor();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const isHindi = useHindiLinks();
   const [categories, setCategories] = useState([]);
   const [subcategories, setSubcategories] = useState([]);
@@ -58,6 +60,7 @@ function Footer() {
   }, []);
 
   const activeSocialLinks = SOCIAL_ICONS.filter((s) => settings[s.key]);
+  const seller = buildSellerInfo(settings, language === "hi");
 
   // Grouped like the mega menu (Type, Bed Size, Brand, ...), each group
   // in its own displayOrder. Sorting one flat list by displayOrder mixed
@@ -157,6 +160,20 @@ function Footer() {
                   <FaPhoneAlt className="shrink-0 text-amber-500" />
                   {settings.phone}
                 </a>
+              )}
+
+              {seller.email && (
+                <a
+                  href={`mailto:${seller.email}`}
+                  className="text-sm flex items-center gap-2 mt-2 hover:text-white transition-colors break-all"
+                >
+                  <FaEnvelope className="shrink-0 text-amber-500" />
+                  {seller.email}
+                </a>
+              )}
+
+              {seller.sellerLine && (
+                <p className="text-sm text-slate-400 mt-3">{seller.sellerLine}</p>
               )}
             </div>
 
@@ -276,6 +293,12 @@ function Footer() {
           </div>
 
           <hr className="border-slate-700 my-10" />
+
+          {seller.grievanceLine && (
+            <p className="text-center text-xs text-slate-400 mb-3 break-words">
+              {seller.grievanceLine}
+            </p>
+          )}
 
           <p className="text-center text-sm text-slate-400">
             {t(

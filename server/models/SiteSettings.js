@@ -12,6 +12,13 @@ const siteSettingsSchema = new mongoose.Schema(
     phone: { type: String, default: "", trim: true },
     supportHours: { type: String, default: "", trim: true },
 
+    // Seller identity for the footer, Contact page and order confirmation
+    // email (E-Commerce Rules seller/grievance info). Grievance contact
+    // reuses email/phone above. Empty = the line is hidden.
+    proprietorName: { type: String, default: "", trim: true, maxlength: 100 },
+    grievanceOfficerName: { type: String, default: "", trim: true, maxlength: 100 },
+    grievanceOfficerDesignation: { type: String, default: "", trim: true, maxlength: 100 },
+
     freeShippingThreshold: { type: Number, default: 499 },
     deliveryFee: { type: Number, default: 49 }, // fallback fee below any tier and below the free threshold
 
