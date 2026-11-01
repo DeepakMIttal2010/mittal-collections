@@ -828,7 +828,10 @@ function CategoryPage() {
         // descriptionHi/subtitleHi now exist (SEO/conversion audit,
         // 2026-10-20) -- t() falls back to the English text on its own
         // when a given category/subcategory hasn't been backfilled yet.
-        description={customSeoDescription ? truncateAtWordBoundary(customSeoDescription) : truncateAtWordBoundary(`${pageTitle}: ${isHindi ? "पूरे भारत में डिलीवरी, ग़ाज़ियाबाद में 24 घंटे में।" : "pan-India delivery, 24hr in Ghaziabad."} ${t(activeSubcategory?.subtitle, activeSubcategory?.subtitleHi) || t(category.description, category.descriptionHi) || ""}`.trim())}
+        // The delivery lead-in is only the local Ghaziabad promise
+        // (delivery is limited to eligible UP PIN codes) and must match
+        // client/api/render.js's deliveryLine word for word.
+        description={customSeoDescription ? truncateAtWordBoundary(customSeoDescription) : truncateAtWordBoundary(`${pageTitle}: ${isHindi ? "गाजियाबाद के चुनिंदा PIN कोड पर 24 घंटे में डिलीवरी।" : "24-hour delivery in selected Ghaziabad PIN codes."} ${t(activeSubcategory?.subtitle, activeSubcategory?.subtitleHi) || t(category.description, category.descriptionHi) || ""}`.trim())}
         url={canonicalCategoryUrl}
         // Same category photo the bot-rendered page uses (was the site-wide fallback).
         image={category.image ? imgUrl(category.image) : undefined}

@@ -42,14 +42,8 @@ function Testimonials() {
       <div className="max-w-6xl mx-auto px-4">
         <div className="text-center mb-12">
           <h2 className="text-3xl md:text-4xl font-bold text-slate-800 mb-3">
-            {t("What Our Customers Say", "हमारे ग्राहक क्या कहते हैं")}
+            {t("Customer Reviews", "ग्राहकों की राय")}
           </h2>
-          <p className="text-slate-500">
-            {t(
-              "Trusted by hundreds of happy customers across India.",
-              "पूरे भारत में सैकड़ों खुश ग्राहकों का भरोसा।",
-            )}
-          </p>
         </div>
       </div>
 

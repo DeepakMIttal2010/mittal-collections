@@ -671,53 +671,19 @@ function ProductDetails() {
         )
       : 0;
 
-  // Google's Rich Results Test flags both of these as "optional" but
-  // they're what unlocks the enhanced free-listing treatment in Google
-  // Shopping/Search (shipping cost + delivery time, return window,
-  // shown directly on the listing) — built from the same settings/
-  // return-policy data the checkout page and product page already use,
-  // not separately maintained numbers that could drift from reality.
+  // Google's Rich Results Test flags this as "optional" but it's what
+  // unlocks the return window shown directly on the free listing — built
+  // from the same return-policy data the checkout page already uses.
+  // There is deliberately no shippingDetails: a country-level "IN"
+  // destination would advertise delivery to all of India, while orders are
+  // limited to eligible Uttar Pradesh PIN codes. Merchant Center's own
+  // shipping settings are managed separately (not from this code) and still
+  // need the owner's review to match the UP-only delivery area.
   const effectiveReturnDaysForSeo =
     product.returnPeriodDays || defaultReturnPeriodDays;
-  const shippingFeeForSeo = shippingSettings
-    ? calculateDeliveryFee(product.price, shippingSettings)
-    : undefined;
 
-  // Shipping + return terms shared by every Offer of this product.
+  // Return terms shared by every Offer of this product.
   const offerTerms = {
-    ...(shippingFeeForSeo !== undefined && {
-      shippingDetails: {
-        "@type": "OfferShippingDetails",
-        shippingRate: {
-          "@type": "MonetaryAmount",
-          value: shippingFeeForSeo,
-          currency: "INR",
-        },
-        shippingDestination: {
-          "@type": "DefinedRegion",
-          addressCountry: "IN",
-        },
-        // Matches the "Usually delivered in 3-7 business days" promise
-        // shown elsewhere on the site (Footer, delivery-info banners) —
-        // same-day Ghaziabad express delivery is handled separately as
-        // its own Google Merchant Center delivery policy, not here.
-        deliveryTime: {
-          "@type": "ShippingDeliveryTime",
-          handlingTime: {
-            "@type": "QuantitativeValue",
-            minValue: 0,
-            maxValue: 0,
-            unitCode: "DAY",
-          },
-          transitTime: {
-            "@type": "QuantitativeValue",
-            minValue: 3,
-            maxValue: 7,
-            unitCode: "DAY",
-          },
-        },
-      },
-    }),
     hasMerchantReturnPolicy: product.isReturnable
       ? {
           "@type": "MerchantReturnPolicy",
@@ -977,16 +943,17 @@ function ProductDetails() {
           // lower-priced products (₹80-230 towels ranking well, 0% CTR)
           // pointed at price-sensitive shoppers not getting enough of a
           // hook to click; showing the price pre-qualifies the snippet
-          // the same way it would on a marketplace listing. Hindi
-          // phrasing matches WhyChooseUs.jsx's existing wording exactly,
-          // rather than inventing new phrasing for the same fact.
+          // the same way it would on a marketplace listing. Only the
+          // local Ghaziabad delivery promise — delivery is limited to
+          // eligible Uttar Pradesh PIN codes, so no nationwide claim.
+          // Must match client/api/render.js word for word.
           isHindi
             ? product.descriptionHi || product.description
-              ? truncateAtWordBoundary(`₹${displayPrice}। पूरे भारत में डिलीवरी, ग़ाज़ियाबाद में 24 घंटे में तेज़ डिलीवरी। ${stripHtml(product.descriptionHi || product.description)}`)
-              : truncateAtWordBoundary(`₹${displayPrice} — ${product.nameHi}, पूरे भारत में डिलीवरी, ग़ाज़ियाबाद में 24 घंटे में तेज़ डिलीवरी`)
+              ? truncateAtWordBoundary(`₹${displayPrice}। गाजियाबाद के चुनिंदा PIN कोड पर 24 घंटे में डिलीवरी। ${stripHtml(product.descriptionHi || product.description)}`)
+              : truncateAtWordBoundary(`₹${displayPrice} — ${product.nameHi}, गाजियाबाद के चुनिंदा PIN कोड पर 24 घंटे में डिलीवरी`)
             : product.description
-              ? truncateAtWordBoundary(`₹${displayPrice}. Pan-India delivery, 24hr in Ghaziabad. ${stripHtml(product.description)}`)
-              : truncateAtWordBoundary(`₹${displayPrice} — ${product.name}, pan-India delivery, fast 24-hour delivery in Ghaziabad`)
+              ? truncateAtWordBoundary(`₹${displayPrice}. 24-hour delivery in selected Ghaziabad PIN codes. ${stripHtml(product.description)}`)
+              : truncateAtWordBoundary(`₹${displayPrice} — ${product.name}, 24-hour delivery in selected Ghaziabad PIN codes`)
         }
         image={imgUrl(product.image)}
         url={canonicalUrl}

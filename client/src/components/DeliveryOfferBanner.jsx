@@ -57,11 +57,11 @@ function DeliveryOfferBanner() {
           </>
         ) : (
           <span>
-            <strong>{t("PAN-INDIA DELIVERY", "पूरे भारत में डिलीवरी")}</strong>{" "}
+            <strong>{t("Delivery in Uttar Pradesh", "उत्तर प्रदेश में डिलीवरी")}</strong>{" "}
             <span className="hidden sm:inline">
               {t(
-                "— usually 3-7 business days (same-day within 24 Hours in Ghaziabad)",
-                "— आमतौर पर 3-7 कार्य दिवस (गाज़ियाबाद में 24 घंटे में सेम-डे)",
+                "— available only to eligible PIN codes (delivery within 24 hours in selected Ghaziabad PIN codes)",
+                "— केवल चुनिंदा PIN codes पर (गाजियाबाद के चुनिंदा PIN कोड पर 24 घंटे के अंदर)",
               )}
             </span>
           </span>

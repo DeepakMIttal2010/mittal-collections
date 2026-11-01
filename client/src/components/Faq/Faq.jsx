@@ -30,8 +30,8 @@ function Faq() {
     {
       question: t("Do you offer free shipping?", "क्या आप मुफ्त शिपिंग देते हैं?"),
       answer: t(
-        `Yes! Orders above ₹${freeShippingThreshold} get free shipping. Below that, the delivery fee is small and gets lower the closer your order is to ₹${freeShippingThreshold}.`,
-        `जी हां! ₹${freeShippingThreshold} से ऊपर के ऑर्डर पर मुफ्त शिपिंग मिलती है। इससे कम पर डिलीवरी शुल्क बहुत कम है और आपका ऑर्डर ₹${freeShippingThreshold} के जितना करीब होगा, उतना ही कम होगा।`,
+        `Yes! Orders above ₹${freeShippingThreshold} get free shipping. Below that, the delivery fee is small and gets lower the closer your order is to ₹${freeShippingThreshold}. Delivery is currently available only to eligible PIN codes in Uttar Pradesh.`,
+        `जी हां! ₹${freeShippingThreshold} से ऊपर के ऑर्डर पर मुफ्त शिपिंग मिलती है। इससे कम पर डिलीवरी शुल्क बहुत कम है और आपका ऑर्डर ₹${freeShippingThreshold} के जितना करीब होगा, उतना ही कम होगा। फिलहाल डिलीवरी केवल उत्तर प्रदेश के चुनिंदा PIN codes पर उपलब्ध है।`,
       ),
     },
     {
@@ -40,8 +40,8 @@ function Faq() {
         "क्या कैश ऑन डिलीवरी (COD) उपलब्ध है?",
       ),
       answer: t(
-        "Yes, Cash on Delivery is available on all orders across India, in addition to online payment.",
-        "जी हां, ऑनलाइन पेमेंट के अलावा पूरे भारत में सभी ऑर्डर पर कैश ऑन डिलीवरी उपलब्ध है।",
+        "Cash on Delivery may be available for eligible PIN codes and orders, in addition to online payment. Check availability at checkout.",
+        "ऑनलाइन पेमेंट के अलावा, Cash on Delivery चुनिंदा PIN codes और eligible orders पर उपलब्ध हो सकता है। Checkout पर availability जाँचें।",
       ),
     },
     {
@@ -54,8 +54,8 @@ function Faq() {
     {
       question: t("How long does delivery take?", "डिलीवरी में कितना समय लगता है?"),
       answer: t(
-        "Orders are dispatched within 1-2 business days and typically delivered in 3-7 business days depending on your location.",
-        "ऑर्डर 1-2 कार्य दिवसों में भेज दिए जाते हैं और आपके स्थान के अनुसार आमतौर पर 3-7 कार्य दिवसों में डिलीवर हो जाते हैं।",
+        "Delivery is currently available only to eligible PIN codes in Uttar Pradesh, and delivery availability is confirmed after PIN code verification. Delivery within 24 hours in selected Ghaziabad PIN codes, subject to product availability and order confirmation. Orders confirmed later in the day may be delivered the following day. For other eligible PIN codes in Uttar Pradesh, orders are generally dispatched within 1–2 business days after order confirmation, subject to product availability.",
+        "फिलहाल डिलीवरी केवल उत्तर प्रदेश के चुनिंदा PIN codes पर उपलब्ध है, और डिलीवरी की उपलब्धता PIN code verification के बाद ही confirm होगी। गाजियाबाद के चुनिंदा PIN कोड पर 24 घंटे के अंदर डिलीवरी की सुविधा उपलब्ध है। यह उत्पाद की उपलब्धता और ऑर्डर की पुष्टि पर निर्भर है। दिन में देर से कन्फर्म हुए ऑर्डर की डिलीवरी अगले दिन हो सकती है। उत्तर प्रदेश के अन्य eligible PIN codes के लिए, ऑर्डर की पुष्टि और उत्पाद की उपलब्धता के बाद सामान्यतः 1–2 कार्यदिवस में पार्सल भेज दिया जाता है।",
       ),
     },
     {
