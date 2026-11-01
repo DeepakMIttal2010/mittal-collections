@@ -29,10 +29,10 @@ function WhyChooseUs() {
     },
     {
       icon: <FaTruck />,
-      title: "Pan-India Delivery",
-      titleHi: "पूरे भारत में डिलीवरी",
-      text: "Delivered anywhere in India, with fast 24-hour delivery in Ghaziabad.",
-      textHi: "पूरे भारत में डिलीवरी, ग़ाज़ियाबाद में 24 घंटे में तेज़ डिलीवरी।",
+      title: "Delivery in Uttar Pradesh",
+      titleHi: "उत्तर प्रदेश में डिलीवरी",
+      text: "Available only to eligible PIN codes — check your PIN code before ordering. Delivery within 24 hours in selected Ghaziabad PIN codes, subject to product availability.",
+      textHi: "डिलीवरी केवल चुनिंदा PIN codes पर उपलब्ध है — ऑर्डर करने से पहले अपना PIN code जाँचें। गाजियाबाद के चुनिंदा PIN कोड पर 24 घंटे के अंदर डिलीवरी, उत्पाद की उपलब्धता के अनुसार।",
     },
     {
       icon: <FaWhatsapp />,

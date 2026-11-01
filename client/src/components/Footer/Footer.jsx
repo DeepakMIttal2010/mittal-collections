@@ -254,12 +254,12 @@ function Footer() {
             ) : (
               <>
                 <h3 className="text-amber-500 font-semibold mb-1">
-                  {t("We Deliver Pan-India", "हम पूरे भारत में डिलीवर करते हैं")}
+                  {t("Delivery in Uttar Pradesh", "उत्तर प्रदेश में डिलीवरी")}
                 </h3>
                 <p className="text-sm text-slate-400">
                   {t(
-                    "🚚 Usually delivered in 3-7 business days — same-day delivery within 24 Hours in Ghaziabad (Vasundhara, Vaishali, Indirapuram & nearby).",
-                    "🚚 आमतौर पर 3-7 कार्य दिवस में डिलीवर — गाज़ियाबाद (वसुंधरा, वैशाली, इंदिरापुरम और आसपास) में 24 घंटे में सेम-डे डिलीवरी।",
+                    "🚚 Browse our collection from anywhere in India. Delivery is currently available only to eligible PIN codes in Uttar Pradesh — check your PIN code before ordering. Delivery within 24 hours in selected Ghaziabad PIN codes, subject to product availability and order confirmation. Orders confirmed later in the day may be delivered the following day.",
+                    "🚚 आप भारत के किसी भी हिस्से से हमारा कलेक्शन देख सकते हैं। फिलहाल डिलीवरी केवल उत्तर प्रदेश के चुनिंदा PIN codes पर उपलब्ध है — ऑर्डर करने से पहले अपना PIN code जाँचें। गाजियाबाद के चुनिंदा PIN कोड पर 24 घंटे के अंदर डिलीवरी की सुविधा उपलब्ध है। यह उत्पाद की उपलब्धता और ऑर्डर की पुष्टि पर निर्भर है। दिन में देर से कन्फर्म हुए ऑर्डर की डिलीवरी अगले दिन हो सकती है।",
                   )}
                 </p>
               </>

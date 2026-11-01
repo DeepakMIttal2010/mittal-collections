@@ -246,23 +246,6 @@ const stripHtml = (html) => {
     .trim();
 };
 
-// Mirrors client/src/utils/shipping.js — duplicated for the same reason
-// DELIVERY_AREAS above is (this file avoids importing anything from
-// src/). Keep both copies in sync.
-const calculateDeliveryFee = (subtotal, settings) => {
-  const threshold = settings?.freeShippingThreshold ?? 499;
-
-  if (subtotal >= threshold) return 0;
-
-  const tiers = [...(settings?.shippingTiers || [])].sort(
-    (a, b) => a.maxOrderValue - b.maxOrderValue,
-  );
-
-  const matchedTier = tiers.find((tier) => subtotal < tier.maxOrderValue);
-
-  return matchedTier ? matchedTier.fee : (settings?.deliveryFee ?? 49);
-};
-
 const imgUrl = (path) => {
   if (!path) return path;
   return path.startsWith("http") ? path : `${API_BASE}${path}`;
@@ -856,9 +839,12 @@ const localizeSizeHi = (size) =>
   size ? SIZE_RULES_HI.reduce((text, [pattern, replacement]) => text.replace(pattern, replacement), size) : size;
 
 // The delivery lead-in of category meta descriptions, per language (a Hindi
-// page used to get the English phrase in the middle of Hindi text).
+// page used to get the English phrase in the middle of Hindi text). Only
+// the local Ghaziabad promise: delivery is limited to eligible Uttar
+// Pradesh PIN codes, so no wider coverage claim belongs here, and the
+// 24-hour promise holds only in selected PIN codes (DELIVERY_AREAS).
 const deliveryLine = (isHindi) =>
-  isHindi ? "पूरे भारत में डिलीवरी, ग़ाज़ियाबाद में 24 घंटे में" : "pan-India delivery, 24hr in Ghaziabad";
+  isHindi ? "गाजियाबाद के चुनिंदा PIN कोड पर 24 घंटे में डिलीवरी" : "24-hour delivery in selected Ghaziabad PIN codes";
 
 // A subcategory that is the only one in its group used to ALWAYS be
 // canonicalised to its parent category, on the assumption that it shows the
@@ -1264,7 +1250,7 @@ const STATIC_PAGES = {
     // here, never to the real React app.
     title: "About Us — Why Mittal Collections | Home Furnishing",
     description:
-      "Mittal Collections: a focused range of bedsheets, towels, curtains and cushions chosen for real material quality, not sheer catalog size. Pan-India delivery, easy returns, 24-hour delivery in Ghaziabad.",
+      "Mittal Collections: a focused range of bedsheets, towels, curtains and cushions chosen for real material quality, not sheer catalog size. Delivery to eligible UP PIN codes, easy returns, 24-hour delivery in selected Ghaziabad PIN codes.",
     breadcrumb: "About",
   },
   "/contact": {
@@ -1276,7 +1262,7 @@ const STATIC_PAGES = {
   "/ghaziabad-home-furnishing-store": {
     title: "Home Furnishing Store in Ghaziabad — Mittal Collections",
     description:
-      "Mittal Collections is a home furnishing store in Sector 3, Vasundhara, Ghaziabad, near Vanasthali Public School — bedsheets, curtains, towels & more with 24-hour local delivery across Vasundhara, Vaishali, Indirapuram and nearby areas.",
+      "Mittal Collections is a home furnishing store in Sector 3, Vasundhara, Ghaziabad, near Vanasthali Public School — bedsheets, curtains, towels & more, with delivery within 24 hours in selected Ghaziabad PIN codes (Vasundhara, Vaishali, Indirapuram and nearby).",
     breadcrumb: "Home Furnishing Store in Ghaziabad",
   },
   "/rewards": {
@@ -1456,7 +1442,7 @@ const buildMeta = async (path, query = {}) => {
           name: "Do you offer free shipping?",
           acceptedAnswer: {
             "@type": "Answer",
-            text: `Yes! Orders above ₹${freeShippingThreshold} get free shipping. Below that, the delivery fee is small and gets lower the closer your order is to ₹${freeShippingThreshold}.`,
+            text: `Yes! Orders above ₹${freeShippingThreshold} get free shipping. Below that, the delivery fee is small and gets lower the closer your order is to ₹${freeShippingThreshold}. Delivery is currently available only to eligible PIN codes in Uttar Pradesh.`,
           },
         },
         {
@@ -1464,7 +1450,7 @@ const buildMeta = async (path, query = {}) => {
           name: "Is Cash on Delivery (COD) available?",
           acceptedAnswer: {
             "@type": "Answer",
-            text: "Yes, Cash on Delivery is available on all orders across India, in addition to online payment.",
+            text: "Cash on Delivery may be available for eligible PIN codes and orders, in addition to online payment. Check availability at checkout.",
           },
         },
         {
@@ -1480,7 +1466,7 @@ const buildMeta = async (path, query = {}) => {
           name: "How long does delivery take?",
           acceptedAnswer: {
             "@type": "Answer",
-            text: "Orders are dispatched within 1-2 business days and typically delivered in 3-7 business days depending on your location.",
+            text: "Delivery is currently available only to eligible PIN codes in Uttar Pradesh, and delivery availability is confirmed after PIN code verification. Delivery within 24 hours in selected Ghaziabad PIN codes, subject to product availability and order confirmation. Orders confirmed later in the day may be delivered the following day. For other eligible PIN codes in Uttar Pradesh, orders are generally dispatched within 1–2 business days after order confirmation, subject to product availability.",
           },
         },
         {
@@ -1578,8 +1564,8 @@ const buildMeta = async (path, query = {}) => {
       ? "बेडशीट, कम्फर्टर और पर्दे ऑनलाइन खरीदें"
       : "Shop Bedsheets, Comforters & Curtains Online";
     const homeDescription = isHindi
-      ? "Mittal Collections पर बेडशीट, कम्फर्टर और पर्दे ऑनलाइन खरीदें – पूरे भारत में डिलीवरी, ग़ाज़ियाबाद में 24 घंटे में, कैश ऑन डिलीवरी और 7 दिन में आसान रिटर्न।"
-      : "Shop bedsheets, comforters & curtains online at Mittal Collections – pan-India delivery, 24hr in Ghaziabad, Cash on Delivery and easy 7-day returns.";
+      ? "Mittal Collections पर बेडशीट, कम्फर्टर और पर्दे ऑनलाइन खरीदें – उत्तर प्रदेश के चुनिंदा PIN codes पर डिलीवरी, गाजियाबाद के चुनिंदा PIN कोड पर 24 घंटे में डिलीवरी, आसान 7 दिन में रिटर्न।"
+      : "Shop bedsheets, comforters & curtains online at Mittal Collections – UP delivery to eligible PINs, 24-hour delivery in selected Ghaziabad PINs and easy 7-day returns.";
     const enHomeUrl = `${SITE_URL}/`;
     const hiHomeUrl = `${SITE_URL}/hi`;
 
@@ -1735,24 +1721,25 @@ const buildMeta = async (path, query = {}) => {
     // catalog's lower-priced products (₹80-230 towels ranking well,
     // 0% CTR) pointed at price-sensitive shoppers not getting enough of
     // a hook to click.
-    // Hindi phrasing matches WhyChooseUs.jsx's existing "पूरे भारत में
-    // डिलीवरी, ग़ाज़ियाबाद में 24 घंटे में तेज़ डिलीवरी।" wording exactly,
-    // rather than inventing new phrasing for the same fact.
+    // Only the local Ghaziabad delivery promise — delivery is limited to
+    // eligible Uttar Pradesh PIN codes, so no nationwide claim.
     const description = isHindi
       ? plainDescription
-        ? truncateAtWordBoundary(`₹${offerPrice}। पूरे भारत में डिलीवरी, ग़ाज़ियाबाद में 24 घंटे में तेज़ डिलीवरी। ${plainDescription}`)
-        : truncateAtWordBoundary(`₹${offerPrice} — ${p.nameHi}, पूरे भारत में डिलीवरी, ग़ाज़ियाबाद में 24 घंटे में तेज़ डिलीवरी`)
+        ? truncateAtWordBoundary(`₹${offerPrice}। गाजियाबाद के चुनिंदा PIN कोड पर 24 घंटे में डिलीवरी। ${plainDescription}`)
+        : truncateAtWordBoundary(`₹${offerPrice} — ${p.nameHi}, गाजियाबाद के चुनिंदा PIN कोड पर 24 घंटे में डिलीवरी`)
       : p.description
-        ? truncateAtWordBoundary(`₹${offerPrice}. Pan-India delivery, 24hr in Ghaziabad. ${plainDescription}`)
-        : truncateAtWordBoundary(`₹${offerPrice} — ${p.name}, pan-India delivery, fast 24-hour delivery in Ghaziabad`);
+        ? truncateAtWordBoundary(`₹${offerPrice}. 24-hour delivery in selected Ghaziabad PIN codes. ${plainDescription}`)
+        : truncateAtWordBoundary(`₹${offerPrice} — ${p.name}, 24-hour delivery in selected Ghaziabad PIN codes`);
 
-    // Mirrors ProductDetails.jsx's effectiveReturnDaysForSeo/shippingFeeForSeo
-    // — these unlock the enhanced free-listing treatment in Google
-    // Shopping/Search (shipping cost + delivery time, return window shown
-    // directly on the listing), built from the same settings/return-policy
-    // data the checkout page already uses.
+    // Mirrors ProductDetails.jsx's effectiveReturnDaysForSeo — the return
+    // window shown directly on the listing, built from the same
+    // settings/return-policy data the checkout page already uses.
+    // There is deliberately no shippingDetails: a country-level "IN"
+    // destination would advertise delivery to all of India, while orders
+    // are limited to eligible Uttar Pradesh PIN codes. Merchant Center's own
+    // shipping settings are managed separately (not from this code) and
+    // still need the owner's review to match the UP-only delivery area.
     const effectiveReturnDays = p.returnPeriodDays || settings.defaultReturnPeriodDays;
-    const shippingFee = calculateDeliveryFee(p.price, settings);
 
     const reviews = reviewsData.success ? reviewsData.reviews || [] : [];
     const totalReviews = reviewsData.success ? reviewsData.totalReviews || 0 : 0;
@@ -1785,41 +1772,10 @@ const buildMeta = async (path, query = {}) => {
       // that is exactly what Google's guidelines flag, and a real
       // Merchant Center risk for anything actually branded.
       brand: { "@type": "Brand", name: p.brand || SITE_NAME },
-      // Shared by every Offer below (single or per-variant) -- shipping
-      // and return terms don't vary by size, only price/availability do.
+      // Shared by every Offer below (single or per-variant) -- return
+      // terms don't vary by size, only price/availability do.
       ...(() => {
         const sharedOfferTerms = {
-          shippingDetails: {
-            "@type": "OfferShippingDetails",
-            shippingRate: {
-              "@type": "MonetaryAmount",
-              value: shippingFee,
-              currency: "INR",
-            },
-            shippingDestination: {
-              "@type": "DefinedRegion",
-              addressCountry: "IN",
-            },
-            // Matches the "Usually delivered in 3-7 business days" promise
-            // shown elsewhere on the site (Footer, delivery-info banners) —
-            // same-day Ghaziabad express delivery is a separate Google
-            // Merchant Center delivery policy, not this one.
-            deliveryTime: {
-              "@type": "ShippingDeliveryTime",
-              handlingTime: {
-                "@type": "QuantitativeValue",
-                minValue: 0,
-                maxValue: 0,
-                unitCode: "DAY",
-              },
-              transitTime: {
-                "@type": "QuantitativeValue",
-                minValue: 3,
-                maxValue: 7,
-                unitCode: "DAY",
-              },
-            },
-          },
           hasMerchantReturnPolicy: p.isReturnable
             ? {
                 "@type": "MerchantReturnPolicy",
@@ -2117,7 +2073,7 @@ const buildMeta = async (path, query = {}) => {
       <h1>${escapeHtml(staticPage.title)}</h1>
       <p>${escapeHtml(staticPage.description)}</p>
       <p>Near Vanasthali Public School, Sector 3, Vasundhara, Ghaziabad, Uttar Pradesh 201012</p>
-      <p>24-hour delivery available in:</p>
+      <p>Delivery within 24 hours is available in selected Ghaziabad PIN codes in these areas, subject to product availability and order confirmation (orders confirmed later in the day may be delivered the following day):</p>
       <ul>
         ${DELIVERY_AREAS.map((area) => `<li>${escapeHtml(area)}, Ghaziabad</li>`).join("\n")}
       </ul>

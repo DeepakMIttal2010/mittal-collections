@@ -51,7 +51,7 @@ function GhaziabadStore() {
     <div className="max-w-4xl mx-auto px-4 pt-16 pb-20">
       <Seo
         title="Home Furnishing Store in Ghaziabad — Mittal Collections"
-        description="Mittal Collections is a home furnishing store in Sector 3, Vasundhara, Ghaziabad, near Vanasthali Public School — bedsheets, curtains, towels & more with 24-hour local delivery across Vasundhara, Vaishali, Indirapuram and nearby areas."
+        description="Mittal Collections is a home furnishing store in Sector 3, Vasundhara, Ghaziabad, near Vanasthali Public School — bedsheets, curtains, towels & more, with delivery within 24 hours in selected Ghaziabad PIN codes (Vasundhara, Vaishali, Indirapuram and nearby)."
         url={`${SITE_URL}/ghaziabad-home-furnishing-store`}
         jsonLd={[localBusinessJsonLd, buildBreadcrumbJsonLd(breadcrumbItems)]}
       />
@@ -59,7 +59,7 @@ function GhaziabadStore() {
       <h1 className="text-4xl md:text-5xl font-bold text-slate-900 mb-4">
         {t(
           "Home Furnishing Store in Ghaziabad",
-          "ग़ाज़ियाबाद में होम फर्निशिंग स्टोर",
+          "गाजियाबाद में होम फर्निशिंग स्टोर",
         )}
       </h1>
 
@@ -79,8 +79,8 @@ function GhaziabadStore() {
 
       <p className="text-slate-600 leading-relaxed mb-8">
         {t(
-          "Mittal Collections is based in Sector 3, Vasundhara, Ghaziabad — a home furnishing store offering bedsheets, curtains, towels, cushions and doormats, with same-day local delivery across Ghaziabad and pan-India shipping everywhere else.",
-          "मित्तल कलेक्शंस ग़ाज़ियाबाद के सेक्टर-3, वसुंधरा में स्थित एक होम फर्निशिंग स्टोर है — बेडशीट, पर्दे, तौलिए, कुशन और डोरमैट, ग़ाज़ियाबाद में उसी दिन डिलीवरी के साथ और बाकी जगहों पर पूरे भारत में शिपिंग।",
+          "Mittal Collections is based in Sector 3, Vasundhara, Ghaziabad — a home furnishing store offering bedsheets, curtains, towels, cushions and doormats, with delivery within 24 hours in selected Ghaziabad PIN codes.",
+          "मित्तल कलेक्शंस गाजियाबाद के सेक्टर-3, वसुंधरा में स्थित एक होम फर्निशिंग स्टोर है — बेडशीट, पर्दे, तौलिए, कुशन और डोरमैट, गाजियाबाद के चुनिंदा PIN कोड पर 24 घंटे के अंदर डिलीवरी की सुविधा के साथ।",
         )}
       </p>
 
@@ -95,8 +95,8 @@ function GhaziabadStore() {
         <li className="flex gap-2">
           <span className="text-amber-600">✓</span>
           {t(
-            "Trusted by Ghaziabad families since 2021, now serving customers across India.",
-            "2021 से ग़ाज़ियाबाद के परिवारों का भरोसा, अब पूरे भारत में ग्राहकों की सेवा।",
+            "Trusted by Ghaziabad families since 2021.",
+            "2021 से गाजियाबाद के परिवारों का भरोसा।",
           )}
         </li>
         <li className="flex gap-2">
@@ -132,7 +132,7 @@ function GhaziabadStore() {
             <p className="text-slate-700">
               {t(
                 "Near Vanasthali Public School, Sector 3, Vasundhara, Ghaziabad, Uttar Pradesh 201012",
-                "वनस्थली पब्लिक स्कूल के पास, सेक्टर-3, वसुंधरा, ग़ाज़ियाबाद, उत्तर प्रदेश 201012",
+                "वनस्थली पब्लिक स्कूल के पास, सेक्टर-3, वसुंधरा, गाजियाबाद, उत्तर प्रदेश 201012",
               )}
             </p>
             {/* The shop isn't currently taking walk-ins (matches the
@@ -171,8 +171,8 @@ function GhaziabadStore() {
             </h2>
             <p className="text-slate-700">
               {t(
-                "24-hour delivery across Ghaziabad, including:",
-                "ग़ाज़ियाबाद में 24 घंटे में डिलीवरी, इन इलाकों सहित:",
+                "Delivery within 24 hours is available in selected Ghaziabad PIN codes in these areas, subject to product availability and order confirmation (orders confirmed later in the day may be delivered the following day):",
+                "इन इलाकों के चुनिंदा PIN कोड पर 24 घंटे के अंदर डिलीवरी की सुविधा उपलब्ध है — यह उत्पाद की उपलब्धता और ऑर्डर की पुष्टि पर निर्भर है (दिन में देर से कन्फर्म हुए ऑर्डर की डिलीवरी अगले दिन हो सकती है):",
               )}
             </p>
             <p className="text-slate-600 text-sm mt-1">

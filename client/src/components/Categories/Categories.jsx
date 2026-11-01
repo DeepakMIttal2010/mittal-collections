@@ -70,8 +70,8 @@ function Categories() {
               <>
                 <p className="text-slate-600 leading-relaxed">
                   {t(
-                    `Mittal Collections offers home furnishing products online, including ${categories.map((c) => c.name).join(", ")}, and other home decor essentials — with delivery across India and same-day express delivery in Ghaziabad.`,
-                    `मित्तल कलेक्शंस ऑनलाइन होम फर्निशिंग उत्पाद उपलब्ध कराता है, जिनमें ${categories.map((c) => t(c.name, c.nameHi)).join(", ")} और अन्य होम डेकोर सामान शामिल हैं — पूरे भारत में डिलीवरी के साथ, और गाज़ियाबाद में उसी दिन एक्सप्रेस डिलीवरी।`,
+                    `Mittal Collections offers home furnishing products online, including ${categories.map((c) => c.name).join(", ")}, and other home decor essentials — with delivery to eligible PIN codes in Uttar Pradesh and delivery within 24 hours in selected Ghaziabad PIN codes.`,
+                    `मित्तल कलेक्शंस ऑनलाइन होम फर्निशिंग उत्पाद उपलब्ध कराता है, जिनमें ${categories.map((c) => t(c.name, c.nameHi)).join(", ")} और अन्य होम डेकोर सामान शामिल हैं — उत्तर प्रदेश के चुनिंदा PIN codes पर डिलीवरी के साथ, और गाजियाबाद के चुनिंदा PIN कोड पर 24 घंटे के अंदर डिलीवरी।`,
                   )}
                 </p>
 

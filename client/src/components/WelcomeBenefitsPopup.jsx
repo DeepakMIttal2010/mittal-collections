@@ -166,9 +166,16 @@ function WelcomeBenefitsPopup({
     { icon: <FaCheckCircle />, text: t("100% Genuine Products", "100% असली प्रोडक्ट") },
     {
       icon: <FaTruck />,
+      // Not "free": the local area pays the normal order-value delivery fee
+      // (utils/shipping.js), and coverage is the DELIVERY_AREAS list, not a
+      // radius.
       text: t(
-        "Free Delivery Within 24 Hours — Vasundhara & nearby 10 km",
-        "24 घंटे में मुफ़्त डिलीवरी — वसुंधरा और आसपास 10 किमी",
+        "24-Hour Delivery in Selected Ghaziabad PIN Codes*",
+        "गाजियाबाद के चुनिंदा PIN कोड पर 24 घंटे में डिलीवरी*",
+      ),
+      note: t(
+        "*Subject to product availability and order confirmation. Orders confirmed later in the day may be delivered the following day.",
+        "*उत्पाद की उपलब्धता और ऑर्डर की पुष्टि पर निर्भर। दिन में देर से कन्फर्म हुए ऑर्डर की डिलीवरी अगले दिन हो सकती है।",
       ),
     },
     {
@@ -257,7 +264,10 @@ function WelcomeBenefitsPopup({
                 <span className="w-7 h-7 shrink-0 rounded-full bg-orange-50 text-orange-600 flex items-center justify-center text-sm">
                   {b.icon}
                 </span>
-                <span className="text-xs text-slate-700">{b.text}</span>
+                <span className="text-xs text-slate-700">
+                  {b.text}
+                  {b.note && <span className="block text-[11px] leading-snug text-slate-500 mt-0.5">{b.note}</span>}
+                </span>
               </li>
             ))}
           </ul>

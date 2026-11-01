@@ -100,8 +100,8 @@ function PincodeChecker({ localDeliveryOnly = false }) {
       {result?.type === "standard" && !localDeliveryOnly && (
         <p className="text-sm text-slate-600 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 mt-2">
           {t(
-            "Standard delivery available (3-7 days)",
-            "स्टैंडर्ड डिलीवरी उपलब्ध है (3-7 दिन)",
+            "Delivery available at this PIN code",
+            "इस PIN code पर डिलीवरी उपलब्ध है",
           )}
         </p>
       )}

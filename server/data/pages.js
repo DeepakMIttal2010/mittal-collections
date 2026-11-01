@@ -2,13 +2,11 @@ const pages = [
   {
     slug: "shipping-policy",
     title: "Shipping Policy",
-    content: `We process and dispatch all orders within 1-2 business days of confirmation.
+    content: `Orders are generally dispatched within 1–2 business days after order confirmation, subject to product availability.
 
-Delivery typically takes 3-7 business days depending on your location within India. You will receive a tracking update once your order has been shipped.
+You can browse our collection from anywhere in India. Delivery is currently available only to eligible PIN codes in Uttar Pradesh, and delivery availability is confirmed after PIN code verification. You will receive a tracking update once your order has been shipped.
 
-Orders above ₹999 qualify for free shipping. Orders below this amount are charged a flat delivery fee at checkout.
-
-We currently ship only within India.`,
+Orders above ₹499 qualify for free shipping. Below that, the delivery fee is small and gets lower the closer your order value is to ₹499 - check the exact fee at checkout before you pay.`,
   },
   {
     slug: "returns",

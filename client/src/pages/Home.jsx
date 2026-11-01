@@ -159,8 +159,8 @@ function Home() {
         }
         description={
           isHindi
-            ? "Mittal Collections पर बेडशीट, कम्फर्टर और पर्दे ऑनलाइन खरीदें – पूरे भारत में डिलीवरी, ग़ाज़ियाबाद में 24 घंटे में, कैश ऑन डिलीवरी और 7 दिन में आसान रिटर्न।"
-            : "Shop bedsheets, comforters & curtains online at Mittal Collections – pan-India delivery, 24hr in Ghaziabad, Cash on Delivery and easy 7-day returns."
+            ? "Mittal Collections पर बेडशीट, कम्फर्टर और पर्दे ऑनलाइन खरीदें – उत्तर प्रदेश के चुनिंदा PIN codes पर डिलीवरी, गाजियाबाद के चुनिंदा PIN कोड पर 24 घंटे में डिलीवरी, आसान 7 दिन में रिटर्न।"
+            : "Shop bedsheets, comforters & curtains online at Mittal Collections – UP delivery to eligible PINs, 24-hour delivery in selected Ghaziabad PINs and easy 7-day returns."
         }
         url={isHindi ? hiHomeUrl : enHomeUrl}
         lang={isHindi ? "hi" : "en"}

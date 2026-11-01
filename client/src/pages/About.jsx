@@ -36,7 +36,7 @@ function About() {
           more specific to what actually differentiates this one. */}
       <Seo
         title="About Us — Why Mittal Collections | Home Furnishing"
-        description="Mittal Collections: a focused range of bedsheets, towels, curtains and cushions chosen for real material quality, not sheer catalog size. Pan-India delivery, easy returns, 24-hour delivery in Ghaziabad."
+        description="Mittal Collections: a focused range of bedsheets, towels, curtains and cushions chosen for real material quality, not sheer catalog size. Delivery to eligible UP PIN codes, easy returns, 24-hour delivery in selected Ghaziabad PIN codes."
         url={`${SITE_URL}/about`}
       />
 
