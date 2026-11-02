@@ -1181,6 +1181,8 @@ export const getBigSavingsProducts = async (req, res) => {
         $match: {
           isActive: true,
           visibility: { $ne: "offline" },
+          // A discount is only real against a verified printed MRP.
+          mrpVerified: true,
           oldPrice: { $gt: 0 },
         },
       },
@@ -1398,6 +1400,7 @@ export const addProduct = async (req, res) => {
       // see the variants schema comment in Product.js.
       price: hasVariants ? variants[0].price : price,
       oldPrice: hasVariants ? variants[0].oldPrice : oldPrice,
+      mrpVerified: req.body.mrpVerified === "true",
       category,
       subcategories: parseSubcategories(req.body.subcategories),
       additionalCategories: parseSubcategories(req.body.additionalCategories),
@@ -1555,6 +1558,11 @@ export const updateProduct = async (req, res) => {
       // truth for price/oldPrice/stock, not whatever was separately sent.
       product.price = hasVariants ? variants[0].price : req.body.price;
       product.oldPrice = hasVariants ? variants[0].oldPrice : req.body.oldPrice;
+      // Only the admin form sends this; a script/partial update that
+      // omits it keeps the existing value instead of un-verifying.
+      if (req.body.mrpVerified !== undefined) {
+        product.mrpVerified = req.body.mrpVerified === "true";
+      }
       product.category = req.body.category;
       product.subcategories = parseSubcategories(req.body.subcategories);
       product.additionalCategories = parseSubcategories(

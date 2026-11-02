@@ -71,6 +71,7 @@ function EditProduct() {
     descriptionHi: "",
     price: "",
     oldPrice: "",
+    mrpVerified: false,
     stock: "",
     category: "",
     subcategories: [],
@@ -157,6 +158,7 @@ function EditProduct() {
         descriptionHi: product.descriptionHi || "",
         price: product.price ?? "",
         oldPrice: product.oldPrice ?? "",
+        mrpVerified: product.mrpVerified === true,
         stock: product.stock ?? "",
         category: product.category?._id || "",
         subcategories: (product.subcategories || []).map((sub) => sub._id),
@@ -653,6 +655,16 @@ function EditProduct() {
               onChange={handleChange}
               disabled={hasVariants}
             />
+
+            <label title="Tick only after checking the MRP printed on the packaging for every size. Unticked, Old Price stays internal: customers and Google see only the selling price.">
+              <input
+                type="checkbox"
+                name="mrpVerified"
+                checked={formData.mrpVerified}
+                onChange={handleChange}
+              />{" "}
+              Printed MRP verified (from product packaging)
+            </label>
           </div>
         </div>
 

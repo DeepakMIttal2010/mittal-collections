@@ -20,6 +20,7 @@ import { getEarnRate } from "../../services/rewardsService";
 import { useLanguage } from "../../context/LanguageContext";
 import { stripHtml } from "../../utils/stripHtml";
 import { useModalA11y } from "../../hooks/useModalA11y";
+import { verifiedMrp, verifiedDiscountPercent } from "../../utils/verifiedMrp";
 
 function QuickViewModal({ product, onClose, isHindi = false }) {
   const navigate = useNavigate();
@@ -47,12 +48,9 @@ function QuickViewModal({ product, onClose, isHindi = false }) {
     }
   };
 
-  const discount =
-    product.oldPrice > product.price
-      ? Math.round(
-          ((product.oldPrice - product.price) / product.oldPrice) * 100,
-        )
-      : 0;
+  // Only against a verified printed MRP (see utils/verifiedMrp.js).
+  const mrp = verifiedMrp(product);
+  const discount = verifiedDiscountPercent(product);
 
   // Portalled straight to <body> — rendered inline inside a hovered
   // ProductCard, whose `:hover { transform: translateY(-8px) }` creates a
@@ -109,9 +107,10 @@ function QuickViewModal({ product, onClose, isHindi = false }) {
             <span className="text-2xl font-bold text-slate-900">
               ₹{product.price}
             </span>
-            {product.oldPrice > product.price && (
-              <span className="text-slate-400 line-through">
-                ₹{product.oldPrice}
+            {mrp > 0 && (
+              <span className="text-sm text-slate-500">
+                MRP <span className="text-slate-400 line-through">₹{mrp}</span>{" "}
+                {t("(incl. of all taxes)", "(सभी करों सहित)")}
               </span>
             )}
           </div>

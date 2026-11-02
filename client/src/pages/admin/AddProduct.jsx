@@ -69,6 +69,7 @@ function AddProduct() {
     additionalCategories: [],
     price: "",
     oldPrice: "",
+    mrpVerified: false,
     stock: "",
     featured: false,
     isActive: true,
@@ -359,6 +360,7 @@ function AddProduct() {
     data.append("trendingRank", formData.trendingRank);
     data.append("showInNewArrivals", formData.showInNewArrivals);
     data.append("isGiftingItem", formData.isGiftingItem);
+    data.append("mrpVerified", formData.mrpVerified);
     data.append("willRestock", formData.willRestock);
     data.append("visibility", formData.visibility);
     data.append("mainImageIndex", mainImageIndex);
@@ -568,6 +570,16 @@ function AddProduct() {
               onChange={handleChange}
               disabled={hasVariants}
             />
+
+            <label title="Tick only after checking the MRP printed on the packaging for every size. Unticked, Old Price stays internal: customers and Google see only the selling price.">
+              <input
+                type="checkbox"
+                name="mrpVerified"
+                checked={formData.mrpVerified}
+                onChange={handleChange}
+              />{" "}
+              Printed MRP verified (from product packaging)
+            </label>
           </div>
 
           <div className="form-group">

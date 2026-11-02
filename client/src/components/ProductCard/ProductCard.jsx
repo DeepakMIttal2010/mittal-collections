@@ -23,6 +23,7 @@ import { trackSelectItem } from "../../utils/analytics";
 import { useLanguage } from "../../context/LanguageContext";
 import { useHindiLinks } from "../../utils/hindiPath";
 import { localizeSize } from "../../utils/localizeSize";
+import { verifiedMrp, verifiedDiscountPercent } from "../../utils/verifiedMrp";
 
 // Lazy-loaded, not a static import: QuickViewModal (and the DOMPurify it
 // pulls in via stripHtml.js) only ever renders after a click, but
@@ -53,14 +54,11 @@ function ProductCard({ product, priority = false }) {
   const inCompare = isInCompare(product._id);
   const isWishlisted = wishlistItems.some((item) => item._id === product._id);
   const [earnRate, setEarnRate] = useState(null);
-  // oldPrice defaults to 0 for a product an admin never set one for —
-  // unguarded, (0-price)/0*100 renders as a literal "-Infinity% OFF"
-  // badge. Only a real, positive discount counts (matches QuickViewModal
-  // and AdminProducts' own guard for the same calculation).
-  const hasDiscount = product.oldPrice > product.price;
-  const discount = hasDiscount
-    ? Math.round(((product.oldPrice - product.price) / product.oldPrice) * 100)
-    : 0;
+  // Strike-through and % OFF only against a verified printed MRP (see
+  // utils/verifiedMrp.js); otherwise just the selling price.
+  const mrp = verifiedMrp(product);
+  const hasDiscount = mrp > 0;
+  const discount = verifiedDiscountPercent(product);
   const isLowStock = product.stock > 0 && product.stock <= LOW_STOCK_THRESHOLD;
   const isOutOfStock = product.stock <= 0;
   const pointsPreview = earnRate ? Math.floor(product.price / earnRate) : 0;
@@ -138,7 +136,14 @@ function ProductCard({ product, priority = false }) {
           <div className="price">
             <span className="new-price">₹{product.price}</span>
 
-            {hasDiscount && <span className="old-price">₹{product.oldPrice}</span>}
+            {hasDiscount && (
+              <span className="mrp-label">
+                MRP <span className="old-price">₹{mrp}</span>{" "}
+                <span className="mrp-tax">
+                  {t("(incl. of all taxes)", "(सभी करों सहित)")}
+                </span>
+              </span>
+            )}
           </div>
 
           {pointsPreview > 0 && (

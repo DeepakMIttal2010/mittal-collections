@@ -22,8 +22,8 @@ const COLUMNS = [
   { key: "category", label: "Category", type: "text" },
   { key: "subcategory", label: "Subcategory", type: "text" },
   { key: "miscExpensesPercent", label: "Misc Exps (% of Purchase)", type: "number" },
-  { key: "mrpMultiplier", label: "MRP (× Purchase)", type: "number" },
-  { key: "priceDiscountPercent", label: "Price (% off MRP)", type: "number" },
+  { key: "mrpMultiplier", label: "Reference price (internal only, × Purchase)", type: "number" },
+  { key: "priceDiscountPercent", label: "Price (% off reference)", type: "number" },
   { key: "isActive", label: "Active", type: "number" },
 ];
 
@@ -229,11 +229,13 @@ function AdminPricingRules() {
       >
         <p className="text-sm text-slate-500">
           Controls the Add/Edit Product form's auto-fill: admin enters
-          Purchase Price, and Misc Exps / MRP / Selling Price are
-          suggested from it — Misc Exps = Purchase Price × %, MRP =
-          Purchase Price × multiplier, Price = MRP − %. A subcategory
-          rule overrides its category's rule. Admin can still edit any
-          suggested value by hand afterwards.
+          Purchase Price, and Misc Exps / Reference price / Selling Price
+          are suggested from it — Misc Exps = Purchase Price × %,
+          Reference price = Purchase Price × multiplier, Price = Reference
+          price − %. A subcategory rule overrides its category's rule.
+          Admin can still edit any suggested value by hand afterwards.
+          The reference price is internal only: customers and Google see
+          it as an MRP only on products ticked "Printed MRP verified".
         </p>
 
         {pricingRules.length > 0 && (

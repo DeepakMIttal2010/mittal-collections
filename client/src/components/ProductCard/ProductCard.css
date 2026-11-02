@@ -245,7 +245,8 @@
 .price {
   display: flex;
   align-items: center;
-  gap: 12px;
+  flex-wrap: wrap; /* a verified "MRP ... (incl. of all taxes)" can wrap under the price on narrow cards */
+  gap: 4px 12px;
 }
 
 .new-price {
@@ -259,6 +260,17 @@
      color-contrast audit across every product card site-wide. */
   color: #6b6b6b;
   text-decoration: line-through;
+}
+
+/* "MRP" prefix stays un-struck; only the amount inside is struck. */
+.mrp-label {
+  color: #6b6b6b;
+  font-size: 13px;
+}
+
+.mrp-tax {
+  font-size: 11px;
+  white-space: nowrap;
 }
 
 .points-preview {

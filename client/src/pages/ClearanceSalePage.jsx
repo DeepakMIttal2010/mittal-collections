@@ -50,7 +50,7 @@ function ClearanceSalePage() {
     <div className="max-w-7xl mx-auto px-4 py-12">
       <Seo
         title="Clearance Sale — Home Furnishing Deals"
-        description="More than 35% off select home furnishing items at Mittal Collections — limited stock, won't be restocked at this price."
+        description="Clearance home furnishing items at Mittal Collections. Discounts are shown only against the MRP printed on the product, while limited stock lasts."
         url={`${SITE_URL}/clearance-sale`}
         jsonLd={buildBreadcrumbJsonLd(BREADCRUMB_ITEMS)}
       />
@@ -65,12 +65,15 @@ function ClearanceSalePage() {
       <h1 className="text-3xl md:text-4xl font-bold text-slate-900 mb-2">
         🔥 {t("Clearance Sale", "क्लीयरेंस सेल")}
       </h1>
-      <p className="text-slate-500 mb-10">
-        {t(
-          "More than 35% Off — limited stock, won't be restocked at this price.",
-          "35% से ज़्यादा की छूट — सीमित स्टॉक, इस कीमत पर दोबारा नहीं मिलेगा।",
-        )}
-      </p>
+      {/* The discount promise only once there are items behind it. */}
+      {sections.length > 0 && (
+        <p className="text-slate-500 mb-10">
+          {t(
+            "More than 35% Off — limited stock, won't be restocked at this price.",
+            "35% से ज़्यादा की छूट — सीमित स्टॉक, इस कीमत पर दोबारा नहीं मिलेगा।",
+          )}
+        </p>
+      )}
 
       {loading ? (
         <ProductGridSkeleton />

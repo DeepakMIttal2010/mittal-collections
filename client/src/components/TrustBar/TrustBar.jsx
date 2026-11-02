@@ -1,19 +1,16 @@
 import { useEffect, useState } from "react";
-import { FaTags, FaTruck, FaUndoAlt, FaLock, FaMoneyBillWave, FaWhatsapp } from "react-icons/fa";
+import { FaTruck, FaUndoAlt, FaLock, FaMoneyBillWave, FaWhatsapp } from "react-icons/fa";
 
 import "./TrustBar.css";
 import { useLanguage } from "../../context/LanguageContext";
 import { getSiteSettings } from "../../services/settingsService";
 import { toWhatsAppNumber } from "../../utils/whatsapp";
 
+// An "Up to 50% OFF" item used to lead this list. It relied on internal
+// reference prices shown as MRP, and discounts now show only against a
+// verified printed MRP (utils/verifiedMrp.js), so it was removed rather
+// than replaced with a claim that isn't true for every product.
 const items = [
-  {
-    icon: <FaTags />,
-    title: "Up to 50% OFF",
-    titleHi: "50% तक की छूट",
-    subtitle: "Select collections",
-    subtitleHi: "चुनिंदा कलेक्शन पर",
-  },
   {
     icon: <FaTruck />,
     title: "Fast Local Delivery",
@@ -39,8 +36,10 @@ const items = [
     icon: <FaMoneyBillWave />,
     title: "Cash on Delivery",
     titleHi: "कैश ऑन डिलीवरी",
-    subtitle: "Pay when it arrives",
-    subtitleHi: "आने पर भुगतान करें",
+    // Qualified like the rest of the site: COD isn't offered on every
+    // PIN code/order (see the delivery-claims guard).
+    subtitle: "COD may be available for eligible PIN codes and orders.",
+    subtitleHi: "COD चुनिंदा PIN codes और orders पर उपलब्ध हो सकता है।",
   },
 ];
 

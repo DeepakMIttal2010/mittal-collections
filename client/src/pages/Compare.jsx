@@ -13,15 +13,17 @@ import { stripHtml } from "../utils/stripHtml";
 import { handleImageError } from "../utils/imageFallback";
 import Seo from "../components/Seo";
 import { localizeSize } from "../utils/localizeSize";
+import { verifiedMrp } from "../utils/verifiedMrp";
 
 function getRows(t, language) {
   return [
     { label: t("Price", "कीमत"), render: (p) => `₹${p.price}`, spec: null },
     {
-      label: t("MRP", "MRP"),
+      label: t("MRP (incl. of all taxes)", "MRP (सभी करों सहित)"),
+      // Only a verified printed MRP; an internal reference price shows "—".
       render: (p) =>
-        p.oldPrice > p.price ? (
-          <span className="line-through text-slate-400">₹{p.oldPrice}</span>
+        verifiedMrp(p) ? (
+          <span className="line-through text-slate-400">₹{verifiedMrp(p)}</span>
         ) : (
           "—"
         ),
