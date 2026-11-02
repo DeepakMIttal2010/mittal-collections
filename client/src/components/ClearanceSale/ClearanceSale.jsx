@@ -10,6 +10,7 @@ import { useLanguage } from "../../context/LanguageContext";
 import { handleImageError } from "../../utils/imageFallback";
 import { useLocation } from "react-router-dom";
 import { isHindiPath } from "../../utils/hindiPath";
+import { verifiedMrp, verifiedDiscountPercent } from "../../utils/verifiedMrp";
 
 function ClearanceCategoryRow({ category, products, t, isFirst }) {
   // A Hindi product page exists only once the product has a Hindi name.
@@ -56,13 +57,10 @@ function ClearanceCategoryRow({ category, products, t, isFirst }) {
         ref={scrollRef}
         className="flex gap-6 overflow-x-auto scroll-smooth pt-5 pb-4 pl-3"
       >
-        {products.map((product) => {
-          const discount = product.oldPrice
-            ? Math.round(
-                ((product.oldPrice - product.price) / product.oldPrice) *
-                  100,
-              )
-            : 0;
+        {/* The server only returns verified-MRP products; this filter
+            also keeps an unverified one from ever showing a discount. */}
+        {products.filter((product) => verifiedMrp(product)).map((product) => {
+          const discount = verifiedDiscountPercent(product);
 
           return (
             <Link
@@ -93,8 +91,8 @@ function ClearanceCategoryRow({ category, products, t, isFirst }) {
 
                 <p className="absolute bottom-3 left-3 right-3 text-white text-sm flex items-center gap-2">
                   <span className="font-bold">₹{product.price}</span>
-                  <span className="line-through text-white/60 text-xs">
-                    ₹{product.oldPrice}
+                  <span className="text-white/60 text-xs">
+                    MRP <span className="line-through">₹{verifiedMrp(product)}</span>
                   </span>
                 </p>
               </div>

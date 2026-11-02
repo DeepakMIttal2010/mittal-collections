@@ -1280,7 +1280,7 @@ const STATIC_PAGES = {
   "/clearance-sale": {
     title: "Clearance Sale — Home Furnishing Deals",
     description:
-      "More than 35% off select home furnishing items at Mittal Collections — limited stock, won't be restocked at this price.",
+      "Clearance home furnishing items at Mittal Collections. Discounts are shown only against the MRP printed on the product, while limited stock lasts.",
     breadcrumb: "Clearance Sale",
   },
   "/new-arrivals": {

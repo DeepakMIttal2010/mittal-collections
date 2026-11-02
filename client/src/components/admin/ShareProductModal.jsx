@@ -19,6 +19,7 @@ import { imgUrl } from "../../services/api";
 import { productUrl } from "../../utils/productUrl";
 import { stripHtml } from "../../utils/stripHtml";
 import { useModalA11y } from "../../hooks/useModalA11y";
+import { verifiedMrp, verifiedDiscountPercent } from "../../utils/verifiedMrp";
 
 const CANVAS_W = 1080;
 const CANVAS_H = 1920;
@@ -85,7 +86,8 @@ const getCategoryContent = (product) =>
 // just a bare "name — price" line.
 const buildCaption = (product, productLink) => {
   const content = getCategoryContent(product);
-  const hasDiscount = product.oldPrice && product.oldPrice > product.price;
+  // Shared posts are public: MRP only when verified (utils/verifiedMrp.js).
+  const hasDiscount = verifiedMrp(product) > 0;
 
   const lines = [content.hook];
 
@@ -96,10 +98,14 @@ const buildCaption = (product, productLink) => {
   if (product.size) lines.push(`📏 Size: ${product.size}`);
   if (product.fabric) lines.push(`🧵 Fabric: ${product.fabric}`);
 
-  lines.push("🚚 Free Delivery in Vasundhara & nearby areas | COD available");
+  // Same approved delivery/COD wording as the site (PR-C1): no "free"
+  // local delivery, no universal COD.
+  lines.push(
+    "🚚 Delivery within 24 hours in selected Ghaziabad PIN codes, subject to product availability and order confirmation. COD may be available for eligible PIN codes and orders.",
+  );
   lines.push(
     hasDiscount
-      ? `💰 ₹${product.price} (MRP ₹${product.oldPrice})`
+      ? `💰 ₹${product.price} (MRP ₹${verifiedMrp(product)}, incl. of all taxes)`
       : `💰 ₹${product.price}`,
   );
 
@@ -432,7 +438,7 @@ const drawOverlay = (
   if (hasDiscount) {
     ctx.font = "500 44px system-ui, sans-serif";
     ctx.fillStyle = "rgba(255,255,255,0.6)";
-    const oldPriceText = `₹${product.oldPrice}`;
+    const oldPriceText = `₹${verifiedMrp(product)}`;
     const oldX = 60 + priceW + 24;
     ctx.fillText(oldPriceText, oldX, y);
     const oldW = ctx.measureText(oldPriceText).width;
@@ -635,12 +641,9 @@ function ShareProductModal({ product, onClose }) {
   };
 
   const productLink = `${window.location.origin}${productUrl(product)}`;
-  const hasDiscount = product.oldPrice && product.oldPrice > product.price;
-  const discountPct = hasDiscount
-    ? Math.round(
-        ((product.oldPrice - product.price) / product.oldPrice) * 100,
-      )
-    : 0;
+  // Strike-through price and % OFF badge only against a verified MRP.
+  const hasDiscount = verifiedMrp(product) > 0;
+  const discountPct = verifiedDiscountPercent(product);
 
   const hookText = getCategoryContent(product).hook;
   const overlayInfo = { product, hasDiscount, discountPct, hookText };

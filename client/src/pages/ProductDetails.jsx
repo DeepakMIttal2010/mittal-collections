@@ -71,6 +71,7 @@ import BuyingGuides from "../components/BuyingGuides";
 import { localizeSize } from "../utils/localizeSize";
 import { useLanguage } from "../context/LanguageContext";
 import { isHindiPath } from "../utils/hindiPath";
+import { verifiedMrp, verifiedDiscountPercent } from "../utils/verifiedMrp";
 
 function ProductDetails() {
   const { id } = useParams();
@@ -598,9 +599,8 @@ function ProductDetails() {
   // variant as a sane pre-selection default (see Product.js).
   const hasVariants = product.variants?.length > 0;
   const displayPrice = selectedVariant ? selectedVariant.price : product.price;
-  const displayOldPrice = selectedVariant
-    ? selectedVariant.oldPrice
-    : product.oldPrice;
+  // Only a verified printed MRP is shown (0 = show selling price only).
+  const displayMrp = verifiedMrp(product, selectedVariant || product);
   const displayStock = selectedVariant ? selectedVariant.stock : product.stock;
   // product.name already carries the exact dimension by convention (see
   // seo_title_convention) -- appending the variant/product size here
@@ -664,12 +664,7 @@ function ProductDetails() {
     },
   ];
 
-  const discount =
-    displayOldPrice > displayPrice
-      ? Math.round(
-          ((displayOldPrice - displayPrice) / displayOldPrice) * 100,
-        )
-      : 0;
+  const discount = verifiedDiscountPercent(product, selectedVariant || product);
 
   // Google's Rich Results Test flags this as "optional" but it's what
   // unlocks the return window shown directly on the free listing — built
@@ -1141,9 +1136,10 @@ function ProductDetails() {
             <span className="text-3xl font-bold text-[#2e7d32]">
               ₹{displayPrice}
             </span>
-            {displayOldPrice > displayPrice && (
-              <span className="text-lg text-slate-400 line-through">
-                ₹{displayOldPrice}
+            {displayMrp > 0 && (
+              <span className="text-sm text-slate-500">
+                MRP <span className="text-lg text-slate-400 line-through">₹{displayMrp}</span>{" "}
+                {t("(incl. of all taxes)", "(सभी करों सहित)")}
               </span>
             )}
           </div>

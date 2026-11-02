@@ -1,5 +1,6 @@
 import sanitizeHtml from "sanitize-html";
 import Product from "../models/Product.js";
+import { verifiedMrp } from "../utils/verifiedMrp.js";
 
 const SITE_URL = "https://www.mittalcollections.com";
 const BRAND_NAME = "Mittal Collections";
@@ -97,7 +98,7 @@ export const getGoogleProductFeed = async (req, res) => {
       $or: [{ stock: { $gt: 0 } }, { willRestock: { $ne: false } }],
     })
       .select(
-        "name description price oldPrice image images stock variants slug brand category productNumber fabric color pattern",
+        "name description price oldPrice mrpVerified image images stock variants slug brand category productNumber fabric color pattern",
       )
       .populate("category", "name nameHi");
 
@@ -159,12 +160,13 @@ ${colorTag}${materialTag}${patternTag}`;
             // own displayOldPrice (selectedVariant.oldPrice), same bug
             // class as the price/availability fix above, caught before
             // shipping.
-            const salePrice =
-              variant.oldPrice > variant.price
-                ? `      <g:sale_price>${variant.price.toFixed(2)} INR</g:sale_price>\n`
-                : "";
-            const listPrice =
-              variant.oldPrice > variant.price ? variant.oldPrice : variant.price;
+            // Unverified oldPrice is an internal reference price: never
+            // submit it as the regular price behind a sale price.
+            const mrp = verifiedMrp(product, variant);
+            const salePrice = mrp
+              ? `      <g:sale_price>${variant.price.toFixed(2)} INR</g:sale_price>\n`
+              : "";
+            const listPrice = mrp || variant.price;
 
             return `    <item>
       <g:id>${product._id}-${suffix}</g:id>
@@ -180,12 +182,11 @@ ${salePrice}    </item>`;
         }
 
         const availability = product.stock > 0 ? "in stock" : "out of stock";
-        const salePrice =
-          product.oldPrice > product.price
-            ? `      <g:sale_price>${product.price.toFixed(2)} INR</g:sale_price>\n`
-            : "";
-        const listPrice =
-          product.oldPrice > product.price ? product.oldPrice : product.price;
+        const mrp = verifiedMrp(product);
+        const salePrice = mrp
+          ? `      <g:sale_price>${product.price.toFixed(2)} INR</g:sale_price>\n`
+          : "";
+        const listPrice = mrp || product.price;
 
         return [`    <item>
       <g:id>${product._id}</g:id>

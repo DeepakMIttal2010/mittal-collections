@@ -14,6 +14,9 @@ describe("Google Shopping feed: sized products", () => {
       name: "Teal Satin Curtain",
       price: 404,
       stock: 10,
+      // A sale price is only sent against a verified printed MRP
+      // (see verified-mrp.test.js for the unverified case).
+      mrpVerified: true,
       variants: [
         { size: "7x4 Ft", price: 404, oldPrice: 800, stock: 5 },
         { size: "9x4 Ft", price: 468, oldPrice: 900, stock: 5 },

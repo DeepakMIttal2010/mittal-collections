@@ -4,8 +4,9 @@ import { test, expect } from "@playwright/test";
 
 // Desktop nav: the category links come from the build-time snapshot
 // (client/src/data/navCategoriesSnapshot.json) in the first render, so the
-// static links after them (Clearance Sale, Top Trending, ...) no longer
-// jump sideways when /api/categories answers. The categories API is held
+// static links after them (Top Trending, New Arrivals, ...) no longer
+// jump sideways when /api/categories answers. Clearance Sale is the one
+// conditional link: it renders last, only when clearance has items. The categories API is held
 // back and answered with the snapshot's own categories (CI seeds different
 // ones), plus one subcategory so the dropdown can be checked.
 
@@ -72,7 +73,26 @@ test.describe("Desktop nav categories", () => {
     await expect(page.locator(DESKTOP_NAV)).toBeVisible();
     const first = await page.evaluate(() => window.__navAtFirstRender);
     expect(first.slice(0, 6)).toEqual(["Home", ...VISIBLE.map((c) => c.name), "More"]);
-    expect(first).toContain("Clearance Sale");
+    expect(first).toContain("Top Trending");
+  });
+
+  test("Clearance Sale shows only when clearance has items, as the last link", async ({ page }) => {
+    let sections = [];
+    await setup(page);
+    await page.route("**/api/products/big-savings**", (route) =>
+      route.fulfill({ contentType: "application/json", body: JSON.stringify({ success: true, sections, minDiscountPercent: 35 }) }),
+    );
+
+    await page.goto("/");
+    await page.waitForTimeout(DELAY_MS + 1000);
+    expect(await navLinks(page)).not.toContain("Clearance Sale");
+
+    sections = [{
+      category: { _id: "c1", name: "Bedsheets", slug: "bedsheets" },
+      products: [{ _id: "p1", name: "Verified Deal", slug: "verified-deal", image: "", price: 400, oldPrice: 800, mrpVerified: true }],
+    }];
+    await page.reload();
+    await expect.poll(async () => (await navLinks(page)).at(-1)).toBe("Clearance Sale");
   });
 
   test("no nav layout shift when the categories API answers", async ({ page, browserName }) => {

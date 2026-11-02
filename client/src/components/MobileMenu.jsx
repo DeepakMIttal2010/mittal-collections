@@ -14,6 +14,7 @@ import { getCategories } from "../services/categoryService";
 import { getSubcategories } from "../services/subcategoryService";
 import { useLanguage } from "../context/LanguageContext";
 import { useHindiLinks } from "../utils/hindiPath";
+import { useHasClearance } from "../hooks/useHasClearance";
 
 // Controlled drawer — open state lives in MainLayout so BottomNav's
 // "Categories" tab can open the same drawer instead of each owning a
@@ -24,6 +25,7 @@ function MobileMenu({ isOpen, onClose }) {
   const [categories, setCategories] = useState([]);
   const [subcategories, setSubcategories] = useState([]);
   const [openCategoryId, setOpenCategoryId] = useState(null);
+  const hasClearance = useHasClearance();
 
   // Guides has a genuinely separate Hindi URL — see Navbar.jsx's comment.
   const guidesPath = language === "hi" ? "/hi/articles" : "/articles";
@@ -176,14 +178,17 @@ function MobileMenu({ isOpen, onClose }) {
             );
           })}
 
-          <NavLink
-            to="/clearance-sale"
-            onClick={close}
-            className="flex items-center gap-2 px-5 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-amber-600 border-t border-slate-100"
-          >
-            <FaTag className="text-red-600" />
-            {t("Clearance Sale", "क्लियरेंस सेल")}
-          </NavLink>
+          {/* Hidden while no verified-MRP item qualifies (see Navbar). */}
+          {hasClearance && (
+            <NavLink
+              to="/clearance-sale"
+              onClick={close}
+              className="flex items-center gap-2 px-5 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-amber-600 border-t border-slate-100"
+            >
+              <FaTag className="text-red-600" />
+              {t("Clearance Sale", "क्लियरेंस सेल")}
+            </NavLink>
+          )}
 
           <NavLink
             to="/trending"

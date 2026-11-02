@@ -47,6 +47,15 @@ const productSchema = new mongoose.Schema(
       min: 0,
     },
 
+    // True only when an admin has checked oldPrice (and every variant's
+    // oldPrice) against the MRP printed on the packaging. Otherwise
+    // oldPrice is an internal reference price and is never shown or sent
+    // to Google as an MRP, strike-through or sale price (utils/verifiedMrp.js).
+    mrpVerified: {
+      type: Boolean,
+      default: false,
+    },
+
     category: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Category",

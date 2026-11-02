@@ -3,6 +3,7 @@ import { NavLink } from "react-router-dom";
 import { FaBell, FaFire, FaGift, FaTag } from "react-icons/fa";
 import MegaMenu from "../MegaMenu";
 import { useLanguage } from "../../context/LanguageContext";
+import { useHasClearance } from "../../hooks/useHasClearance";
 
 // Mobile no longer gets this row at all — the "Categories" tab in
 // BottomNav (MainLayout.jsx) replaces it with a persistent, thumb-reachable
@@ -22,6 +23,7 @@ function Navbar() {
   // MegaMenu's first createPortal call, which a ref's .current wouldn't
   // guarantee in time.
   const [portalRoot, setPortalRoot] = useState(null);
+  const hasClearance = useHasClearance();
 
   const linkClass = ({ isActive }) =>
     `text-sm font-medium px-4 py-3 whitespace-nowrap transition-colors ${
@@ -56,18 +58,6 @@ function Navbar() {
           {/* Dynamic categories + subcategories mega menu */}
           <MegaMenu linkClassName={linkClass} portalTarget={portalRoot} />
 
-          {/* Deal-driven items lead (highest conversion urgency), informational
-              content (Guides) trails — standard e-commerce nav ordering. */}
-          <NavLink
-            to="/clearance-sale"
-            className={({ isActive }) =>
-              `flex items-center gap-1.5 ${linkClass({ isActive })}`
-            }
-          >
-            <FaTag className="text-xs text-red-600" />
-            {t("Clearance Sale", "क्लियरेंस सेल")}
-          </NavLink>
-
           <NavLink
             to="/trending"
             className={({ isActive }) =>
@@ -101,6 +91,23 @@ function Navbar() {
           <NavLink to={guidesPath} className={linkClass}>
             {t("Guides", "गाइड")}
           </NavLink>
+
+          {/* Shown only once a verified-MRP item qualifies (the route
+              itself stays and has its own empty state). Last in the row
+              on purpose: it appears after a fetch, and appearing at the
+              end shifts no other link (the nav row is CLS-sensitive,
+              see scripts/fetch-nav-categories.mjs). */}
+          {hasClearance && (
+            <NavLink
+              to="/clearance-sale"
+              className={({ isActive }) =>
+                `flex items-center gap-1.5 ${linkClass({ isActive })}`
+              }
+            >
+              <FaTag className="text-xs text-red-600" />
+              {t("Clearance Sale", "क्लियरेंस सेल")}
+            </NavLink>
+          )}
         </div>
       </div>
     </nav>
