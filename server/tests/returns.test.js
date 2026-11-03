@@ -5,6 +5,7 @@ import "./setup.js";
 import app from "../app.js";
 import User from "../models/User.js";
 import Product from "../models/Product.js";
+import Order from "../models/Order.js";
 import ReturnRequest from "../models/ReturnRequest.js";
 import LoyaltyTransaction from "../models/LoyaltyTransaction.js";
 import { creditDueOrderPoints } from "../utils/loyaltyPoints.js";
@@ -369,5 +370,164 @@ describe("Return status transition guard", () => {
 
     const res = await setReturnStatus(adminToken, returnRequest._id, "Requested");
     expect(res.status).toBe(200);
+  });
+});
+
+describe("An open return on an order that was cancelled afterwards (M1-A)", () => {
+  // Delivered order of 3 (stock 5 -> 2), a return requested but not yet
+  // picked up, then the whole order cancelled (all 3 back -> 5).
+  const cancelledWithOpenReturn = async () => {
+    await seedLoyaltySettings({ earnRate: 20 });
+
+    const user = await createUser();
+    const admin = await createUser({ role: "admin" });
+    const token = signToken(user);
+    const adminToken = signToken(admin);
+    const product = await createProduct({ price: 1000, stock: 5 });
+
+    const order = await placeAndDeliverOrder(token, adminToken, product, 3);
+    expect((await Product.findById(product._id)).stock).toBe(2);
+
+    const returnRequest = await ReturnRequest.create({
+      order: order._id,
+      user: user._id,
+      product: product._id,
+      productName: product.name,
+      quantity: 1,
+      reason: "Didn't like it",
+    });
+
+    const cancel = await request(app)
+      .put(`/api/orders/${order._id}/status`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ status: "Cancelled" });
+    expect(cancel.status).toBe(200);
+
+    // Baseline after the cancellation, so the assertions below check only
+    // what the later return transition does.
+    const baseline = {
+      stock: (await Product.findById(product._id)).stock,
+      points: (await User.findById(user._id)).loyaltyPoints,
+      ledgerEntries: await LoyaltyTransaction.countDocuments({ user: user._id }),
+      refundedAmount: (await Order.findById(order._id)).refundedAmount || 0,
+    };
+    expect(baseline.stock).toBe(5);
+
+    return { user, adminToken, product, order, returnRequest, baseline };
+  };
+
+  const expectUnchanged = async ({ user, product, order, returnRequest, baseline }, status) => {
+    expect((await Product.findById(product._id)).stock).toBe(baseline.stock);
+    expect((await User.findById(user._id)).loyaltyPoints).toBe(baseline.points);
+    expect(await LoyaltyTransaction.countDocuments({ user: user._id })).toBe(baseline.ledgerEntries);
+    expect((await Order.findById(order._id)).refundedAmount || 0).toBe(baseline.refundedAmount);
+    const rr = await ReturnRequest.findById(returnRequest._id);
+    expect(rr.status).toBe(status);
+    expect(rr.stockRestored).toBe(false);
+    expect(rr.pointsClawedBack).toBe(false);
+  };
+
+  it("A. Picked Up after the cancellation is refused (409) and stock stays 5", async () => {
+    const setup = await cancelledWithOpenReturn();
+
+    const res = await setReturnStatus(setup.adminToken, setup.returnRequest._id, "Picked Up");
+
+    expect(res.status).toBe(409);
+    expect(res.body.success).toBe(false);
+    expect(res.body.message).toMatch(/cancel/i);
+    await expectUnchanged(setup, "Requested");
+  });
+
+  it("B. Refunded after the cancellation is refused (409): no restock, no clawback, no refundedAmount", async () => {
+    const setup = await cancelledWithOpenReturn();
+
+    const res = await setReturnStatus(setup.adminToken, setup.returnRequest._id, "Refunded");
+
+    expect(res.status).toBe(409);
+    await expectUnchanged(setup, "Requested");
+  });
+
+  it("C1. the open return can still be Rejected, with no stock or points effect", async () => {
+    const setup = await cancelledWithOpenReturn();
+
+    const res = await setReturnStatus(setup.adminToken, setup.returnRequest._id, "Rejected");
+
+    expect(res.status).toBe(200);
+    await expectUnchanged(setup, "Rejected");
+  });
+
+  it("C2. on an order that is NOT cancelled, Picked Up -> Refunded still works and restocks once", async () => {
+    await seedLoyaltySettings({ earnRate: 20 });
+    const user = await createUser();
+    const admin = await createUser({ role: "admin" });
+    const adminToken = signToken(admin);
+    const product = await createProduct({ price: 1000, stock: 5 });
+    const order = await placeAndDeliverOrder(signToken(user), adminToken, product, 3); // 2 left
+
+    const returnRequest = await ReturnRequest.create({
+      order: order._id,
+      user: user._id,
+      product: product._id,
+      productName: product.name,
+      quantity: 1,
+      reason: "Didn't like it",
+    });
+
+    expect((await setReturnStatus(adminToken, returnRequest._id, "Picked Up")).status).toBe(200);
+    expect((await setReturnStatus(adminToken, returnRequest._id, "Refunded")).status).toBe(200);
+    expect((await Product.findById(product._id)).stock).toBe(3);
+  });
+
+  it("D. a return already Picked Up BEFORE the cancellation can still be Refunded: no second restock or clawback", async () => {
+    await seedLoyaltySettings({ earnRate: 20 });
+    const user = await createUser();
+    const admin = await createUser({ role: "admin" });
+    const adminToken = signToken(admin);
+    const product = await createProduct({ price: 1000, stock: 5 });
+    const order = await placeAndDeliverOrder(signToken(user), adminToken, product, 3); // 5 -> 2
+
+    const returnRequest = await ReturnRequest.create({
+      order: order._id,
+      user: user._id,
+      product: product._id,
+      productName: product.name,
+      quantity: 1,
+      reason: "Didn't like it",
+    });
+
+    expect((await setReturnStatus(adminToken, returnRequest._id, "Picked Up")).status).toBe(200);
+    expect((await Product.findById(product._id)).stock).toBe(3);
+    expect((await ReturnRequest.findById(returnRequest._id)).stockRestored).toBe(true);
+
+    const cancel = await request(app)
+      .put(`/api/orders/${order._id}/status`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ status: "Cancelled" });
+    expect(cancel.status).toBe(200);
+
+    // After the cancellation: the 2 kept pieces came back, the returned one
+    // wasn't counted twice.
+    const baseline = {
+      stock: (await Product.findById(product._id)).stock,
+      points: (await User.findById(user._id)).loyaltyPoints,
+      ledgerEntries: await LoyaltyTransaction.countDocuments({ user: user._id }),
+      refundedAmount: (await Order.findById(order._id)).refundedAmount || 0,
+    };
+    expect(baseline.stock).toBe(5);
+
+    const res = await setReturnStatus(adminToken, returnRequest._id, "Refunded");
+
+    expect(res.status).toBe(200);
+    expect((await Product.findById(product._id)).stock).toBe(baseline.stock);
+    expect((await User.findById(user._id)).loyaltyPoints).toBe(baseline.points);
+    expect(await LoyaltyTransaction.countDocuments({ user: user._id })).toBe(baseline.ledgerEntries);
+    // The existing refund bookkeeping still records the returned item's value
+    // (₹1000 x 1, no order discount) on the order; revenue reports already
+    // leave Cancelled orders out.
+    expect((await Order.findById(order._id)).refundedAmount).toBe(baseline.refundedAmount + 1000);
+    const rr = await ReturnRequest.findById(returnRequest._id);
+    expect(rr.status).toBe("Refunded");
+    expect(rr.stockRestored).toBe(true);
+    expect(rr.pointsClawedBack).toBe(true);
   });
 });
