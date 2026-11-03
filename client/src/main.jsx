@@ -20,7 +20,24 @@ import { AuthProvider } from "./context/AuthContext";
 import { LanguageProvider } from "./context/LanguageContext";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import { ProductDetails, CategoryPage } from "./routes/AppRoutes";
 
+// First load of a product/category URL: fetch that one route chunk before
+// the first render (see preloadableRoute in AppRoutes.jsx). Capped so a
+// slow or failed chunk never holds the page back for long.
+const ROUTE_PRELOAD_TIMEOUT_MS = 3000;
+const initialRoute = /^\/(hi\/)?product\//.test(window.location.pathname)
+  ? ProductDetails
+  : /^\/(hi\/)?category\//.test(window.location.pathname)
+    ? CategoryPage
+    : null;
+
+(initialRoute
+  ? initialRoute.preload(ROUTE_PRELOAD_TIMEOUT_MS)
+  : Promise.resolve()
+).then(renderApp);
+
+function renderApp() {
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <ErrorBoundary>
@@ -53,3 +70,4 @@ ReactDOM.createRoot(document.getElementById("root")).render(
     </ErrorBoundary>
   </React.StrictMode>,
 );
+}
