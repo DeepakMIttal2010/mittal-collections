@@ -7,6 +7,7 @@ import { notifyUser } from "../utils/notify.js";
 import { isValidVisitorId } from "../utils/isValidVisitorId.js";
 import { escapeHtml } from "../utils/escapeHtml.js";
 import { COST_FIELDS } from "../utils/productCostFields.js";
+import { reminderOptOutFooterHtml } from "../utils/reminderOptOut.js";
 
 // Keeps a single account/guest from growing an unbounded wishlist
 // (accidental or scripted) — well above any real shopper's use, just a
@@ -440,6 +441,8 @@ export const sendPriceDropAlerts = async (req, res) => {
       {
         $match: {
           "user.email": { $exists: true, $nin: [null, ""] },
+          // Unsubscribed via a reminder email's link (utils/reminderOptOut.js).
+          "user.reminderEmailsOptOut": { $ne: true },
           $expr: {
             $lt: ["$product.price", { $ifNull: ["$lastAlertedPrice", "$priceWhenAdded"] }],
           },
@@ -486,6 +489,7 @@ export const sendPriceDropAlerts = async (req, res) => {
       );
 
       if (!claimed) continue;
+      const optOutHtml = await reminderOptOutFooterHtml(user._id);
 
       try {
         await sendEmail({
@@ -497,6 +501,7 @@ export const sendPriceDropAlerts = async (req, res) => {
             <p><strong>${escapeHtml(product.name)}</strong><br/>
             Now ₹${product.price} (was ₹${alertBaseline})</p>
             <p><a href="${url}">View product</a></p>
+            ${optOutHtml}
           `,
         });
 

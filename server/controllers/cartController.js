@@ -2,6 +2,7 @@ import CartSnapshot from "../models/CartSnapshot.js";
 import { sendEmail } from "../config/mailer.js";
 import { isValidVisitorId } from "../utils/isValidVisitorId.js";
 import { escapeHtml } from "../utils/escapeHtml.js";
+import { reminderOptOutFooterHtml } from "../utils/reminderOptOut.js";
 
 const REMINDER_DELAY_HOURS = 3;
 
@@ -177,12 +178,14 @@ export const sendAbandonedCartReminders = async (req, res) => {
       user: { $ne: null },
       updatedAt: { $lte: cutoff },
       reminderSentAt: null,
-    }).populate("user", "name email");
+    }).populate("user", "name email reminderEmailsOptOut");
 
     let sent = 0;
 
     for (const cart of abandoned) {
       if (!cart.user?.email || cart.items.length === 0) continue;
+      // Unsubscribed via a reminder email's link (utils/reminderOptOut.js).
+      if (cart.user.reminderEmailsOptOut) continue;
 
       // Atomic claim before sending — without this, two overlapping cron
       // runs (an external scheduler retry/double-fire, same risk this
@@ -209,6 +212,7 @@ export const sendAbandonedCartReminders = async (req, res) => {
             `<li>${escapeHtml(item.name)} × ${item.quantity} — ₹${item.price * item.quantity}</li>`,
         )
         .join("");
+      const optOutHtml = await reminderOptOutFooterHtml(cart.user._id);
 
       try {
         await sendEmail({
@@ -219,6 +223,7 @@ export const sendAbandonedCartReminders = async (req, res) => {
             <p>You still have items waiting in your cart at Mittal Collections:</p>
             <ul>${itemsHtml}</ul>
             <p><a href="${process.env.CLIENT_URL}/cart">Complete your order</a></p>
+            ${optOutHtml}
           `,
         });
 

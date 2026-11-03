@@ -69,6 +69,20 @@ const userSchema = new mongoose.Schema(
       default: "en",
     },
 
+    // One opt-out for both reminder emails (abandoned cart + wishlist
+    // price drop); the newsletter has its own unsubscribe. The token is a
+    // random value for the email's unsubscribe link (no email or user id
+    // in the URL), created on the first reminder and never returned by
+    // ordinary user queries.
+    reminderEmailsOptOut: {
+      type: Boolean,
+      default: false,
+    },
+    reminderOptOutToken: {
+      type: String,
+      select: false,
+    },
+
     // Only meaningful when role === "admin". Absent/null = a full,
     // unrestricted admin (every account that existed before this field
     // was added, including the owner's own) — restriction is opt-in,
@@ -186,6 +200,12 @@ userSchema.index(
 // collection scan. Low-impact today given the small user count, but
 // grows into a real one as the user base does.
 userSchema.index({ role: 1, createdAt: -1 });
+
+// Opt-out link lookups (utils/reminderOptOut.js).
+userSchema.index(
+  { reminderOptOutToken: 1 },
+  { unique: true, partialFilterExpression: { reminderOptOutToken: { $type: "string" } } },
+);
 
 const User = mongoose.model("User", userSchema);
 
