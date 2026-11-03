@@ -39,6 +39,37 @@ function lazyWithReload(importer) {
   });
 }
 
+// render.js puts a prepaint placeholder before #root on product/category
+// pages. If those routes suspend on first load, MainLayout paints below
+// the placeholder and the whole page jumps up when it is removed (CLS
+// ~0.5). main.jsx calls preload() before the first render on those URLs,
+// so the route renders its real component straight away. A preload that
+// fails or misses the timeout leaves the normal lazy route in place, and
+// a late arrival is ignored so the page never swaps components mid-life.
+function preloadableRoute(importer) {
+  let Loaded = null;
+  const Lazy = lazyWithReload(importer);
+  function PreloadableRoute(props) {
+    return Loaded ? <Loaded {...props} /> : <Lazy {...props} />;
+  }
+  PreloadableRoute.preload = (timeoutMs) => {
+    let timedOut = false;
+    const load = importer()
+      .then((mod) => {
+        if (!timedOut) Loaded = mod.default;
+      })
+      .catch(() => {});
+    const timeout = new Promise((resolve) =>
+      setTimeout(() => {
+        timedOut = true;
+        resolve();
+      }, timeoutMs),
+    );
+    return Promise.race([load, timeout]);
+  };
+  return PreloadableRoute;
+}
+
 const About = lazyWithReload(() => import("../pages/About"));
 const Contact = lazyWithReload(() => import("../pages/Contact"));
 const GhaziabadStore = lazyWithReload(() => import("../pages/GhaziabadStore"));
@@ -60,14 +91,14 @@ const LoyaltyHistory = lazyWithReload(() => import("../pages/LoyaltyHistory"));
 const EditProfile = lazyWithReload(() => import("../pages/EditProfile"));
 const Addresses = lazyWithReload(() => import("../pages/Addresses"));
 const AddressForm = lazyWithReload(() => import("../pages/AddressForm"));
-const ProductDetails = lazyWithReload(() => import("../pages/ProductDetails"));
+export const ProductDetails = preloadableRoute(() => import("../pages/ProductDetails"));
 const TrendingPage = lazyWithReload(() => import("../pages/TrendingPage"));
 const ClearanceSalePage = lazyWithReload(() => import("../pages/ClearanceSalePage"));
 const NewArrivalsPage = lazyWithReload(() => import("../pages/NewArrivalsPage"));
 const GiftingPage = lazyWithReload(() => import("../pages/GiftingPage"));
 const PriceRangePage = lazyWithReload(() => import("../pages/PriceRangePage"));
 const SearchResults = lazyWithReload(() => import("../pages/SearchResults"));
-const CategoryPage = lazyWithReload(() => import("../pages/CategoryPage"));
+export const CategoryPage = preloadableRoute(() => import("../pages/CategoryPage"));
 const Checkout = lazyWithReload(() => import("../pages/Checkout"));
 const MyOrders = lazyWithReload(() => import("../pages/MyOrders"));
 const OrderDetails = lazyWithReload(() => import("../pages/OrderDetails"));
