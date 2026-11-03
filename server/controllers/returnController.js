@@ -6,9 +6,9 @@ import SiteSettings from "../models/SiteSettings.js";
 import { sendEmail } from "../config/mailer.js";
 import { notifyUser } from "../utils/notify.js";
 import { returnedValueFor } from "../utils/returnValue.js";
-import { restoreStock } from "./orderController.js";
+import { restoreStock, notifyRestocked } from "./orderController.js";
 import { clawBackForReturn } from "../utils/loyaltyPoints.js";
-import { withOptionalTransaction } from "../utils/orderTransactions.js";
+import { withOptionalTransaction, TransactionsUnavailableError } from "../utils/orderTransactions.js";
 import { escapeHtml } from "../utils/escapeHtml.js";
 import { syncReturn, postSafely } from "../utils/accountingPosting.js";
 
@@ -294,6 +294,13 @@ const RETURN_STATUS_TRANSITIONS = {
   Refunded: ["Refunded"],
 };
 
+const sendOrderCancelled = (res) =>
+  res.status(409).json({
+    success: false,
+    message:
+      "This order was cancelled, so its stock and points were already reversed — this return can't be picked up or refunded. Mark it Rejected and handle any refund manually.",
+  });
+
 // ============================
 // UPDATE RETURN STATUS (Admin)
 // ============================
@@ -341,16 +348,16 @@ export const updateReturnStatus = async (req, res) => {
     // cancellation (stockRestored) was left out of it, and can still go on
     // to Refunded: nothing is restocked twice and the points clawback finds
     // the order's earn already reversed (deep bug sweep, 2026-10-29).
-    if (["Picked Up", "Refunded"].includes(status) && !returnRequest.stockRestored) {
+    // This early read only gives the usual case its answer quickly; the
+    // conditional write on the order inside the transaction below is what
+    // actually holds when a cancellation lands at the same moment.
+    const movesStock = ["Picked Up", "Refunded"].includes(status);
+    const mustFindOrderOpen = movesStock && !returnRequest.stockRestored;
+
+    if (mustFindOrderOpen) {
       const order = await Order.findById(returnRequest.order).select("orderStatus").lean();
 
-      if (order?.orderStatus === "Cancelled") {
-        return res.status(409).json({
-          success: false,
-          message:
-            "This order was cancelled, so its stock and points were already reversed — this return can't be picked up or refunded. Mark it Rejected and handle any refund manually.",
-        });
-      }
+      if (order?.orderStatus === "Cancelled") return sendOrderCancelled(res);
     }
 
     // Claims the transition atomically (scoped to the status AT READ
@@ -361,26 +368,18 @@ export const updateReturnStatus = async (req, res) => {
     // wrote via a plain .save() below, and both fired the customer
     // email/notification unconditionally (deep bug sweep, 2026-10-19).
     // A losing concurrent request's update now matches nothing.
-    const claimedStatus = await ReturnRequest.findOneAndUpdate(
-      { _id: returnRequest._id, status: originalStatus },
-      {
-        $set: {
-          status,
-          ...(adminNote !== undefined ? { adminNote } : {}),
-          ...(status === "Refunded" && originalStatus !== "Refunded" ? { refundedAt: new Date() } : {}),
+    const claimStatus = (session) =>
+      ReturnRequest.findOneAndUpdate(
+        { _id: returnRequest._id, status: originalStatus },
+        {
+          $set: {
+            status,
+            ...(adminNote !== undefined ? { adminNote } : {}),
+            ...(status === "Refunded" && originalStatus !== "Refunded" ? { refundedAt: new Date() } : {}),
+          },
         },
-      },
-      { new: true },
-    ).populate("user", "name email");
-
-    if (!claimedStatus) {
-      return res.status(409).json({
-        success: false,
-        message: "This return's status was just changed elsewhere — refresh and try again.",
-      });
-    }
-
-    returnRequest = claimedStatus;
+        { new: true, session },
+      ).populate("user", "name email");
 
     // Stock comes back the moment the item is physically back in hand —
     // "Picked Up" normally, but also covers an admin jumping straight to
@@ -393,65 +392,117 @@ export const updateReturnStatus = async (req, res) => {
     // disabled-while-saving guard, or two admin tabs) could otherwise
     // both read the flag as false before either write lands, and both
     // restore stock / claw back points for one physical return.
-    if (["Picked Up", "Refunded"].includes(status)) {
+    //
+    // The status claim, the stock and the points all commit in one
+    // transaction, opened by a conditional write on the order: an admin
+    // Cancel writes the same order in its own transaction, so whichever
+    // of the two comes second hits a write conflict and is retried on
+    // fresh data — the cancellation then leaves out a return already
+    // restocked, or this finds the order Cancelled and changes nothing.
+    // Without it a cancellation landing between the check above and the
+    // restock (or holding the product while this one restocked it) put the
+    // same piece back twice (deep bug sweep R2, 2026-11-03).
+    let restocked = [];
+
+    const moveStock = async (session) => {
+      restocked = [];
+
+      if (mustFindOrderOpen) {
+        const open = await Order.updateOne(
+          { _id: returnRequest.order, orderStatus: { $ne: "Cancelled" } },
+          { $set: { updatedAt: new Date() } },
+          { session },
+        );
+
+        if (open.matchedCount === 0 && (await Order.exists({ _id: returnRequest.order }).session(session))) {
+          return { orderCancelled: true };
+        }
+      }
+
+      const claimed = await claimStatus(session);
+      if (!claimed) return { claimLost: true };
+
       const claimedStock = await ReturnRequest.findOneAndUpdate(
-        { _id: returnRequest._id, stockRestored: false },
+        { _id: claimed._id, stockRestored: false },
         { $set: { stockRestored: true, stockRestoredAt: new Date() } },
+        { session },
       );
 
       if (claimedStock) {
-        await restoreStock([
-          {
-            product: returnRequest.product,
-            quantity: returnRequest.quantity,
-            size: returnRequest.size,
-          },
-        ]);
-        returnRequest.stockRestored = true;
+        restocked = await restoreStock(
+          [{ product: claimed.product, quantity: claimed.quantity, size: claimed.size }],
+          { session },
+        );
+        claimed.stockRestored = true;
       }
-    }
 
-    // Takes back the returned item's share of the order's loyalty earn —
-    // from the pending amount if the order's points haven't been credited
-    // yet, otherwise from the balance (see clawBackForReturn). The flag
-    // claim, refundedAmount and the points change commit together, so a
-    // crash can't record the refund without the clawback or the other way
-    // round, and a retry can't take the points twice.
-    if (status === "Refunded") {
-      const claimedPoints = await withOptionalTransaction(async (session) => {
+      // Takes back the returned item's share of the order's loyalty earn —
+      // from the pending amount if the order's points haven't been credited
+      // yet, otherwise from the balance (see clawBackForReturn). The flag
+      // claim, refundedAmount and the points change commit together, so a
+      // crash can't record the refund without the clawback or the other way
+      // round, and a retry can't take the points twice.
+      if (status === "Refunded") {
         const claim = await ReturnRequest.findOneAndUpdate(
-          { _id: returnRequest._id, pointsClawedBack: false },
+          { _id: claimed._id, pointsClawedBack: false },
           { $set: { pointsClawedBack: true } },
           { session },
         );
 
-        if (!claim) return false;
-
-        const order = await Order.findById(returnRequest.order).session(session);
-        const orderItem = order?.orderItems.find(
-          (item) => item.product.toString() === returnRequest.product.toString(),
-        );
-
-        if (order && orderItem) {
-          // Same prorated-discount figure the books post -- see utils/returnValue.js.
-          const returnedValue = returnedValueFor(order, orderItem, returnRequest.quantity);
-
-          // Revenue tracking — independent of whether this order ever
-          // earned loyalty points. See Order.js's refundedAmount comment.
-          const updatedOrder = await Order.findByIdAndUpdate(
-            order._id,
-            { $inc: { refundedAmount: returnedValue } },
-            { new: true, session },
+        if (claim) {
+          const order = await Order.findById(claimed.order).session(session);
+          const orderItem = order?.orderItems.find(
+            (item) => item.product.toString() === claimed.product.toString(),
           );
 
-          await clawBackForReturn({ order: updatedOrder, returnRequest, session });
+          if (order && orderItem) {
+            // Same prorated-discount figure the books post -- see utils/returnValue.js.
+            const returnedValue = returnedValueFor(order, orderItem, claimed.quantity);
+
+            // Revenue tracking — independent of whether this order ever
+            // earned loyalty points. See Order.js's refundedAmount comment.
+            const updatedOrder = await Order.findByIdAndUpdate(
+              order._id,
+              { $inc: { refundedAmount: returnedValue } },
+              { new: true, session },
+            );
+
+            await clawBackForReturn({ order: updatedOrder, returnRequest: claimed, session });
+          }
+
+          claimed.pointsClawedBack = true;
         }
+      }
 
-        return true;
+      return { claimed };
+    };
+
+    let outcome;
+
+    try {
+      outcome = movesStock
+        ? await withOptionalTransaction(moveStock)
+        : { claimed: await claimStatus(null) };
+    } catch (error) {
+      if (!(error instanceof TransactionsUnavailableError)) throw error;
+
+      return res.status(503).json({
+        success: false,
+        message: "Updating returns is temporarily unavailable — nothing was changed, please try again shortly.",
       });
-
-      if (claimedPoints) returnRequest.pointsClawedBack = true;
     }
+
+    if (outcome.orderCancelled) return sendOrderCancelled(res);
+
+    if (!outcome.claimed) {
+      return res.status(409).json({
+        success: false,
+        message: "This return's status was just changed elsewhere — refresh and try again.",
+      });
+    }
+
+    returnRequest = outcome.claimed;
+    notifyRestocked(restocked);
 
     // status/adminNote are already persisted via the atomic claim above;
     // stockRestored/pointsClawedBack (if touched) are each already

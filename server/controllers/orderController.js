@@ -419,7 +419,7 @@ const restockOne = (item, session) =>
 const cameBackInStock = (product, item) =>
   product && product.stock - item.quantity <= 0 && product.stock > 0;
 
-const notifyRestocked = (products) => {
+export const notifyRestocked = (products) => {
   products.forEach((product) =>
     notifyStockAlertSubscribers(product).catch((error) =>
       console.error("Notify Stock Alert Subscribers Error:", error),
