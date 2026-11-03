@@ -2312,6 +2312,7 @@ const buildMeta = async (path, query = {}) => {
     /^\/forgot-password$/,
     /^\/reset-password\/.*$/,
     /^\/newsletter\/unsubscribe$/,
+    /^\/reminders\/unsubscribe$/,
     /^\/change-password$/,
     /^\/loyalty-history$/,
     /^\/edit-profile$/,
