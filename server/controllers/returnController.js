@@ -333,6 +333,26 @@ export const updateReturnStatus = async (req, res) => {
       });
     }
 
+    // Cancelling the whole order already put back every piece not yet
+    // restocked by a return, and reversed its points — so a return still
+    // open at that point must not restock or refund it all over again
+    // (Picked Up / Refunded did, double-counting stock). It can still be
+    // closed as Rejected. A return whose stock was already back before the
+    // cancellation (stockRestored) was left out of it, and can still go on
+    // to Refunded: nothing is restocked twice and the points clawback finds
+    // the order's earn already reversed (deep bug sweep, 2026-10-29).
+    if (["Picked Up", "Refunded"].includes(status) && !returnRequest.stockRestored) {
+      const order = await Order.findById(returnRequest.order).select("orderStatus").lean();
+
+      if (order?.orderStatus === "Cancelled") {
+        return res.status(409).json({
+          success: false,
+          message:
+            "This order was cancelled, so its stock and points were already reversed — this return can't be picked up or refunded. Mark it Rejected and handle any refund manually.",
+        });
+      }
+    }
+
     // Claims the transition atomically (scoped to the status AT READ
     // TIME), same pattern as orderController.js's updateOrderStatus —
     // two concurrent requests for the same return (a double-click on
