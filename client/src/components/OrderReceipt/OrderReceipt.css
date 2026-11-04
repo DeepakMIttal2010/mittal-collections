@@ -1,0 +1,15 @@
+/* While a receipt page is open (OrderReceipt adds the body class), printing
+   shows only the receipt: everything that is neither the receipt, inside
+   it, nor one of its ancestors is removed (display: none, so the hidden
+   site header/footer/floating buttons don't leave blank printed pages). */
+@media print {
+  body.receipt-print-mode *:not(:has(.order-receipt)):not(.order-receipt):not(.order-receipt *) {
+    display: none !important;
+  }
+
+  body.receipt-print-mode *:has(.order-receipt) {
+    margin: 0 !important;
+    padding: 0 !important;
+    min-height: 0 !important;
+  }
+}
