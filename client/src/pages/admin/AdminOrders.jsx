@@ -579,6 +579,18 @@ function AdminOrders() {
                     </a>
                   )}
 
+                  {/* Print and put in the parcel; none for a cancelled order. */}
+                  {order.orderStatus !== "Cancelled" && (
+                    <Link
+                      to={`/admin/orders/${order._id}/receipt`}
+                      onClick={(e) => e.stopPropagation()}
+                      title="Open a printable receipt for this order"
+                      className="text-xs font-medium text-blue-600 hover:underline whitespace-nowrap"
+                    >
+                      Receipt
+                    </Link>
+                  )}
+
                   {canModify && order.isActive && (
                     <button
                       type="button"

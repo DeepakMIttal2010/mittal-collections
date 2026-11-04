@@ -338,6 +338,16 @@ function OrderDetails() {
               <p>{t("Payment: ", "भुगतान: ")}{order.paymentMethod}</p>
               <p>{order.isPaid ? t("Paid", "भुगतान हो गया") : t("Not yet paid", "अभी भुगतान नहीं हुआ")}</p>
 
+              {/* No receipt for a cancelled order (see utils/orderReceipt.js). */}
+              {order.orderStatus !== "Cancelled" && (
+                <Link
+                  to={`/my-orders/${order._id}/receipt`}
+                  className="inline-block mt-2 text-sm font-medium text-blue-700 hover:underline"
+                >
+                  {t("View / Print receipt", "रसीद देखें / प्रिंट करें")}
+                </Link>
+              )}
+
               {order.paymentMethod === "Razorpay" &&
                 !order.isPaid &&
                 order.orderStatus === "Pending" && (
