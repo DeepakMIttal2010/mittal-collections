@@ -12,8 +12,9 @@ export const isHindiPath = (pathname = "") => pathname === "/hi" || pathname.sta
 export const langPrefix = (pathname = "") => (isHindiPath(pathname) ? "/hi" : "");
 
 // Pages that exist in both languages (home, categories, products,
-// articles) -- there the URL is the language, full stop.
-const hasHindiVersion = (pathname = "") => /^\/(hi(\/|$)|$|category\/|product\/|articles(\/|$))/.test(pathname);
+// articles, new arrivals) -- there the URL is the language, full stop.
+const hasHindiVersion = (pathname = "") =>
+  /^\/(hi(\/|$)|$|category\/|product\/|articles(\/|$)|new-arrivals\/?$)/.test(pathname);
 
 // Should links on this page go to the Hindi pages? On a bilingual page
 // the URL decides; on a page with no /hi URL (cart, checkout, search,

@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 
 import { getNewArrivalsByCategory } from "../services/productService";
 import ProductGrid from "../components/ProductGrid/ProductGrid";
@@ -9,8 +9,18 @@ import Breadcrumbs from "../components/Breadcrumbs";
 import { buildBreadcrumbJsonLd } from "../utils/breadcrumbJsonLd";
 import { useLanguage } from "../context/LanguageContext";
 import { SITE_URL } from "../utils/siteUrl";
+import { isHindiPath } from "../utils/hindiPath";
 
 const BREADCRUMB_ITEMS = [{ name: "Home", path: "/" }, { name: "New Arrivals" }];
+const BREADCRUMB_ITEMS_HI = [{ name: "होम", path: "/hi" }, { name: "नए प्रोडक्ट्स" }];
+
+// /new-arrivals and /hi/new-arrivals are one page in two languages -- same
+// hreflang pair as /articles (see Articles.jsx and render.js).
+const ALTERNATE_LANGS = [
+  { lang: "en", url: `${SITE_URL}/new-arrivals` },
+  { lang: "hi", url: `${SITE_URL}/hi/new-arrivals` },
+  { lang: "x-default", url: `${SITE_URL}/new-arrivals` },
+];
 
 // Each category's section shows PAGE_SIZE products by default; "Show
 // More" reveals another PAGE_SIZE at a time from what's already been
@@ -25,7 +35,27 @@ function NewArrivalsPage() {
   const [sections, setSections] = useState([]);
   const [visibleCounts, setVisibleCounts] = useState({});
   const [loading, setLoading] = useState(true);
-  const { t } = useLanguage();
+  const { t, language, setLanguage } = useLanguage();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const isHindi = isHindiPath(location.pathname);
+  const prefix = isHindi ? "/hi" : "";
+
+  // The URL decides the language on first load (both directions); after
+  // that the header's language toggle moves to the other URL -- same as
+  // Articles.jsx.
+  const hasSyncedRef = useRef(false);
+  useEffect(() => {
+    if (!hasSyncedRef.current) {
+      hasSyncedRef.current = true;
+      if ((language === "hi") !== isHindi) setLanguage(isHindi ? "hi" : "en");
+      return;
+    }
+
+    const wantHindi = language === "hi";
+    if (wantHindi === isHindi) return;
+    navigate(wantHindi ? "/hi/new-arrivals" : "/new-arrivals", { replace: true });
+  }, [language, isHindi, setLanguage, navigate]);
 
   useEffect(() => {
     getNewArrivalsByCategory(FETCH_LIMIT).then((response) => {
@@ -51,15 +81,21 @@ function NewArrivalsPage() {
   return (
     <div className="max-w-7xl mx-auto px-4 py-12">
       <Seo
-        title="New Arrivals — Home Furnishing"
-        description="The newest home furnishing pieces at Mittal Collections, organised by category - bedsheets, cushion covers, doormats and more."
-        url={`${SITE_URL}/new-arrivals`}
-        jsonLd={buildBreadcrumbJsonLd(BREADCRUMB_ITEMS)}
+        title={isHindi ? "नए प्रोडक्ट्स — होम फर्निशिंग" : "New Arrivals — Home Furnishing"}
+        description={
+          isHindi
+            ? "Mittal Collections के सबसे नए होम फर्निशिंग प्रोडक्ट्स, कैटेगरी के अनुसार - बेडशीट, पर्दे, कम्फर्टर और भी बहुत कुछ।"
+            : "The newest home furnishing pieces at Mittal Collections, organised by category - bedsheets, cushion covers, doormats and more."
+        }
+        url={`${SITE_URL}${prefix}/new-arrivals`}
+        lang={isHindi ? "hi" : "en"}
+        alternateLangs={ALTERNATE_LANGS}
+        jsonLd={buildBreadcrumbJsonLd(isHindi ? BREADCRUMB_ITEMS_HI : BREADCRUMB_ITEMS)}
       />
 
       <Breadcrumbs
         items={[
-          { name: t("Home", "होम"), path: "/" },
+          { name: t("Home", "होम"), path: prefix || "/" },
           { name: t("New Arrivals", "नए प्रोडक्ट्स") },
         ]}
       />
@@ -98,7 +134,7 @@ function NewArrivalsPage() {
                   </h2>
 
                   <Link
-                    to={`/category/${category.slug}`}
+                    to={`${prefix}/category/${category.slug}`}
                     className="shrink-0 text-sm font-semibold text-blue-700 hover:text-blue-800 hover:underline whitespace-nowrap"
                   >
                     {t("View All", "सभी देखें")} →

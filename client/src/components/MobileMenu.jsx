@@ -29,6 +29,8 @@ function MobileMenu({ isOpen, onClose }) {
 
   // Guides has a genuinely separate Hindi URL — see Navbar.jsx's comment.
   const guidesPath = language === "hi" ? "/hi/articles" : "/articles";
+  // Same for New Arrivals (/new-arrivals and /hi/new-arrivals).
+  const newArrivalsPath = language === "hi" ? "/hi/new-arrivals" : "/new-arrivals";
 
   useEffect(() => {
     const loadData = async () => {
@@ -200,7 +202,7 @@ function MobileMenu({ isOpen, onClose }) {
           </NavLink>
 
           <NavLink
-            to="/new-arrivals"
+            to={newArrivalsPath}
             onClick={close}
             className="flex items-center gap-2 px-5 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-amber-600 border-t border-slate-100"
           >

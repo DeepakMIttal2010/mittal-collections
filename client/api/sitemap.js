@@ -22,6 +22,7 @@ const STATIC_ROUTES = [
   "/trending",
   "/clearance-sale",
   "/new-arrivals",
+  "/hi/new-arrivals",
   "/gifting",
   "/rewards",
   "/about",
@@ -140,6 +141,14 @@ const ARTICLES_LISTING_ALTERNATES = [
   { lang: "x-default", href: "/articles" },
 ];
 
+// "/new-arrivals" and "/hi/new-arrivals" — same pairing as the articles
+// listing (NewArrivalsPage.jsx and render.js declare the same hreflang).
+const NEW_ARRIVALS_ALTERNATES = [
+  { lang: "en", href: "/new-arrivals" },
+  { lang: "hi", href: "/hi/new-arrivals" },
+  { lang: "x-default", href: "/new-arrivals" },
+];
+
 // "/" and "/hi" — the homepage pair. Added alongside the "/hi" route/
 // render.js branch fix (2026-10-16); previously "/hi" wasn't even in
 // STATIC_ROUTES, so it had no sitemap entry at all.
@@ -158,6 +167,8 @@ export default async function handler(req, res) {
           ? HOME_ALTERNATES
           : loc === "/articles" || loc === "/hi/articles"
           ? ARTICLES_LISTING_ALTERNATES
+          : loc === "/new-arrivals" || loc === "/hi/new-arrivals"
+          ? NEW_ARRIVALS_ALTERNATES
           : undefined,
       ),
     ),

@@ -20,17 +20,29 @@ import { AuthProvider } from "./context/AuthContext";
 import { LanguageProvider } from "./context/LanguageContext";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import { ProductDetails, CategoryPage } from "./routes/AppRoutes";
+import {
+  ProductDetails,
+  CategoryPage,
+  TrendingPage,
+  ClearanceSalePage,
+  NewArrivalsPage,
+  GiftingPage,
+} from "./routes/AppRoutes";
 
-// First load of a product/category URL: fetch that one route chunk before
-// the first render (see preloadableRoute in AppRoutes.jsx). Capped so a
-// slow or failed chunk never holds the page back for long.
+// First load of a product/category/landing URL: fetch that one route chunk
+// before the first render (see preloadableRoute in AppRoutes.jsx). Capped
+// so a slow or failed chunk never holds the page back for long.
 const ROUTE_PRELOAD_TIMEOUT_MS = 3000;
-const initialRoute = /^\/(hi\/)?product\//.test(window.location.pathname)
-  ? ProductDetails
-  : /^\/(hi\/)?category\//.test(window.location.pathname)
-    ? CategoryPage
-    : null;
+const PRELOAD_ROUTES = [
+  [/^\/(hi\/)?product\//, ProductDetails],
+  [/^\/(hi\/)?category\//, CategoryPage],
+  [/^\/trending\/?$/, TrendingPage],
+  [/^\/clearance-sale\/?$/, ClearanceSalePage],
+  [/^\/(hi\/)?new-arrivals\/?$/, NewArrivalsPage],
+  [/^\/gifting\/?$/, GiftingPage],
+];
+const initialRoute =
+  PRELOAD_ROUTES.find(([pattern]) => pattern.test(window.location.pathname))?.[1] ?? null;
 
 (initialRoute
   ? initialRoute.preload(ROUTE_PRELOAD_TIMEOUT_MS)

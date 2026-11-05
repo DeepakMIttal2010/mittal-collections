@@ -165,6 +165,17 @@
       "destination": "/api/render?path=/new-arrivals"
     },
     {
+      "source": "/hi/new-arrivals",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*([bB]ot|Google|facebookexternalhit|WhatsApp|Pinterest|embedly|Quora Link Preview|Slurp|ia_archiver|Discordbot|TelegramBot|redirectionio|[Cc]hat[Gg][Pp][Tt]-[Uu]ser|[Pp]erplexity-[Uu]ser|[Cc]laude-[Uu]ser|[Mm]eta-[Ee]xternal[Aa]gent|Bytespider|[Aa]nthropic-[Aa][Ii]|[Cc]ohere-[Aa][Ii]|Baiduspider).*"
+        }
+      ],
+      "destination": "/api/render?path=/hi/new-arrivals"
+    },
+    {
       "source": "/gifting",
       "has": [
         {

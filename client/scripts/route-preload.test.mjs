@@ -56,20 +56,60 @@ test("a failed import resolves the preload and keeps the lazy route", async () =
   assert.equal(Route({}).type, LAZY);
 });
 
-test("only ProductDetails and CategoryPage are preloadable; other routes stay lazy", () => {
-  assert.match(routes, /export const ProductDetails = preloadableRoute\(\(\) => import\("\.\.\/pages\/ProductDetails"\)\);/);
-  assert.match(routes, /export const CategoryPage = preloadableRoute\(\(\) => import\("\.\.\/pages\/CategoryPage"\)\);/);
-  assert.equal((routes.match(/= preloadableRoute\(/g) || []).length, 2);
+const PRELOADABLE = ["ProductDetails", "CategoryPage", "TrendingPage", "ClearanceSalePage", "NewArrivalsPage", "GiftingPage"];
+
+test("only product/category and the four landing pages are preloadable; other routes stay lazy", () => {
+  for (const name of PRELOADABLE) {
+    assert.ok(
+      routes.includes(`export const ${name} = preloadableRoute(() => import("../pages/${name}"));`),
+      name,
+    );
+  }
+  assert.equal((routes.match(/= preloadableRoute\(/g) || []).length, PRELOADABLE.length);
   assert.match(routes, /const SearchResults = lazyWithReload\(/);
   assert.match(routes, /const ArticleDetail = lazyWithReload\(/);
+  assert.match(routes, /const PriceRangePage = lazyWithReload\(/);
 });
 
-test("main.jsx preloads only product/category URLs (EN+HI), capped at 3 s, before the first render", () => {
+// The PRELOAD_ROUTES table from main.jsx, evaluated as written.
+const table = main.match(/const PRELOAD_ROUTES = (\[[\s\S]*?\n\]);/)[1];
+const routeFor = (pathname) => {
+  const rows = new Function(...PRELOADABLE, `return ${table};`)(...PRELOADABLE);
+  return rows.find(([pattern]) => pattern.test(pathname))?.[1] ?? null;
+};
+
+test("main.jsx picks the right route chunk for each first-load URL", () => {
+  const cases = {
+    "/product/abc/slug": "ProductDetails",
+    "/hi/product/abc": "ProductDetails",
+    "/category/bedsheets": "CategoryPage",
+    "/hi/category/bedsheets/double": "CategoryPage",
+    "/trending": "TrendingPage",
+    "/clearance-sale": "ClearanceSalePage",
+    "/new-arrivals": "NewArrivalsPage",
+    "/new-arrivals/": "NewArrivalsPage",
+    "/hi/new-arrivals": "NewArrivalsPage",
+    "/gifting": "GiftingPage",
+    "/": null,
+    "/hi": null,
+    "/trending-now": null,
+    "/hi/trending": null,
+    "/search": null,
+    "/articles": null,
+  };
+  for (const [pathname, expected] of Object.entries(cases)) {
+    assert.equal(routeFor(pathname), expected, pathname);
+  }
+});
+
+test("main.jsx preloads that one chunk, capped at 3 s, before the first render", () => {
   assert.match(main, /const ROUTE_PRELOAD_TIMEOUT_MS = 3000;/);
-  assert.ok(main.includes("/^\\/(hi\\/)?product\\//.test(window.location.pathname)"));
-  assert.ok(main.includes("/^\\/(hi\\/)?category\\//.test(window.location.pathname)"));
   assert.match(main, /initialRoute\.preload\(ROUTE_PRELOAD_TIMEOUT_MS\)\s*: Promise\.resolve\(\)\s*\)\.then\(renderApp\);/);
   // The only createRoot call is inside renderApp.
   assert.equal((main.match(/createRoot\(/g) || []).length, 1);
   assert.match(main, /function renderApp\(\) \{\s*ReactDOM\.createRoot\(/);
+});
+
+test("the Hindi New Arrivals URL has its own route", () => {
+  assert.match(routes, /<Route path="\/hi\/new-arrivals" element=\{<NewArrivalsPage \/>\} \/>/);
 });
