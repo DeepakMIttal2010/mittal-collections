@@ -69,6 +69,40 @@ export const addTicketMessage = async (id, message) => {
   }
 };
 
+// Admin panel versions of getTicketById / addTicketMessage. The admin panel
+// keeps its own login (adminToken), separate from the storefront's
+// (token) — sending the storefront token from the admin ticket page meant
+// an admin logged in only to the admin panel got "Ticket not found" and
+// couldn't reply. The server decides "admin" vs "customer" from whose
+// token it receives, so admin replies must carry the admin token.
+export const getTicketByIdAdmin = async (id) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/tickets/${id}`, {
+      headers: adminAuthHeaders(),
+    });
+
+    return await response.json();
+  } catch (error) {
+    console.error("Get Ticket (Admin) Error:", error);
+    return { success: false };
+  }
+};
+
+export const addTicketMessageAdmin = async (id, message) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/tickets/${id}/messages`, {
+      method: "POST",
+      headers: adminAuthHeaders(),
+      body: JSON.stringify({ message }),
+    });
+
+    return await response.json();
+  } catch (error) {
+    console.error("Add Ticket Message (Admin) Error:", error);
+    return { success: false, message: "Unable to send message" };
+  }
+};
+
 export const getAllTicketsAdmin = async (status) => {
   try {
     const query = status ? `?status=${encodeURIComponent(status)}` : "";

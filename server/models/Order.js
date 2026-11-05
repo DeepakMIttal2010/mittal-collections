@@ -400,6 +400,36 @@ const orderSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+
+    // The customer's private answer to "Did you receive your product
+    // safely?" (see deliveryFeedbackController.js). Absent until they
+    // answer. response is the current answer; a "yes" may be changed to
+    // "no" once (correctedAt), never the other way. history keeps every
+    // answer in order, so the original survives a correction. A "no"
+    // opens exactly one support ticket.
+    deliveryFeedback: {
+      type: new mongoose.Schema(
+        {
+          response: { type: String, enum: ["yes", "no"], required: true },
+          message: { type: String, default: "" },
+          submittedAt: { type: Date, required: true },
+          correctedAt: Date,
+          ticket: { type: mongoose.Schema.Types.ObjectId, ref: "Ticket", default: null },
+          history: [
+            new mongoose.Schema(
+              {
+                response: { type: String, enum: ["yes", "no"], required: true },
+                message: { type: String, default: "" },
+                submittedAt: { type: Date, required: true },
+              },
+              { _id: false },
+            ),
+          ],
+        },
+        { _id: false },
+      ),
+      default: undefined,
+    },
   },
   {
     timestamps: true,

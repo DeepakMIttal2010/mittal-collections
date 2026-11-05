@@ -9,6 +9,7 @@ import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
 import { localizeSize } from "../utils/localizeSize";
 import OrderStatusTimeline from "../components/OrderStatusTimeline";
+import DeliveryFeedbackCard from "../components/DeliveryFeedbackCard";
 import { handleImageError } from "../utils/imageFallback";
 import { dateLocale } from "../utils/dateLocale";
 import { getSiteSettings } from "../services/settingsService";
@@ -39,6 +40,7 @@ function OrderDetails() {
   const { t, language } = useLanguage();
 
   const [order, setOrder] = useState(null);
+  const [feedbackInfo, setFeedbackInfo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [paying, setPaying] = useState(false);
   const [supportPhone, setSupportPhone] = useState("");
@@ -56,9 +58,23 @@ function OrderDetails() {
 
     const response = await getOrderById(id);
 
-    if (response?.success) setOrder(response.order);
+    if (response?.success) {
+      setOrder(response.order);
+      setFeedbackInfo(response.deliveryFeedbackInfo || null);
+    }
 
     setLoading(false);
+  };
+
+  // A successful answer comes back with the saved feedback; anything else
+  // (already answered elsewhere, window closed) reloads the order instead.
+  const handleFeedbackSaved = (deliveryFeedback, info) => {
+    if (deliveryFeedback && info) {
+      setOrder((current) => ({ ...current, deliveryFeedback }));
+      setFeedbackInfo(info);
+    } else {
+      load();
+    }
   };
 
   useEffect(() => {
@@ -167,6 +183,13 @@ function OrderDetails() {
         <h2 className="font-semibold text-slate-800 mb-4">{t("Order Status", "ऑर्डर स्टेटस")}</h2>
         <OrderStatusTimeline order={order} />
       </div>
+
+      <DeliveryFeedbackCard
+        orderId={order._id}
+        feedback={order.deliveryFeedback}
+        info={feedbackInfo}
+        onSaved={handleFeedbackSaved}
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left: items + address */}
