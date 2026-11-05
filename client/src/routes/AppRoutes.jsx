@@ -102,6 +102,7 @@ export const CategoryPage = preloadableRoute(() => import("../pages/CategoryPage
 const Checkout = lazyWithReload(() => import("../pages/Checkout"));
 const MyOrders = lazyWithReload(() => import("../pages/MyOrders"));
 const OrderDetails = lazyWithReload(() => import("../pages/OrderDetails"));
+const OrderReceiptPage = lazyWithReload(() => import("../pages/OrderReceiptPage"));
 const PolicyPage = lazyWithReload(() => import("../pages/PolicyPage"));
 const Articles = lazyWithReload(() => import("../pages/Articles"));
 const ArticleDetail = lazyWithReload(() => import("../pages/ArticleDetail"));
@@ -167,6 +168,7 @@ const AdminPriceRanges = lazyWithReload(
 const AdminCoupons = lazyWithReload(() => import("../pages/admin/AdminCoupons"));
 
 const AdminOrders = lazyWithReload(() => import("../pages/admin/AdminOrders"));
+const AdminOrderReceipt = lazyWithReload(() => import("../pages/admin/AdminOrderReceipt"));
 
 const AdminProfile = lazyWithReload(() => import("../pages/admin/AdminProfile"));
 const AdminChangePassword = lazyWithReload(
@@ -268,6 +270,7 @@ function AppRoutes() {
             <Route path="/addresses/edit/:id" element={<AddressForm />} />
             <Route path="/my-orders" element={<MyOrders />} />
             <Route path="/my-orders/:id" element={<OrderDetails />} />
+            <Route path="/my-orders/:id/receipt" element={<OrderReceiptPage />} />
             <Route path="/tickets" element={<Tickets />} />
             <Route path="/tickets/:id" element={<TicketDetail />} />
             <Route path="/returns" element={<Returns />} />
@@ -359,6 +362,7 @@ function AppRoutes() {
           <Route path="categories/add" element={<AddCategory />} />
           <Route path="categories/edit/:id" element={<EditCategory />} />
           <Route path="orders" element={<AdminOrders />} />
+          <Route path="orders/:id/receipt" element={<AdminOrderReceipt />} />
           <Route path="profile" element={<AdminProfile />} />
           <Route path="change-password" element={<AdminChangePassword />} />
           <Route path="customers" element={<AdminCustomers />} />
