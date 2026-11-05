@@ -3,8 +3,8 @@ import { Link, useParams } from "react-router-dom";
 import { FaPaperPlane } from "react-icons/fa";
 
 import {
-  getTicketById,
-  addTicketMessage,
+  getTicketByIdAdmin,
+  addTicketMessageAdmin,
   updateTicketStatus,
   markTicketSeen,
 } from "../../services/ticketService";
@@ -28,7 +28,7 @@ function AdminTicketDetail() {
   const [updatingStatus, setUpdatingStatus] = useState(false);
 
   const loadTicket = async () => {
-    const response = await getTicketById(id);
+    const response = await getTicketByIdAdmin(id);
 
     if (response.success) {
       setTicket(response.ticket);
@@ -50,7 +50,7 @@ function AdminTicketDetail() {
 
     setSending(true);
 
-    const response = await addTicketMessage(id, reply);
+    const response = await addTicketMessageAdmin(id, reply);
 
     setSending(false);
 
