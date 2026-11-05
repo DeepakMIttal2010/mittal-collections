@@ -804,6 +804,25 @@ export const decodeProductNumberController = async (req, res) => {
   }
 };
 
+// Trending order: products an admin gave an explicit trendingRank (> 0)
+// come first, 1 -> n; everything else (rank 0, the form's default) follows
+// in the same order as before. A single sort on trendingRank put every
+// unranked 0 ahead of rank 1, so a ranked pick could never reach the front.
+const findTrendingProducts = async (filter, limit) => {
+  const find = (rankFilter, count) =>
+    Product.find({ ...filter, trendingRank: rankFilter })
+      .select(COST_FIELDS)
+      .populate("category", "name nameHi slug image")
+      .populate("subcategories", "name nameHi slug")
+      .sort({ trendingRank: 1, updatedAt: -1 })
+      .limit(count);
+
+  const ranked = await find({ $gt: 0 }, limit);
+  if (ranked.length >= limit) return ranked;
+  const unranked = await find({ $not: { $gt: 0 } }, limit - ranked.length);
+  return [...ranked, ...unranked];
+};
+
 // ============================
 // GET TRENDING PRODUCTS (Public)
 // ============================
@@ -811,17 +830,15 @@ export const getTrendingProducts = async (req, res) => {
   try {
     const limit = Math.max(parseInt(req.query.limit, 10) || 10, 1);
 
-    const products = await Product.find({
-      isActive: true,
-      isTrending: true,
-      visibility: { $ne: "offline" },
-      $or: [{ stock: { $gt: 0 } }, { willRestock: { $ne: false } }],
-    })
-      .select(COST_FIELDS)
-      .populate("category", "name nameHi slug image")
-      .populate("subcategories", "name nameHi slug")
-      .sort({ trendingRank: 1, updatedAt: -1 })
-      .limit(limit);
+    const products = await findTrendingProducts(
+      {
+        isActive: true,
+        isTrending: true,
+        visibility: { $ne: "offline" },
+        $or: [{ stock: { $gt: 0 } }, { willRestock: { $ne: false } }],
+      },
+      limit,
+    );
 
     const lastUpdated = products.length
       ? products.reduce(
@@ -865,25 +882,23 @@ export const getTrendingProductsByCategory = async (req, res) => {
       configuredSections
         .filter((section) => section.category?.isActive)
         .map(async (section) => {
-          const products = await Product.find({
-            isActive: true,
-            $and: [
-              {
-                $or: [
-                  { category: section.category._id },
-                  { additionalCategories: section.category._id },
-                ],
-              },
-            ],
-            isTrending: true,
-            visibility: { $ne: "offline" },
-            $or: [{ stock: { $gt: 0 } }, { willRestock: { $ne: false } }],
-          })
-            .select(COST_FIELDS)
-            .populate("category", "name nameHi slug image")
-            .populate("subcategories", "name nameHi slug")
-            .sort({ trendingRank: 1, updatedAt: -1 })
-            .limit(perCategoryLimit);
+          const products = await findTrendingProducts(
+            {
+              isActive: true,
+              $and: [
+                {
+                  $or: [
+                    { category: section.category._id },
+                    { additionalCategories: section.category._id },
+                  ],
+                },
+              ],
+              isTrending: true,
+              visibility: { $ne: "offline" },
+              $or: [{ stock: { $gt: 0 } }, { willRestock: { $ne: false } }],
+            },
+            perCategoryLimit,
+          );
 
           return {
             category: {
@@ -1841,6 +1856,49 @@ export const restoreProduct = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Unable to restore product",
+    });
+  }
+};
+
+// ============================
+// UPDATE TRENDING FLAGS ONLY (Admin) — sets isTrending/trendingRank with a
+// single $set and touches nothing else. updateProduct is a full-form
+// replace that rebuilds variants (new size-row _ids on every save) and
+// re-derives price/stock/images from the request; this needs none of that.
+// updatedAt still moves (schema timestamps), like any other admin edit.
+// ============================
+export const updateProductTrending = async (req, res) => {
+  try {
+    const { isTrending, trendingRank } = req.body || {};
+    const rank = Number(trendingRank);
+
+    if (typeof isTrending !== "boolean" || !Number.isInteger(rank) || rank < 0) {
+      return res.status(400).json({
+        success: false,
+        message: "isTrending must be true/false and trendingRank a whole number of 0 or more",
+      });
+    }
+
+    const product = await Product.findByIdAndUpdate(
+      req.params.id,
+      { $set: { isTrending, trendingRank: rank } },
+      { returnDocument: "after", runValidators: true },
+    ).select("name isTrending trendingRank updatedAt");
+
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: "Product not found",
+      });
+    }
+
+    res.json({ success: true, product });
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      success: false,
+      message: "Unable to update trending",
     });
   }
 };

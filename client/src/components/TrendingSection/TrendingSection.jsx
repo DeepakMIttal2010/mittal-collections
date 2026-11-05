@@ -10,31 +10,35 @@ import { useLanguage } from "../../context/LanguageContext";
 import { handleImageError } from "../../utils/imageFallback";
 import { useLocation } from "react-router-dom";
 import { isHindiPath } from "../../utils/hindiPath";
+import { verifiedMrp } from "../../utils/verifiedMrp";
+import { splitVariantName } from "../../utils/trendingCard";
 
-const timeAgo = (dateString, t) => {
-  const seconds = Math.floor((Date.now() - new Date(dateString)) / 1000);
+// Cards per category row on the homepage; /trending shows the rest.
+const HOMEPAGE_LIMIT = 8;
 
-  if (seconds < 60) return t("just now", "अभी अभी");
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return t(`${minutes}m ago`, `${minutes} मिनट पहले`);
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return t(`${hours}h ago`, `${hours} घंटे पहले`);
-  const days = Math.floor(hours / 24);
-  if (days === 1) return t("today", "आज");
-  if (days < 7) return t(`${days}d ago`, `${days} दिन पहले`);
-  return new Date(dateString).toLocaleDateString();
-};
+// The rows still scroll (arrows, swipe, trackpad, keyboard focus); only the
+// bar is hidden -- Windows Chrome drew a grey one under every row.
+// scrollbar-width covers Firefox and current Chrome/Edge, the
+// ::-webkit-scrollbar rule older Chrome and Safari.
+const HIDDEN_SCROLLBAR = "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
 
 function TrendingCategoryRow({ category, products, t, isFirst }) {
   // A Hindi product page exists only once the product has a Hindi name.
   const isHindi = isHindiPath(useLocation().pathname);
   const scrollRef = useRef(null);
 
+  // One card plus the gap per click (a fixed 300px left cards half
+  // visible); the row snaps to card edges from sm up, where the arrows are.
   const scroll = (direction) => {
-    if (!scrollRef.current) return;
+    const row = scrollRef.current;
+    if (!row) return;
 
-    scrollRef.current.scrollBy({
-      left: direction === "next" ? 300 : -300,
+    const card = row.firstElementChild;
+    const gap = parseFloat(getComputedStyle(row).columnGap) || 0;
+    const step = card ? card.offsetWidth + gap : 300;
+
+    row.scrollBy({
+      left: direction === "next" ? step : -step,
       behavior: "smooth",
     });
   };
@@ -68,13 +72,17 @@ function TrendingCategoryRow({ category, products, t, isFirst }) {
 
       <div
         ref={scrollRef}
-        className="flex gap-6 overflow-x-auto scroll-smooth pt-5 pb-4 pl-3"
+        className={`${HIDDEN_SCROLLBAR} flex gap-6 overflow-x-auto scroll-smooth pt-5 pb-4 pl-3 sm:snap-x sm:snap-mandatory sm:scroll-pl-3`}
       >
-        {products.map((product, index) => (
+        {products.map((product) => {
+          const { base, variant } = splitVariantName(t(product.name, product.nameHi));
+          const mrp = verifiedMrp(product);
+
+          return (
           <Link
             key={product._id}
             to={productUrl(product, isHindi && !!product.nameHi)}
-            className="relative shrink-0 w-48 sm:w-60"
+            className="relative shrink-0 w-48 sm:w-60 sm:snap-start"
           >
             <div className="relative rounded-xl overflow-hidden shadow-md aspect-[4/5] bg-slate-100">
               <img
@@ -87,25 +95,48 @@ function TrendingCategoryRow({ category, products, t, isFirst }) {
                 className="w-full h-full object-cover"
               />
 
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/0 to-transparent" />
-
               <span className="absolute top-3 right-3 bg-red-600 text-white text-[11px] font-bold px-2.5 py-1 rounded">
                 {t("TRENDING", "ट्रेंडिंग")}
               </span>
+            </div>
 
-              <p className="absolute bottom-3 left-3 right-3 text-white text-sm font-semibold leading-snug line-clamp-2">
-                {t(product.name, product.nameHi)}
+            {/* Name below the photo with the colour/design part on its own
+                line, so it is never the bit the clamp cuts off. */}
+            <div className="mt-3 px-1">
+              <p className="text-sm font-semibold text-slate-900 leading-snug line-clamp-2">
+                {base}
+              </p>
+              {variant && (
+                <p className="text-xs text-slate-600 mt-0.5 truncate" title={variant}>
+                  {variant}
+                </p>
+              )}
+              {/* Selling price; strike-through MRP only when verified
+                  (utils/verifiedMrp.js), same rule as ProductCard. */}
+              <p className="mt-1 text-sm">
+                <span className="font-bold text-slate-900">₹{product.price}</span>
+                {mrp > 0 && (
+                  <span className="ml-2 text-xs text-slate-500">
+                    MRP <span className="line-through">₹{mrp}</span>{" "}
+                    {t("(incl. of all taxes)", "(सभी करों सहित)")}
+                  </span>
+                )}
               </p>
             </div>
 
-            <span
-              aria-hidden="true"
-              className="absolute -top-3 -left-3 z-10 w-11 h-11 rounded-full bg-gradient-to-br from-amber-500 to-red-600 text-white font-extrabold text-base flex items-center justify-center shadow-lg border-2 border-white select-none"
-            >
-              {index + 1}
-            </span>
+            {/* Only a real admin-set rank gets a number; rank 0 is the
+                form's default, not a position. */}
+            {product.trendingRank > 0 && (
+              <span
+                aria-hidden="true"
+                className="absolute -top-3 -left-3 z-10 w-11 h-11 rounded-full bg-gradient-to-br from-amber-500 to-red-600 text-white font-extrabold text-base flex items-center justify-center shadow-lg border-2 border-white select-none"
+              >
+                {product.trendingRank}
+              </span>
+            )}
           </Link>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -113,17 +144,15 @@ function TrendingCategoryRow({ category, products, t, isFirst }) {
 
 function TrendingSection() {
   const [sections, setSections] = useState([]);
-  const [lastUpdated, setLastUpdated] = useState(null);
   const [loading, setLoading] = useState(true);
   const { t } = useLanguage();
 
   useEffect(() => {
     const loadTrending = async () => {
-      const response = await getTrendingProductsByCategory(10);
+      const response = await getTrendingProductsByCategory(HOMEPAGE_LIMIT);
 
       if (response.success) {
         setSections(response.sections);
-        setLastUpdated(response.lastUpdated);
       }
 
       setLoading(false);
@@ -142,14 +171,11 @@ function TrendingSection() {
             <h2 className="text-4xl md:text-5xl font-black text-slate-900">
               {t("Top Trending", "सबसे ज़्यादा ट्रेंडिंग")}
             </h2>
-            <p className="text-sm text-slate-600 mt-2 flex items-center gap-2">
+            {/* No "Updated ..." time: it came from the newest updatedAt of
+                any product shown, so a stock or price edit read as the
+                selection being refreshed. */}
+            <p className="text-sm text-slate-600 mt-2">
               {t("on Mittal Collections", "मित्तल कलेक्शंस पर")}
-              {lastUpdated && (
-                <>
-                  <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                  {t("Updated", "अपडेट किया गया")} {timeAgo(lastUpdated, t)}
-                </>
-              )}
             </p>
           </div>
 
@@ -162,12 +188,14 @@ function TrendingSection() {
         </div>
 
         {loading ? (
-          <div className="flex gap-6 overflow-x-auto pt-5 pb-4 pl-3">
+          <div className={`${HIDDEN_SCROLLBAR} flex gap-6 overflow-x-auto pt-5 pb-4 pl-3`}>
             {Array.from({ length: 5 }).map((_, index) => (
-              <Skeleton
-                key={index}
-                className="shrink-0 w-48 sm:w-60 aspect-[4/5] rounded-xl"
-              />
+              <div key={index} className="shrink-0 w-48 sm:w-60">
+                <Skeleton className="aspect-[4/5] rounded-xl" />
+                <Skeleton className="mt-3 h-4 w-11/12" />
+                <Skeleton className="mt-1.5 h-3 w-2/3" />
+                <Skeleton className="mt-1.5 h-4 w-1/3" />
+              </div>
             ))}
           </div>
         ) : (

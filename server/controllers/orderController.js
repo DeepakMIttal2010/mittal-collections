@@ -38,6 +38,7 @@ import { notifyUser } from "../utils/notify.js";
 import { hasAdminPermission } from "../utils/adminAccess.js";
 import { REVIEW_BONUS_POINTS } from "./reviewController.js";
 import { loadReturnedQuantities, getSolicitableItems } from "../utils/reviewEligibility.js";
+import { getDeliveryFeedbackInfo } from "../utils/deliveryFeedback.js";
 import { escapeHtml } from "../utils/escapeHtml.js";
 import { loadSellerEmailBlock } from "../utils/sellerEmailBlock.js";
 import OrderCost from "../models/OrderCost.js";
@@ -1442,6 +1443,9 @@ export const getOrderById = async (req, res) => {
     res.status(200).json({
       success: true,
       order: await attachReturnEligibility(order),
+      // What the customer can still do with "Did you receive it safely?"
+      // — worked out here so the page never repeats the 30-day date math.
+      deliveryFeedbackInfo: getDeliveryFeedbackInfo(order),
     });
   } catch (error) {
     console.error("Get Order Error:", error);

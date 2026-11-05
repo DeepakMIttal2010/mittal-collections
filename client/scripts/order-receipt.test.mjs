@@ -94,6 +94,14 @@ test("the receipt shows the saved total, no GST or tax-invoice wording", () => {
   assert.match(src, /onClick=\{\(\) => window\.print\(\)\}/);
 });
 
+test("the receipt shows the site's own logo (local asset, printable <img>)", () => {
+  const src = read("components/OrderReceipt/OrderReceipt.jsx");
+  assert.match(src, /<img\s+src="\/favicon\.svg"\s+alt="Mittal Collections logo"\s+width="48"\s+height="48"/);
+  assert.doesNotMatch(src, /https?:\/\/[^"]*\.(svg|png|jpe?g|webp)/);
+  assert.ok(fs.existsSync(new URL("../public/favicon.svg", import.meta.url)), "logo asset exists");
+  assert.match(src, /MITTAL <span className="text-amber-700">COLLECTIONS<\/span>/);
+});
+
 test("printing hides everything but the receipt (display:none, no blank pages)", () => {
   const css = read("components/OrderReceipt/OrderReceipt.css");
   assert.match(css, /body\.receipt-print-mode \*:not\(:has\(\.order-receipt\)\):not\(\.order-receipt\):not\(\.order-receipt \*\) \{\s*display: none !important;/);
