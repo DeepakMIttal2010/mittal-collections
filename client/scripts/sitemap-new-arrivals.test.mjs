@@ -21,7 +21,13 @@ async function sitemap() {
   return body;
 }
 
-const entry = (xml, loc) => xml.match(new RegExp(`<url><loc>${SITE}${loc}</loc>[\\s\\S]*?</url>`))?.[0];
+// Plain string search, not a RegExp built from the URL (its dots would be
+// wildcards -- CodeQL "incomplete regular expression for hostnames").
+const entry = (xml, loc) => {
+  const start = xml.indexOf(`<url><loc>${SITE}${loc}</loc>`);
+  if (start === -1) return undefined;
+  return xml.slice(start, xml.indexOf("</url>", start) + "</url>".length);
+};
 const alternates = (url) =>
   Object.fromEntries([...url.matchAll(/hreflang="([^"]+)" href="([^"]+)"/g)].map((m) => [m[1], m[2]]));
 
