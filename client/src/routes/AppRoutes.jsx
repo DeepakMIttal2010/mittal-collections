@@ -42,7 +42,10 @@ function lazyWithReload(importer) {
 // render.js puts a prepaint placeholder before #root on product/category
 // pages. If those routes suspend on first load, MainLayout paints below
 // the placeholder and the whole page jumps up when it is removed (CLS
-// ~0.5). main.jsx calls preload() before the first render on those URLs,
+// ~0.5). The trending/new-arrivals/clearance/gifting landing pages had the
+// same suspend: the footer painted in the viewport and was pushed out when
+// the chunk landed (desktop CLS ~0.17). main.jsx calls preload() before
+// the first render on those URLs,
 // so the route renders its real component straight away. A preload that
 // fails or misses the timeout leaves the normal lazy route in place, and
 // a late arrival is ignored so the page never swaps components mid-life.
@@ -92,10 +95,10 @@ const EditProfile = lazyWithReload(() => import("../pages/EditProfile"));
 const Addresses = lazyWithReload(() => import("../pages/Addresses"));
 const AddressForm = lazyWithReload(() => import("../pages/AddressForm"));
 export const ProductDetails = preloadableRoute(() => import("../pages/ProductDetails"));
-const TrendingPage = lazyWithReload(() => import("../pages/TrendingPage"));
-const ClearanceSalePage = lazyWithReload(() => import("../pages/ClearanceSalePage"));
-const NewArrivalsPage = lazyWithReload(() => import("../pages/NewArrivalsPage"));
-const GiftingPage = lazyWithReload(() => import("../pages/GiftingPage"));
+export const TrendingPage = preloadableRoute(() => import("../pages/TrendingPage"));
+export const ClearanceSalePage = preloadableRoute(() => import("../pages/ClearanceSalePage"));
+export const NewArrivalsPage = preloadableRoute(() => import("../pages/NewArrivalsPage"));
+export const GiftingPage = preloadableRoute(() => import("../pages/GiftingPage"));
 const PriceRangePage = lazyWithReload(() => import("../pages/PriceRangePage"));
 const SearchResults = lazyWithReload(() => import("../pages/SearchResults"));
 export const CategoryPage = preloadableRoute(() => import("../pages/CategoryPage"));
@@ -296,6 +299,7 @@ function AppRoutes() {
           <Route path="/trending" element={<TrendingPage />} />
           <Route path="/clearance-sale" element={<ClearanceSalePage />} />
           <Route path="/new-arrivals" element={<NewArrivalsPage />} />
+          <Route path="/hi/new-arrivals" element={<NewArrivalsPage />} />
           <Route path="/gifting" element={<GiftingPage />} />
           <Route path="/price/:maxPrice" element={<PriceRangePage />} />
           <Route path="/search" element={<SearchResults />} />

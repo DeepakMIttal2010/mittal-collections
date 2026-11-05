@@ -34,6 +34,8 @@ function Navbar() {
   // than a same-URL text swap, since Google needs to be able to index
   // each language as its own page — see ArticleDetail.jsx/Articles.jsx.
   const guidesPath = language === "hi" ? "/hi/articles" : "/articles";
+  // Same for New Arrivals (/new-arrivals and /hi/new-arrivals).
+  const newArrivalsPath = language === "hi" ? "/hi/new-arrivals" : "/new-arrivals";
 
   return (
     <>
@@ -69,7 +71,7 @@ function Navbar() {
           </NavLink>
 
           <NavLink
-            to="/new-arrivals"
+            to={newArrivalsPath}
             className={({ isActive }) =>
               `flex items-center gap-1.5 ${linkClass({ isActive })}`
             }

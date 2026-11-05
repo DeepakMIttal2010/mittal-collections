@@ -1289,6 +1289,13 @@ const STATIC_PAGES = {
       "The newest home furnishing pieces at Mittal Collections, organised by category - bedsheets, cushion covers, doormats and more.",
     breadcrumb: "New Arrivals",
   },
+  "/hi/new-arrivals": {
+    title: "नए प्रोडक्ट्स — होम फर्निशिंग",
+    description:
+      "Mittal Collections के सबसे नए होम फर्निशिंग प्रोडक्ट्स, कैटेगरी के अनुसार - बेडशीट, पर्दे, कम्फर्टर और भी बहुत कुछ।",
+    breadcrumb: "नए प्रोडक्ट्स",
+    lang: "hi",
+  },
   "/gifting": {
     title: "Gifting — Home Furnishing Gift Ideas",
     description:
@@ -2136,6 +2143,30 @@ const buildMeta = async (path, query = {}) => {
       alternateLangs: articleListingAlternates,
       jsonLd: buildBreadcrumbJsonLd(staticBreadcrumbItems),
       bodyHtml: buildArticleListBodyHtml(staticBreadcrumbItems, staticPage.title, intro, articles, isHindi),
+    };
+  }
+
+  if (path === "/new-arrivals" || path === "/hi/new-arrivals") {
+    // The generic STATIC_PAGES output below, plus the language pair --
+    // NewArrivalsPage.jsx serves both URLs and declares the same hreflang.
+    const isHindi = path === "/hi/new-arrivals";
+    const staticPage = STATIC_PAGES[path];
+    const staticBreadcrumbItems = [{ name: isHindi ? "होम" : "Home", path: isHindi ? "/hi" : "/" }, { name: staticPage.breadcrumb }];
+
+    return {
+      title: withBrandSuffix(staticPage.title),
+      description: staticPage.description,
+      image: DEFAULT_IMAGE,
+      url: `${SITE_URL}${path}`,
+      ogType: "website",
+      lang: staticPage.lang,
+      alternateLangs: [
+        { lang: "en", url: `${SITE_URL}/new-arrivals` },
+        { lang: "hi", url: `${SITE_URL}/hi/new-arrivals` },
+        { lang: "x-default", url: `${SITE_URL}/new-arrivals` },
+      ],
+      jsonLd: [buildBreadcrumbJsonLd(staticBreadcrumbItems)],
+      bodyHtml: buildSimpleBodyHtml(staticBreadcrumbItems, staticPage.title, staticPage.description),
     };
   }
 
