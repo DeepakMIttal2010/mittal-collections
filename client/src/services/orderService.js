@@ -92,6 +92,27 @@ export const getMyOrders = async () => {
 // Get Single Order
 // =======================
 
+// "Did you receive your product safely?" — body is { response: "yes" } or
+// { response: "no", message }. Returns the server's JSON either way
+// (including its error `code`), so the caller can show the right message.
+export const submitDeliveryFeedback = async (id, body) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/orders/${id}/delivery-feedback`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${getToken()}`,
+      },
+      body: JSON.stringify(body),
+    });
+
+    return await response.json();
+  } catch (error) {
+    console.error(error);
+    return { success: false };
+  }
+};
+
 export const getOrderById = async (id) => {
   try {
     const response = await fetch(`${API_BASE_URL}/orders/${id}`, {

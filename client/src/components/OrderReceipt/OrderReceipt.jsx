@@ -81,11 +81,26 @@ function OrderReceipt({ order, settings, backTo }) {
       </div>
 
       <article className="order-receipt bg-white border border-slate-200 rounded-xl p-5 sm:p-8 text-slate-800 print:border-0 print:p-0">
-        <header className="border-b border-slate-200 pb-4 mb-4">
-          <p className="text-xl font-bold text-slate-900">Mittal Collections</p>
-          {proprietor && <p className="text-sm">{t(`Proprietor: ${proprietor}`, `प्रोपराइटर: ${proprietor}`)}</p>}
-          {s.address && <p className="text-sm whitespace-pre-line">{s.address}</p>}
-          {contact && <p className="text-sm break-words">{contact}</p>}
+        <header className="border-b border-slate-200 pb-4 mb-4 flex items-start gap-3">
+          {/* The site's brand mark (gold "M" monogram, the same mark the
+              Organization JSON-LD uses as its logo). An <img>, not a CSS
+              background, so it prints even with background graphics off. */}
+          <img
+            src="/favicon.svg"
+            alt="Mittal Collections logo"
+            width="48"
+            height="48"
+            className="w-12 h-12 shrink-0"
+          />
+          <div className="min-w-0">
+            {/* Same wordmark as the site header. */}
+            <p className="text-xl font-bold tracking-wide text-slate-900">
+              MITTAL <span className="text-amber-700">COLLECTIONS</span>
+            </p>
+            {proprietor && <p className="text-sm">{t(`Proprietor: ${proprietor}`, `प्रोपराइटर: ${proprietor}`)}</p>}
+            {s.address && <p className="text-sm whitespace-pre-line">{s.address}</p>}
+            {contact && <p className="text-sm break-words">{contact}</p>}
+          </div>
         </header>
 
         <div className="flex flex-wrap justify-between gap-3 mb-4">

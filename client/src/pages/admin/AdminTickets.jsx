@@ -77,6 +77,11 @@ function AdminTickets() {
                 )}
                 <div className="min-w-0">
                   <p className="font-medium text-slate-800 truncate">
+                    {ticket.source === "delivery_feedback" && (
+                      <span className="text-[11px] font-semibold uppercase tracking-wide bg-orange-100 text-orange-700 rounded px-1.5 py-0.5 mr-2 align-middle">
+                        Delivery feedback
+                      </span>
+                    )}
                     {ticket.subject}
                   </p>
                   <p className="text-sm text-slate-500 truncate">
