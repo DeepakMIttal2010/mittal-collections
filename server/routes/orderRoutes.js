@@ -26,6 +26,8 @@ import {
   resolvePaymentReview,
 } from "../controllers/orderController.js";
 import { getOrderCost, setOrderCost } from "../controllers/orderCostController.js";
+import { submitDeliveryFeedback } from "../controllers/deliveryFeedbackController.js";
+import { emailTriggerLimiter } from "../middleware/emailTriggerLimiter.js";
 
 const router = express.Router();
 
@@ -62,6 +64,16 @@ router.get("/process-pending-payments", requireCronSecret, cancelStaleRazorpayOr
 
 // Get Single Order — logged-in user (owner ya admin)
 router.get("/:id", authMiddleware, getOrderById);
+
+// Delivery feedback ("Did you receive it safely?") — sirf order ka owner
+// (checked in the controller). Rate-limited like ticket creation, since a
+// "No" opens a ticket and emails the admin.
+router.post(
+  "/:id/delivery-feedback",
+  authMiddleware,
+  emailTriggerLimiter,
+  submitDeliveryFeedback,
+);
 
 // Resume a stalled/failed Razorpay Payment — koi bhi logged-in user
 // (owner-checked inside the controller), re-opens the same Razorpay

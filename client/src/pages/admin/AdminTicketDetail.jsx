@@ -3,8 +3,8 @@ import { Link, useParams } from "react-router-dom";
 import { FaPaperPlane } from "react-icons/fa";
 
 import {
-  getTicketById,
-  addTicketMessage,
+  getTicketByIdAdmin,
+  addTicketMessageAdmin,
   updateTicketStatus,
   markTicketSeen,
 } from "../../services/ticketService";
@@ -28,7 +28,7 @@ function AdminTicketDetail() {
   const [updatingStatus, setUpdatingStatus] = useState(false);
 
   const loadTicket = async () => {
-    const response = await getTicketById(id);
+    const response = await getTicketByIdAdmin(id);
 
     if (response.success) {
       setTicket(response.ticket);
@@ -50,7 +50,7 @@ function AdminTicketDetail() {
 
     setSending(true);
 
-    const response = await addTicketMessage(id, reply);
+    const response = await addTicketMessageAdmin(id, reply);
 
     setSending(false);
 
@@ -137,6 +137,38 @@ function AdminTicketDetail() {
           </>
         )}
       </p>
+
+      {/* Opened by a "No, I didn't receive it safely" answer — show the
+          customer's original answer and any correction alongside. */}
+      {ticket.source === "delivery_feedback" && (
+        <div className="border border-orange-200 bg-orange-50 rounded-xl p-4 mb-6 text-sm">
+          <p className="font-semibold text-orange-800 mb-2">From delivery feedback</p>
+          {ticket.order?.deliveryFeedback?.history?.length > 0 ? (
+            <ul className="space-y-1 text-slate-700">
+              {ticket.order.deliveryFeedback.history.map((entry, i) => (
+                <li key={i}>
+                  {new Date(entry.submittedAt).toLocaleString("en-IN", {
+                    day: "2-digit",
+                    month: "short",
+                    year: "numeric",
+                    hour: "numeric",
+                    minute: "2-digit",
+                  })}
+                  {" — "}
+                  {entry.response === "yes" ? (
+                    <span>Said it arrived safely</span>
+                  ) : (
+                    <span className="text-red-700">Reported a problem</span>
+                  )}
+                  {i > 0 && <span className="text-slate-500"> (changed answer)</span>}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-slate-600">The customer reported a problem with this delivery.</p>
+          )}
+        </div>
+      )}
 
       <div className="space-y-4 mb-8">
         {ticket.messages.map((msg, i) => (

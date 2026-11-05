@@ -7,7 +7,9 @@ import { notifyUser } from "../utils/notify.js";
 import { hasAdminPermission } from "../utils/adminAccess.js";
 import { escapeHtml } from "../utils/escapeHtml.js";
 
-const notifyAdmin = async (ticket, latestMessage) => {
+// Also used by deliveryFeedbackController.js for the ticket a "No"
+// delivery-feedback answer opens.
+export const notifyAdmin = async (ticket, latestMessage) => {
   try {
     const settings = await SiteSettings.findOne();
 
@@ -177,7 +179,10 @@ export const getTicketById = async (req, res) => {
   try {
     const ticket = await Ticket.findById(req.params.id)
       .populate("user", "name email")
-      .populate("order", "totalPrice orderStatus createdAt");
+      // deliveryFeedback: the original answer and any correction, for a
+      // ticket opened from delivery feedback. Only ever returned to the
+      // ticket's owner (whose order it is) or a "tickets" admin, below.
+      .populate("order", "totalPrice orderStatus createdAt deliveryFeedback");
 
     if (!ticket) {
       return res.status(404).json({
