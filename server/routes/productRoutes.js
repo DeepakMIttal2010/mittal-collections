@@ -27,6 +27,7 @@ import {
   addProduct,
   updateProduct,
   restoreProduct,
+  updateProductTrending,
   deleteProduct,
   permanentlyDeleteProduct,
   subscribeStockAlert,
@@ -113,6 +114,16 @@ router.put(
   perm,
   canModify,
   restoreProduct,
+);
+
+// Trending flags only -- no full-form replace (see updateProductTrending).
+router.patch(
+  "/:id/trending",
+  authMiddleware,
+  adminMiddleware,
+  perm,
+  canModify,
+  updateProductTrending,
 );
 
 router.delete("/:id", authMiddleware, adminMiddleware, perm, canModify, deleteProduct);
