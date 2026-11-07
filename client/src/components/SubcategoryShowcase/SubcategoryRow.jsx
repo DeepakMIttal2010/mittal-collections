@@ -1,25 +1,36 @@
 import { imgUrl, imgSrcSet } from "../../services/api";
 import { useRef } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import { useLanguage } from "../../context/LanguageContext";
 import { handleImageError } from "../../utils/imageFallback";
 import { langPrefix } from "../../utils/hindiPath";
+import { groupLabelHi } from "../../utils/sizeShowcase";
+
+// The row still scrolls (arrows, swipe, trackpad, keyboard focus); only the
+// bar is hidden -- Windows Chrome drew a grey one under the longer rows.
+const HIDDEN_SCROLLBAR = "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
 
 const titleCase = (str) =>
   str.replace(/\w\S*/g, (word) => word[0].toUpperCase() + word.slice(1));
 
 function SubcategoryRow({ category, groupLabel, items, activeSubcategory }) {
   const scrollRef = useRef(null);
-  const navigate = useNavigate();
   const { t } = useLanguage();
   const prefix = langPrefix(useLocation().pathname);
 
+  // One card plus the gap per click (a fixed 280px left cards half
+  // visible); the row snaps to card edges from sm up.
   const scroll = (direction) => {
-    if (!scrollRef.current) return;
+    const row = scrollRef.current;
+    if (!row) return;
 
-    scrollRef.current.scrollBy({
-      left: direction === "next" ? 280 : -280,
+    const card = row.firstElementChild;
+    const gap = parseFloat(getComputedStyle(row).columnGap) || 0;
+    const step = card ? card.offsetWidth + gap : 280;
+
+    row.scrollBy({
+      left: direction === "next" ? step : -step,
       behavior: "smooth",
     });
   };
@@ -30,7 +41,7 @@ function SubcategoryRow({ category, groupLabel, items, activeSubcategory }) {
         <h3 className="text-2xl font-bold text-slate-900">
           {t(
             `${category.name} by ${titleCase(groupLabel)}`,
-            `${t(category.name, category.nameHi)}, ${titleCase(groupLabel)} के अनुसार`,
+            `${t(category.name, category.nameHi)}, ${groupLabelHi(groupLabel)} के अनुसार`,
           )}
         </h3>
 
@@ -39,6 +50,12 @@ function SubcategoryRow({ category, groupLabel, items, activeSubcategory }) {
             hidden below sm), visible at every width including mobile
             (mobile usability audit, 2026-10-20). */}
         <div className="flex items-center gap-2">
+          <Link
+            to={`${prefix}/category/${category.slug}`}
+            className="mr-2 text-sm font-semibold text-blue-700 hover:text-blue-800 hover:underline whitespace-nowrap"
+          >
+            {t("View All", "सभी देखें")} →
+          </Link>
           <button
             type="button"
             onClick={() => scroll("prev")}
@@ -60,18 +77,17 @@ function SubcategoryRow({ category, groupLabel, items, activeSubcategory }) {
 
       <div
         ref={scrollRef}
-        className="flex gap-5 overflow-x-auto scroll-smooth pb-2"
+        className={`${HIDDEN_SCROLLBAR} flex gap-5 overflow-x-auto scroll-smooth pb-2 sm:snap-x sm:snap-mandatory`}
       >
         {items.map((sub) => {
           const isActive = activeSubcategory?._id === sub._id;
           const imageUrl = sub.image || category.image;
 
           return (
-            <button
+            <Link
               key={sub._id}
-              type="button"
-              onClick={() => navigate(`${prefix}/category/${category.slug}/${sub.slug}`)}
-              className="shrink-0 w-52 text-left group"
+              to={`${prefix}/category/${category.slug}/${sub.slug}`}
+              className="shrink-0 w-52 text-left group sm:snap-start"
             >
               <div
                 className={`rounded-xl overflow-hidden bg-slate-100 transition-shadow ${
@@ -104,7 +120,7 @@ function SubcategoryRow({ category, groupLabel, items, activeSubcategory }) {
                   )}
                 </div>
               </div>
-            </button>
+            </Link>
           );
         })}
       </div>
