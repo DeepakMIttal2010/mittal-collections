@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import { getCategories } from "../../services/categoryService";
 import { getSubcategories } from "../../services/subcategoryService";
+import { selectSizeRows } from "../../utils/sizeShowcase";
 import SubcategoryRow from "./SubcategoryRow";
 
 function SizeShowcase() {
@@ -16,33 +17,8 @@ function SizeShowcase() {
 
       if (!catRes.success || !subRes.success) return;
 
-      const categoryMap = {};
-      catRes.categories.forEach((cat) => {
-        categoryMap[cat._id] = cat;
-      });
-
-      const bySize = subRes.subcategories.filter((sub) =>
-        /size/i.test(sub.groupLabel || ""),
-      );
-
-      const grouped = bySize.reduce((acc, sub) => {
-        const categoryId = sub.category?._id;
-        const category = categoryMap[categoryId];
-        if (!category) return acc;
-
-        if (!acc[categoryId]) {
-          acc[categoryId] = { category, groupLabel: sub.groupLabel, items: [] };
-        }
-        acc[categoryId].items.push(sub);
-        return acc;
-      }, {});
-
-      setRows(
-        Object.values(grouped).map((group) => ({
-          ...group,
-          items: group.items.sort((a, b) => a.displayOrder - b.displayOrder),
-        })),
-      );
+      // Which rows and sizes: see HOME_SIZE_ROWS in utils/sizeShowcase.js.
+      setRows(selectSizeRows(catRes.categories, subRes.subcategories));
     };
 
     load();
