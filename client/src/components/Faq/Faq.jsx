@@ -9,6 +9,7 @@ import { useLanguage } from "../../context/LanguageContext";
 function Faq() {
   const [openIndex, setOpenIndex] = useState(0);
   const [freeShippingThreshold, setFreeShippingThreshold] = useState(499);
+  const [codCharge, setCodCharge] = useState(50);
   const [earnRate, setEarnRate] = useState(20);
   const { t } = useLanguage();
 
@@ -18,6 +19,7 @@ function Faq() {
         setFreeShippingThreshold(
           response.settings.freeShippingThreshold ?? 499,
         );
+        setCodCharge(response.settings.codCharge ?? 50);
       }
     });
 
@@ -39,9 +41,11 @@ function Faq() {
         "Is Cash on Delivery (COD) available?",
         "क्या कैश ऑन डिलीवरी (COD) उपलब्ध है?",
       ),
+      // States the COD charge up front (checkout adds it on top) -- the
+      // amount is the admin setting, like freeShippingThreshold above.
       answer: t(
-        "Cash on Delivery may be available for eligible PIN codes and orders, in addition to online payment. Check availability at checkout.",
-        "ऑनलाइन पेमेंट के अलावा, Cash on Delivery चुनिंदा PIN codes और eligible orders पर उपलब्ध हो सकता है। Checkout पर availability जाँचें।",
+        `Cash on Delivery (COD) may be available for eligible PIN codes.${codCharge > 0 ? ` A ₹${codCharge} COD charge applies to COD orders.` : ""}`,
+        `चुनिंदा PIN codes पर Cash on Delivery (COD) उपलब्ध हो सकता है।${codCharge > 0 ? ` COD ऑर्डर पर ₹${codCharge} अतिरिक्त शुल्क लागू होगा।` : ""}`,
       ),
     },
     {
