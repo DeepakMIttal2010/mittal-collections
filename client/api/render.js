@@ -1430,10 +1430,11 @@ const buildMeta = async (path, query = {}) => {
       ? subcategoriesData.subcategories || []
       : [];
     const freeShippingThreshold = settings.freeShippingThreshold ?? 499;
+    const codCharge = settings.codCharge ?? 50;
     const earnRate = rewardsData.success ? rewardsData.loyalty?.earnRate ?? 20 : 20;
 
     // Mirrors Faq.jsx's faqs array + faqJsonLd exactly (same questions,
-    // same two dynamic values) -- that component's FAQPage schema was
+    // same three dynamic values) -- that component's FAQPage schema was
     // never reaching Googlebot at all, since it only ever renders
     // client-side and bots are always routed here instead. English
     // only (no Hindi variant) -- same single-language choice every
@@ -1457,7 +1458,7 @@ const buildMeta = async (path, query = {}) => {
           name: "Is Cash on Delivery (COD) available?",
           acceptedAnswer: {
             "@type": "Answer",
-            text: "Cash on Delivery may be available for eligible PIN codes and orders, in addition to online payment. Check availability at checkout.",
+            text: `Cash on Delivery (COD) may be available for eligible PIN codes.${codCharge > 0 ? ` A ₹${codCharge} COD charge applies to COD orders.` : ""}`,
           },
         },
         {
