@@ -14,7 +14,7 @@ import { useAuth } from "../../context/AuthContext";
 import { useLanguage } from "../../context/LanguageContext";
 import AccountMenuContent from "../AccountMenu/AccountMenuContent";
 import { getSearchSuggestions } from "../../services/productService";
-import { getMyLocation } from "../../services/analyticsService";
+import PincodeChecker from "../PincodeChecker";
 import {
   getAddresses,
   setDefaultAddress,
@@ -61,8 +61,14 @@ function Header() {
   const [deliverName, setDeliverName] = useState("");
   const [deliverPlace, setDeliverPlace] = useState("");
   const [savedAddresses, setSavedAddresses] = useState([]);
+  // Whether the saved-address lookup has answered. A guest has nothing to
+  // look up, so their "Enter PIN code" slot renders final from the first
+  // paint; a logged-in customer keeps the placeholder until it answers.
+  const [addressesChecked, setAddressesChecked] = useState(() => !isLoggedIn);
   const [addressOpen, setAddressOpen] = useState(false);
   const addressCloseTimer = useRef(null);
+  const [pinOpen, setPinOpen] = useState(false);
+  const pinMenuRef = useRef(null);
 
   // Same zero-gap hover-handoff fix as openAccountMenu/scheduleCloseAccountMenu
   // above — this panel is likewise absolutely positioned outside its
@@ -146,12 +152,13 @@ function Header() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [showSuggestions]);
 
-  // Always a "Deliver to [Name] / [Place]" pair — the real name + saved
-  // address for logged-in customers, "Guest" + a geo-IP guess otherwise.
-  // The place always resolves to something concrete (our own home city +
-  // pincode as the last resort) rather than a bare "India". Also keeps
-  // the full address list around so the dropdown can offer a real pick
-  // -a-different-address action instead of just linking to /addresses.
+  // "Deliver to [Name] / [City PIN]" from the saved address for logged-in
+  // customers, with the full address list kept so the dropdown can offer
+  // a real pick-a-different-address action. Without a saved address
+  // (guests, or an account with none yet) the slot asks for a PIN code
+  // instead: it used to show a geo-IP city guess, and the free database
+  // put real UP visitors in other states ("Deliver to Guest / Hyderabad"
+  // for an Aligarh visitor) while delivery is decided by PIN code anyway.
   const loadDeliverTo = useCallback(async () => {
     if (isLoggedIn) {
       const response = await getAddresses();
@@ -170,28 +177,40 @@ function Header() {
         setDeliverPlace(
           [address.city, address.pincode].filter(Boolean).join(" "),
         );
+        setAddressesChecked(true);
         return;
       }
-
-      setSavedAddresses([]);
     }
 
-    const response = await getMyLocation();
-
-    // City-level geo data isn't available for every IP on the free
-    // database — fall back to state, then our home city, rather than
-    // showing nothing.
-    const { city, region } = response.location || {};
-
-    setDeliverName(isLoggedIn ? user?.name || "" : "Guest");
-    if (city) setDeliverPlace(city);
-    else if (region) setDeliverPlace(region);
-    else setDeliverPlace("Ghaziabad 201012");
+    setSavedAddresses([]);
+    setDeliverName("");
+    setDeliverPlace("");
+    setAddressesChecked(true);
   }, [isLoggedIn, user]);
 
   useEffect(() => {
     loadDeliverTo();
   }, [loadDeliverTo]);
+
+  // Same outside-click dismissal as the search suggestions below (never
+  // onBlur + a timer -- that race eats real clicks); Escape closes too.
+  useEffect(() => {
+    if (!pinOpen) return;
+
+    const handleClickOutside = (e) => {
+      if (!pinMenuRef.current?.contains(e.target)) setPinOpen(false);
+    };
+    const handleEscape = (e) => {
+      if (e.key === "Escape") setPinOpen(false);
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [pinOpen]);
 
   const handleSelectAddress = async (address) => {
     if (address.isDefault) {
@@ -334,12 +353,13 @@ function Header() {
           </p>
         </Link>
 
-        {/* Delivery location — saved address if logged in, else an IP-based guess.
-            Takes the same fixed-width slot from the first render: it used to
-            appear only once getMyLocation()/getAddresses() answered, pushing
-            the flex-1 search box ~159px right on every desktop load (CLS
-            0.0045). Long places truncate; the full text is in the title. */}
-        {!deliverPlace ? (
+        {/* Delivery location — saved address if logged in, else a PIN code
+            prompt that opens the PIN checker. Takes the same fixed-width
+            slot from the first render: it used to appear only once the
+            location/address lookup answered, pushing the flex-1 search box
+            ~159px right on every desktop load (CLS 0.0045). Long places
+            truncate; the full text is in the title. */}
+        {!addressesChecked ? (
           <div className="hidden lg:flex items-start gap-1.5 shrink-0 w-36 leading-tight" aria-hidden="true">
             <FaMapMarkerAlt className="text-amber-600 mt-1 text-base shrink-0" />
             <span className="min-w-0">
@@ -430,27 +450,39 @@ function Header() {
               )}
             </div>
           ) : (
-            <Link
-              to={isLoggedIn ? "/addresses/add" : "/login"}
-              className="hidden lg:flex items-start gap-1.5 shrink-0 w-36 leading-tight"
-              title={deliverPlace}
-            >
-              <FaMapMarkerAlt className="text-amber-600 mt-1 text-base shrink-0" />
-              {deliverName ? (
+            <div ref={pinMenuRef} className="relative hidden lg:block shrink-0 w-36">
+              <button
+                type="button"
+                onClick={() => setPinOpen((open) => !open)}
+                aria-expanded={pinOpen}
+                className="flex items-start gap-1.5 leading-tight w-full text-left"
+              >
+                <FaMapMarkerAlt className="text-amber-600 mt-1 text-base shrink-0" />
                 <span className="min-w-0">
                   <span className="block text-xs text-slate-500 truncate">
-                    {t("Deliver to ", "डिलीवर करें ")}{deliverName}
+                    {t("Deliver to", "डिलीवर करें")}
                   </span>
                   <span className="block text-sm font-bold text-slate-900 truncate">
-                    {deliverPlace}
+                    {t("Enter PIN code", "पिन कोड डालें")}
                   </span>
                 </span>
-              ) : (
-                <span className="min-w-0 text-sm font-bold text-slate-900 truncate">
-                  {t("Deliver to: ", "डिलीवर करें: ")}{deliverPlace}
-                </span>
+              </button>
+
+              {pinOpen && (
+                <div className="absolute top-full left-0 z-50 mt-1 w-80 bg-white border border-slate-200 rounded-lg shadow-lg p-4">
+                  <PincodeChecker />
+                  <Link
+                    to={isLoggedIn ? "/addresses/add" : "/login"}
+                    onClick={() => setPinOpen(false)}
+                    className="block text-sm font-medium text-blue-700 hover:underline"
+                  >
+                    {isLoggedIn
+                      ? t("+ Add address", "+ पता जोड़ें")
+                      : t("Sign in to use a saved address", "सेव किया पता इस्तेमाल करने के लिए साइन इन करें")}
+                  </Link>
+                </div>
               )}
-            </Link>
+            </div>
           )}
 
         {/* Search */}
