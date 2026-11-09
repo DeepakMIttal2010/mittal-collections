@@ -1,6 +1,7 @@
 import { Component } from "react";
 import * as Sentry from "@sentry/react";
 import { useLanguage } from "../context/LanguageContext";
+import { fallbackTranslate } from "../utils/fallbackTranslate";
 
 // Error boundaries must be class components — React has no hook
 // equivalent for getDerivedStateFromError/componentDidCatch.
@@ -50,7 +51,11 @@ class ErrorBoundary extends Component {
 }
 
 function DefaultFallback() {
-  const { t } = useLanguage();
+  // The top-level boundary in main.jsx sits outside LanguageProvider, so
+  // there is no language context here; destructuring it threw ("Cannot
+  // destructure property 't'", Sentry) and left a blank page instead of
+  // this screen.
+  const t = useLanguage()?.t ?? fallbackTranslate(window.location.pathname);
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-24 text-center">
