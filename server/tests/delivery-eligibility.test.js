@@ -189,11 +189,25 @@ describe("checkDeliveryEligibility — lookup and cache", () => {
     expect(await PincodeLookup.countDocuments({ pincode: /^20100[2-7]$/ })).toBe(0);
   });
 
-  it("6. India Post's 'no such PIN' answer is invalid and not cached", async () => {
-    indiaPost["999999"] = [{ Status: "Error", PostOffice: null }];
-    const result = await checkDeliveryEligibility("999999");
-    expect(result).toMatchObject({ eligible: false, reason: "invalid" });
-    expect(await PincodeLookup.countDocuments({ pincode: "999999" })).toBe(0);
+  it("6. India Post's 'no records' answer is unverified (not 'invalid'), refused and not cached", async () => {
+    // India Post gives this same answer for a non-existent PIN and, during
+    // its outages, for every PIN -- so it must never tell a real customer
+    // their PIN is wrong, and must never let the order through either.
+    for (const pin of ["999999", "201088"]) {
+      indiaPost[pin] = [{ Message: "No records found", Status: "Error", PostOffice: null }];
+      const result = await checkDeliveryEligibility(pin);
+      expect(result, pin).toMatchObject({ eligible: false, reason: "unverified", state: null });
+      expect(await PincodeLookup.countDocuments({ pincode: pin })).toBe(0);
+    }
+  });
+
+  it("6b. the public PIN check shows the 'try again shortly' message for a 'no records' answer", async () => {
+    indiaPost["201088"] = [{ Message: "No records found", Status: "Error", PostOffice: null }];
+    const res = await request(app).get("/api/delivery/check-pincode/201088");
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ success: true, deliverable: false, reason: "unverified", found: false });
+    expect(res.body.message).toMatch(/couldn't verify this PIN code right now/i);
+    expect(res.body.message).not.toMatch(/valid 6-digit/i);
   });
 
   it("7. malformed input is invalid without any lookup", async () => {
