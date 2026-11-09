@@ -3,6 +3,7 @@ import { test, expect } from "@playwright/test";
 import {
   createTestAdmin,
   createTestUser,
+  ensureDeliverablePincode,
   getSeededProductPath,
   loginAs,
 } from "./helpers.js";
@@ -52,6 +53,9 @@ let testUser;
 let adminUser;
 
 test.beforeAll(async ({ request }) => {
+  // The orders below ship to 201012 -- verified up front so they never
+  // depend on the live India Post API (see ensureDeliverablePincode).
+  await ensureDeliverablePincode();
   testUser = await createTestUser(request);
   adminUser = await createTestAdmin(request);
 });

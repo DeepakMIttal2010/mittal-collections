@@ -206,6 +206,29 @@ export const ensureSiteSettingsAddress = async (
   );
 };
 
+// Orders are only accepted for a PIN whose state is verified
+// (server/utils/deliveryEligibility.js): the PincodeLookup cache first,
+// then the live India Post API. Nothing seeds that cache, so without this
+// every e2e order to the test address depended on India Post answering
+// from the CI runner -- and on 2026-11-09 it answered "No records found"
+// for every PIN, failing the order-based tests. Writes the same verified
+// entry a clean India Post answer would, in the LOCAL test DB only.
+export const ensureDeliverablePincode = async (
+  pincode = "201012",
+  state = "Uttar Pradesh",
+  district = "Ghaziabad",
+) => {
+  if (mongoose.connection.readyState === 0) {
+    await mongoose.connect(LOCAL_MONGODB_URI);
+  }
+
+  await mongoose.connection.collection("pincodelookups").updateOne(
+    { pincode },
+    { $set: { state, district, verifiedAt: new Date() } },
+    { upsert: true },
+  );
+};
+
 export const loginAs = async (context, { token, user }) => {
   await context.addInitScript(
     ({ token, user }) => {
