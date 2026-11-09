@@ -32,6 +32,7 @@ import {
   deleteAbandonedCart,
   getVisitLog,
 } from "../../services/adminService";
+import SitePathLink from "../../components/admin/SitePathLink";
 
 const RANGE_OPTIONS = [7, 30, 90];
 
@@ -248,7 +249,9 @@ function ConversionFunnel({ funnel }) {
   );
 }
 
-function RankedBarList({ items, labelKey, valueKey, formatValue, emptyText }) {
+// linkLabel: the label is a storefront path (e.g. GA top pages) -> render
+// it as a new-tab link to that page.
+function RankedBarList({ items, labelKey, valueKey, formatValue, emptyText, linkLabel = false }) {
   if (items.length === 0) {
     return (
       <p className="text-sm text-slate-400 py-8 text-center">{emptyText}</p>
@@ -262,9 +265,13 @@ function RankedBarList({ items, labelKey, valueKey, formatValue, emptyText }) {
       {items.map((item, index) => (
         <div key={item._id || index}>
           <div className="flex items-center justify-between text-sm mb-1">
-            <span className="font-medium text-slate-700 truncate pr-2">
-              {item[labelKey]}
-            </span>
+            {linkLabel ? (
+              <SitePathLink path={item[labelKey]} className="font-medium truncate pr-2" />
+            ) : (
+              <span className="font-medium text-slate-700 truncate pr-2">
+                {item[labelKey]}
+              </span>
+            )}
             <span className="text-slate-500 shrink-0">
               {formatValue(item[valueKey], item)}
             </span>
@@ -678,7 +685,7 @@ function VisitLogModal({ view, days, customRange, onClose }) {
                 {visits.map((v, i) => (
                   <tr key={i} className="border-b border-slate-100 last:border-b-0">
                     <td className="py-2 pr-2 text-slate-700 truncate max-w-[160px]" title={v.path}>
-                      {v.path}
+                      <SitePathLink path={v.path} />
                     </td>
                     <td className="py-2 px-2 text-slate-600 whitespace-nowrap">
                       {v.device || "—"}
@@ -1821,6 +1828,7 @@ function AdminReports() {
               <RankedBarList
                 items={googleReport.analytics.topPages}
                 labelKey="path"
+                linkLabel
                 valueKey="views"
                 formatValue={(v) => `${formatNumber(v)} views`}
                 emptyText="No page view data yet."
