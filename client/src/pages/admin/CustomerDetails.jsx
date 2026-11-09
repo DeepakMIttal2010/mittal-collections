@@ -6,6 +6,7 @@ import {
   toggleBlockCustomer,
   adjustLoyaltyPoints,
 } from "../../services/adminCustomerService";
+import SitePathLink from "../../components/admin/SitePathLink";
 
 const STATUS_COLORS = {
   Pending: "bg-slate-100 text-slate-700",
@@ -366,7 +367,7 @@ function CustomerDetails() {
                 {recentVisits.map((visit, i) => (
                   <tr key={i} className="border-b border-slate-50">
                     <td className="py-2 pr-4 text-slate-600 font-mono text-xs truncate max-w-xs">
-                      {visit.path}
+                      <SitePathLink path={visit.path} />
                     </td>
                     <td className="py-2 pr-4 text-slate-500">{visit.device}</td>
                     <td className="py-2 text-slate-500 whitespace-nowrap">
