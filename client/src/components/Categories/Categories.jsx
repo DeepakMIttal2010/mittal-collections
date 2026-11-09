@@ -94,25 +94,28 @@ function Categories() {
           )}
         </div>
 
+        {/* Two columns on phones (was one: 13 full-width cards made this
+            section ~4,800px, six screens, on a 375px phone); sm and up
+            unchanged. The skeleton uses the same grid and heights. */}
         {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-8">
             {Array.from({ length: 6 }).map((_, index) => (
-              <Skeleton key={index} className="h-72 rounded-2xl" />
+              <Skeleton key={index} className="h-48 sm:h-72 rounded-2xl" />
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-8">
             {categories.map((category) => (
               <Link
                 key={category._id}
                 to={`${prefix}/category/${category.slug}`}
                 className="group block rounded-2xl overflow-hidden bg-white shadow-sm border border-slate-100 hover:shadow-xl transition-shadow duration-300"
               >
-                <div className="relative h-72 overflow-hidden">
+                <div className="relative h-48 sm:h-72 overflow-hidden">
                   <img
                     src={`${imgUrl(category.image, "w_600,q_auto,f_auto")}`}
                     srcSet={imgSrcSet(category.image, [400, 600, 850])}
-                    sizes="(min-width: 1024px) 405px, (min-width: 640px) 45vw, 90vw"
+                    sizes="(min-width: 1024px) 405px, 45vw"
                     alt={t(category.name, category.nameHi)}
                     loading="lazy"
                     onError={handleImageError}
@@ -121,13 +124,13 @@ function Categories() {
 
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
 
-                  <div className="absolute bottom-0 left-0 right-0 p-5 text-white">
-                    <h3 className="text-xl font-semibold mb-1">
+                  <div className="absolute bottom-0 left-0 right-0 p-3 sm:p-5 text-white">
+                    <h3 className="text-base sm:text-xl font-semibold leading-tight mb-1">
                       {t(category.name, category.nameHi)}
                     </h3>
 
                     {category.description && (
-                      <p className="text-sm text-white/80 line-clamp-1">
+                      <p className="hidden sm:block text-sm text-white/80 line-clamp-1">
                         {t(category.description, category.descriptionHi)}
                       </p>
                     )}
