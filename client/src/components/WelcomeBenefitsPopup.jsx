@@ -16,10 +16,13 @@ import { getPublicRewardsInfo } from "../services/rewardsService";
 import { getSiteSettings } from "../services/settingsService";
 import { getBannerCoupon } from "../services/couponService";
 import { useModalA11y } from "../hooks/useModalA11y";
+import {
+  WELCOME_DELAY_MS,
+  scrolledFarEnough,
+  welcomeRecentlyShown,
+} from "../utils/welcomePopupTrigger";
 
 const SHOWN_KEY = "mc_welcome_popup_shown_at";
-const SUPPRESS_MS = 24 * 60 * 60 * 1000; // 24 hours
-const SHOW_AFTER_MS = 2500;
 const AUTO_CLOSE_MS = 5000;
 
 // previewMode + onClose let AdminSettings show this exact component
@@ -74,13 +77,11 @@ function WelcomeBenefitsPopup({
     setVisible(true);
   }, [justRegistered]);
 
-  // Show at most once every 24 hours, shortly after the site opens —
-  // only for guests. Registered customers already know what the account
-  // offers, so the sign-up pitch would be redundant for them. 24h (not a
-  // one-time-ever suppression) because this is a new, low-traffic site —
-  // every repeat visit is still a real conversion opportunity worth a
-  // nudge, so we don't want to silence it for a full week the first time
-  // someone closes it.
+  // Guests only, at most once every 24 hours: registered customers already
+  // know what the account offers. Opens after WELCOME_DELAY_MS on the site
+  // or once the visitor has scrolled halfway down a page, whichever comes
+  // first -- not 2.5s after load on top of the banners, before a first
+  // -time visitor has seen any product (see utils/welcomePopupTrigger.js).
   useEffect(() => {
     if (previewMode) {
       setVisible(true);
@@ -88,16 +89,27 @@ function WelcomeBenefitsPopup({
     }
 
     if (isLoggedIn || !enabled) return;
+    if (welcomeRecentlyShown(localStorage.getItem(SHOWN_KEY))) return;
 
-    const lastShown = Number(localStorage.getItem(SHOWN_KEY) || 0);
-    if (Date.now() - lastShown < SUPPRESS_MS) return;
-
-    const timer = setTimeout(() => {
+    let shown = false;
+    const show = () => {
+      if (shown) return;
+      shown = true;
       setVisible(true);
       localStorage.setItem(SHOWN_KEY, String(Date.now()));
-    }, SHOW_AFTER_MS);
+    };
+    const onScroll = () => {
+      const doc = document.documentElement;
+      if (scrolledFarEnough(window.scrollY, doc.scrollHeight, window.innerHeight)) show();
+    };
 
-    return () => clearTimeout(timer);
+    const timer = setTimeout(show, WELCOME_DELAY_MS);
+    window.addEventListener("scroll", onScroll, { passive: true });
+
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("scroll", onScroll);
+    };
   }, [isLoggedIn, enabled, previewMode]);
 
   // Clear the just-logged-in flag without showing the popup — an
