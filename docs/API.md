@@ -294,3 +294,26 @@ Two manual `wa.me` deep-link stand-ins exist elsewhere in the app (not API endpo
 |---|---|
 | `GET /uploads/*` | Legacy (pre-Cloudinary) images, served directly by Express. 30-day immutable cache headers added 2026-08-20. |
 | `GET /api/health` | Uptime check — `{ success: true, message: "..." }`. |
+
+
+## November 2026 endpoint additions and behaviour
+
+These details reflect the current route handlers; older endpoint summaries above remain applicable unless noted.
+
+### Reviews — /api/reviews
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | /eligibility/:productId | User | Checks whether the logged-in customer has a delivered purchase containing this product. |
+| POST | / | User | Creates a review only after delivered-purchase and content validation. Validation occurs before Cloudinary media upload. |
+
+A delivered COD order qualifies regardless of isPaid. A later return does not remove the right to submit a review. Review-request emails are narrower: returned quantities are excluded per product and size, and pending returns are excluded until rejected.
+
+### Orders — /api/orders
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| POST | /:id/delivery-feedback | User (order owner only) | Submits { response: "yes" } or { response: "no", message: "..." }. A No message must contain 10–1,000 characters. Available within 30 days of a recorded delivery date. A Yes may be corrected to No once; No cannot be reversed. A No creates one linked support ticket. |
+
+The existing authenticated GET /:id response also includes deliveryFeedbackInfo for the order-details feedback card. Feedback requests are rate-limited. The order owner is checked server-side; another customer's order is returned as not found.
+
+### Delivery — /api/delivery
+The existing GET /check-pincode/:pincode route reports invalid, not-serviceable, ambiguous, or unverified results. India Post “No records found” is treated as unverified, not invalid; it is not cached and does not permit checkout. Only verified PINs in the configured allowed-state list (currently Uttar Pradesh) qualify.
