@@ -133,7 +133,15 @@ export const checkDeliveryEligibility = async (pincode, { cacheOnly = false } = 
     return ineligible(pin, "unverified");
   }
 
-  if (lookup.notFound) return ineligible(pin, "invalid");
+  // India Post answers "No records found" both for a PIN that doesn't
+  // exist and, during its own outages, for every PIN (2026-11-09: even
+  // 110001). The two can't be told apart, so tell the customer we couldn't
+  // verify it right now rather than that their PIN is wrong. Still not
+  // eligible and still not cached: the delivery-area gate holds.
+  if (lookup.notFound) {
+    console.warn(`[delivery] India Post has no record for ${pin}; treated as unverified`);
+    return ineligible(pin, "unverified");
+  }
   if (lookup.ambiguous) return ineligible(pin, "ambiguous");
 
   // Only a clean single-state answer reaches here; a failed cache write
