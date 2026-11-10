@@ -191,3 +191,23 @@ tools) for SEO-driven organic traffic.
 - Razorpay refund automation — a refund still has to be issued manually via the Razorpay dashboard; only payment capture (order creation + signature verification) is automated.
 - Push notifications (web push/FCM) and SMS/WhatsApp-API notifications — only email + the in-app Notification Center exist.
 - Per-variant stock is now supported for products explicitly modeled with size variants (FR-A1.4); products without variants still track a single `stock` number for the whole product. No stock-change audit log, no supplier/reorder/purchase-order concept.
+
+## 7. November 2026 verified behaviour updates
+
+This section supersedes older wording in this document where it conflicts with the current implementation.
+
+### 7.1 Verified-buyer reviews
+- New review submissions are available only to an authenticated customer whose own order contains that product and has evidence of delivery (deliveredAt, a Delivered status-history entry, or current Delivered status). Delivered COD orders qualify; payment status is not used as proof.
+- A later return or cancellation after delivery does not remove the customer's right to review. However, the automated review-request email targets only items still kept by the customer; returned quantities are excluded by product and size, and pending returns remain excluded until rejected.
+- Review eligibility is exposed through GET /api/reviews/eligibility/:productId. Submission validation runs before the Cloudinary upload step, so rejected submissions do not upload media.
+
+### 7.2 Post-delivery safety feedback
+- The order owner can answer Yes or No to “Did you receive your product safely?” within 30 days of a recorded delivery date. A date is required; the system does not guess one.
+- A No answer requires a 10–1,000 character description and creates one linked support ticket with source delivery_feedback. The answer and ticket are saved together.
+- A customer may change Yes to No once within the same 30-day window. No cannot be changed back to Yes. The original and corrected answers remain in feedback history.
+- Feedback does not change order status, payment, return eligibility, or loyalty calculations.
+
+### 7.3 Delivery-area verification
+- Website order delivery is restricted to Uttar Pradesh. The state is determined from the delivery PIN lookup, not from the state text typed into the address.
+- A clean India Post result is cached for up to 90 days. Network/API failures, ambiguous multi-state results, and “No records found” are unverified, are not cached, and must not be described to the customer as an invalid PIN.
+- An unverified or out-of-area PIN is not eligible for a new order or dispatch. Existing cached verified PINs can continue to be checked while India Post is unavailable.
