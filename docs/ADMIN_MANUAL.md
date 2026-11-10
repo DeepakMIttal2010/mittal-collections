@@ -468,3 +468,17 @@ for just that product's list of people.
 - **Sitemap** — regenerated automatically every time the site is
   deployed, so new products/articles/categories are always included
   for Google.
+
+
+## 12. Delivery feedback and verified reviews (November 2026)
+
+### Delivery feedback
+- Customers see a Yes/No safety-feedback card on their order details page for 30 days after a recorded delivery date.
+- A No answer creates one support ticket linked to the order, with source delivery_feedback. The ticket appears in the existing Tickets workflow and admin notification flow.
+- The ticket is marked with a Delivery feedback indicator and retains the customer's feedback answer history. Reply and resolve it through the normal ticket conversation/status controls.
+- A customer can correct Yes to No once during the feedback window; No cannot be reversed. Duplicate delivery-feedback tickets for one order are prevented by a database unique partial index.
+
+### Verified-buyer reviews
+- New reviews can be submitted only by a logged-in customer with a delivered purchase containing that product. Delivered COD orders qualify.
+- A later return does not block the customer from reviewing. The automatic review-request email is stricter and excludes returned quantities (matched by product and size) and pending returns.
+- Review submission validation runs before media upload. Approve or moderate eligible submissions through the existing Reviews section; no manual order linking is required.
