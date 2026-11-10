@@ -203,3 +203,17 @@ button for each.
 - **Contact page** — a message form.
 - **FAQ** — common questions (shipping, COD, returns, delivery time,
   loyalty points) are answered right on the homepage.
+
+
+## 10. Reviews from verified buyers
+- You can submit a new product review after an order containing that product has been delivered to you and you are logged in.
+- Delivered Cash on Delivery orders also qualify. Payment status does not affect review eligibility.
+- If you returned the product, you can still share your experience. The review-request email is sent only for quantities you kept; a pending return is excluded until it is rejected.
+- The review form is shown only when your account is eligible for that product.
+
+## 11. Delivery-area check and feedback
+- Website orders are currently accepted only for verified delivery PIN codes in Uttar Pradesh. The PIN lookup determines the state; the state text in the address does not override it.
+- If the PIN service cannot verify a code, the site may ask you to try again shortly. This does not necessarily mean the PIN is invalid.
+- After delivery, open My Orders and the order details page to answer Yes or No to “Did you receive your product safely?” You have 30 days from the recorded delivery date.
+- If you choose No, describe the issue in 10–1,000 characters. A support ticket is created and linked to that order so the store can follow up.
+- You may change Yes to No once during the same 30-day period. A No answer cannot be changed back to Yes.
