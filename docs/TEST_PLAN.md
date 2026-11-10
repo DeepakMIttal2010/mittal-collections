@@ -173,3 +173,19 @@ automate (CSV export contents, admin CRUD form field-by-field saves).
 - [x] Every page has a unique `<title>` and **exactly one** meta description (Home, a category, a product, an article) — automated in `e2e/tests/seo.spec.js`, and this exact check caught a real duplicate-meta-description bug (see §1).
 - [x] Product page structured data includes Product + BreadcrumbList JSON-LD, and the visible breadcrumb trail matches the JSON-LD exactly (same labels, same order) — automated. FAQ schema presence (only relevant when a product has published Q&A) and actually running Google's Rich Results Test still need a manual pass — that's an external tool, not something to fake locally.
 - [x] `sitemap.xml` exists and lists product URLs; `robots.txt` disallows account/cart/checkout/admin/search/compare — automated. Confirming *newly added* content appears after a real deploy is still a manual post-deploy spot-check.
+
+
+## 7. November 2026 regression coverage
+
+The following behaviours have automated backend coverage in the current repository. This is a coverage map, not a claim that tests were executed as part of this documentation-only change.
+
+### 7.1 Verified-buyer reviews
+- server/tests/review-eligibility.test.js: a customer's own delivered purchase is required; delivered COD qualifies; returned products remain reviewable; review submission validation rejects ineligible/invalid requests before media upload; duplicate review submissions are constrained.
+- server/tests/review-request.test.js: review-request targeting excludes returned quantities by product and size, and excludes pending returns until rejected.
+
+### 7.2 Delivery feedback
+- server/tests/delivery-feedback.test.js: owner-only access, delivered-date requirement, 30-day window, COD/prepaid eligibility, No-message length validation, one linked ticket for No, one-way Yes-to-No correction, retained history, and duplicate/retry protections.
+
+### 7.3 Delivery PIN verification and order gate
+- server/tests/delivery-eligibility.test.js: UP-only state decision, cached and India Post lookups, out-of-state/ambiguous/unverified handling, cache-only checks, and order/dispatch restrictions.
+- India Post “No records found” must remain unverified (not invalid), must not be cached, and must not allow checkout or dispatch.
