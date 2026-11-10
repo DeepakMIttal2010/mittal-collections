@@ -127,3 +127,11 @@ Full library-by-library breakdown with exact versions: `TECH_STACK.md`. The tabl
 - **Razorpay live-mode confirmation**: production readiness for real (non-test) transactions has not been independently verified as of this document — confirm the live `RAZORPAY_KEY_ID`/`RAZORPAY_KEY_SECRET` are in place and a live payment has actually been captured before treating online payment as production-ready.
 - **WhatsApp Cloud API**: only the receiving webhook is live; do not represent automated WhatsApp order-status messaging as a working capability anywhere downstream of this document until Meta Business Verification completes and a message-sending integration is actually built.
 - **WhatsApp webhook payload signature verification**: not yet implemented on `POST /api/whatsapp/webhook`; the endpoint currently trusts any payload that reaches it (acceptable only because it does not yet act on the payload beyond acknowledging it).
+
+
+## 6. November 2026 technical requirements addendum
+
+- **Delivery geography:** website order creation and dispatch are restricted to the configured allowed-state list, currently Uttar Pradesh. Eligibility is determined from a verified six-digit delivery PIN lookup; the customer-entered state label is not authoritative.
+- **Fail-closed lookup:** clean single-state India Post responses may be cached for 90 days. API/network failures, ambiguous state results, and “No records found” are unverified, are not cached, and must not be represented as proof that a correctly formatted PIN is invalid. Unverified PINs cannot pass checkout or dispatch.
+- **Review eligibility:** new reviews require the authenticated customer's own delivered purchase of the product. Delivered COD orders qualify. Submission validation must happen before media is uploaded to Cloudinary. Review-request email targeting additionally excludes returned quantities and pending returns.
+- **Delivery feedback:** only the order owner may submit feedback within 30 days of a recorded delivery date. A No response requires a 10–1,000 character explanation and creates one linked support ticket. Yes may be corrected to No once; No cannot be reversed. The answer and ticket must be persisted atomically in production.
