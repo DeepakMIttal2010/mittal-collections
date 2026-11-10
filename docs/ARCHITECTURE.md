@@ -442,3 +442,15 @@ keep accurate by hand.
 
 See `DEPLOYMENT.md` for environment variables and the exact release
 process.
+
+
+## 7. November 2026 application flows
+
+### 7.1 Verified-buyer review flow
+The review page asks the authenticated API for GET /api/reviews/eligibility/:productId. The backend checks the customer's own order history for delivery evidence. Review submission validation is placed after in-memory upload parsing but before imageOptimizer/Cloudinary, so an ineligible request does not persist media. The review-request scheduler uses a separate, stricter eligibility calculation that removes returned quantities by product and size and excludes pending returns.
+
+### 7.2 Delivery-feedback flow
+The order-details API supplies deliveryFeedbackInfo, derived from the order's recorded delivery timestamp or a dated Delivered status-history entry. The order owner submits POST /api/orders/:id/delivery-feedback. A Yes is stored on the order. A No is stored with a linked Ticket whose source is delivery_feedback; the order answer and ticket are written in one transaction in production. A partial unique Ticket index enforces no more than one delivery-feedback ticket per order. A Yes-to-No correction is allowed once within the original 30-day window and is retained in history.
+
+### 7.3 Delivery PIN verification flow
+The delivery eligibility utility first checks the PincodeLookup cache, then calls India Post when a live lookup is allowed. Only clean single-state results are cached; cache entries expire after approximately 90 days. The configured allowed-state list currently contains Uttar Pradesh. Unknown, failed, ambiguous, or “No records found” results fail closed as unverified; the application does not guess a state from PIN digits or the address's state field. Checkout and dispatch use the same eligibility decision, while payment/admin paths can use cache-only checks.
