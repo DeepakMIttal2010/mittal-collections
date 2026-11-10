@@ -324,3 +324,35 @@ internal traffic reporting, independent of GA4.
 `server/seeder.js` supports `npm run seed:<categories|products|states|
 testimonials|pages|footer-links|banners|price-ranges|coupons|all>` and
 `seed:destroy` for resetting reference/demo data during setup.
+
+
+## November 2026 schema additions
+
+### Order.deliveryFeedback
+Optional private subdocument, absent until the order owner responds:
+| Field | Type | Notes |
+|---|---|---|
+| response | String | yes or no; current answer |
+| message | String | Default empty; application validation requires 10–1,000 characters for a No answer |
+| submittedAt | Date | Timestamp of the first answer |
+| correctedAt | Date | Set only when Yes is changed to No |
+| ticket | ObjectId | Optional reference to the linked Ticket created for a No answer |
+| history | Array | Ordered answer records containing response, message, and submittedAt; preserves the original Yes after correction |
+
+Feedback eligibility is based on deliveredAt or a dated Delivered entry in statusHistory, and closes 30 days after that delivery timestamp. A bare Delivered status without a date is not enough.
+
+### Ticket.source and indexes
+- source: String enum customer (default) or delivery_feedback.
+- A partial unique index on { order: 1 } applies only where source is delivery_feedback, enforcing at most one delivery-feedback ticket per order while leaving ordinary customer tickets unaffected.
+- Existing ticket indexes also include { isSeenByAdmin: 1, lastMessageAt: -1 } for the admin unseen-ticket poll.
+
+### PincodeLookup
+Verified India Post PIN cache:
+| Field | Type | Notes |
+|---|---|---|
+| pincode | String | Required, unique, exactly six digits |
+| state | String | Required verified state |
+| district | String | Default empty string |
+| verifiedAt | Date | Required verification timestamp |
+
+A TTL index on verifiedAt expires entries after approximately 90 days. Only clean single-state India Post results are cached; failures, ambiguous results, and “No records found” are not cached.
