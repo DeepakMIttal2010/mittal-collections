@@ -1,7 +1,7 @@
 # Mittal Collections — Documentation
 
 Full documentation set for the Mittal Collections e-commerce platform,
-generated 2026-08-07, last refreshed 2026-09-17 to additionally cover:
+generated 2026-08-07, last refreshed 2026-11-10 to additionally cover:
 a per-product `localDeliveryOnly` flag (enforced both at checkout and
 server-side order creation) for bulky items that can't ship pan-India,
 structured `<g:color>`/`<g:material>`/`<g:pattern>` fields on the
