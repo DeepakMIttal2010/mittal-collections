@@ -203,8 +203,19 @@ const orderCourierDesired = (order, cost, L) => {
 };
 
 // ------------------------------------------------------------- returns
-const returnLineOf = (order, rr) =>
-  (order.orderItems || []).find((item) => String(item.product) === String(rr.product));
+// The order line a return is for: the same product AND size -- one order
+// can hold a product in several sizes at different prices. A return saved
+// without a size still matches when the order has a single line of that
+// product; with several, nothing says which one, so it is reported as
+// ambiguous instead of being guessed (deep bug sweep M1-B, 2026-11-13).
+export const returnLineOf = (order, rr) => {
+  const lines = (order?.orderItems || []).filter((item) => String(item.product) === String(rr.product));
+  const exact = lines.find((item) => (item.size || "") === (rr.size || ""));
+
+  if (exact) return { item: exact, ambiguous: false };
+  if (lines.length === 1) return { item: lines[0], ambiguous: false };
+  return { item: null, ambiguous: lines.length > 1 };
+};
 
 const returnRefundDesired = (rr, order, L) => {
   // Same gate as the sale it reverses: once the order stops counting as
@@ -212,7 +223,9 @@ const returnRefundDesired = (rr, order, L) => {
   // refund left behind would reverse that revenue a second time.
   if (rr.status !== "Refunded" || !order || !orderIsSold(order)) return null;
 
-  const item = returnLineOf(order, rr);
+  const { item, ambiguous } = returnLineOf(order, rr);
+  // Leave whatever is posted as it is rather than post a guessed size.
+  if (ambiguous) return undefined;
   if (!item) return null;
 
   const amount = paise(returnedValueFor(order, item, rr.quantity));

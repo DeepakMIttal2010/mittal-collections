@@ -409,6 +409,60 @@ describe("auto-posting: returns", () => {
     expect(again.updated).toBe(0);
     expect(again.voided).toBe(0);
   });
+
+  // One product bought in two sizes: Double 2 x 800 and King 1 x 1200.
+  const twoSizeOrder = async () => {
+    const user = await createUser();
+    const product = await createProduct({
+      price: 800,
+      stock: 20,
+      variants: [
+        { size: "Double", price: 800, stock: 10 },
+        { size: "King", price: 1200, stock: 10 },
+      ],
+    });
+    const line = (size, price, quantity) => ({ product: product._id, name: product.name, image: product.image, price, quantity, size });
+    const order = await createOrder({
+      user,
+      products: [product],
+      overrides: {
+        orderStatus: "Delivered",
+        paymentMethod: "COD",
+        totalPrice: 2800,
+        statusHistory: shippedOn("2026-08-10"),
+        orderItems: [line("Double", 800, 2), line("King", 1200, 1)],
+      },
+    });
+    const refunded = (size) =>
+      ReturnRequest.create({
+        order: order._id, user: user._id, product: product._id, productName: product.name, quantity: 1, reason: "x",
+        size, status: "Refunded", stockRestored: true, refundedAt: new Date("2026-08-20T10:00:00+05:30"),
+      });
+    return { refunded };
+  };
+
+  it("M1-B: posts a sales return at the returned size's own price", async () => {
+    const { refunded } = await twoSizeOrder();
+    await refunded("King");
+
+    await reconcileAll({ stock: false });
+
+    const [refund] = await live("return-refund");
+    expect(refund.totalPaise).toBe(120000);
+    expect(await net("sales-returns")).toBe(120000);
+    expect(await trialBalanceIsZero()).toBe(0);
+  });
+
+  it("M1-B: posts no sales return for an old return whose size can't be told apart", async () => {
+    const { refunded } = await twoSizeOrder();
+    await refunded("");
+
+    await reconcileAll({ stock: false });
+
+    expect(await live("return-refund")).toHaveLength(0);
+    expect(await net("sales-returns")).toBe(0);
+    expect(await trialBalanceIsZero()).toBe(0);
+  });
 });
 
 describe("auto-posting: POS sales", () => {

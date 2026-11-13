@@ -13,6 +13,7 @@ import {
   createUser,
   signToken,
   createProduct,
+  createOrder,
   seedLoyaltySettings,
   seedSiteSettings,
 } from "./helpers.js";
@@ -529,5 +530,187 @@ describe("An open return on an order that was cancelled afterwards (M1-A)", () =
     expect(rr.status).toBe("Refunded");
     expect(rr.stockRestored).toBe(true);
     expect(rr.pointsClawedBack).toBe(true);
+  });
+});
+
+describe("Returns on an order with the same product in more than one size (M1-B)", () => {
+  const lineFor = (product, size, price, quantity) => ({
+    product: product._id,
+    name: product.name,
+    image: product.image,
+    price,
+    quantity,
+    size,
+  });
+
+  // One product bought in two sizes: Double 2 x 800 and King 1 x 1200.
+  const twoSizeOrder = async () => {
+    const user = await createUser();
+    const admin = await createUser({ role: "admin" });
+    const product = await createProduct({
+      price: 800,
+      stock: 20,
+      variants: [
+        { size: "Double", price: 800, stock: 10 },
+        { size: "King", price: 1200, stock: 10 },
+      ],
+    });
+    const order = await createOrder({
+      user,
+      products: [product],
+      overrides: {
+        orderItems: [lineFor(product, "Double", 800, 2), lineFor(product, "King", 1200, 1)],
+        totalPrice: 2800,
+        paymentMethod: "COD",
+        deliveredAt: new Date(),
+      },
+    });
+
+    return { user, token: signToken(user), adminToken: signToken(admin), product, order };
+  };
+
+  const requestReturn = (token, body) =>
+    request(app).post("/api/returns").set("Authorization", `Bearer ${token}`).send(body);
+
+  const returnBody = ({ order, product }, extra = {}) => ({
+    orderId: order._id.toString(),
+    productId: product._id.toString(),
+    quantity: 5,
+    reason: "Wrong size",
+    ...extra,
+  });
+
+  it("returns the size the customer picked, capped at that line's quantity", async () => {
+    const setup = await twoSizeOrder();
+
+    const res = await requestReturn(setup.token, returnBody(setup, { size: "King" }));
+
+    expect(res.status).toBe(201);
+    expect(res.body.returnRequest.size).toBe("King");
+    expect(res.body.returnRequest.quantity).toBe(1);
+  });
+
+  it("lets each size of the same product be returned on its own", async () => {
+    const setup = await twoSizeOrder();
+
+    const double = await requestReturn(setup.token, returnBody(setup, { size: "Double" }));
+    const king = await requestReturn(setup.token, returnBody(setup, { size: "King" }));
+
+    expect(double.status).toBe(201);
+    expect(king.status).toBe(201);
+    const sizes = (await ReturnRequest.find({ order: setup.order._id }).lean()).map((r) => r.size).sort();
+    expect(sizes).toEqual(["Double", "King"]);
+  });
+
+  it("asks which size when the product is on the order in more than one size and none is given", async () => {
+    const setup = await twoSizeOrder();
+
+    const res = await requestReturn(setup.token, returnBody(setup));
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/size/i);
+    expect(await ReturnRequest.countDocuments({})).toBe(0);
+  });
+
+  it("refuses a size that is not on the order", async () => {
+    const setup = await twoSizeOrder();
+
+    const res = await requestReturn(setup.token, returnBody(setup, { size: "Single" }));
+
+    expect(res.status).toBe(404);
+    expect(await ReturnRequest.countDocuments({})).toBe(0);
+  });
+
+  it("still accepts a request without a size when the product has only one line (older clients)", async () => {
+    const user = await createUser();
+    const product = await createProduct({ price: 500, stock: 5 });
+    const order = await createOrder({
+      user,
+      products: [product],
+      overrides: { paymentMethod: "COD", deliveredAt: new Date() },
+    });
+
+    const res = await requestReturn(signToken(user), returnBody({ order, product }, { quantity: 1 }));
+
+    expect(res.status).toBe(201);
+    expect(res.body.returnRequest.quantity).toBe(1);
+  });
+
+  it("records the refund at the returned size's own price", async () => {
+    const setup = await twoSizeOrder();
+    const rr = await ReturnRequest.create({
+      order: setup.order._id,
+      user: setup.user._id,
+      product: setup.product._id,
+      productName: setup.product.name,
+      quantity: 1,
+      size: "King",
+      reason: "Wrong size",
+      status: "Approved",
+    });
+
+    const res = await setReturnStatus(setup.adminToken, rr._id, "Refunded");
+
+    expect(res.status).toBe(200);
+    expect((await Order.findById(setup.order._id)).refundedAmount).toBe(1200);
+  });
+
+  it("does not guess a size for an old return with none on an order holding several sizes", async () => {
+    const setup = await twoSizeOrder();
+    const rr = await ReturnRequest.create({
+      order: setup.order._id,
+      user: setup.user._id,
+      product: setup.product._id,
+      productName: setup.product.name,
+      quantity: 1,
+      size: "",
+      reason: "Old request",
+      status: "Approved",
+    });
+
+    const res = await setReturnStatus(setup.adminToken, rr._id, "Refunded");
+
+    expect(res.status).toBe(409);
+    expect(res.body.message).toMatch(/size/i);
+    expect((await Order.findById(setup.order._id)).refundedAmount || 0).toBe(0);
+    const fresh = await ReturnRequest.findById(rr._id);
+    expect(fresh.status).toBe("Approved");
+    expect(fresh.stockRestored).toBe(false);
+    expect(fresh.pointsClawedBack).toBe(false);
+  });
+
+  it("still refunds an old return with no size when the product has only one line", async () => {
+    const user = await createUser();
+    const admin = await createUser({ role: "admin" });
+    const product = await createProduct({
+      price: 1200,
+      stock: 10,
+      variants: [{ size: "King", price: 1200, stock: 10 }],
+    });
+    const order = await createOrder({
+      user,
+      products: [product],
+      overrides: {
+        orderItems: [lineFor(product, "King", 1200, 1)],
+        totalPrice: 1200,
+        paymentMethod: "COD",
+        deliveredAt: new Date(),
+      },
+    });
+    const rr = await ReturnRequest.create({
+      order: order._id,
+      user: user._id,
+      product: product._id,
+      productName: product.name,
+      quantity: 1,
+      size: "",
+      reason: "Old request",
+      status: "Approved",
+    });
+
+    const res = await setReturnStatus(signToken(admin), rr._id, "Refunded");
+
+    expect(res.status).toBe(200);
+    expect((await Order.findById(order._id)).refundedAmount).toBe(1200);
   });
 });
