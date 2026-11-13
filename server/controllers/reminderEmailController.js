@@ -34,7 +34,7 @@ export const optOutOfReminderEmails = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: "You won't receive cart or wishlist price-drop reminder emails",
+      message: "You won't receive cart reminder, wishlist price-drop, or review and feedback emails",
     });
   } catch (error) {
     console.error("Reminder Email Opt-out Error:", error.message);

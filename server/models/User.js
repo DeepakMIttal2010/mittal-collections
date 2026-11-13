@@ -69,8 +69,10 @@ const userSchema = new mongoose.Schema(
       default: "en",
     },
 
-    // One opt-out for both reminder emails (abandoned cart + wishlist
-    // price drop); the newsletter has its own unsubscribe. The token is a
+    // One opt-out for the optional reminder emails: abandoned cart,
+    // wishlist price drop, and the review/feedback emails (see
+    // utils/reviewEmails.js). Order, payment, OTP, ticket and return
+    // emails ignore it; the newsletter has its own unsubscribe. The token is a
     // random value for the email's unsubscribe link (no email or user id
     // in the URL), created on the first reminder and never returned by
     // ordinary user queries.
