@@ -5,7 +5,8 @@ import { useLanguage } from "../context/LanguageContext";
 import Seo from "../components/Seo";
 
 // Landing page for the "Unsubscribe from these reminders" link in cart
-// reminder and wishlist price-drop emails. Same two-step pattern as
+// reminder, wishlist price-drop and review emails (delivery feedback,
+// review request and reminder). Same two-step pattern as
 // NewsletterUnsubscribe.jsx: opening the link only shows a confirm
 // button (email scanners prefetch links), the opt-out happens on the
 // explicit click. The newsletter is a separate list and isn't touched.
@@ -60,8 +61,8 @@ function ReminderUnsubscribe() {
             </h1>
             <p className="text-slate-600">
               {t(
-                "You won't receive cart reminder or wishlist price-drop emails any more. Your newsletter subscription, if any, is unchanged. To turn reminders back on, contact us.",
-                "अब आपको कार्ट रिमाइंडर और विशलिस्ट की कीमत घटने वाले ईमेल नहीं मिलेंगे। आपका न्यूज़लेटर सब्सक्रिप्शन (अगर है) वैसा ही रहेगा। रिमाइंडर दोबारा चालू करने के लिए हमसे संपर्क करें।",
+                "You won't receive cart reminder, wishlist price-drop, or review and feedback emails any more. Order and payment emails still reach you, and your newsletter subscription, if any, is unchanged. To turn reminders back on, contact us.",
+                "अब आपको कार्ट रिमाइंडर, विशलिस्ट की कीमत घटने वाले, और रिव्यू व फ़ीडबैक ईमेल नहीं मिलेंगे। ऑर्डर और पेमेंट के ईमेल आते रहेंगे, और आपका न्यूज़लेटर सब्सक्रिप्शन (अगर है) वैसा ही रहेगा। रिमाइंडर दोबारा चालू करने के लिए हमसे संपर्क करें।",
               )}
             </p>
           </>
@@ -84,8 +85,8 @@ function ReminderUnsubscribe() {
             </h1>
             <p className="text-slate-600 mb-8">
               {t(
-                "This stops both cart reminder and wishlist price-drop emails. It does not change your newsletter subscription.",
-                "इससे कार्ट रिमाइंडर और विशलिस्ट की कीमत घटने वाले, दोनों तरह के ईमेल बंद हो जाएँगे। आपके न्यूज़लेटर सब्सक्रिप्शन पर कोई असर नहीं पड़ेगा।",
+                "This stops cart reminder, wishlist price-drop, and review and feedback emails. Order and payment emails are not affected, and it does not change your newsletter subscription.",
+                "इससे कार्ट रिमाइंडर, विशलिस्ट की कीमत घटने वाले, और रिव्यू व फ़ीडबैक ईमेल बंद हो जाएँगे। ऑर्डर और पेमेंट के ईमेल पर कोई असर नहीं पड़ेगा, और आपके न्यूज़लेटर सब्सक्रिप्शन पर भी नहीं।",
               )}
             </p>
             <button

@@ -10,7 +10,7 @@ import Order from "../models/Order.js";
 import ReturnRequest from "../models/ReturnRequest.js";
 import { createUser, createProduct } from "./helpers.js";
 
-const REVIEW_REQUEST_DELAY_DAYS = 8; // must match orderController.js
+const REVIEW_REQUEST_DELAY_DAYS = 8; // must match REVIEW_EMAIL_WINDOWS.request in utils/reviewEmails.js
 
 const daysAgo = (d) => new Date(Date.now() - d * 24 * 60 * 60 * 1000);
 
@@ -259,11 +259,14 @@ describe("POST /api/orders/send-review-requests", () => {
     expect(sendEmail).toHaveBeenCalledTimes(1);
   });
 
-  it("releases the claim when the email fails, so the next run retries", async () => {
+  it("releases the claim when the email provider refuses it, so the next run retries", async () => {
     const product = await createProduct({ price: 500, stock: 5 });
     const user = await createUser();
     const order = await createDeliveredOrder(user, product);
-    sendEmail.mockRejectedValueOnce(new Error("Brevo down"));
+    // A definite refusal (HTTP 4xx from Brevo, as mailer.js reports it) —
+    // the email was not accepted, so retrying can't duplicate it. Timeouts
+    // and 5xx are never retried (see review-emails.test.js).
+    sendEmail.mockRejectedValueOnce(new Error("Brevo send failed (429): rate limited"));
 
     const first = await callReviewRequests();
     expect(first.body.sent).toBe(0);

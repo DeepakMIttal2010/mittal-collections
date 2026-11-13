@@ -33,9 +33,9 @@ test("the page is routed and noindexed (React and bot prerender)", () => {
   assert.ok(read("api/render.js").includes("/^\\/reminders\\/unsubscribe$/,"));
 });
 
-test("EN and HI copy says both reminders stop and the newsletter is unaffected", () => {
-  assert.ok(page.includes("This stops both cart reminder and wishlist price-drop emails. It does not change your newsletter subscription."));
-  assert.ok(page.includes("इससे कार्ट रिमाइंडर और विशलिस्ट की कीमत घटने वाले, दोनों तरह के ईमेल बंद हो जाएँगे। आपके न्यूज़लेटर सब्सक्रिप्शन पर कोई असर नहीं पड़ेगा।"));
+test("EN and HI copy says which emails stop, and that order/payment emails and the newsletter are unaffected", () => {
+  assert.ok(page.includes("This stops cart reminder, wishlist price-drop, and review and feedback emails. Order and payment emails are not affected, and it does not change your newsletter subscription."));
+  assert.ok(page.includes("इससे कार्ट रिमाइंडर, विशलिस्ट की कीमत घटने वाले, और रिव्यू व फ़ीडबैक ईमेल बंद हो जाएँगे। ऑर्डर और पेमेंट के ईमेल पर कोई असर नहीं पड़ेगा, और आपके न्यूज़लेटर सब्सक्रिप्शन पर भी नहीं।"));
   for (const [en, hi] of [
     ["Invalid link", "अमान्य लिंक"],
     ["Reminders turned off", "रिमाइंडर बंद कर दिए गए"],
