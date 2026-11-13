@@ -748,12 +748,14 @@ const buildCategoryBodyHtml = (
     })
     .join("\n");
 
+  // Only articles have a /hi version. The curtain size calculator has no
+  // Hindi route, so prefixing it sent Hindi pages' bot links to a 404.
   const guideLinks = CATEGORY_GUIDE_LINKS[categorySlug] || [];
   const guideLinksHtml = guideLinks
-    .map(
-      (g) =>
-        `<li><a href="${escapeHtml(`${categoryUrlPrefix}${g.path}`)}">${escapeHtml(isHindi ? g.labelHi : g.label)}</a></li>`,
-    )
+    .map((g) => {
+      const prefix = g.path.startsWith("/articles/") ? categoryUrlPrefix : SITE_URL;
+      return `<li><a href="${escapeHtml(`${prefix}${g.path}`)}">${escapeHtml(isHindi ? g.labelHi : g.label)}</a></li>`;
+    })
     .join("\n");
 
   return `

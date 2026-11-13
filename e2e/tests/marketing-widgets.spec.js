@@ -9,21 +9,101 @@ import {
 } from "./helpers.js";
 
 test.describe("Welcome popup", () => {
-  test("appears for a guest after the delay, and auto-closes", async ({
+  // Guests only: opens after 25s on the site or at 50% scroll, whichever
+  // comes first, then not again for 24 hours (utils/welcomePopupTrigger.js).
+  const SHOWN_KEY = "mc_welcome_popup_shown_at";
+  const HOUR = 60 * 60 * 1000;
+  const heading = (page) =>
+    page.getByRole("heading", { name: /welcome to mittal collections/i });
+
+  // Fake clock, paused before the page loads: the 25s delay and the 5s
+  // auto-close only move when a test calls clock.runFor, so a slow (cold)
+  // page load can't fire them early or late.
+  async function openWithPausedClock(page) {
+    const start = new Date();
+    await page.clock.install({ time: start });
+    await page.clock.pauseAt(new Date(start.getTime() + 1000));
+    await page.goto("/");
+    await page.waitForLoadState("networkidle");
+  }
+
+  async function scrollTo(page, fraction) {
+    await page.evaluate(
+      (f) =>
+        window.scrollTo(
+          0,
+          Math.round((document.documentElement.scrollHeight - window.innerHeight) * f),
+        ),
+      fraction,
+    );
+  }
+
+  // Stand-in for an earlier visit: "shown at" = now - agoMs.
+  async function seedShownAgo(page, agoMs) {
+    await page.addInitScript(
+      ([key, ago]) => localStorage.setItem(key, String(Date.now() - ago)),
+      [SHOWN_KEY, agoMs],
+    );
+  }
+
+  test("appears for a guest after 25 seconds, and auto-closes", async ({
+    page,
+  }) => {
+    await openWithPausedClock(page);
+    const popup = heading(page);
+
+    await page.clock.runFor(20000);
+    await expect(popup).toBeHidden();
+
+    await page.clock.runFor(6000);
+    await expect(popup).toBeVisible();
+
+    // Auto-closes ~5s after appearing. That's a chain of timers (enter
+    // transition -> 5s auto-close -> 300ms exit), each one only scheduled
+    // once React has rendered the previous step, so advance in small steps
+    // rather than one big jump.
+    await expect
+      .poll(
+        async () => {
+          await page.clock.runFor(500);
+          return popup.isVisible();
+        },
+        { timeout: 15000 },
+      )
+      .toBe(false);
+  });
+
+  test("appears for a guest at 50% scroll, before the delay", async ({
     page,
   }) => {
     await page.goto("/");
+    await page.waitForLoadState("networkidle");
+    const popup = heading(page);
 
-    const popup = page.getByRole("heading", {
-      name: /welcome to mittal collections/i,
-    });
+    await scrollTo(page, 0.3);
+    await page.waitForTimeout(1000);
+    await expect(popup).toBeHidden();
 
-    // Shows after ~2.5s — generous timeout since this is the first
-    // navigation in the file and can pay Vite's cold-compile cost.
-    await expect(popup).toBeVisible({ timeout: 10000 });
+    await scrollTo(page, 0.6);
+    await expect(popup).toBeVisible({ timeout: 5000 });
+  });
 
-    // Auto-closes after ~5s from appearing.
-    await expect(popup).toBeHidden({ timeout: 12000 });
+  test("does not appear again within 24 hours", async ({ page }) => {
+    await seedShownAgo(page, 1 * HOUR);
+    await openWithPausedClock(page);
+    const popup = heading(page);
+
+    await scrollTo(page, 0.6);
+    await page.clock.runFor(30000);
+    await expect(popup).toBeHidden();
+  });
+
+  test("appears again once 24 hours have passed", async ({ page }) => {
+    await seedShownAgo(page, 25 * HOUR);
+    await openWithPausedClock(page);
+
+    await page.clock.runFor(26000);
+    await expect(heading(page)).toBeVisible();
   });
 
   test("does not appear for a logged-in visitor", async ({
@@ -34,16 +114,13 @@ test.describe("Welcome popup", () => {
     const testUser = await createTestUser(request);
     await loginAs(context, testUser);
 
-    await page.goto("/");
+    await openWithPausedClock(page);
 
-    const popup = page.getByRole("heading", {
-      name: /welcome to mittal collections/i,
-    });
-
-    // Wait well past the guest-case delay to make sure it genuinely
-    // never appears, not just that it's late.
-    await page.waitForTimeout(4000);
-    await expect(popup).not.toBeVisible();
+    // Past both triggers, to make sure it genuinely never appears, not
+    // just that it's late.
+    await scrollTo(page, 0.6);
+    await page.clock.runFor(30000);
+    await expect(heading(page)).not.toBeVisible();
   });
 });
 
