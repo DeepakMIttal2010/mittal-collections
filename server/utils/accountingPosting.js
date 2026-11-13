@@ -347,6 +347,15 @@ export const syncOrder = async (orderId) => {
     if (!(await courierWasPaid(orderId))) await reconcileSource("order-courier", orderId, null, ctx);
   }
 
+  // A return's refund and returned stock post against its order: they go
+  // with the sale when the order stops counting as sold (Delivered ->
+  // Cancelled), and the returned stock waits for the order's cost
+  // snapshot. Without this they changed only on the return's own next
+  // update or a full reconcile, so a cancelled order kept its refund and
+  // reversed the revenue twice (deep bug sweep M1-C, 2026-11-03).
+  const returns = await ReturnRequest.find({ order: orderId }).lean();
+  for (const rr of returns) await syncReturnWith(rr, ctx);
+
   return ctx.stats;
 };
 
