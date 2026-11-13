@@ -317,6 +317,98 @@ describe("auto-posting: returns", () => {
     const refunded = (await Order.findById(order._id)).refundedAmount;
     expect((await live("return-refund"))[0].totalPaise).toBe(Math.round(refunded * 100));
   });
+
+  it("M1-C: cancelling an order with a refunded return drops the return's vouchers at once, without a reconcile", async () => {
+    const auth = await adminAuth();
+    const { order, product, user } = await realOrder({ orderStatus: "Delivered" });
+    await reconcileAll({ stock: false });
+    const rr = await ReturnRequest.create({
+      order: order._id, user: user._id, product: product._id, productName: product.name, quantity: 1, reason: "Defect", status: "Approved",
+    });
+
+    const refund = await request(app).put(`/api/returns/${rr._id}/status`).set(auth).send({ status: "Refunded" });
+    expect(refund.status).toBe(200);
+
+    const refundPaise = Math.round(335 * (1 - 34 / 335) * 100); // 30100
+    expect(await live("order-sale")).toHaveLength(1);
+    expect((await live("return-refund"))[0].totalPaise).toBe(refundPaise);
+    expect((await live("return-stock"))[0].totalPaise).toBe(19300);
+    expect(await net("razorpay")).toBe(32000 - refundPaise);
+    const refundedAmount = (await Order.findById(order._id)).refundedAmount;
+    expect(refundedAmount).toBe(301);
+
+    const cancel = await request(app)
+      .put(`/api/orders/${order._id}/status`)
+      .set(auth)
+      .send({ status: "Cancelled", confirmPaidCancellation: true });
+    expect(cancel.status).toBe(200);
+
+    // The sale and its cost of goods are voided -- and so are the refund and
+    // the returned stock that reversed them, or the books would reverse the
+    // revenue twice and keep stock that the voided cost of goods already put back.
+    expect(await live("order-sale")).toHaveLength(0);
+    expect(await live("order-cogs")).toHaveLength(0);
+    expect(await live("return-refund")).toHaveLength(0);
+    expect(await live("return-stock")).toHaveLength(0);
+    expect(await live("order-courier")).toHaveLength(1);
+    expect(await net("sales-online")).toBe(0);
+    expect(await net("sales-returns")).toBe(0);
+    expect(await net("razorpay")).toBe(0);
+    expect(await net("stock")).toBe(0);
+    expect(await net("cogs")).toBe(0);
+    expect(await net("courier")).toBe(8400);
+    expect(await net("capital")).toBe(-8400);
+    expect(await trialBalanceIsZero()).toBe(0);
+
+    // The return itself is untouched by the books.
+    const freshReturn = await ReturnRequest.findById(rr._id).lean();
+    expect(freshReturn.status).toBe("Refunded");
+    expect(freshReturn.stockRestored).toBe(true);
+    expect((await Order.findById(order._id)).refundedAmount).toBe(refundedAmount);
+
+    // Syncing again (live or full) finds nothing left to change.
+    const before = (await Voucher.find({}).lean()).map((v) => `${v.number}:${v.voided}:${v.totalPaise}`).sort();
+    await syncOrder(order._id);
+    const again = await reconcileAll({ stock: false });
+    expect(again.created).toBe(0);
+    expect(again.updated).toBe(0);
+    expect(again.voided).toBe(0);
+    expect((await Voucher.find({}).lean()).map((v) => `${v.number}:${v.voided}:${v.totalPaise}`).sort()).toEqual(before);
+  });
+
+  it("M1-C: backfilling an order's costs also posts the returned stock that was waiting for them", async () => {
+    const auth = await adminAuth();
+    const { order, product, user } = await realOrder({ orderStatus: "Delivered" });
+    await OrderCost.deleteMany({ order: order._id });
+    await reconcileAll({ stock: false });
+    const rr = await ReturnRequest.create({
+      order: order._id, user: user._id, product: product._id, productName: product.name, quantity: 1, reason: "Defect", status: "Approved",
+    });
+
+    const picked = await request(app).put(`/api/returns/${rr._id}/status`).set(auth).send({ status: "Picked Up" });
+    expect(picked.status).toBe(200);
+    // No cost snapshot yet, so neither the cost of goods nor the returned stock can post.
+    expect(await live("order-cogs")).toHaveLength(0);
+    expect(await live("return-stock")).toHaveLength(0);
+
+    const cost = await request(app)
+      .put(`/api/orders/${order._id}/cost`)
+      .set(auth)
+      .send({ itemCosts: [{ unitPurchasePrice: 175, unitMiscExpenses: 18 }] });
+    expect(cost.status).toBe(200);
+
+    expect((await live("order-cogs"))[0].totalPaise).toBe(19300);
+    expect((await live("return-stock"))[0].totalPaise).toBe(19300);
+    expect(await live("return-refund")).toHaveLength(0);
+    expect(await net("cogs")).toBe(0);
+    expect(await net("stock")).toBe(0);
+    expect(await trialBalanceIsZero()).toBe(0);
+
+    const again = await reconcileAll({ stock: false });
+    expect(again.created).toBe(0);
+    expect(again.updated).toBe(0);
+    expect(again.voided).toBe(0);
+  });
 });
 
 describe("auto-posting: POS sales", () => {
