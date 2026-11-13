@@ -18,12 +18,15 @@ export const createReturnRequest = async ({
   productId,
   quantity,
   reason,
+  size,
 }) => {
   try {
     const response = await fetch(`${API_BASE_URL}/returns`, {
       method: "POST",
       headers: authHeaders(),
-      body: JSON.stringify({ orderId, productId, quantity, reason }),
+      // size: which line of the order (the same product can be on it in
+      // more than one size). Left out of the body when not given.
+      body: JSON.stringify({ orderId, productId, quantity, reason, size }),
     });
 
     return await response.json();

@@ -10,7 +10,7 @@ import { restoreStock, notifyRestocked } from "./orderController.js";
 import { clawBackForReturn } from "../utils/loyaltyPoints.js";
 import { withOptionalTransaction, TransactionsUnavailableError } from "../utils/orderTransactions.js";
 import { escapeHtml } from "../utils/escapeHtml.js";
-import { syncReturn, postSafely } from "../utils/accountingPosting.js";
+import { syncReturn, postSafely, returnLineOf } from "../utils/accountingPosting.js";
 
 const notifyAdmin = async (returnRequest) => {
   try {
@@ -62,7 +62,7 @@ const notifyCustomer = async (returnRequest, customerEmail) => {
 // ============================
 export const createReturnRequest = async (req, res) => {
   try {
-    const { orderId, productId, quantity, reason } = req.body;
+    const { orderId, productId, quantity, reason, size } = req.body;
 
     // orderId/productId come straight from the request body (unlike a
     // route param, which Express always parses as a plain string) — an
@@ -82,6 +82,15 @@ export const createReturnRequest = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Order, product and reason are required",
+      });
+    }
+
+    // Optional: which size of the product is coming back. Same reasoning as
+    // the id checks above -- only a plain string may reach the queries below.
+    if (size !== undefined && size !== null && (typeof size !== "string" || size.length > 100)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid size",
       });
     }
 
@@ -109,14 +118,42 @@ export const createReturnRequest = async (req, res) => {
       });
     }
 
-    const orderItem = order.orderItems.find(
+    // One order can hold the same product in several sizes, each its own
+    // line with its own price and quantity. Matching by product alone
+    // always took the first line: a return of the second size was filed
+    // (and capped, and priced) as the first, and then blocked as a
+    // duplicate of it. A request without a size -- an older client -- still
+    // works when the product has just one line on the order (deep bug
+    // sweep M1-B, 2026-11-13).
+    const productLines = order.orderItems.filter(
       (item) => item.product.toString() === safeProductId,
     );
+
+    if (productLines.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "This product is not part of that order",
+      });
+    }
+
+    const wantedSize = typeof size === "string" ? size.trim() : null;
+
+    if (wantedSize === null && productLines.length > 1) {
+      return res.status(400).json({
+        success: false,
+        message: "This product is on your order in more than one size — please choose which size you're returning",
+      });
+    }
+
+    const orderItem =
+      wantedSize === null
+        ? productLines[0]
+        : productLines.find((item) => (item.size || "") === wantedSize);
 
     if (!orderItem) {
       return res.status(404).json({
         success: false,
-        message: "This product is not part of that order",
+        message: "That size of this product is not part of that order",
       });
     }
 
@@ -360,6 +397,24 @@ export const updateReturnStatus = async (req, res) => {
       if (order?.orderStatus === "Cancelled") return sendOrderCancelled(res);
     }
 
+    // The refund is worked out from the order line this return is for. A
+    // return saved without a size, on an order holding the product in
+    // several sizes, can't be tied to one of them -- refuse it here, before
+    // anything is written, rather than refund the first size's price.
+    // (An order's lines never change after it is placed, so the line found
+    // inside the transaction below is this same one.)
+    if (status === "Refunded" && !returnRequest.pointsClawedBack) {
+      const order = await Order.findById(returnRequest.order).select("orderItems").lean();
+
+      if (order && returnLineOf(order, returnRequest).ambiguous) {
+        return res.status(409).json({
+          success: false,
+          message:
+            "This order has this product in more than one size and the return doesn't say which size came back, so the refund can't be worked out. Handle this refund manually.",
+        });
+      }
+    }
+
     // Claims the transition atomically (scoped to the status AT READ
     // TIME), same pattern as orderController.js's updateOrderStatus —
     // two concurrent requests for the same return (a double-click on
@@ -451,9 +506,7 @@ export const updateReturnStatus = async (req, res) => {
 
         if (claim) {
           const order = await Order.findById(claimed.order).session(session);
-          const orderItem = order?.orderItems.find(
-            (item) => item.product.toString() === claimed.product.toString(),
-          );
+          const orderItem = order ? returnLineOf(order, claimed).item : null;
 
           if (order && orderItem) {
             // Same prorated-discount figure the books post -- see utils/returnValue.js.

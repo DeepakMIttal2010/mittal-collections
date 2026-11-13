@@ -26,6 +26,8 @@ function ReturnRequestModal({ order, item, onClose, onSubmitted }) {
     const response = await createReturnRequest({
       orderId: order._id,
       productId: item.product,
+      // Which line of the order: the same product can be on it in more than one size.
+      size: item.size || "",
       quantity,
       reason,
     });

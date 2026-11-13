@@ -70,7 +70,10 @@ function OrderCard({ order, onBuyAgain, onPayNow, payingId }) {
   const navigate = useNavigate();
   const { t, language } = useLanguage();
   const [returnModalItem, setReturnModalItem] = useState(null);
-  const [returnedProductIds, setReturnedProductIds] = useState(new Set());
+  // Order lines with a return just requested, keyed by product AND size:
+  // the same product can be on an order in more than one size.
+  const [returnedLines, setReturnedLines] = useState(new Set());
+  const lineKey = (item) => `${item.product}|${item.size || ""}`;
   const statusText = getStatusText(t);
   const statusInfo = statusText[order.orderStatus] || statusText.Pending;
   const isDelivered = order.orderStatus === "Delivered";
@@ -168,7 +171,7 @@ function OrderCard({ order, onBuyAgain, onPayNow, payingId }) {
 
                   {isDelivered && item.returnInfo && (
                     <>
-                      {returnedProductIds.has(item.product) ? (
+                      {returnedLines.has(lineKey(item)) ? (
                         <p className="text-xs font-medium text-green-700">
                           {t("Return requested", "रिटर्न का अनुरोध किया गया")}
                         </p>
@@ -210,8 +213,8 @@ function OrderCard({ order, onBuyAgain, onPayNow, payingId }) {
             item={returnModalItem}
             onClose={() => setReturnModalItem(null)}
             onSubmitted={() =>
-              setReturnedProductIds(
-                (prev) => new Set([...prev, returnModalItem.product]),
+              setReturnedLines(
+                (prev) => new Set([...prev, lineKey(returnModalItem)]),
               )
             }
           />
