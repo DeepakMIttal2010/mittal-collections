@@ -394,6 +394,18 @@ const orderSchema = new mongoose.Schema(
       reviewFollowUp: { claimedAt: Date, sentAt: Date, attempts: Number },
     },
 
+    // The review-collection emails (see utils/reviewEmails.js): the Day-1
+    // "did it arrive safely?" email, the Day-8 review request and the one
+    // Day-14 reminder. Unlike paymentNotices, a claim is never re-taken
+    // after a crash and an unconfirmed send (timeout) is never retried —
+    // a missed email is preferred over a duplicate. gaveUpAt ends retries;
+    // lastError is a short code, never message content.
+    reviewNotices: {
+      feedback: { claimedAt: Date, sentAt: Date, attempts: Number, lastError: String, gaveUpAt: Date },
+      request: { claimedAt: Date, sentAt: Date, attempts: Number, lastError: String, gaveUpAt: Date },
+      reminder: { claimedAt: Date, sentAt: Date, attempts: Number, lastError: String, gaveUpAt: Date },
+    },
+
     // Guards the review-request cron (see sendReviewRequestEmails) against
     // emailing the same order twice.
     reviewRequestSent: {

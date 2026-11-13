@@ -36,9 +36,8 @@ import { calculateBundleDiscount } from "../utils/bundleDiscount.js";
 import { sendEmail } from "../config/mailer.js";
 import { notifyUser } from "../utils/notify.js";
 import { hasAdminPermission } from "../utils/adminAccess.js";
-import { REVIEW_BONUS_POINTS } from "./reviewController.js";
-import { loadReturnedQuantities, getSolicitableItems } from "../utils/reviewEligibility.js";
 import { getDeliveryFeedbackInfo } from "../utils/deliveryFeedback.js";
+import { runReviewEmails } from "../utils/reviewEmails.js";
 import { escapeHtml } from "../utils/escapeHtml.js";
 import { loadSellerEmailBlock } from "../utils/sellerEmailBlock.js";
 import OrderCost from "../models/OrderCost.js";
@@ -229,11 +228,6 @@ const sendOrderStatusNotification = (order, status) => {
     .catch((error) => console.error("Order Status Email Error:", error));
 };
 
-// Matches (and slightly exceeds) SiteSettings.defaultReturnPeriodDays —
-// by this point the return window has closed, so an order that reaches
-// this point without a return means the customer kept the product and
-// is a genuine "they liked it" signal, not just a guess at 4 days.
-const REVIEW_REQUEST_DELAY_DAYS = 8;
 
 // Re-derives price/name/image from the database and validates quantity —
 // req.body.orderItems is never trusted for anything that affects money or
@@ -1916,124 +1910,47 @@ export const permanentlyDeleteOrder = async (req, res) => {
 };
 
 // ============================
-// Send Review Request Emails
+// Send Review Collection Emails (Day 1 feedback, Day 8 request, Day 14 reminder)
 // Called by an external scheduler (not a logged-in admin session),
 // protected by a shared secret rather than JWT auth — same pattern as
-// cartController.js's sendAbandonedCartReminders.
+// cartController.js's sendAbandonedCartReminders. The URL keeps its old
+// name so the existing cron-job.org job needs no change.
+// ?dryRun=1 reports who would be emailed (masked order ids) and writes
+// nothing: no email, no claim, no sent flag, no opt-out token.
 // ============================
+
+// Fails safe: a dry-run flag in any spelling (dryRun, dryrun, dry_run,
+// dryRun[]) with any value except "0"/"false" — even a repeated param,
+// which arrives as an array — means dry run, in the query or the body. A
+// mistyped flag must never turn a preview into real emails.
+const isDryRunRequest = (req) => {
+  const sources = [req.query || {}, req.body && typeof req.body === "object" ? req.body : {}];
+
+  return sources.some((source) =>
+    Object.entries(source).some(([key, value]) => {
+      if (!/^dry[_-]?run(\[\])?$/i.test(key)) return false;
+      return !(value === "0" || value === "false" || value === false || value === 0);
+    }),
+  );
+};
 
 export const sendReviewRequestEmails = async (req, res) => {
   try {
-
-    const cutoff = new Date(
-      Date.now() - REVIEW_REQUEST_DELAY_DAYS * 24 * 60 * 60 * 1000,
-    );
-
-    const orders = await Order.find({
-      orderStatus: "Delivered",
-      deliveredAt: { $lte: cutoff },
-      reviewRequestSent: { $ne: true },
-    })
-      .populate("user", "name email")
-      .populate("orderItems.product", "slug");
-
-    // Returned units (any return request that wasn't Rejected) never get a
-    // review request; whatever the customer kept still does, down to a
-    // partial quantity of one line. One query for the whole batch.
-    const returnedQuantities = await loadReturnedQuantities(orders.map((order) => order._id));
-
-    let sent = 0;
-    let skippedNoEligibleItems = 0;
-
-    for (const order of orders) {
-      if (!order.user?.email) continue;
-
-      const items = getSolicitableItems(order, returnedQuantities);
-
-      // Nothing left to ask about (every item returned) — left unclaimed,
-      // so an item whose return is later Rejected is picked up next run.
-      if (items.length === 0) {
-        skippedNoEligibleItems += 1;
-        continue;
-      }
-
-      // Atomic per-order claim before sending — the N+1 fix (2026-10-13)
-      // that batched this into one Order.updateMany AFTER the whole send
-      // loop finished widened the window two overlapping cron runs (the
-      // route comments elsewhere already acknowledge pingers like
-      // cron-job.org retry/double-fire) could both fetch the same
-      // not-yet-flagged order and send a duplicate "leave a review"
-      // email — found in the 2026-10-13 deep bug sweep. Claiming here,
-      // before the send, closes that; the catch block below releases the
-      // claim on a genuine send failure so it's still retried next run.
-      const claimed = await Order.findOneAndUpdate(
-        { _id: order._id, reviewRequestSent: { $ne: true } },
-        { $set: { reviewRequestSent: true } },
-      );
-
-      if (!claimed) continue;
-
-      const itemsHtml = items
-        .map((item) => {
-          const product = item.product;
-          const isPopulated = product && typeof product === "object";
-          const productId = isPopulated ? product._id : product;
-
-          // #reviews scrolls straight to (and auto-opens) the review form
-          // — see ProductReviews.jsx — instead of leaving the customer to
-          // find it themselves on a page they otherwise land on at the top.
-          const url = `${process.env.CLIENT_URL}/product/${productId}${
-            isPopulated && product.slug ? `/${product.slug}` : ""
-          }#reviews`;
-
-          return `<li>${escapeHtml(item.name)} — <a href="${url}">Leave a review</a></li>`;
-        })
-        .join("");
-
-      try {
-        await sendEmail({
-          to: order.user.email,
-          bcc: process.env.ADMIN_NOTIFICATION_EMAIL,
-          subject: "How was your order? Leave a review",
-          html: `
-            <p>Hi ${escapeHtml(order.user.name || "there")},</p>
-            <p>Hope you're enjoying your order from Mittal Collections! Got a
-            minute to share what you think? It really helps other shoppers.</p>
-            <div style="background:#fffbeb;border:1px solid #f59e0b;border-radius:8px;padding:16px;margin:16px 0;">
-              <p style="margin:0;font-weight:bold;color:#92400e;">
-                🎁 Mittal Collections is rewarding you — leave a review and get
-                ${REVIEW_BONUS_POINTS} bonus loyalty points!
-              </p>
-              <p style="margin:6px 0 0;font-size:12px;color:#92400e;">
-                *Points are credited once your review is approved. Terms and
-                conditions apply.
-              </p>
-            </div>
-            <ul>${itemsHtml}</ul>
-            <p>Order ID: ${order._id}</p>
-          `,
-        });
-
-        sent += 1;
-      } catch (error) {
-        console.error(`Review request email failed for ${order.user.email}:`, error);
-        // Release the claim made above so a genuine send failure (not a
-        // concurrent-run race) still gets retried on the next cron run,
-        // instead of being permanently marked "sent" with no email ever
-        // having gone out.
-        await Order.updateOne(
-          { _id: order._id },
-          { $set: { reviewRequestSent: false } },
-        );
-      }
-    }
+    const dryRun = isDryRunRequest(req);
+    const report = await runReviewEmails({ dryRun });
+    const { request } = report;
 
     res.status(200).json({
       success: true,
-      message: `Sent ${sent} of ${orders.length} review requests`,
-      sent,
-      total: orders.length,
-      skippedNoEligibleItems,
+      message: dryRun
+        ? "Dry run — nothing was sent or saved"
+        : `Sent ${report.feedback.sent} feedback, ${request.sent} review request and ${report.reminder.sent} reminder emails`,
+      ...report,
+      // Day-8 figures under their original names, for anything still
+      // reading the old response shape.
+      sent: request.sent,
+      total: request.candidates,
+      skippedNoEligibleItems: request.skipped.no_eligible_items || 0,
     });
   } catch (error) {
     console.error("Send Review Request Emails Error:", error);
