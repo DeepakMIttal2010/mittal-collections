@@ -108,3 +108,98 @@ export const getSolicitableItems = (order, returnedQuantities) => {
     return ordered - back > 0;
   });
 };
+
+// ---------------------------------------------------------------------
+// 3. Does an approved review EARN its loyalty bonus? Only while the
+//    customer still keeps at least one unit of the reviewed product on
+//    the review's order. Same product + size matching and per-line
+//    allocation as getSolicitableItems; a review has no size, so every
+//    size of the product on the order counts.
+// ---------------------------------------------------------------------
+
+const OPEN_RETURN_STATUSES = ["Requested", "Approved", "Picked Up"];
+
+// Units of productId on the order not covered by the given returns
+// ({ product, size, quantity }), and how many were ordered in all.
+export const countKeptUnits = (order, productId, returns) => {
+  const back = new Map();
+
+  for (const request of returns) {
+    if (String(request.product) !== String(productId)) continue;
+    const key = itemKey(request.product, request.size);
+    back.set(key, (back.get(key) || 0) + (request.quantity || 0));
+  }
+
+  let ordered = 0;
+  let kept = 0;
+
+  for (const item of order.orderItems || []) {
+    const itemProduct = productIdOf(item.product);
+    if (!itemProduct || String(itemProduct) !== String(productId)) continue;
+
+    const key = itemKey(itemProduct, item.size);
+    const quantity = item.quantity || 0;
+    const covered = Math.min(back.get(key) || 0, quantity);
+    back.set(key, (back.get(key) || 0) - covered);
+
+    ordered += quantity;
+    kept += quantity - covered;
+  }
+
+  return { ordered, kept };
+};
+
+// { eligible: true } or { eligible: false, holdReason }. holdReason null
+// means "never eligible" (an older review with no linked order); any other
+// reason is a hold that may clear later (a return rejected). Pass the
+// caller's session so the check reads inside its transaction.
+export const getReviewBonusEligibility = async (review, session = null) => {
+  if (!review.order) return { eligible: false, holdReason: null };
+
+  const order = await Order.findById(review.order)
+    .select("orderItems orderStatus isActive")
+    .session(session)
+    .lean();
+
+  if (!order || order.isActive === false) return { eligible: false, holdReason: "order_deleted" };
+  if (order.orderStatus === "Cancelled") return { eligible: false, holdReason: "order_cancelled" };
+
+  const returns = await ReturnRequest.find({
+    order: order._id,
+    product: review.product,
+    status: { $in: RETURNED_STATUSES },
+  })
+    .select("product size quantity status")
+    .session(session)
+    .lean();
+
+  const { ordered, kept } = countKeptUnits(order, review.product, returns);
+
+  // ordered === 0: the product isn't on the order's lines at all (older
+  // data) — nothing to hold it against, so it earns as before.
+  if (kept > 0 || ordered === 0) return { eligible: true };
+
+  return {
+    eligible: false,
+    holdReason: returns.some((r) => OPEN_RETURN_STATUSES.includes(r.status))
+      ? "return_in_progress"
+      : "returned",
+  };
+};
+
+// True once refunded returns cover every unit of productId on the order —
+// the point at which a paid review bonus for it is taken back. Open returns
+// don't count: one can still be rejected.
+export const isProductFullyRefunded = async (order, productId, session = null) => {
+  const refunded = await ReturnRequest.find({
+    order: order._id,
+    product: productId,
+    status: "Refunded",
+  })
+    .select("product size quantity")
+    .session(session)
+    .lean();
+
+  const { ordered, kept } = countKeptUnits(order, productId, refunded);
+  return ordered > 0 && kept === 0;
+};

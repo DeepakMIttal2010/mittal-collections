@@ -183,7 +183,9 @@ const reviewSchema = new mongoose.Schema(
       type: new mongoose.Schema(
         {
           reversedAt: { type: Date, required: true },
-          reversedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+          // null when the system reversed it (the item was returned, or
+          // the order was cancelled/deleted — see reviewBonus.js).
+          reversedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
           reversedByName: { type: String, default: "" },
           reason: { type: String, required: true },
           evidence: { type: String, default: "" },
@@ -196,6 +198,31 @@ const reviewSchema = new mongoose.Schema(
           // Part of the bonus whose batch had already expired — not taken
           // back and never owed (only the still-valid part is reversed).
           expiredPortion: { type: Number, default: 0 },
+        },
+        { _id: false },
+      ),
+      default: undefined,
+      select: false,
+    },
+
+    // Set when an approval paid no bonus only because, right now, every
+    // unit of this product on the order is being returned (or was), or the
+    // order was cancelled/deleted. Unlike a capped or order-less review,
+    // a held one is NOT marked reviewPointsProcessed and uses none of the
+    // order's cap — if the return is rejected, an admin can grant the
+    // bonus later (POST /api/reviews/:id/grant-bonus), which re-checks and
+    // clears this. Admin-only, like bonusReversal.
+    bonusHold: {
+      type: new mongoose.Schema(
+        {
+          reason: {
+            type: String,
+            // return_rejected: the item is kept again, so an admin can now
+            // grant it (re-approving never pays a held bonus).
+            enum: ["return_in_progress", "returned", "order_cancelled", "order_deleted", "return_rejected"],
+            required: true,
+          },
+          at: { type: Date, required: true },
         },
         { _id: false },
       ),
