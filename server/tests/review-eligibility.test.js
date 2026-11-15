@@ -8,7 +8,6 @@ import Review from "../models/Review.js";
 import ReturnRequest from "../models/ReturnRequest.js";
 import User from "../models/User.js";
 import { createUser, signToken, createProduct, createOrder } from "./helpers.js";
-import { REVIEW_BONUS_POINTS } from "../controllers/reviewController.js";
 
 // This file posts well over uploadLimiter's 30-per-minute review
 // submissions (server/middleware/uploadLimiter.js), which reads
@@ -197,7 +196,10 @@ describe("Review eligibility — who can submit", () => {
     expect(res.body.review.rating).toBe(1);
   });
 
-  it("gives a returned item's review the same bonus rules once approved", async () => {
+  // A returned item can still be reviewed, but (owner rule, 2026-11-15)
+  // earns no bonus: a cancelled order's review is approved with the bonus
+  // held — see review-bonus-returns.test.js for the full rules.
+  it("approves a cancelled order's review but pays no bonus for it", async () => {
     const user = await createUser();
     const admin = await createUser({ role: "admin" });
     const product = await createProduct();
@@ -209,7 +211,10 @@ describe("Review eligibility — who can submit", () => {
       .set("Authorization", `Bearer ${signToken(admin)}`);
 
     const after = await User.findById(user._id);
-    expect(after.loyaltyPoints).toBe(REVIEW_BONUS_POINTS);
+    expect(after.loyaltyPoints).toBe(0);
+    const saved = await Review.findById(res.body.review._id).select("+bonusHold");
+    expect(saved.isApproved).toBe(true);
+    expect(saved.bonusHold.reason).toBe("order_cancelled");
   });
 });
 

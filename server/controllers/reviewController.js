@@ -1,6 +1,5 @@
 import mongoose from "mongoose";
 import Review, { REVIEW_CONTENT_MAX_LENGTH } from "../models/Review.js";
-import Order from "../models/Order.js";
 import { findDeliveredPurchase } from "../utils/reviewEligibility.js";
 import cloudinary from "../config/cloudinary.js";
 import {
@@ -8,22 +7,20 @@ import {
   LoyaltyConflictError,
   reviewBonusReversalPlan,
 } from "../utils/loyaltyPoints.js";
+import {
+  awardReviewBonus,
+  applyReviewBonusReversal,
+  ReversalRefusedError,
+} from "../utils/reviewBonus.js";
 import { withOptionalTransaction } from "../utils/orderTransactions.js";
 import { notifyUser } from "../utils/notify.js";
 import { deleteCloudinaryAssetsByUrl } from "../utils/cloudinaryCleanup.js";
 import { buildAdminReviewFilter, sendFilterError } from "./reviewModerationController.js";
 import { publicReviewFilter, publicPhotoReviewFilter, toPublicReview } from "../utils/publicReview.js";
 
-// Flat bonus for a review the admin actually approves — deliberately not
-// randomized/"win up to X" (that reads as a chance-based contest, which
-// carries real regulatory risk in several Indian states); a guaranteed
-// amount is simpler and carries none of that risk.
-export const REVIEW_BONUS_POINTS = 50;
-
-// One order can contain several products, and a customer can review each
-// one — but the combined bonus across all reviews tied to the same order
-// is capped here, not per review.
-export const ORDER_REVIEW_BONUS_CAP = 50;
+// The bonus amount and the per-order cap live with the award/reversal
+// logic in utils/reviewBonus.js; re-exported here for existing importers.
+export { REVIEW_BONUS_POINTS, ORDER_REVIEW_BONUS_CAP } from "../utils/reviewBonus.js";
 
 // Hard ceiling on review-video length — the UI asks for ~10-15s, this just
 // guards against someone uploading something far longer.
@@ -419,7 +416,7 @@ export const getAllReviewsAdmin = async (req, res) => {
     // comment (orderController.js) for why this pattern was chosen here
     // over a full pagination rework.
     const reviews = await Review.find(filter)
-      .select("+bonusReversal")
+      .select("+bonusReversal +bonusHold")
       .populate("user", "name email")
       .populate("product", "name image")
       .sort({ createdAt: sortOrder })
@@ -482,103 +479,116 @@ export const approveReview = async (req, res) => {
     // never earns points — approval is already the moderation checkpoint
     // admins go through anyway, so this rides along with no extra step.
     //
-    // Two races used to be possible here: (a) the same review approved
-    // twice concurrently, and (b) two different reviews on the same order
-    // approved concurrently, both reading "0 awarded so far" and both
-    // granting the full bonus, blowing past ORDER_REVIEW_BONUS_CAP. Both
-    // are closed below with single-document atomic updates instead of the
-    // previous read-then-decide-then-write.
-    //
     // The claim, the cap reservation, the points and pointsAwarded commit
-    // together in one transaction. The bonus is its own batch, available
-    // straight away and valid for 365 days from approval — it doesn't wait
-    // for (or share an expiry with) the order's own pending points.
-    const award = await withOptionalTransaction(async (session) => {
-      const claimedReview = await Review.findOneAndUpdate(
-        { _id: review._id, reviewPointsProcessed: { $ne: true } },
-        { $set: { reviewPointsProcessed: true } },
-        { new: false, session },
-      );
+    // together in one transaction (see awardReviewBonus), so approving
+    // twice — or approving while an admin grants the bonus — pays once.
+    // A review whose product is being returned (every unit), or whose
+    // order was cancelled/deleted, is approved and shown but paid nothing
+    // for now: the bonus is held, uses none of the order's cap, and can be
+    // granted later if the return is rejected (grantReviewBonus). A review
+    // already on hold is never paid by approving it again — only the grant
+    // (reviews + loyalty permissions) releases a hold.
+    const outcome = await withOptionalTransaction((session) =>
+      awardReviewBonus({ reviewId: review._id, session }),
+    );
 
-      // null means another concurrent request already claimed (or a prior
-      // approval already processed) this exact review — nothing more to do.
-      if (!claimedReview) return null;
-
-      // No matching Delivered order means no verified purchase — this is
-      // a "reward for buying" scheme, not a reward for reviewing, so an
-      // unverified review earns nothing (it can still be approved and
-      // shown publicly; it just carries no bonus).
-      let points = 0;
-
-      if (review.order) {
-        // Atomically reserve headroom against the order's shared cap.
-        // {new: false} returns the pre-update document, so alreadyAwarded
-        // is the true prior total — the read and the write are one atomic
-        // step, so a concurrent sibling approval can't see a stale value.
-        const orderBefore = await Order.findByIdAndUpdate(
-          review.order,
-          [
-            {
-              $set: {
-                reviewBonusAwarded: {
-                  $min: [
-                    ORDER_REVIEW_BONUS_CAP,
-                    {
-                      $add: [
-                        { $ifNull: ["$reviewBonusAwarded", 0] },
-                        REVIEW_BONUS_POINTS,
-                      ],
-                    },
-                  ],
-                },
-              },
-            },
-          ],
-          { new: false, updatePipeline: true, session },
-        );
-
-        const alreadyAwarded = orderBefore?.reviewBonusAwarded || 0;
-
-        points = Math.max(0, Math.min(REVIEW_BONUS_POINTS, ORDER_REVIEW_BONUS_CAP - alreadyAwarded));
-      }
-
-      if (points > 0) {
-        await applyLoyaltyPointsChange({
-          userId: review.user,
-          type: "earned",
-          source: "review",
-          points,
-          key: `review:${review._id}`,
-          order: review.order || null,
-          review: review._id,
-          description: "Bonus for an approved product review",
-          session,
-        });
-      }
-
-      await Review.updateOne({ _id: review._id }, { $set: { pointsAwarded: points } }, { session });
-      return points;
-    });
-
-    if (award !== null) review.pointsAwarded = award;
+    if (outcome.status === "awarded") review.pointsAwarded = outcome.points;
+    const award = outcome.status === "awarded" ? outcome.points : 0;
 
     if (award > 0) {
-      notifyUser({
-        userId: review.user,
-        type: "loyalty_points",
-        title: "You earned bonus loyalty points!",
-        message: `Your review was approved — ${award} bonus points added to your account.`,
-        link: "/loyalty-history",
-      });
+      notifyBonusAwarded(review.user, award, "Your review was approved");
     }
 
     res.status(200).json({
       success: true,
       message: "Review approved",
       review,
+      ...(outcome.status === "held" && { bonusHold: { reason: outcome.reason } }),
     });
   } catch (error) {
     console.error("Approve Review Error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};
+
+const notifyBonusAwarded = (userId, points, lead) =>
+  notifyUser({
+    userId,
+    type: "loyalty_points",
+    title: "You earned bonus loyalty points!",
+    message: `${lead} — ${points} bonus points added to your account.`,
+    link: "/loyalty-history",
+  });
+
+const HOLD_REASON_TEXT = {
+  return_in_progress: "a return for this item is still open",
+  returned: "the item was returned",
+  order_cancelled: "the order was cancelled",
+  order_deleted: "the order was deleted",
+};
+
+// ============================
+// GRANT A HELD REVIEW BONUS (Admin)
+// ============================
+// For an approved review whose bonus was held at approval (its item was
+// being returned) once that return has been rejected. Re-checks
+// eligibility now, inside the transaction, and pays through the same path
+// as approval — same cap, same ledger key — so it pays at most once.
+export const grantReviewBonus = async (req, res) => {
+  try {
+    const review = await Review.findById(req.params.id).select("isApproved reviewPointsProcessed");
+
+    if (!review) {
+      return res.status(404).json({ success: false, message: "Review not found" });
+    }
+
+    if (!review.isApproved) {
+      return res.status(400).json({ success: false, message: "Approve the review first" });
+    }
+
+    // The eligibility re-check runs inside the award transaction. Known
+    // limitation (accepted): createReturnRequest doesn't write the order,
+    // so a return created in the very same instant isn't seen here and the
+    // bonus can still be paid — the automatic reversal when that return is
+    // fully refunded takes it back (reverseReviewBonusIfFullyReturned).
+    const outcome = await withOptionalTransaction((session) =>
+      awardReviewBonus({ reviewId: review._id, releaseHold: true, session }),
+    );
+
+    if (outcome.status === "already") {
+      return res.status(409).json({
+        success: false,
+        message: "This review's bonus has already been processed",
+      });
+    }
+
+    if (outcome.status === "held") {
+      return res.status(409).json({
+        success: false,
+        code: "BONUS_STILL_HELD",
+        message: `No bonus can be paid yet — ${HOLD_REASON_TEXT[outcome.reason]}`,
+        bonusHold: { reason: outcome.reason },
+      });
+    }
+
+    if (outcome.points > 0) {
+      notifyBonusAwarded(review.user, outcome.points, "Your review bonus was released");
+    }
+
+    res.status(200).json({
+      success: true,
+      message:
+        outcome.points > 0
+          ? `Bonus granted — ${outcome.points} points added`
+          : "No bonus paid — this order's review bonus is already used",
+      pointsAwarded: outcome.points,
+    });
+  } catch (error) {
+    console.error("Grant Review Bonus Error:", error);
 
     res.status(500).json({
       success: false,
@@ -597,13 +607,6 @@ export const approveReview = async (req, res) => {
 export const REVERSAL_REASON_MIN = 10;
 export const REVERSAL_REASON_MAX = 1000;
 export const REVERSAL_EVIDENCE_MAX = 2000;
-
-class ReversalRefusedError extends Error {
-  constructor(status, message) {
-    super(message);
-    this.status = status;
-  }
-}
 
 export const reverseReviewBonus = async (req, res) => {
   try {
@@ -624,103 +627,17 @@ export const reverseReviewBonus = async (req, res) => {
       });
     }
 
-    const reversal = await withOptionalTransaction(async (session) => {
-      const current = await Review.findById(req.params.id)
-        .select("+bonusReversal")
-        .session(session);
-
-      if (!current) throw new ReversalRefusedError(404, "Review not found");
-      if (current.bonusReversal?.reversedAt) {
-        throw new ReversalRefusedError(409, "This review's bonus has already been reversed");
-      }
-      if (!(current.pointsAwarded > 0)) {
-        throw new ReversalRefusedError(400, "This review did not receive a bonus");
-      }
-
-      const points = current.pointsAwarded;
-
-      // The guard: only one request can move a review from "no reversal"
-      // to "reversed" (conditional on the exact state just read). A
-      // concurrent second request either fails this filter or, inside a
-      // transaction, hits a write conflict and retries into it.
-      const claimed = await Review.findOneAndUpdate(
-        {
-          _id: current._id,
-          pointsAwarded: points,
-          "bonusReversal.reversedAt": { $exists: false },
-        },
-        {
-          $set: {
-            bonusReversal: {
-              reversedAt: new Date(),
-              reversedBy: req.user._id,
-              reversedByName: req.user.name || "",
-              reason,
-              evidence,
-              points,
-            },
-          },
-        },
-        { new: true, session, projection: { bonusReversal: 1 } },
-      );
-
-      if (!claimed) {
-        throw new ReversalRefusedError(409, "This review's bonus has already been reversed");
-      }
-
-      // Same mechanism as a deleted review's clawback: the bonus's own
-      // batch first, then earliest-expiry; whatever was already spent is
-      // recorded as owed (settled from future credits), never a negative
-      // balance. The key is shared with deleteReview's clawback, so the
-      // ledger can never hold two reversals of the same review's bonus.
-      // The part of the bonus that already expired is not taken back and
-      // never becomes owed — only the still-valid part is reversed.
-      const plan = await reviewBonusReversalPlan({ reviewId: current._id, points, session });
-
-      let pointsDebited = 0;
-      let shortfall = 0;
-
-      if (plan.debit > 0) {
-        const result = await applyLoyaltyPointsChange({
-          userId: current.user,
-          type: "clawback",
-          source: "review_bonus_reversal",
-          points: -plan.debit,
-          key: `review-reversal:${current._id}`,
-          order: current.order || null,
-          review: current._id,
-          actor: { id: req.user._id, name: req.user.name || "" },
-          description: "Review bonus reversed",
-          preferLotIds: plan.lotIds,
-          allowShortfall: true,
-          session,
-        });
-
-        if (!result) throw new ReversalRefusedError(400, "The reviewer's account no longer exists");
-        if (result.duplicate) {
-          throw new ReversalRefusedError(409, "This review's bonus has already been reversed");
-        }
-
-        pointsDebited = result.taken || 0;
-        shortfall = result.shortfall || 0;
-      }
-
-      const expiredPortion = plan.expiredPortion;
-
-      await Review.updateOne(
-        { _id: current._id },
-        {
-          $set: {
-            "bonusReversal.pointsDebited": pointsDebited,
-            "bonusReversal.shortfall": shortfall,
-            "bonusReversal.expiredPortion": expiredPortion,
-          },
-        },
-        { session },
-      );
-
-      return { ...claimed.bonusReversal.toObject(), pointsDebited, shortfall, expiredPortion };
-    });
+    // Shared with the automatic reversals (item returned, order cancelled
+    // or deleted) — see applyReviewBonusReversal in utils/reviewBonus.js.
+    const reversal = await withOptionalTransaction((session) =>
+      applyReviewBonusReversal({
+        reviewId: req.params.id,
+        reason,
+        evidence,
+        actor: { id: req.user._id, name: req.user.name || "" },
+        session,
+      }),
+    );
 
     res.status(200).json({
       success: true,
@@ -791,12 +708,11 @@ export const markReviewSeen = async (req, res) => {
 // ============================
 export const deleteReview = async (req, res) => {
   try {
-    // Claw back any bonus already paid for this review, and free up its
-    // share of the order's cap. Without this, deleting a review (e.g. an
-    // admin rejecting it as spam after approving it) let the user keep
-    // the points while a resubmitted review for the same product/order
-    // wrongly saw the cap as still fully used — the combination let a
-    // user end up over the per-order cap by deleting and resubmitting.
+    // Claw back any bonus already paid for this review (e.g. an admin
+    // rejecting it as spam after approving it), so the user doesn't keep
+    // the points. Its share of the order's cap stays used (owner
+    // decision, 2026-11-15): a resubmitted review on the same order earns
+    // nothing, the same as after any other reversal.
     // The delete and the reversal commit together; points already spent
     // are recorded as owed.
     const review = await withOptionalTransaction(async (session) => {
@@ -805,7 +721,7 @@ export const deleteReview = async (req, res) => {
       );
 
       // A bonus already taken back by reverseReviewBonus isn't taken back
-      // again, and its share of the order's cap stays used.
+      // again. The order's cap is never released here.
       if (deleted?.pointsAwarded > 0 && !deleted.bonusReversal?.reversedAt) {
         // Same rule as reverseReviewBonus: an expired part isn't taken back.
         const plan = await reviewBonusReversalPlan({
@@ -828,14 +744,6 @@ export const deleteReview = async (req, res) => {
             allowShortfall: true,
             session,
           });
-        }
-
-        if (deleted.order) {
-          await Order.findByIdAndUpdate(
-            deleted.order,
-            { $inc: { reviewBonusAwarded: -deleted.pointsAwarded } },
-            { session },
-          );
         }
       }
 

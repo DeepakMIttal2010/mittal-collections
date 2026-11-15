@@ -5,6 +5,7 @@ import "./setup.js";
 import app from "../app.js";
 import User from "../models/User.js";
 import Review from "../models/Review.js";
+import Order from "../models/Order.js";
 import cloudinary from "../config/cloudinary.js";
 import { createUser, signToken, createProduct, createOrder } from "./helpers.js";
 import { REVIEW_BONUS_POINTS, ORDER_REVIEW_BONUS_CAP } from "../controllers/reviewController.js";
@@ -212,7 +213,7 @@ describe("Reviews", () => {
     expect(savedA.pointsAwarded + savedB.pointsAwarded).toBe(ORDER_REVIEW_BONUS_CAP);
   });
 
-  it("claws back points and frees cap headroom when an approved review is deleted", async () => {
+  it("claws back points when an approved review is deleted, keeping its cap share used", async () => {
     const user = await createUser();
     const admin = await createUser({ role: "admin" });
     const adminToken = signToken(admin);
@@ -237,6 +238,7 @@ describe("Reviews", () => {
 
     const afterDelete = await User.findById(user._id);
     expect(afterDelete.loyaltyPoints).toBe(0);
+    expect((await Order.findOne({ user: user._id })).reviewBonusAwarded).toBe(REVIEW_BONUS_POINTS);
   });
 
   it("cleans up the review's Cloudinary photos/video when it's deleted", async () => {
@@ -267,7 +269,7 @@ describe("Reviews", () => {
     expect(destroySpy).toHaveBeenCalledWith("reviews/clip", { resource_type: "video" });
   });
 
-  it("doesn't let delete-then-resubmit push a user over the per-order cap", async () => {
+  it("doesn't let delete-then-resubmit earn the order's review bonus again", async () => {
     const user = await createUser();
     const admin = await createUser({ role: "admin" });
     const adminToken = signToken(admin);
@@ -295,9 +297,9 @@ describe("Reviews", () => {
     const afterBoth = await User.findById(user._id);
     expect(afterBoth.loyaltyPoints).toBe(ORDER_REVIEW_BONUS_CAP);
 
-    // Reject/delete reviewA as spam, then the user resubmits and it gets
-    // approved again — the resubmission should get its fair share of the
-    // now-freed cap headroom, and the total must never exceed the cap.
+    // Reject/delete reviewA as spam (its bonus is clawed back), then the
+    // user resubmits and it gets approved again — the order's cap stays
+    // used after the delete (owner decision), so it earns nothing.
     await request(app)
       .delete(`/api/reviews/${reviewA.body.review._id}`)
       .set("Authorization", `Bearer ${adminToken}`);
@@ -312,8 +314,8 @@ describe("Reviews", () => {
       .set("Authorization", `Bearer ${adminToken}`);
 
     const final = await User.findById(user._id);
-    expect(final.loyaltyPoints).toBeLessThanOrEqual(ORDER_REVIEW_BONUS_CAP);
-    expect(final.loyaltyPoints).toBe(ORDER_REVIEW_BONUS_CAP);
+    expect(final.loyaltyPoints).toBe(0);
+    expect((await Review.findById(resubmitted.body.review._id)).pointsAwarded).toBe(0);
   });
 
   it("showcase endpoint only returns approved reviews that have photos", async () => {

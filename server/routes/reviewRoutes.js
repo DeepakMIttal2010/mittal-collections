@@ -10,6 +10,7 @@ import {
   getAllReviewsAdmin,
   approveReview,
   reverseReviewBonus,
+  grantReviewBonus,
   markReviewSeen,
   deleteReview,
 } from "../controllers/reviewController.js";
@@ -71,6 +72,17 @@ router.post(
   perm,
   loyaltyPerm,
   reverseReviewBonus,
+);
+// A bonus held at approval (the item was being returned) — paid later, once
+// the return was rejected, after re-checking eligibility. Moves a
+// customer's points, so it needs "loyalty" too, like reverse-bonus.
+router.post(
+  "/:id/grant-bonus",
+  authMiddleware,
+  adminMiddleware,
+  perm,
+  loyaltyPerm,
+  grantReviewBonus,
 );
 router.put("/:id/seen", authMiddleware, adminMiddleware, perm, markReviewSeen);
 router.delete("/:id", authMiddleware, adminMiddleware, perm, deleteReview);

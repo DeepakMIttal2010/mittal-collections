@@ -429,7 +429,8 @@ describe("Review-bonus reversal of an expired bonus", () => {
     const clawbacks = await LoyaltyTransaction.find({ review: review._id, type: "clawback" });
     expect(clawbacks).toHaveLength(1);
     expect(clawbacks[0]).toMatchObject({ points: 0, shortfall: 10 });
-    expect((await Order.findById(order._id)).reviewBonusAwarded).toBe(0);
+    // The cap is never released on delete (owner decision).
+    expect((await Order.findById(order._id)).reviewBonusAwarded).toBe(REVIEW_BONUS_POINTS);
   });
 
   it("writes no clawback at all when a deleted review's bonus fully expired", async () => {
@@ -444,7 +445,8 @@ describe("Review-bonus reversal of an expired bonus", () => {
     expect(deleted.status).toBe(200);
     expect(await balance(customer._id)).toEqual({ points: 0, owed: 0 });
     expect(await LoyaltyTransaction.countDocuments({ review: review._id, type: "clawback" })).toBe(0);
-    expect((await Order.findById(order._id)).reviewBonusAwarded).toBe(0);
+    // The cap is never released on delete (owner decision).
+    expect((await Order.findById(order._id)).reviewBonusAwarded).toBe(REVIEW_BONUS_POINTS);
   });
 });
 

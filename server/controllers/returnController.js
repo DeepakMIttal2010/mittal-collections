@@ -8,6 +8,7 @@ import { notifyUser } from "../utils/notify.js";
 import { returnedValueFor } from "../utils/returnValue.js";
 import { restoreStock, notifyRestocked } from "./orderController.js";
 import { clawBackForReturn } from "../utils/loyaltyPoints.js";
+import { reverseReviewBonusIfFullyReturned } from "../utils/reviewBonus.js";
 import { withOptionalTransaction, TransactionsUnavailableError } from "../utils/orderTransactions.js";
 import { escapeHtml } from "../utils/escapeHtml.js";
 import { syncReturn, postSafely, returnLineOf } from "../utils/accountingPosting.js";
@@ -521,6 +522,15 @@ export const updateReturnStatus = async (req, res) => {
             );
 
             await clawBackForReturn({ order: updatedOrder, returnRequest: claimed, session });
+
+            // The last kept unit of this product on the order is now
+            // refunded: its review bonus goes too, in this same
+            // transaction (a partial return leaves it alone).
+            await reverseReviewBonusIfFullyReturned({
+              order: updatedOrder,
+              productId: claimed.product,
+              session,
+            });
           }
 
           claimed.pointsClawedBack = true;

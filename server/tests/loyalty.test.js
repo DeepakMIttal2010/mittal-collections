@@ -644,7 +644,8 @@ describe("referral, review, POS and admin rewards", () => {
 
     reloaded = await expectConsistent(user._id);
     expect(reloaded.loyaltyPoints).toBe(0);
-    expect((await Order.findById(order._id)).reviewBonusAwarded).toBe(0);
+    // The deleted review's share of the cap stays used (owner decision).
+    expect((await Order.findById(order._id)).reviewBonusAwarded).toBe(50);
   });
 
   it("credits in-store points at the sale and reverses them correctly on edit, void and delete", async () => {

@@ -7,6 +7,7 @@ import {
   getAllReviewsAdmin,
   getReviewSummaryAdmin,
   approveReview,
+  grantReviewBonus,
   deleteReview,
   hideReview,
   unhideReview,
@@ -14,11 +15,22 @@ import {
   deleteReviewReply,
 } from "../../services/adminReviewService";
 import ReviewBonusReversal from "../../components/admin/ReviewBonusReversal";
+import { getCurrentAdminUser } from "../../services/authService";
+import { hasPermission } from "../../config/adminPermissions";
 
 // Must match REVIEW_HIDDEN_REASON_MAX_LENGTH / REVIEW_REPLY_MAX_LENGTH in
 // server/models/Review.js.
 const MAX_HIDE_REASON = 500;
 const MAX_REPLY = 1000;
+
+// Why an approved review's bonus is held (Review.bonusHold.reason).
+const BONUS_HOLD_LABELS = {
+  return_in_progress: "return in progress",
+  returned: "item returned",
+  order_cancelled: "order cancelled",
+  order_deleted: "order deleted",
+  return_rejected: "return rejected — grant available",
+};
 
 const EMPTY_FILTERS = {
   status: "",
@@ -171,8 +183,25 @@ function AdminReviews() {
 
   const handleApprove = (id) =>
     runAction(id, async () => {
-      afterAction(await approveReview(id), { withSummary: true });
+      const response = await approveReview(id);
+      if (afterAction(response, { withSummary: true }) && response.bonusHold) {
+        alert(
+          `Review approved. Bonus held: ${BONUS_HOLD_LABELS[response.bonusHold.reason] || response.bonusHold.reason}.`,
+        );
+      }
     });
+
+  // A bonus held at approval (the item was being returned): the server
+  // re-checks eligibility and pays at most once.
+  const handleGrantBonus = (id) => {
+    if (!window.confirm("Grant this review's bonus now? Eligibility is checked again first.")) return;
+
+    runAction(id, async () => {
+      const response = await grantReviewBonus(id);
+      alert(response.message);
+      refreshInBackground({ withSummary: true });
+    });
+  };
 
   const handleDelete = (id) => {
     if (!window.confirm("Delete this review?")) return;
@@ -261,6 +290,7 @@ function AdminReviews() {
   };
 
   const hasFilters = Object.values(filters).some(Boolean);
+  const canGrantBonus = hasPermission(getCurrentAdminUser(), "loyalty");
 
   return (
     <div className="p-6">
@@ -639,6 +669,26 @@ function AdminReviews() {
                   </span>
                 )}
               </div>
+
+              {review.bonusHold?.reason && !review.reviewPointsProcessed && (
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs rounded-lg border border-amber-200 bg-amber-50 text-amber-800 px-3 py-2">
+                  <span className="font-semibold">
+                    Bonus held: {BONUS_HOLD_LABELS[review.bonusHold.reason] || review.bonusHold.reason}
+                  </span>
+                  {/* Granting moves points, so the server also needs the
+                      "loyalty" permission (same as Reverse bonus). */}
+                  {review.isApproved && canGrantBonus && (
+                    <button
+                      type="button"
+                      onClick={() => handleGrantBonus(review._id)}
+                      disabled={busy}
+                      className="font-medium px-3 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Grant bonus
+                    </button>
+                  )}
+                </div>
+              )}
 
               <ReviewBonusReversal review={review} onReversed={loadData} />
             </div>

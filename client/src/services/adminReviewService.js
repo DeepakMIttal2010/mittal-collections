@@ -145,3 +145,9 @@ export const reverseReviewBonus = async (id, { reason, evidence = "" }) => {
     return { success: false, message: "Unable to reverse the bonus" };
   }
 };
+
+// Pays a bonus held at approval (the item was being returned), once the
+// return was rejected. The server re-checks eligibility and pays at most
+// once; a 409 means it is still held or was already processed.
+export const grantReviewBonus = (id) =>
+  sendJson("POST", `/reviews/${id}/grant-bonus`, null, "Unable to grant the bonus");

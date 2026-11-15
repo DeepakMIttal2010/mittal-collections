@@ -38,6 +38,7 @@ import { notifyUser } from "../utils/notify.js";
 import { hasAdminPermission } from "../utils/adminAccess.js";
 import { getDeliveryFeedbackInfo } from "../utils/deliveryFeedback.js";
 import { runReviewEmails } from "../utils/reviewEmails.js";
+import { reverseReviewBonusesForOrder } from "../utils/reviewBonus.js";
 import { escapeHtml } from "../utils/escapeHtml.js";
 import { loadSellerEmailBlock } from "../utils/sellerEmailBlock.js";
 import OrderCost from "../models/OrderCost.js";
@@ -486,6 +487,10 @@ const releaseOrderResources = async (
   // cancelled after its return window). Points still pending are simply
   // never credited — the credit job only credits Delivered orders.
   await reverseOrderEarn({ order, session });
+
+  // ...and any review bonus paid on it (a review of a cancelled order
+  // keeps nothing — see utils/reviewBonus.js)...
+  await reverseReviewBonusesForOrder({ order, reason: "Order cancelled", session });
 
   // ...and give back their one-time first-order-coupon eligibility
   // if this order is the one that claimed it (createOrder sets
@@ -1832,8 +1837,13 @@ export const deleteOrder = async (req, res) => {
       });
     }
 
-    order.isActive = false;
-    await order.save();
+    // The soft delete and the reversal of any review bonus still paid on
+    // the order (normally already reversed by its cancellation) commit
+    // together.
+    await withOptionalTransaction(async (session) => {
+      await Order.updateOne({ _id: order._id }, { $set: { isActive: false } }, { session });
+      await reverseReviewBonusesForOrder({ order, reason: "Order deleted", session });
+    });
     await postSafely(syncOrder, order._id);
 
     res.json({
