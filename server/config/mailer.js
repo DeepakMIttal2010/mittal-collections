@@ -24,10 +24,35 @@ ${bodyHtml}
 </body>
 </html>`;
 
+// "a@x.com, b@y.com" (or ";"-separated, or an array of either) -> a
+// de-duplicated list of trimmed addresses. Lets ADMIN_NOTIFICATION_EMAIL
+// hold several admins, so every admin alert (new order, signup, payment
+// review, review copy...) reaches all of them without each call site
+// changing. A single customer address passes through unchanged.
+export const parseEmailList = (value) => {
+  const items = Array.isArray(value) ? value : [value];
+  const seen = new Set();
+  const list = [];
+  for (const item of items) {
+    if (typeof item !== "string") continue;
+    for (const part of item.split(/[,;]/)) {
+      const email = part.trim();
+      const key = email.toLowerCase();
+      if (!email || seen.has(key)) continue;
+      seen.add(key);
+      list.push(email);
+    }
+  }
+  return list;
+};
+
 export const sendEmail = async ({ to, subject, html, bcc }) => {
-  const bccList = (Array.isArray(bcc) ? bcc : bcc ? [bcc] : []).filter(
-    Boolean,
-  );
+  const toList = parseEmailList(to);
+  if (toList.length === 0) throw new Error("sendEmail: no recipient");
+  // An address already in "to" is not repeated as a BCC (Brevo rejects a
+  // recipient listed twice).
+  const toKeys = new Set(toList.map((email) => email.toLowerCase()));
+  const bccList = parseEmailList(bcc).filter((email) => !toKeys.has(email.toLowerCase()));
 
   // Without this, a stalled Brevo API hung the whole request indefinitely
   // -- several callers (OTP signup, checkout) await sendEmail() directly
@@ -48,7 +73,7 @@ export const sendEmail = async ({ to, subject, html, bcc }) => {
         name: process.env.MAIL_FROM_NAME,
         email: process.env.MAIL_FROM_EMAIL,
       },
-      to: [{ email: to }],
+      to: toList.map((email) => ({ email })),
       ...(bccList.length > 0 && {
         bcc: bccList.map((email) => ({ email })),
       }),
