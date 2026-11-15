@@ -74,8 +74,16 @@ function CustomerGallery() {
                   ))}
                 </div>
                 <p className="text-white text-xs font-medium truncate">
-                  {review.user?.name || t("Verified Buyer", "सत्यापित खरीदार")}
+                  {review.user?.name || t("Customer", "ग्राहक")}
                 </p>
+                {review.rewarded && (
+                  // Short label (the full one is in the product's review
+                  // list) and up to 2 lines, so it isn't cut off on a
+                  // ~360px phone where each tile is only ~160px wide.
+                  <p className="text-white/70 text-[10px] leading-tight line-clamp-2">
+                    {t("Got review points", "रिव्यू पॉइंट मिले")}
+                  </p>
+                )}
               </div>
             </Link>
           ))}

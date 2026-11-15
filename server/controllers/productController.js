@@ -9,6 +9,7 @@ import SearchLog from "../models/SearchLog.js";
 import User from "../models/User.js";
 import Wishlist from "../models/Wishlist.js";
 import Review from "../models/Review.js";
+import { publicReviewFilter } from "../utils/publicReview.js";
 import Question from "../models/Question.js";
 import { rankProducts } from "../utils/fuzzySearch.js";
 import { sendEmail } from "../config/mailer.js";
@@ -431,10 +432,9 @@ export const getProducts = async (req, res) => {
     // in one aggregation instead of a per-product query.
     const reviewStats = await Review.aggregate([
       {
-        $match: {
+        $match: publicReviewFilter({
           product: { $in: products.map((p) => p._id) },
-          isApproved: true,
-        },
+        }),
       },
       {
         $group: {

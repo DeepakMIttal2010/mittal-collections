@@ -169,13 +169,18 @@ New 2026-08-10, admin-only (`authMiddleware` + `adminMiddleware`) on every route
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| GET | `/product/:productId` | Public | Approved reviews / published Q&A for a product, with rating average / count. |
+| GET | `/product/:productId` | Public | Approved (and not hidden) reviews / published Q&A for a product, with rating average / count. |
 | GET | `/showcase` *(reviews only)* | Public | A curated cross-product set of approved reviews (with photos/video, where present), for a site-wide testimonials-style section. |
 | POST | `/` | User | Submit a review or question (pending admin moderation). Reviews accept `multipart/form-data` with up to 3 `images` and one `video` (Cloudinary-hosted, capped duration enforced server-side); an approved review tied to a Delivered order earns the reviewer bonus loyalty points (see `pointsAwarded` in `DATABASE.md`, capped per order so multiple reviews from one order don't each earn the full bonus). |
 | GET | `/admin` | Admin | All reviews/questions incl. unmoderated. |
 | PUT | `/:id/answer` *(questions only)* | Admin | Answer + publish a question. |
 | PUT | `/:id/approve` *(reviews)* / `/:id/answer` *(questions)* / `/:id/seen` | Admin | Approve a review / answer+publish a question / mark seen. |
 | DELETE | `/:id` | Admin | Delete. For reviews, also removes the review's Cloudinary image/video assets and claws back any bonus loyalty points it had awarded. |
+| GET | `/admin/summary` *(reviews only)* | Admin | Store-wide totals: total, approved/pending, hidden, overall and public average rating, rewarded vs non-rewarded averages. |
+| PUT | `/:id/hide` · `/:id/unhide` *(reviews only)* | Admin | Hide (body `{ reason }`, required, max 500) / unhide. A hidden review is left out of every public list, count and average; loyalty points are never touched. |
+| PUT · DELETE | `/:id/reply` *(reviews only)* | Admin | Set/edit (body `{ text }`, required, max 1000, plain text) / remove the public "Reply from Mittal Collections". |
+
+`GET /api/reviews/admin` (reviews) also takes optional filters: `status` (`pending`/`approved`), `visibility` (`hidden`/`visible`), `rating` (`1`-`5`), `hasPhotos` / `rewarded` (`true`/`false`), `from` / `to` (`YYYY-MM-DD`, IST, inclusive). An unknown value is a 400.
 
 ## Coupons — `/api/coupons`
 

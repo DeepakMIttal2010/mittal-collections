@@ -4,6 +4,30 @@ import mongoose from "mongoose";
 // before the document is ever built) and mirrored in ProductReviews.jsx.
 export const REVIEW_CONTENT_MAX_LENGTH = 2000;
 
+// Moderation limits — also checked in reviewModerationController.js so a
+// bad request gets a clear 400 before any write.
+export const REVIEW_HIDDEN_REASON_MAX_LENGTH = 500;
+export const REVIEW_REPLY_MAX_LENGTH = 1000;
+
+const adminReplySchema = new mongoose.Schema(
+  {
+    text: {
+      type: String,
+      required: true,
+      trim: true,
+      maxlength: [REVIEW_REPLY_MAX_LENGTH, `Reply must be ${REVIEW_REPLY_MAX_LENGTH} characters or fewer`],
+    },
+    repliedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    repliedAt: { type: Date, default: null },
+    updatedAt: { type: Date, default: null },
+  },
+  { _id: false },
+);
+
 const reviewSchema = new mongoose.Schema(
   {
     product: {
@@ -73,6 +97,21 @@ const reviewSchema = new mongoose.Schema(
       default: "",
     },
 
+    // The reviewer ticked "my photos may be shown publicly with my
+    // review" (required by submitReview whenever photos or a video are
+    // attached). Public responses show media only when this is true —
+    // older reviews from before the checkbox keep their media for the
+    // admin but don't show it publicly (see utils/publicReview.js).
+    photoConsent: {
+      type: Boolean,
+      default: false,
+    },
+
+    photoConsentAt: {
+      type: Date,
+      default: null,
+    },
+
     isApproved: {
       type: Boolean,
       default: false,
@@ -96,6 +135,43 @@ const reviewSchema = new mongoose.Schema(
     pointsAwarded: {
       type: Number,
       default: 0,
+    },
+
+    // Moderation (PR3a). A hidden review stays in the database — and keeps
+    // any loyalty bonus it already earned; hiding never touches points —
+    // but is left out of every public list, count and average (see
+    // publicReviewFilter in utils/publicReview.js). Unhiding clears
+    // all four fields.
+    isHidden: {
+      type: Boolean,
+      default: false,
+    },
+
+    hiddenReason: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: [REVIEW_HIDDEN_REASON_MAX_LENGTH, `Reason must be ${REVIEW_HIDDEN_REASON_MAX_LENGTH} characters or fewer`],
+    },
+
+    hiddenBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+
+    hiddenAt: {
+      type: Date,
+      default: null,
+    },
+
+    // The store's public reply, shown under the review as "Reply from
+    // Mittal Collections". Plain text only — rendered as a text node,
+    // never as HTML. repliedBy is admin-only and is stripped from every
+    // public response (toPublicReview in utils/publicReview.js).
+    adminReply: {
+      type: adminReplySchema,
+      default: null,
     },
   },
   {
