@@ -775,39 +775,11 @@ function ProductDetails() {
             url: shareUrl,
             ...offerTerms,
           },
-    ...(reviewStats.totalReviews > 0 && {
-      aggregateRating: {
-        "@type": "AggregateRating",
-        ratingValue: reviewStats.averageRating.toFixed(1),
-        reviewCount: reviewStats.totalReviews,
-      },
-    }),
-    // Individual reviews alongside the aggregate — this content is
-    // already fetched (for the rating badge above) and already shown to
-    // visitors via <ProductReviews> below, just never handed to Google
-    // before now. Capped at the 10 most recent (server already sorts
-    // newest-first) so this doesn't bloat the page with every review
-    // a popular product accumulates over time.
-    ...(reviewStats.reviews.length > 0 && {
-      review: reviewStats.reviews.slice(0, 10).map((r) => ({
-        "@type": "Review",
-        author: { "@type": "Person", name: r.user?.name || "Customer" },
-        reviewRating: {
-          "@type": "Rating",
-          ratingValue: r.rating,
-          bestRating: 5,
-          worstRating: 1,
-        },
-        reviewBody: r.content,
-        datePublished: r.createdAt,
-        // Review.images are already full Cloudinary URLs (see
-        // Review.js), not the raw public-id paths imgUrl() transforms —
-        // this data was already fetched and displayed on real customer
-        // photo reviews but never handed to Google's Review markup,
-        // which supports an `image` property for exactly this case.
-        ...(r.images?.length > 0 && { image: r.images }),
-      })),
-    }),
+    // No review structured data (aggregateRating / review) on purpose:
+    // every published review earns loyalty points, and Google's review
+    // snippet guidelines discourage marking up incentivised reviews.
+    // Reviews are still shown on the page itself. Owner decision
+    // 2026-11-15 (option D).
   };
 
   // `video` is not a valid schema.org property on Product — it's only

@@ -1618,12 +1618,12 @@ const buildMeta = async (path, query = {}) => {
 
   async function buildProductMeta({ productId, productSlug, isHindi, size }) {
     // Fetched together — none depend on each other, and ProductDetails.jsx
-    // loads all four independently too (reviews/questions/settings never
-    // block the product itself from rendering).
-    const [data, settingsData, reviewsData, questionsData] = await Promise.all([
+    // loads them independently too (questions/settings never block the
+    // product itself from rendering). Reviews aren't fetched: they're no
+    // longer put in the structured data (see the note at productJsonLd).
+    const [data, settingsData, questionsData] = await Promise.all([
       fetchJson(`${API_BASE}/api/products/${productId}`),
       fetchJson(`${API_BASE}/api/settings`),
-      safeFetchJson(`${API_BASE}/api/reviews/product/${productId}`),
       safeFetchJson(`${API_BASE}/api/questions/product/${productId}`),
     ]);
 
@@ -1751,9 +1751,6 @@ const buildMeta = async (path, query = {}) => {
     // still need the owner's review to match the UP-only delivery area.
     const effectiveReturnDays = p.returnPeriodDays || settings.defaultReturnPeriodDays;
 
-    const reviews = reviewsData.success ? reviewsData.reviews || [] : [];
-    const totalReviews = reviewsData.success ? reviewsData.totalReviews || 0 : 0;
-    const averageRating = reviewsData.success ? reviewsData.averageRating || 0 : 0;
     const questions = questionsData.success ? questionsData.questions || [] : [];
 
     const productJsonLd = {
@@ -1851,28 +1848,11 @@ const buildMeta = async (path, query = {}) => {
           },
         };
       })(),
-      ...(totalReviews > 0 && {
-        aggregateRating: {
-          "@type": "AggregateRating",
-          ratingValue: averageRating.toFixed(1),
-          reviewCount: totalReviews,
-        },
-      }),
-      ...(reviews.length > 0 && {
-        review: reviews.slice(0, 10).map((r) => ({
-          "@type": "Review",
-          author: { "@type": "Person", name: r.user?.name || "Customer" },
-          reviewRating: {
-            "@type": "Rating",
-            ratingValue: r.rating,
-            bestRating: 5,
-            worstRating: 1,
-          },
-          reviewBody: r.content,
-          datePublished: r.createdAt,
-          ...(r.images?.length > 0 && { image: r.images }),
-        })),
-      }),
+      // No review structured data (aggregateRating / review) on purpose:
+      // every published review earns loyalty points, and Google's review
+      // snippet guidelines discourage marking up incentivised reviews.
+      // Reviews are still shown on the page itself. Owner decision
+      // 2026-11-15 (option D).
     };
 
     // Standalone VideoObject, not nested in productJsonLd — `video` isn't

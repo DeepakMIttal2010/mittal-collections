@@ -12,6 +12,13 @@ import {
   markReviewSeen,
   deleteReview,
 } from "../controllers/reviewController.js";
+import {
+  hideReview,
+  unhideReview,
+  setReviewReply,
+  deleteReviewReply,
+  getReviewSummary,
+} from "../controllers/reviewModerationController.js";
 import authMiddleware from "../middleware/authMiddleware.js";
 import adminMiddleware from "../middleware/adminMiddleware.js";
 import { uploadReviewMedia } from "../middleware/uploadMiddleware.js";
@@ -45,6 +52,7 @@ router.post(
 );
 
 router.get("/admin", authMiddleware, adminMiddleware, perm, getAllReviewsAdmin);
+router.get("/admin/summary", authMiddleware, adminMiddleware, perm, getReviewSummary);
 router.put(
   "/:id/approve",
   authMiddleware,
@@ -54,5 +62,11 @@ router.put(
 );
 router.put("/:id/seen", authMiddleware, adminMiddleware, perm, markReviewSeen);
 router.delete("/:id", authMiddleware, adminMiddleware, perm, deleteReview);
+
+// Moderation (PR3a) — same admin + "reviews" permission gate as above.
+router.put("/:id/hide", authMiddleware, adminMiddleware, perm, hideReview);
+router.put("/:id/unhide", authMiddleware, adminMiddleware, perm, unhideReview);
+router.put("/:id/reply", authMiddleware, adminMiddleware, perm, setReviewReply);
+router.delete("/:id/reply", authMiddleware, adminMiddleware, perm, deleteReviewReply);
 
 export default router;

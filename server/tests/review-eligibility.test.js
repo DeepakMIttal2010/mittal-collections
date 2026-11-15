@@ -60,7 +60,8 @@ describe("Review eligibility — who can submit", () => {
     const res = await submit(user, { productId: product._id.toString(), rating: 5, content: "Lovely" });
 
     expect(res.status).toBe(201);
-    expect(res.body.review.order).toBe(order._id.toString());
+    // The response is a minimal shape; the order link is checked in the DB.
+    expect(String((await Review.findById(res.body.review._id)).order)).toBe(order._id.toString());
   });
 
   it("accepts a review from a delivered COD order even though isPaid is still false", async () => {
@@ -123,7 +124,8 @@ describe("Review eligibility — who can submit", () => {
     const res = await submit(user, { productId: product._id.toString(), rating: 2, content: "Sent it back" });
 
     expect(res.status).toBe(201);
-    expect(res.body.review.order).toBe(order._id.toString());
+    // The response is a minimal shape; the order link is checked in the DB.
+    expect(String((await Review.findById(res.body.review._id)).order)).toBe(order._id.toString());
   });
 
   it("still accepts a review of an item returned in a partial return", async () => {
@@ -404,11 +406,13 @@ describe("Review photo upload security", () => {
       productId: product._id.toString(),
       rating: 5,
       content: "Here is how it looks",
+      // Photos need the public-display consent (see review-privacy.test.js).
+      photoConsent: "true",
     });
 
     expect(res.status).toBe(201);
     expect(uploadSpy).toHaveBeenCalledTimes(1);
-    expect(res.body.review.images).toEqual([
+    expect((await Review.findById(res.body.review._id)).images).toEqual([
       "https://res.cloudinary.com/demo/image/upload/v1/mittal-collections/test-review.jpg",
     ]);
   });

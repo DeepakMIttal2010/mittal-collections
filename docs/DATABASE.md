@@ -297,6 +297,10 @@ above) rather than re-read from here later.
 | isSeenByAdmin | Boolean | default `false` |
 | reviewPointsProcessed | Boolean | default `false` — guards the review-bonus loyalty points against double-crediting |
 | pointsAwarded | Number | default `0` — exact points this review contributed, can be less than the flat bonus once the order-level cap is used up |
+| isHidden | Boolean | default `false` — moderation: a hidden review is excluded from every public list, count and average (points unaffected) |
+| hiddenReason | String | required when hiding, max 500 — admin-only |
+| hiddenBy / hiddenAt | ObjectId → User / Date | who hid it and when — admin-only; all hidden* fields are cleared on unhide |
+| adminReply | `{ text, repliedBy, repliedAt, updatedAt }` | default `null` — the store's public reply (plain text, max 1000); `repliedBy` is never sent publicly |
 
 **Indexes:** `{isSeenByAdmin:1, createdAt:-1}` (admin notification poll). Deleting a review cleans up its Cloudinary image/video assets and claws back any awarded points.
 

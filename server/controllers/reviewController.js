@@ -8,6 +8,8 @@ import { applyLoyaltyPointsChange } from "../utils/loyaltyPoints.js";
 import { withOptionalTransaction } from "../utils/orderTransactions.js";
 import { notifyUser } from "../utils/notify.js";
 import { deleteCloudinaryAssetsByUrl } from "../utils/cloudinaryCleanup.js";
+import { buildAdminReviewFilter, sendFilterError } from "./reviewModerationController.js";
+import { publicReviewFilter, publicPhotoReviewFilter, toPublicReview } from "../utils/publicReview.js";
 
 // Flat bonus for a review the admin actually approves — deliberately not
 // randomized/"win up to X" (that reads as a chance-based contest, which
@@ -36,13 +38,11 @@ export const getProductReviews = async (req, res) => {
     // photo/video URLs included, on every page load (deep bug sweep,
     // 2026-10-19). 500 matches getProductQuestions' own per-product
     // public-list cap.
-    const reviews = await Review.find({
-      product: req.params.productId,
-      isApproved: true,
-    })
+    const reviews = await Review.find(publicReviewFilter({ product: req.params.productId }))
       .populate("user", "name")
       .sort({ createdAt: -1 })
-      .limit(500);
+      .limit(500)
+      .lean();
 
     // totalReviews/averageRating are the real aggregate stats shown as
     // the product's star-rating summary -- computed from the FULL
@@ -52,10 +52,9 @@ export const getProductReviews = async (req, res) => {
     // never understate them.
     const statsAgg = await Review.aggregate([
       {
-        $match: {
+        $match: publicReviewFilter({
           product: new mongoose.Types.ObjectId(req.params.productId),
-          isApproved: true,
-        },
+        }),
       },
       {
         $group: {
@@ -70,7 +69,9 @@ export const getProductReviews = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      reviews,
+      // Allowlisted fields only — short name, no user/order ids, no
+      // points or admin fields; media only with the reviewer's consent.
+      reviews: reviews.map((review) => toPublicReview(review)),
       totalReviews,
       averageRating,
     });
@@ -83,6 +84,9 @@ export const getProductReviews = async (req, res) => {
     });
   }
 };
+
+// Multipart form fields arrive as strings; only an explicit yes counts.
+const isConsentGiven = (value) => value === true || (typeof value === "string" && ["true", "1", "on"].includes(value));
 
 // Every reason to turn a submission away that doesn't need the uploaded
 // media itself. Returns { reject: { status, body } } or { submission }.
@@ -161,8 +165,29 @@ const checkReviewSubmission = async (req) => {
     return { reject: { status: 400, body: { success: false, message: "You have already reviewed this product" } } };
   }
 
+  // Photos/video are shown publicly with the review, so they need the
+  // reviewer's explicit consent (the unticked checkbox on the form).
+  // Checked last (after eligibility, so a non-buyer still hears why they
+  // can't review) but still before imageOptimizer, so media sent without it is
+  // turned away while still only in memory, never uploaded.
+  const photoConsent = isConsentGiven(req.body.photoConsent);
+  const hasMedia = (req.files?.images?.length || 0) > 0 || (req.files?.video?.length || 0) > 0;
+
+  if (hasMedia && !photoConsent) {
+    return {
+      reject: {
+        status: 400,
+        body: {
+          success: false,
+          code: "PHOTO_CONSENT_REQUIRED",
+          message: "Please tick the box agreeing that your photos/video may be shown publicly with your review, or remove them.",
+        },
+      },
+    };
+  }
+
   return {
-    submission: { productId: safeProductId, order, rating: ratingValue, title: title || "", content },
+    submission: { productId: safeProductId, order, rating: ratingValue, title: title || "", content, photoConsent },
   };
 };
 
@@ -223,7 +248,7 @@ export const submitReview = async (req, res) => {
       submission = checked.submission;
     }
 
-    const { productId: safeProductId, order, rating: ratingValue, title, content } = submission;
+    const { productId: safeProductId, order, rating: ratingValue, title, content, photoConsent } = submission;
 
     const videoFile = req.files?.video?.[0];
 
@@ -256,12 +281,24 @@ export const submitReview = async (req, res) => {
       content,
       images,
       video: videoFile?.path || "",
+      photoConsent,
+      photoConsentAt: photoConsent ? new Date() : null,
     });
 
+    // Only what the submitter's own form needs — never the order/user
+    // ids, points or moderation fields of the stored document.
     res.status(201).json({
       success: true,
       message: "Thanks! Your review will appear once approved by our team.",
-      review,
+      review: {
+        _id: review._id,
+        rating: review.rating,
+        title: review.title,
+        content: review.content,
+        isApproved: review.isApproved,
+        createdAt: review.createdAt,
+        photoConsent: review.photoConsent,
+      },
     });
   } catch (error) {
     // The unique {product, user} index (see Review.js) is what actually
@@ -333,18 +370,17 @@ const SHOWCASE_LIMIT = 12;
 
 export const getShowcaseReviews = async (req, res) => {
   try {
-    const reviews = await Review.find({
-      isApproved: true,
-      images: { $exists: true, $not: { $size: 0 } },
-    })
+    // Only reviews whose photos the reviewer agreed to show publicly.
+    const reviews = await Review.find(publicPhotoReviewFilter())
       .populate("user", "name")
       .populate("product", "name slug image")
       .sort({ createdAt: -1 })
-      .limit(SHOWCASE_LIMIT);
+      .limit(SHOWCASE_LIMIT)
+      .lean();
 
     res.status(200).json({
       success: true,
-      reviews,
+      reviews: reviews.map((review) => toPublicReview(review, { includeProduct: true })),
     });
   } catch (error) {
     console.error("Get Showcase Reviews Error:", error);
@@ -359,22 +395,42 @@ export const getShowcaseReviews = async (req, res) => {
 // ============================
 // GET ALL REVIEWS (Admin)
 // ============================
+export const ADMIN_REVIEW_LIST_CAP = 2000;
+
 export const getAllReviewsAdmin = async (req, res) => {
   try {
     const sortOrder = req.query.sortOrder === "asc" ? 1 : -1;
 
+    // status / visibility / rating / hasPhotos / rewarded / from / to —
+    // each mapped to a fixed condition (see buildAdminReviewFilter); an
+    // unknown value is a 400, never passed through to Mongo.
+    let filter;
+    try {
+      filter = buildAdminReviewFilter(req.query);
+    } catch (error) {
+      if (sendFilterError(res, error)) return;
+      throw error;
+    }
+
     // Safety ceiling, not real pagination — see getAllOrders' own
     // comment (orderController.js) for why this pattern was chosen here
     // over a full pagination rework.
-    const reviews = await Review.find()
+    const reviews = await Review.find(filter)
       .populate("user", "name email")
       .populate("product", "name image")
       .sort({ createdAt: sortOrder })
-      .limit(2000);
+      .limit(ADMIN_REVIEW_LIST_CAP);
+
+    // When the cap is hit, say so (with the real count for the same
+    // filter) so the admin page can tell the list is incomplete.
+    const truncated = reviews.length >= ADMIN_REVIEW_LIST_CAP;
+    const total = truncated ? await Review.countDocuments(filter) : reviews.length;
 
     res.status(200).json({
       success: true,
       reviews,
+      total,
+      truncated: truncated && total > reviews.length,
     });
   } catch (error) {
     console.error("Get All Reviews Error:", error);
@@ -391,13 +447,27 @@ export const getAllReviewsAdmin = async (req, res) => {
 // ============================
 export const approveReview = async (req, res) => {
   try {
-    const review = await Review.findByIdAndUpdate(
-      req.params.id,
+    // A hidden review can't be approved (owner decision): the admin must
+    // unhide it first. The not-hidden condition is part of the same
+    // atomic update, so a concurrent hide can't slip between a check and
+    // the write — and a refused approval changes nothing and awards no
+    // points.
+    const review = await Review.findOneAndUpdate(
+      { _id: req.params.id, isHidden: { $ne: true } },
       { isApproved: true },
       { new: true },
     );
 
     if (!review) {
+      const exists = await Review.exists({ _id: req.params.id });
+
+      if (exists) {
+        return res.status(409).json({
+          success: false,
+          message: "This review is hidden. Unhide it before approving.",
+        });
+      }
+
       return res.status(404).json({
         success: false,
         message: "Review not found",

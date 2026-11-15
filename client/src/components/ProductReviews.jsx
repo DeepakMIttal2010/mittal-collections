@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { FaStar, FaRegStar } from "react-icons/fa";
+import { FaStar, FaRegStar, FaCheckCircle } from "react-icons/fa";
 
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
@@ -15,6 +15,29 @@ function Stars({ value, size = "text-sm" }) {
         n <= Math.round(value) ? <FaStar key={n} /> : <FaRegStar key={n} />,
       )}
     </span>
+  );
+}
+
+// Shown under each review the server marks as verified / rewarded (see
+// toPublicReview in server/utils/publicReview.js). The server sends only
+// yes/no flags — never the points or the order behind them.
+export function ReviewBadges({ review, t }) {
+  if (!review.verifiedPurchase && !review.rewarded) return null;
+
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-1.5 text-xs">
+      {review.verifiedPurchase && (
+        <span className="inline-flex items-center gap-1 text-green-700 font-medium">
+          <FaCheckCircle aria-hidden="true" />
+          {t("Verified purchase", "सत्यापित खरीद")}
+        </span>
+      )}
+      {review.rewarded && (
+        <span className="text-slate-500">
+          {t("Received 50 loyalty points for reviewing", "रिव्यू के लिए 50 लॉयल्टी पॉइंट मिले")}
+        </span>
+      )}
+    </div>
   );
 }
 
@@ -33,11 +56,19 @@ function ProductReviews({ productId }) {
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState({ rating: 5, content: "" });
-  const [formMessage, setFormMessage] = useState("");
+  // formMessage is { type: "success" | "error", text } or null. Errors
+  // render red (role="alert"); the photo-consent error is shown inline
+  // next to the consent checkbox instead (consentError).
+  const [formMessage, setFormMessage] = useState(null);
+  const [consentError, setConsentError] = useState("");
+  const consentRef = useRef(null);
   const [images, setImages] = useState([]);
   const [imagePreviews, setImagePreviews] = useState([]);
   const [video, setVideo] = useState(null);
   const [videoPreview, setVideoPreview] = useState("");
+  // Unticked by default — the customer has to opt in before any photo or
+  // video is shown publicly. The server enforces the same rule.
+  const [photoConsent, setPhotoConsent] = useState(false);
   // null until known. If the check itself fails, the button is shown
   // anyway — submitReview makes the real decision server-side.
   const [eligibility, setEligibility] = useState(null);
@@ -129,11 +160,38 @@ function ProductReviews({ productId }) {
     e.target.value = "";
   };
 
+  const photoConsentMessage = () =>
+    t(
+      "Please tick the box to agree that your photos/video may be shown publicly, or remove them.",
+      "कृपया बॉक्स पर टिक करके सहमति दें कि आपकी फ़ोटो/वीडियो सार्वजनिक रूप से दिखाई जा सकती हैं, या उन्हें हटा दें।",
+    );
+
+  const showError = (text) => setFormMessage({ type: "error", text });
+
+  // Inline, red, next to the checkbox — and move the customer there.
+  const showConsentError = () => {
+    setFormMessage(null);
+    setConsentError(photoConsentMessage());
+    const box = consentRef.current;
+    if (box) {
+      box.scrollIntoView?.({ behavior: "smooth", block: "center" });
+      box.focus({ preventScroll: true });
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    const hasMedia = images.length > 0 || Boolean(video);
+
+    if (hasMedia && !photoConsent) {
+      showConsentError();
+      return;
+    }
+
     setSubmitting(true);
-    setFormMessage("");
+    setFormMessage(null);
+    setConsentError("");
 
     const payload = new FormData();
     payload.append("productId", productId);
@@ -141,20 +199,22 @@ function ProductReviews({ productId }) {
     payload.append("content", formData.content);
     images.forEach((file) => payload.append("images", file));
     if (video) payload.append("video", video);
+    if (hasMedia && photoConsent) payload.append("photoConsent", "true");
 
     const response = await submitReview(payload);
 
     setSubmitting(false);
 
     if (response.success) {
-      setFormMessage(response.message);
+      setFormMessage({ type: "success", text: response.message });
       setFormData({ rating: 5, content: "" });
       setImages([]);
       setVideo(null);
+      setPhotoConsent(false);
       setShowForm(false);
       setEligibility((prev) => ({ ...prev, eligible: false, alreadyReviewed: true }));
     } else if (response.code === "NOT_ELIGIBLE") {
-      setFormMessage(
+      showError(
         t(
           "You can review products you have bought and received.",
           "आप उन्हीं प्रोडक्ट्स का रिव्यू कर सकते हैं जो आपने खरीदे हैं और आपको मिल चुके हैं।",
@@ -162,8 +222,10 @@ function ProductReviews({ productId }) {
       );
       setEligibility((prev) => ({ ...prev, eligible: false, hasPurchased: false }));
       setShowForm(false);
+    } else if (response.code === "PHOTO_CONSENT_REQUIRED") {
+      showConsentError();
     } else {
-      setFormMessage(response.message || t("Unable to submit review", "रिव्यू सबमिट नहीं हो सका"));
+      showError(response.message || t("Unable to submit review", "रिव्यू सबमिट नहीं हो सका"));
     }
   };
 
@@ -237,9 +299,27 @@ function ProductReviews({ productId }) {
         </div>
       </div>
 
-      {formMessage && (
-        <p className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-4 py-3 mb-6">
-          {formMessage}
+      <p className="text-xs text-slate-500 mb-6 max-w-2xl">
+        {t(
+          "Approved reviews earn loyalty points (up to 50 per order), whatever the star rating — we want your honest opinion.",
+          "स्वीकृत रिव्यू पर लॉयल्टी पॉइंट मिलते हैं (हर ऑर्डर पर अधिकतम 50), रेटिंग चाहे जो भी हो — हमें आपकी ईमानदार राय चाहिए।",
+        )}
+      </p>
+
+      {formMessage?.type === "success" && (
+        <p
+          role="status"
+          className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-4 py-3 mb-6"
+        >
+          {formMessage.text}
+        </p>
+      )}
+      {formMessage?.type === "error" && (
+        <p
+          role="alert"
+          className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-4 py-3 mb-6"
+        >
+          {formMessage.text}
         </p>
       )}
 
@@ -358,6 +438,43 @@ function ProductReviews({ productId }) {
             {t("10-15 seconds, MP4/WEBM/MOV, up to 15MB", "10-15 सेकंड, MP4/WEBM/MOV, 15MB तक")}
           </p>
 
+          <label className={`flex items-start gap-2 text-sm text-slate-700 cursor-pointer ${consentError ? "mb-1" : "mb-4"}`}>
+            <input
+              ref={consentRef}
+              type="checkbox"
+              name="photoConsent"
+              checked={photoConsent}
+              onChange={(e) => {
+                setPhotoConsent(e.target.checked);
+                if (e.target.checked) setConsentError("");
+              }}
+              aria-invalid={consentError ? "true" : undefined}
+              aria-describedby={consentError ? "review-photo-consent-error" : undefined}
+              className="mt-0.5 h-4 w-4 shrink-0 accent-amber-500"
+            />
+            <span>
+              {t(
+                "I agree that my photos/video may be shown publicly with my review",
+                "मैं सहमत हूँ कि मेरी फ़ोटो/वीडियो मेरे रिव्यू के साथ सार्वजनिक रूप से दिखाए जा सकते हैं",
+              )}
+              <span className="block text-xs text-slate-400">
+                {t(
+                  "Needed only if you add photos or a video.",
+                  "सिर्फ़ तब ज़रूरी है जब आप फ़ोटो या वीडियो जोड़ें।",
+                )}
+              </span>
+            </span>
+          </label>
+          {consentError && (
+            <p
+              id="review-photo-consent-error"
+              role="alert"
+              className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-4"
+            >
+              {consentError}
+            </p>
+          )}
+
           <button
             type="submit"
             disabled={submitting}
@@ -390,6 +507,7 @@ function ProductReviews({ productId }) {
               <p className="text-sm text-slate-600 mb-1.5">
                 {review.content}
               </p>
+              <ReviewBadges review={review} t={t} />
               {(review.images?.length > 0 || review.video) && (
                 <div className="flex flex-wrap gap-2 mb-1.5">
                   {review.images?.map((url) => (
@@ -411,13 +529,24 @@ function ProductReviews({ productId }) {
                 </div>
               )}
               <p className="text-xs text-slate-400">
-                {review.user?.name || t("Anonymous", "अज्ञात")} ·{" "}
+                {review.user?.name || t("Customer", "ग्राहक")} ·{" "}
                 {new Date(review.createdAt).toLocaleDateString(dateLocale(language), {
                   day: "numeric",
                   month: "short",
                   year: "numeric",
                 })}
               </p>
+              {/* The store's reply — plain text in a text node, never HTML. */}
+              {review.adminReply?.text && (
+                <div className="mt-2.5 ml-3 border-l-2 border-amber-300 bg-amber-50/60 rounded-r-lg px-3 py-2">
+                  <p className="text-xs font-semibold text-slate-800 mb-0.5">
+                    {t("Reply from Mittal Collections", "Mittal Collections का जवाब")}
+                  </p>
+                  <p className="text-sm text-slate-600 whitespace-pre-line">
+                    {review.adminReply.text}
+                  </p>
+                </div>
+              )}
             </div>
           ))}
         </div>

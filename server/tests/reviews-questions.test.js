@@ -154,8 +154,12 @@ describe("Reviews", () => {
       .set("Authorization", `Bearer ${signToken(user)}`)
       .send({ productId: productB._id.toString(), rating: 4, content: "Pretty good" });
 
-    expect(reviewA.body.review.order).toBeTruthy();
-    expect(reviewB.body.review.order).toBe(reviewA.body.review.order);
+    const [savedA, savedB] = await Promise.all([
+      Review.findById(reviewA.body.review._id),
+      Review.findById(reviewB.body.review._id),
+    ]);
+    expect(savedA.order).toBeTruthy();
+    expect(String(savedB.order)).toBe(String(savedA.order));
 
     await request(app)
       .put(`/api/reviews/${reviewA.body.review._id}/approve`)
@@ -328,6 +332,8 @@ describe("Reviews", () => {
       rating: 5,
       content: "Beautiful in person",
       images: ["https://res.cloudinary.com/demo/image/upload/photo1.jpg"],
+      // Showcase photos need the reviewer's consent (review-privacy.test.js).
+      photoConsent: true,
       isApproved: true,
     });
     await Review.create({
