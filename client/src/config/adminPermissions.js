@@ -38,6 +38,7 @@ export const PERMISSION_GROUPS = [
       { key: "pos", label: "POS Cart", to: "/admin/pos" },
       { key: "coupons", label: "Coupons", to: "/admin/coupons" },
       { key: "returns", label: "Returns", to: "/admin/returns" },
+      { key: "delivery-demand", label: "Delivery Demand", to: "/admin/delivery-demand" },
     ],
   },
   {

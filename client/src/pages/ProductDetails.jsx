@@ -1202,7 +1202,11 @@ function ProductDetails() {
             </p>
           )}
 
-          <PincodeChecker localDeliveryOnly={product.localDeliveryOnly} />
+          <PincodeChecker
+            localDeliveryOnly={product.localDeliveryOnly}
+            demandSource="product"
+            productId={product._id}
+          />
 
           {product.colorVariesNote && (
             <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mb-4">

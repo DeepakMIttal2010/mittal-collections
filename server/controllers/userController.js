@@ -6,6 +6,7 @@ import LoyaltyLot from "../models/LoyaltyLot.js";
 import Wishlist from "../models/Wishlist.js";
 import CartSnapshot from "../models/CartSnapshot.js";
 import PageVisit from "../models/PageVisit.js";
+import DeliveryDemand from "../models/DeliveryDemand.js";
 import Address from "../models/Address.js";
 import Notification from "../models/Notification.js";
 import Review from "../models/Review.js";
@@ -377,6 +378,7 @@ export const deleteCustomer = async (req, res) => {
       LoyaltyTransaction.deleteMany({ user: customer._id }),
       LoyaltyLot.deleteMany({ user: customer._id }),
       PageVisit.updateMany({ user: customer._id }, { $set: { user: null } }),
+      DeliveryDemand.deleteMany({ user: customer._id }),
     ]);
 
     await customer.deleteOne();

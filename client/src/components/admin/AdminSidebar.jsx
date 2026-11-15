@@ -26,6 +26,7 @@ import {
   FaFileImport,
   FaTicketAlt,
   FaUndoAlt,
+  FaMapMarkedAlt,
   FaQrcode,
   FaBook,
   FaChevronDown,
@@ -72,6 +73,7 @@ const NAV_GROUPS = [
       { to: "/admin/pos/sales", icon: FaShoppingCart, label: "POS Sales" },
       { to: "/admin/coupons", icon: FaPercent, label: "Coupons" },
       { to: "/admin/returns", icon: FaUndoAlt, label: "Returns" },
+      { to: "/admin/delivery-demand", icon: FaMapMarkedAlt, label: "Delivery Demand" },
     ],
   },
   {

@@ -18,7 +18,7 @@ import {
 } from "../services/couponService";
 import { getSiteSettings } from "../services/settingsService";
 import { getPublicRewardsInfo, getMyLoyaltySummary } from "../services/rewardsService";
-import { checkPincodeDelivery } from "../services/deliveryService";
+import { checkPincodeDelivery, recordDeliveryDemand } from "../services/deliveryService";
 import { calculateDeliveryFee } from "../utils/shipping";
 import { loadRazorpayScript } from "../utils/razorpay";
 import { trackBeginCheckout, trackPurchase, trackAddPaymentInfo } from "../utils/analytics";
@@ -188,6 +188,12 @@ function Checkout() {
 
   const selectedAddress = addresses.find((a) => a._id === selectedAddressId);
   const hasLocalOnlyItems = cartItems.some((item) => item.localDeliveryOnly);
+  // Latest cart for the delivery-demand note, without re-running the PIN
+  // check on every cart change.
+  const cartItemsRef = useRef(cartItems);
+  useEffect(() => {
+    cartItemsRef.current = cartItems;
+  }, [cartItems]);
 
   useEffect(() => {
     setLocalDeliveryBlocked(false);
@@ -207,6 +213,20 @@ function Checkout() {
           en: response.message,
           hi: response.messageHi || response.message,
         });
+        // PR-B2 Delivery Demand: note the blocked cart (the server keeps
+        // it only for a signed-in customer and prices it itself). The
+        // block itself is unchanged.
+        if (response.reason !== "invalid") {
+          recordDeliveryDemand({
+            pincode: selectedAddress.pincode,
+            source: "checkout",
+            items: cartItemsRef.current.map((item) => ({
+              product: item.productId || item._id,
+              size: item.selectedSize || "",
+              quantity: item.quantity,
+            })),
+          });
+        }
         return;
       }
 

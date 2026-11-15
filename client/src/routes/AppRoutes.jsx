@@ -190,6 +190,7 @@ const AdminTicketDetail = lazyWithReload(
   () => import("../pages/admin/AdminTicketDetail"),
 );
 const AdminReturns = lazyWithReload(() => import("../pages/admin/AdminReturns"));
+const AdminDeliveryDemand = lazyWithReload(() => import("../pages/admin/AdminDeliveryDemand"));
 const AdminPOS = lazyWithReload(() => import("../pages/admin/AdminPOS"));
 const AdminPOSSales = lazyWithReload(() => import("../pages/admin/AdminPOSSales"));
 const AdminWalkthrough = lazyWithReload(() => import("../pages/admin/AdminWalkthrough"));
@@ -377,6 +378,7 @@ function AppRoutes() {
           <Route path="tickets" element={<AdminTickets />} />
           <Route path="tickets/:id" element={<AdminTicketDetail />} />
           <Route path="returns" element={<AdminReturns />} />
+          <Route path="delivery-demand" element={<AdminDeliveryDemand />} />
           <Route path="pos" element={<AdminPOS />} />
           <Route path="pos/:id" element={<AdminPOS />} />
           <Route path="pos/sales" element={<AdminPOSSales />} />

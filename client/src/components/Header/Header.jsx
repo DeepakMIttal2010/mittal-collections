@@ -470,7 +470,7 @@ function Header() {
 
               {pinOpen && (
                 <div className="absolute top-full left-0 z-50 mt-1 w-80 bg-white border border-slate-200 rounded-lg shadow-lg p-4">
-                  <PincodeChecker />
+                  <PincodeChecker demandSource="header" />
                   <Link
                     to={isLoggedIn ? "/addresses/add" : "/login"}
                     onClick={() => setPinOpen(false)}
