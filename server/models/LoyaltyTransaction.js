@@ -30,7 +30,17 @@ const loyaltyTransactionSchema = new mongoose.Schema(
     // What the points were for. Older entries don't have it.
     source: {
       type: String,
-      enum: ["order", "referral", "review", "pos", "admin", "legacy", "legacy_refund"],
+      enum: [
+        "order",
+        "referral",
+        "review",
+        // An admin took back a review bonus (fake/fraudulent review).
+        "review_bonus_reversal",
+        "pos",
+        "admin",
+        "legacy",
+        "legacy_refund",
+      ],
     },
 
     points: {

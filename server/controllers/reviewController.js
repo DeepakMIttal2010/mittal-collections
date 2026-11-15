@@ -3,8 +3,11 @@ import Review, { REVIEW_CONTENT_MAX_LENGTH } from "../models/Review.js";
 import Order from "../models/Order.js";
 import { findDeliveredPurchase } from "../utils/reviewEligibility.js";
 import cloudinary from "../config/cloudinary.js";
-import LoyaltyLot from "../models/LoyaltyLot.js";
-import { applyLoyaltyPointsChange } from "../utils/loyaltyPoints.js";
+import {
+  applyLoyaltyPointsChange,
+  LoyaltyConflictError,
+  reviewBonusReversalPlan,
+} from "../utils/loyaltyPoints.js";
 import { withOptionalTransaction } from "../utils/orderTransactions.js";
 import { notifyUser } from "../utils/notify.js";
 import { deleteCloudinaryAssetsByUrl } from "../utils/cloudinaryCleanup.js";
@@ -416,6 +419,7 @@ export const getAllReviewsAdmin = async (req, res) => {
     // comment (orderController.js) for why this pattern was chosen here
     // over a full pagination rework.
     const reviews = await Review.find(filter)
+      .select("+bonusReversal")
       .populate("user", "name email")
       .populate("product", "name image")
       .sort({ createdAt: sortOrder })
@@ -584,6 +588,173 @@ export const approveReview = async (req, res) => {
 };
 
 // ============================
+// REVERSE A REVIEW'S BONUS (Admin)
+// ============================
+// For a review found to be fake/fraudulent after its bonus was paid. A
+// separate, explicit action — approving, hiding or marking a review seen
+// never touches points. The review itself is left as it is (the admin can
+// still hide or delete it separately).
+export const REVERSAL_REASON_MIN = 10;
+export const REVERSAL_REASON_MAX = 1000;
+export const REVERSAL_EVIDENCE_MAX = 2000;
+
+class ReversalRefusedError extends Error {
+  constructor(status, message) {
+    super(message);
+    this.status = status;
+  }
+}
+
+export const reverseReviewBonus = async (req, res) => {
+  try {
+    const reason = typeof req.body?.reason === "string" ? req.body.reason.trim() : "";
+    const evidence = typeof req.body?.evidence === "string" ? req.body.evidence.trim() : "";
+
+    if (reason.length < REVERSAL_REASON_MIN || reason.length > REVERSAL_REASON_MAX) {
+      return res.status(400).json({
+        success: false,
+        message: `A reason of ${REVERSAL_REASON_MIN}-${REVERSAL_REASON_MAX} characters is required`,
+      });
+    }
+
+    if (evidence.length > REVERSAL_EVIDENCE_MAX) {
+      return res.status(400).json({
+        success: false,
+        message: `Evidence notes must be ${REVERSAL_EVIDENCE_MAX} characters or fewer`,
+      });
+    }
+
+    const reversal = await withOptionalTransaction(async (session) => {
+      const current = await Review.findById(req.params.id)
+        .select("+bonusReversal")
+        .session(session);
+
+      if (!current) throw new ReversalRefusedError(404, "Review not found");
+      if (current.bonusReversal?.reversedAt) {
+        throw new ReversalRefusedError(409, "This review's bonus has already been reversed");
+      }
+      if (!(current.pointsAwarded > 0)) {
+        throw new ReversalRefusedError(400, "This review did not receive a bonus");
+      }
+
+      const points = current.pointsAwarded;
+
+      // The guard: only one request can move a review from "no reversal"
+      // to "reversed" (conditional on the exact state just read). A
+      // concurrent second request either fails this filter or, inside a
+      // transaction, hits a write conflict and retries into it.
+      const claimed = await Review.findOneAndUpdate(
+        {
+          _id: current._id,
+          pointsAwarded: points,
+          "bonusReversal.reversedAt": { $exists: false },
+        },
+        {
+          $set: {
+            bonusReversal: {
+              reversedAt: new Date(),
+              reversedBy: req.user._id,
+              reversedByName: req.user.name || "",
+              reason,
+              evidence,
+              points,
+            },
+          },
+        },
+        { new: true, session, projection: { bonusReversal: 1 } },
+      );
+
+      if (!claimed) {
+        throw new ReversalRefusedError(409, "This review's bonus has already been reversed");
+      }
+
+      // Same mechanism as a deleted review's clawback: the bonus's own
+      // batch first, then earliest-expiry; whatever was already spent is
+      // recorded as owed (settled from future credits), never a negative
+      // balance. The key is shared with deleteReview's clawback, so the
+      // ledger can never hold two reversals of the same review's bonus.
+      // The part of the bonus that already expired is not taken back and
+      // never becomes owed — only the still-valid part is reversed.
+      const plan = await reviewBonusReversalPlan({ reviewId: current._id, points, session });
+
+      let pointsDebited = 0;
+      let shortfall = 0;
+
+      if (plan.debit > 0) {
+        const result = await applyLoyaltyPointsChange({
+          userId: current.user,
+          type: "clawback",
+          source: "review_bonus_reversal",
+          points: -plan.debit,
+          key: `review-reversal:${current._id}`,
+          order: current.order || null,
+          review: current._id,
+          actor: { id: req.user._id, name: req.user.name || "" },
+          description: "Review bonus reversed",
+          preferLotIds: plan.lotIds,
+          allowShortfall: true,
+          session,
+        });
+
+        if (!result) throw new ReversalRefusedError(400, "The reviewer's account no longer exists");
+        if (result.duplicate) {
+          throw new ReversalRefusedError(409, "This review's bonus has already been reversed");
+        }
+
+        pointsDebited = result.taken || 0;
+        shortfall = result.shortfall || 0;
+      }
+
+      const expiredPortion = plan.expiredPortion;
+
+      await Review.updateOne(
+        { _id: current._id },
+        {
+          $set: {
+            "bonusReversal.pointsDebited": pointsDebited,
+            "bonusReversal.shortfall": shortfall,
+            "bonusReversal.expiredPortion": expiredPortion,
+          },
+        },
+        { session },
+      );
+
+      return { ...claimed.bonusReversal.toObject(), pointsDebited, shortfall, expiredPortion };
+    });
+
+    res.status(200).json({
+      success: true,
+      message: [
+        `Bonus reversed — ${reversal.pointsDebited} points taken back`,
+        reversal.shortfall > 0 ? `${reversal.shortfall} already spent and recorded as owed` : "",
+        reversal.expiredPortion > 0 ? `${reversal.expiredPortion} had already expired` : "",
+      ]
+        .filter(Boolean)
+        .join(", "),
+      bonusReversal: reversal,
+    });
+  } catch (error) {
+    if (error instanceof ReversalRefusedError) {
+      return res.status(error.status).json({ success: false, message: error.message });
+    }
+
+    if (error instanceof LoyaltyConflictError) {
+      return res.status(409).json({
+        success: false,
+        message: "The customer's points changed during the reversal — please try again",
+      });
+    }
+
+    console.error("Reverse Review Bonus Error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};
+
+// ============================
 // MARK REVIEW SEEN (Admin)
 // ============================
 export const markReviewSeen = async (req, res) => {
@@ -629,26 +800,35 @@ export const deleteReview = async (req, res) => {
     // The delete and the reversal commit together; points already spent
     // are recorded as owed.
     const review = await withOptionalTransaction(async (session) => {
-      const deleted = await Review.findByIdAndDelete(req.params.id, { session });
+      const deleted = await Review.findByIdAndDelete(req.params.id, { session }).select(
+        "+bonusReversal",
+      );
 
-      if (deleted?.pointsAwarded > 0) {
-        const bonusLot = await LoyaltyLot.findOne({ key: `review:${deleted._id}` })
-          .select("_id")
-          .session(session);
-
-        await applyLoyaltyPointsChange({
-          userId: deleted.user,
-          type: "clawback",
-          source: "review",
-          points: -deleted.pointsAwarded,
-          key: `review-reversal:${deleted._id}`,
-          order: deleted.order || null,
-          review: deleted._id,
-          description: "Reversed bonus for a deleted review",
-          preferLotIds: bonusLot ? [bonusLot._id] : [],
-          allowShortfall: true,
+      // A bonus already taken back by reverseReviewBonus isn't taken back
+      // again, and its share of the order's cap stays used.
+      if (deleted?.pointsAwarded > 0 && !deleted.bonusReversal?.reversedAt) {
+        // Same rule as reverseReviewBonus: an expired part isn't taken back.
+        const plan = await reviewBonusReversalPlan({
+          reviewId: deleted._id,
+          points: deleted.pointsAwarded,
           session,
         });
+
+        if (plan.debit > 0) {
+          await applyLoyaltyPointsChange({
+            userId: deleted.user,
+            type: "clawback",
+            source: "review",
+            points: -plan.debit,
+            key: `review-reversal:${deleted._id}`,
+            order: deleted.order || null,
+            review: deleted._id,
+            description: "Reversed bonus for a deleted review",
+            preferLotIds: plan.lotIds,
+            allowShortfall: true,
+            session,
+          });
+        }
 
         if (deleted.order) {
           await Order.findByIdAndUpdate(

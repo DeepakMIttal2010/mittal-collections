@@ -493,6 +493,7 @@ describe("Review moderation: admin filters and summary", () => {
       averageRating: 3.25, // (5+4+3+1)/4
       publicAverageRating: 4.5, // r1 + r2
       rewarded: { count: 2, averageRating: 3 }, // r1 (5) + r4 (1)
+      reversed: 0,
       nonRewarded: { count: 2, averageRating: 3.5 }, // r2 (4) + r3 (3)
     });
   });

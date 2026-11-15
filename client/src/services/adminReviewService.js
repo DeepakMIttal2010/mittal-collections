@@ -123,3 +123,25 @@ export const deleteReview = async (id) => {
     return { success: false, message: "Unable to delete review" };
   }
 };
+
+// Takes back a rewarded review's bonus points (fake/fraudulent review).
+// reason is required (10-1000 chars); evidence is optional notes.
+export const reverseReviewBonus = async (id, { reason, evidence = "" }) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/reviews/${id}/reverse-bonus`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${getToken()}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ reason, evidence }),
+    });
+
+    // The status lets the dialog tell "already reversed" (409) apart.
+    const data = await response.json();
+    return { ...data, status: response.status };
+  } catch (error) {
+    console.error("Reverse Review Bonus Error:", error);
+    return { success: false, message: "Unable to reverse the bonus" };
+  }
+};

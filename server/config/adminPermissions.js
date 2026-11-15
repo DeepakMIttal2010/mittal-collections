@@ -46,6 +46,9 @@ export const PERMISSION_GROUPS = [
       { key: "testimonials", label: "Testimonials" },
       { key: "reviews", label: "Reviews" },
       { key: "questions", label: "Questions" },
+      // An action permission, not a page: no sidebar entry of its own.
+      // Reversing a review's bonus needs it on top of "reviews".
+      { key: "loyalty", label: "Loyalty Points (adjust / reverse)" },
     ],
   },
   {

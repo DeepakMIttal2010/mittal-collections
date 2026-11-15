@@ -15,7 +15,7 @@ import {
 function firstPermittedPath(permissions) {
   for (const group of PERMISSION_GROUPS) {
     for (const item of group.items) {
-      if (permissions.includes(item.key)) return item.to;
+      if (item.to && permissions.includes(item.key)) return item.to;
     }
   }
   return null;

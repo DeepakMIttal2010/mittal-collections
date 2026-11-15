@@ -86,9 +86,16 @@ export const buildAdminReviewFilter = (query = {}) => {
   if (hasPhotos === "false") filter["images.0"] = { $exists: false };
 
   // "Rewarded" = this review actually earned loyalty points on approval
-  // (pointsAwarded > 0); a capped or order-less review is not rewarded.
-  const rewarded = pickOne(query, "rewarded", ["true", "false"]);
-  if (rewarded === "true") filter.pointsAwarded = { $gt: 0 };
+  // (pointsAwarded > 0) and an admin hasn't reversed them; a capped or
+  // order-less review is not rewarded. "reversed" = the bonus was paid and
+  // then taken back (bonusReversal is select:false, but a query can still
+  // match on it).
+  const rewarded = pickOne(query, "rewarded", ["true", "false", "reversed"]);
+  if (rewarded === "true") {
+    filter.pointsAwarded = { $gt: 0 };
+    filter["bonusReversal.reversedAt"] = { $exists: false };
+  }
+  if (rewarded === "reversed") filter["bonusReversal.reversedAt"] = { $exists: true };
   if (rewarded === "false") and.push({ $or: [{ pointsAwarded: { $exists: false } }, { pointsAwarded: { $lte: 0 } }] });
 
   // from/to are calendar days in IST, inclusive (submission date).
@@ -266,7 +273,11 @@ const roundAvg = (value) => (typeof value === "number" ? Math.round(value * 100)
 
 export const getReviewSummary = async (req, res) => {
   try {
-    const rewardedExpr = { $gt: [{ $ifNull: ["$pointsAwarded", 0] }, 0] };
+    // Three buckets, matching the list's Bonus filter: rewarded (paid, not
+    // reversed), reversed (paid, then taken back) and not rewarded.
+    const paidExpr = { $gt: [{ $ifNull: ["$pointsAwarded", 0] }, 0] };
+    const reversedExpr = { $eq: [{ $type: "$bonusReversal.reversedAt" }, "date"] };
+    const rewardedExpr = { $and: [paidExpr, { $not: [reversedExpr] }] };
 
     const [stats] = await Review.aggregate([
       {
@@ -292,8 +303,9 @@ export const getReviewSummary = async (req, res) => {
           },
           rewardedCount: { $sum: { $cond: [rewardedExpr, 1, 0] } },
           rewardedAverageRating: { $avg: { $cond: [rewardedExpr, "$rating", null] } },
-          nonRewardedCount: { $sum: { $cond: [rewardedExpr, 0, 1] } },
-          nonRewardedAverageRating: { $avg: { $cond: [rewardedExpr, null, "$rating"] } },
+          reversedCount: { $sum: { $cond: [reversedExpr, 1, 0] } },
+          nonRewardedCount: { $sum: { $cond: [paidExpr, 0, 1] } },
+          nonRewardedAverageRating: { $avg: { $cond: [paidExpr, null, "$rating"] } },
         },
       },
     ]);
@@ -312,6 +324,7 @@ export const getReviewSummary = async (req, res) => {
         averageRating: roundAvg(s.averageRating),
         publicAverageRating: roundAvg(s.publicAverageRating),
         rewarded: { count: s.rewardedCount || 0, averageRating: roundAvg(s.rewardedAverageRating) },
+        reversed: s.reversedCount || 0,
         nonRewarded: { count: s.nonRewardedCount || 0, averageRating: roundAvg(s.nonRewardedAverageRating) },
       },
     });

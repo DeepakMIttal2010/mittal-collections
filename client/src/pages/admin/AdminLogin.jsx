@@ -67,7 +67,7 @@ function AdminLogin() {
 
     if (permissions && !permissions.includes(requiredKey)) {
       const firstAllowed = PERMISSION_GROUPS.flatMap((g) => g.items).find(
-        (item) => permissions.includes(item.key),
+        (item) => item.to && permissions.includes(item.key),
       );
       navigate(firstAllowed?.to || redirectTo);
     } else {
