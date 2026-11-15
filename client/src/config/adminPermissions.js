@@ -48,6 +48,10 @@ export const PERMISSION_GROUPS = [
       { key: "testimonials", label: "Testimonials", to: "/admin/testimonials" },
       { key: "reviews", label: "Reviews", to: "/admin/reviews" },
       { key: "questions", label: "Questions", to: "/admin/questions" },
+      // An action permission, not a page — no "to", so it never maps to a
+      // route or a sidebar entry. Reversing a review's bonus needs it on
+      // top of "reviews" (see hasPermission below).
+      { key: "loyalty", label: "Loyalty Points (adjust / reverse)" },
     ],
   },
   {
@@ -96,9 +100,9 @@ export const PERMISSION_KEYS = PERMISSION_GROUPS.flatMap((group) =>
 // "settings", while the URL itself stayed open to all of them).
 const EXTRA_PATHS = [{ key: "settings", to: "/admin/pricing-rules" }];
 
-const PATH_ENTRIES = [...PERMISSION_GROUPS.flatMap((group) => group.items), ...EXTRA_PATHS].sort(
-  (a, b) => b.to.length - a.to.length,
-);
+const PATH_ENTRIES = [...PERMISSION_GROUPS.flatMap((group) => group.items), ...EXTRA_PATHS]
+  .filter((item) => item.to)
+  .sort((a, b) => b.to.length - a.to.length);
 
 export function permissionForPath(pathname) {
   const entry = PATH_ENTRIES.find(
@@ -119,6 +123,14 @@ export const GRANULAR_MODULES = [
   { key: "coupons", label: "Coupons", actions: ["new", "modified"] },
   { key: "orders", label: "Orders", actions: ["modified"] },
 ];
+
+// true for a full/unrestricted admin (no adminRole) or a restricted
+// account whose role includes this permission key — for action
+// permissions (e.g. "loyalty") that gate a button, not a page.
+export function hasPermission(user, key) {
+  if (!user?.adminRole) return true;
+  return !!user.adminRole.permissions?.includes(key);
+}
 
 // true for a full/unrestricted admin (no adminRole) or a restricted
 // account whose role's writeAccess includes "<key>:<action>".

@@ -13,6 +13,7 @@ import {
   saveReviewReply,
   deleteReviewReply,
 } from "../../services/adminReviewService";
+import ReviewBonusReversal from "../../components/admin/ReviewBonusReversal";
 
 // Must match REVIEW_HIDDEN_REASON_MAX_LENGTH / REVIEW_REPLY_MAX_LENGTH in
 // server/models/Review.js.
@@ -34,7 +35,7 @@ const FILTER_SELECTS = [
   { key: "visibility", label: "Visibility", options: [["", "All"], ["visible", "Visible"], ["hidden", "Hidden"]] },
   { key: "rating", label: "Rating", options: [["", "All"], ["5", "5 star"], ["4", "4 star"], ["3", "3 star"], ["2", "2 star"], ["1", "1 star"]] },
   { key: "hasPhotos", label: "Photos", options: [["", "All"], ["true", "With photos"], ["false", "No photos"]] },
-  { key: "rewarded", label: "Bonus", options: [["", "All"], ["true", "Rewarded"], ["false", "Not rewarded"]] },
+  { key: "rewarded", label: "Bonus", options: [["", "All"], ["true", "Rewarded"], ["reversed", "Reversed"], ["false", "Not rewarded"]] },
 ];
 
 const formatAvg = (value) => (typeof value === "number" ? value.toFixed(2) : "—");
@@ -303,7 +304,7 @@ function AdminReviews() {
           <SummaryCard
             label="Rewarded avg"
             value={formatAvg(summary.rewarded.averageRating)}
-            hint={`${summary.rewarded.count} reviews`}
+            hint={`${summary.rewarded.count} reviews · ${summary.reversed ?? 0} reversed`}
           />
           <SummaryCard
             label="Not rewarded avg"
@@ -444,11 +445,16 @@ function AdminReviews() {
                 </div>
 
                 <div className="flex flex-wrap gap-1.5 shrink-0">
-                  {review.pointsAwarded > 0 && (
-                    <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-blue-100 text-blue-700">
-                      +{review.pointsAwarded} pts
-                    </span>
-                  )}
+                  {review.pointsAwarded > 0 &&
+                    (review.bonusReversal?.reversedAt ? (
+                      <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-red-50 text-red-700">
+                        <span className="line-through">+{review.pointsAwarded} pts</span> (reversed)
+                      </span>
+                    ) : (
+                      <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-blue-100 text-blue-700">
+                        +{review.pointsAwarded} pts
+                      </span>
+                    ))}
                   {review.isHidden && (
                     <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-200 text-slate-700">
                       Hidden
@@ -633,6 +639,8 @@ function AdminReviews() {
                   </span>
                 )}
               </div>
+
+              <ReviewBonusReversal review={review} onReversed={loadData} />
             </div>
             );
           })}

@@ -9,6 +9,7 @@ import {
   getReviewEligibility,
   getAllReviewsAdmin,
   approveReview,
+  reverseReviewBonus,
   markReviewSeen,
   deleteReview,
 } from "../controllers/reviewController.js";
@@ -31,6 +32,9 @@ const router = express.Router();
 router.param("id", validateObjectId);
 router.param("productId", validateObjectId);
 const perm = requirePermission("reviews");
+// Reversing a review's bonus moves a customer's points, so it also needs
+// the "loyalty" action permission (full admins pass both).
+const loyaltyPerm = requirePermission("loyalty");
 
 router.get("/showcase", getShowcaseReviews);
 router.get("/product/:productId", getProductReviews);
@@ -59,6 +63,14 @@ router.put(
   adminMiddleware,
   perm,
   approveReview,
+);
+router.post(
+  "/:id/reverse-bonus",
+  authMiddleware,
+  adminMiddleware,
+  perm,
+  loyaltyPerm,
+  reverseReviewBonus,
 );
 router.put("/:id/seen", authMiddleware, adminMiddleware, perm, markReviewSeen);
 router.delete("/:id", authMiddleware, adminMiddleware, perm, deleteReview);

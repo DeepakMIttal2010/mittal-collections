@@ -306,7 +306,7 @@ const creditPoints = async (session, change, now) => {
       points: -settle,
       balanceAfter: updated.loyaltyPoints,
       order: change.order || null,
-      description: `${settle} points settled against points owed from an earlier return or cancellation`,
+      description: `${settle} points settled against points owed from an earlier adjustment or reversal`,
       key: `${change.key}:owed`,
       allocations: [{ lot: lot._id, points: settle }],
     });
@@ -590,6 +590,38 @@ const pointsAlreadyClawedBack = async (order, session) => {
 const orderLotIds = async (order, session) => {
   const lot = await LoyaltyLot.findOne({ key: `order:${order._id}` }).select("_id").session(session);
   return lot ? [lot._id] : [];
+};
+
+// How much of a review's bonus can still be taken back (an admin reversal
+// or a deleted review's clawback). Points of the bonus's own batch that
+// have expired were never kept by the customer, so they are not taken
+// back again and never become owed:
+//   reversible = originalPoints - expiredPoints
+// and a batch past its expiry the expiry job hasn't reached yet also
+// loses its unspent remainder (that is about to expire anyway). What is
+// left — valid points kept or already spent — is reversed as before, with
+// a spent part recorded as owed. A bonus with no batch (from before the
+// lot scheme) is reversed in full, as before.
+// Returns { lotIds, debit, expiredPortion }.
+export const reviewBonusReversalPlan = async ({
+  reviewId,
+  points,
+  session = null,
+  now = new Date(),
+}) => {
+  const lot = await LoyaltyLot.findOne({ key: `review:${reviewId}` })
+    .select("_id originalPoints remainingPoints expiredPoints expiresAt status")
+    .session(session);
+
+  if (!lot) return { lotIds: [], debit: points, expiredPortion: 0 };
+
+  let reversible = lot.originalPoints - (lot.expiredPoints || 0);
+  if (lot.status === "available" && lot.expiresAt <= now) {
+    reversible -= lot.remainingPoints || 0;
+  }
+
+  const debit = Math.max(0, Math.min(points, reversible));
+  return { lotIds: [lot._id], debit, expiredPortion: points - debit };
 };
 
 // Cancellation: an order whose points are still pending simply never

@@ -173,6 +173,35 @@ const reviewSchema = new mongoose.Schema(
       type: adminReplySchema,
       default: null,
     },
+
+    // Set once, when an admin takes back this review's bonus as fake or
+    // fraudulent (see reverseReviewBonus). Its presence is the guard
+    // against reversing twice. Admin-only: select: false keeps it out of
+    // every query (and so every public response) that doesn't ask for it
+    // with .select("+bonusReversal").
+    bonusReversal: {
+      type: new mongoose.Schema(
+        {
+          reversedAt: { type: Date, required: true },
+          reversedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+          reversedByName: { type: String, default: "" },
+          reason: { type: String, required: true },
+          evidence: { type: String, default: "" },
+          // The bonus being reversed (= pointsAwarded at the time).
+          points: { type: Number, required: true },
+          // What actually came off the balance, and what couldn't because
+          // it was already spent (recorded as owed on the user instead).
+          pointsDebited: { type: Number, default: 0 },
+          shortfall: { type: Number, default: 0 },
+          // Part of the bonus whose batch had already expired — not taken
+          // back and never owed (only the still-valid part is reversed).
+          expiredPortion: { type: Number, default: 0 },
+        },
+        { _id: false },
+      ),
+      default: undefined,
+      select: false,
+    },
   },
   {
     timestamps: true,

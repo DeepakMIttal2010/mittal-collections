@@ -33,7 +33,19 @@ function getSourceLabels(t) {
     admin: t("Added by store", "स्टोर द्वारा जोड़ा गया"),
     legacy: t("Earlier balance", "पुराना बैलेंस"),
     legacy_refund: t("Refund", "रिफंड"),
+    review_bonus_reversal: t("Review bonus adjustment", "रिव्यू बोनस समायोजन"),
   };
+}
+
+// Neutral wording for an admin-reversed review bonus (the server's own
+// description is English-only).
+function reviewBonusReversalText(tx, t) {
+  const base = t("Review bonus reversed", "रिव्यू बोनस वापस लिया गया");
+  if (!(tx.shortfall > 0)) return base;
+  return `${base} ${t(
+    `(${tx.shortfall} points already spent — recorded as owed)`,
+    `(${tx.shortfall} पॉइंट्स पहले ही इस्तेमाल हो चुके — बकाया के रूप में दर्ज)`,
+  )}`;
 }
 
 function LoyaltyHistory() {
@@ -139,8 +151,8 @@ function LoyaltyHistory() {
           {summary.owed > 0 && (
             <p className="text-sm bg-amber-50 border border-amber-200 text-amber-800 rounded-lg p-3 mb-6">
               {t(
-                `${summary.owed} points are owed from a return or cancellation after those points were already used. They will be settled from your next points automatically.`,
-                `${summary.owed} पॉइंट्स बकाया हैं (रिटर्न या कैंसिलेशन से पहले ही इस्तेमाल हो चुके थे)। ये आपके अगले पॉइंट्स से अपने आप समायोजित हो जाएंगे।`,
+                `${summary.owed} points are owed from an earlier adjustment or reversal, because those points had already been used. They will be settled from your next points automatically.`,
+                `पहले किए गए किसी एडजस्टमेंट या रिवर्सल की वजह से ${summary.owed} पॉइंट्स बकाया हैं, क्योंकि वे पॉइंट्स पहले ही इस्तेमाल हो चुके थे। ये आपके अगले पॉइंट्स से अपने आप समायोजित हो जाएंगे।`,
               )}
             </p>
           )}
@@ -253,7 +265,9 @@ function LoyaltyHistory() {
                     {typeLabels[tx.type] || tx.type}
                   </td>
                   <td className="px-4 py-3 text-slate-500">
-                    {tx.description}
+                    {tx.source === "review_bonus_reversal"
+                      ? reviewBonusReversalText(tx, t)
+                      : tx.description}
                   </td>
                   <td
                     className={`px-4 py-3 text-right font-medium ${
