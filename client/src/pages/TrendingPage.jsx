@@ -61,8 +61,13 @@ function TrendingPage() {
         ]}
       />
 
+      {/* Same H1 the bot render (api/render.js STATIC_PAGES["/trending"])
+          serves, so crawlers and visitors see one heading. */}
       <h1 className="text-3xl md:text-4xl font-bold text-slate-900 mb-2">
-        {t("Top Trending", "सबसे ज़्यादा ट्रेंडिंग")}
+        {t(
+          "Top Trending Home Furnishing Products",
+          "सबसे ज़्यादा ट्रेंडिंग होम फर्निशिंग प्रोडक्ट्स",
+        )}
       </h1>
       <p className="text-slate-500 mb-10">
         {t(
