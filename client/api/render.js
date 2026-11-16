@@ -1344,9 +1344,15 @@ const STATIC_PAGES = {
     lang: "hi",
   },
   "/gifting": {
+    // Kept in sync with GiftingPage.jsx's SEO_DESCRIPTION and <h1> by
+    // hand (checked by scripts/render-gifting.test.mjs). Title stays as
+    // it was -- the page is indexed under it -- only the heading moved
+    // to the visible page's wording. Packaging claim is owner-confirmed
+    // for every gifting-tagged product (2026-11-16).
     title: "Gifting — Home Furnishing Gift Ideas",
+    h1: "Home Furnishing Gifts for Every Occasion",
     description:
-      "Ready-to-gift home furnishing picks at Mittal Collections — housewarmings, weddings and festive occasions, no separate wrapping needed.",
+      "Ready-to-gift home furnishing picks — every item ships in gift-box or book-fold packaging, so no separate wrapping is needed. For housewarmings, weddings and festive occasions.",
     breadcrumb: "Gifting",
   },
   "/curtain-size-calculator": {
@@ -2238,7 +2244,9 @@ const buildMeta = async (path, query = {}) => {
       ogType: "website",
       lang: staticPage.lang,
       jsonLd: [buildBreadcrumbJsonLd(staticBreadcrumbItems), ...(staticPage.extraJsonLd || [])],
-      bodyHtml: buildSimpleBodyHtml(staticBreadcrumbItems, staticPage.title, staticPage.description),
+      // Optional h1 for a page whose visible heading differs from its
+      // <title> (only /gifting today); every other page keeps title as h1.
+      bodyHtml: buildSimpleBodyHtml(staticBreadcrumbItems, staticPage.h1 || staticPage.title, staticPage.description),
     };
   }
 
