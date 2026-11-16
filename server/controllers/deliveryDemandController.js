@@ -5,7 +5,7 @@ import DeliveryDemandIpDay from "../models/DeliveryDemandIpDay.js";
 import Product from "../models/Product.js";
 import User from "../models/User.js";
 import { checkDeliveryEligibility } from "../utils/deliveryEligibility.js";
-import { istTodayString, istDaysAgoString } from "../utils/istDate.js";
+import { istDayEnd, istDayStart, istTodayString, istDaysAgoString } from "../utils/istDate.js";
 import { isDatacenterIp } from "../utils/isDatacenterIp.js";
 import { hashClientIp, hashVisitorId } from "../utils/deliveryDemandKey.js";
 import { isBotUserAgent } from "./analyticsController.js";
@@ -81,7 +81,9 @@ export const priceDemandItems = async (rawItems) => {
   }
 
   const products = await Product.find({
-    _id: { $in: [...new Set(lines.map((line) => line.product))] },
+    // Rebuilt as ObjectIds right at the query (CodeQL wants the
+    // sanitising step in the same function as the query).
+    _id: { $in: [...new Set(lines.map((line) => line.product))].map((id) => new mongoose.Types.ObjectId(id)) },
     isActive: true,
     visibility: { $ne: "offline" },
   })
@@ -217,16 +219,17 @@ export const recordDeliveryDemand = async (req, res) => {
 
     let product = null;
     if (source === "product" && productId) {
-      product = await Product.findOne({ _id: productId, isActive: true, visibility: { $ne: "offline" } })
+      product = await Product.findOne({ _id: new mongoose.Types.ObjectId(productId), isActive: true, visibility: { $ne: "offline" } })
         .select("name category")
         .lean();
     }
 
+    // Only plain strings / our own constants reach the query.
     const filter = {
-      visitorKey,
-      pincode,
-      day,
-      source,
+      visitorKey: { $eq: String(visitorKey) },
+      pincode: { $eq: String(pincode) },
+      day: { $eq: String(day) },
+      source: SOURCES.find((known) => known === source),
       product: product?._id || null,
     };
 
@@ -638,9 +641,14 @@ export const toDemandRecord = (doc, { productInfo = new Map(), users = new Map()
 
 const loadRows = async (query) => {
   const filters = parseReportFilters(query);
-  const dbFilter = { day: { $gte: filters.from, $lte: filters.to } };
-  if (filters.source !== "all") dbFilter.source = filters.source;
-  if (filters.pincode) dbFilter.pincode = filters.pincode;
+  // Values come from the query string: resolved against our own list,
+  // turned into Date objects or wrapped in $eq right here, next to the
+  // query. A row's lastAt always falls on its own IST day (the day is part
+  // of its key), so the lastAt range selects exactly the chosen days.
+  const dbFilter = { lastAt: { $gte: istDayStart(filters.from), $lte: istDayEnd(filters.to) } };
+  const knownSource = SOURCES.find((known) => known === filters.source);
+  if (knownSource) dbFilter.source = knownSource;
+  if (/^\d{6}$/.test(String(filters.pincode))) dbFilter.pincode = { $eq: String(filters.pincode) };
 
   const docs = await DeliveryDemand.find(dbFilter)
     .select("visitorKey user day pincode state district reason source product productName category items cartValue cartCost costIncomplete outlier outlierReasons attempts firstAt lastAt")
@@ -720,7 +728,7 @@ export const getDeliveryDemandReport = async (req, res) => {
     // Review fix H1: guest checks refused by the per-network daily cap.
     // Not demand; shown so the owner can see how often the cap bites.
     const [limited] = await DeliveryDemandIpDay.aggregate([
-      { $match: { day: { $gte: filters.from, $lte: filters.to } } },
+      { $match: { day: { $gte: String(filters.from), $lte: String(filters.to) } } },
       { $group: { _id: null, attempts: { $sum: "$limitedAttempts" } } },
     ]);
     report.totals.limitedGuestAttempts = limited?.attempts || 0;
@@ -813,7 +821,7 @@ export const exportDeliveryDemandCsv = async (req, res) => {
     const { from, to, region } = filters;
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
     res.setHeader("Content-Disposition", `attachment; filename="delivery-demand-${req.query.table}-${region}-${from}-to-${to}.csv"`);
-    res.send(`﻿${lines.join("\r\n")}\r\n`);
+    res.send(`\uFEFF${lines.join("\r\n")}\r\n`);
   } catch (error) {
     console.error("Delivery Demand CSV Error:", error);
     res.status(500).json({ success: false, message: "Server Error" });

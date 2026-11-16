@@ -615,3 +615,28 @@ describe("M1 — product/category filters count only matching cart lines", () =>
     expect(curtainCategory.body.totals).toMatchObject({ potentialValue: 1200, estimatedMargin: 500 });
   });
 });
+
+describe("report date range", () => {
+  it("includes only rows whose IST day is inside from..to", async () => {
+    const admin = await createUser({ role: "admin" });
+    const at = (daysBack) => new Date(Date.now() - daysBack * 24 * 60 * 60 * 1000);
+    for (const [n, pin] of [[3, DELHI], [20, GURGAON], [45, DELHI]]) {
+      await DeliveryDemand.create({
+        visitorKey: `v:old${n}`,
+        day: istDaysAgoString(n),
+        pincode: pin,
+        state: pin === DELHI ? "Delhi" : "Haryana",
+        reason: "not_serviceable",
+        source: "header",
+        attempts: 1,
+        firstAt: at(n),
+        lastAt: at(n),
+      });
+    }
+    const get = (qs) => request(app).get(`/api/delivery/demand/report?${qs}`).set("Authorization", `Bearer ${signToken(admin)}`);
+
+    expect((await get("")).body.totals.checks).toBe(2); // default: last 30 days
+    expect((await get(`from=${istDaysAgoString(10)}&to=${istTodayString()}`)).body.totals.checks).toBe(1);
+    expect((await get(`from=${istDaysAgoString(60)}&to=${istDaysAgoString(40)}`)).body.totals.checks).toBe(1);
+  });
+});
