@@ -20,9 +20,17 @@ const html = fs.readFileSync(
   "utf8",
 );
 
-const loader = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)]
-  .map((m) => m[1])
-  .find((code) => code.includes('gtag("config"'));
+// The inline loader: the body of the plain <script> block that sets up
+// gtag. Plain string search, not an HTML-matching regex -- this only reads
+// our own index.html.
+const loader = (() => {
+  const configAt = html.indexOf('gtag("config"');
+  if (configAt === -1) return null;
+  const open = "<script>";
+  const start = html.lastIndexOf(open, configAt);
+  const end = html.indexOf("</" + "script>", configAt);
+  return start === -1 || end === -1 ? null : html.slice(start + open.length, end);
+})();
 
 const runLoader = (url) => {
   const { hostname, pathname, search } = new URL(url);
