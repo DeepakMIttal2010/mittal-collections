@@ -74,7 +74,7 @@ way.
 
 Below that:
 - **Loyalty points preview** — how many points you'll earn if you buy this now.
-- **Reviews** — real customer ratings and comments, with real customer photos/video where shared. Reviewing a product from a delivered order earns you a small loyalty-point bonus once the store approves your review.
+- **Reviews** — real customer ratings and comments, with real customer photos/video where the reviewer agreed to share them. See **Writing a review** below.
 - **Questions & Answers** — ask the seller a question, or read answers to others'.
 - **Compare with similar products** — an automatic side-by-side table against similar items in the same category.
 
@@ -86,6 +86,37 @@ stock, you can leave your email to be notified the moment it's back.
 - **Check delivery at your pincode**: enter your pincode to instantly
   see whether your area qualifies for 24-hour fast delivery, or gets
   standard delivery (3-7 days) instead — no account or login needed.
+
+### Writing a review
+
+- **Verified buyers only.** You can review a product once it has been
+  delivered to you. **Write a Review** appears only then; otherwise
+  you see "You can review this product once it has been delivered to
+  you." (or that you already reviewed it). Returning the item later
+  doesn't take this away. One review per product.
+- Give a 1–5 star rating and write your review (up to 2000
+  characters). You can add up to 3 photos and one short video (about
+  10–15 seconds is suggested; up to 20 seconds is accepted).
+- **Photo/video consent:** if you add photos or a video, tick "I agree
+  that my photos/video may be shown publicly with my review". Without
+  the tick the review can't be sent with media — tick it or remove the
+  media.
+- Your review appears after the store approves it. The store may hide
+  a review or post a public "Reply from Mittal Collections" under it.
+- **How you appear:** only your first name and last initial are shown
+  (e.g. "Deepak M."), never your full name or contact details. Badges
+  under a review: **Verified purchase** (the reviewer bought and
+  received it) and **Received 50 loyalty points for reviewing** (the
+  reviewer got the review bonus).
+- **Review points:** an approved review earns **50 loyalty points**,
+  whatever rating you give — at most 50 per order, however many of its
+  products you review. If you return only part of the quantity and keep
+  at least one unit, you keep the points. If every unit of that product
+  is being returned (or was), or the order was cancelled, no points are
+  given at approval; and if points were already given, they are taken
+  back once the whole quantity is refunded or the order is cancelled.
+  Points are also taken back for a review found to be fake. In your
+  points history this shows as "Review bonus reversed".
 
 ## 3. Cart & Checkout
 
@@ -139,8 +170,25 @@ Sign in, then visit **Account** for:
   (only shown within that item's return window), and a **Get Product
   Support** link that opens a support ticket pre-linked to that order.
   You'll also get an email and a bell notification whenever an order's
-  status changes, and about 8 days after delivery you may get a
-  follow-up email asking for a review of what you bought.
+  status changes.
+- **Did you receive your product safely?** — once an order is
+  delivered, its order page shows this card for 30 days. Tap **Yes,
+  everything is fine**, or **No, I need help** and describe the problem
+  (at least 10 characters) — that sends it to the support team as a
+  ticket, with a **View your support ticket** link. Your answer is
+  private. If you said Yes and find a problem later, use **Found a
+  problem later? Report it** before the date shown (once only).
+- **Review and feedback emails** — about 1 day after delivery an email
+  asks whether your order arrived safely; about 8 days after delivery,
+  one asks you to review what you kept; about 14 days after, one
+  reminder for anything still not reviewed. None are sent more than 30
+  days after delivery, or for items you returned or already reviewed.
+  The first and last use your account's language (English / Hindi):
+  it is saved from the site's language toggle when you sign up, and
+  updated when you next log in with the other language selected. Each
+  has an **Unsubscribe from these reminders** link that turns off these
+  emails together with cart-reminder and wishlist price-drop emails;
+  order and payment emails and the newsletter are not affected.
 - **Returns** (`/returns`) — track every return you've requested,
   through Requested → Approved/Rejected → Picked Up → Refunded.
 - **Support Tickets** (`/tickets`) — raise a support request and reply

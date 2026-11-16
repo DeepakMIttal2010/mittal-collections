@@ -27,7 +27,7 @@ required fields marked **(required)**.
 | fabric, size, gsm, washCare, brand, countryOfOrigin | String | optional specs; each defaults `""` and is only shown on the product page when non-empty |
 | color, pattern | String | optional (added 2026-09-16); `fabric` doubles as material. All three feed the Google Shopping feed's `<g:color>`/`<g:material>`/`<g:pattern>` tags when set — Merchant Center doesn't credit these attributes when they're only mentioned in description prose, it wants the dedicated structured field |
 | localDeliveryOnly | Boolean | optional, default `false` (added 2026-09-17) — for bulky/oversized items where pan-India shipping is uneconomical; the product page warns and checkout blocks (both client-side and server-side in `createOrder`) when the shipping address falls outside the nearby fast-delivery zone |
-| rating | Number | 0–5, default `5` — legacy field, no longer shown anywhere on the site (hidden 2026-09-01, it was a fake-looking static default unconnected to real reviews); the real customer rating comes from `Review` documents (average + count computed live), used in Product structured data when `totalReviews > 0` |
+| rating | Number | 0–5, default `5` — legacy field, no longer shown anywhere on the site (hidden 2026-09-01, it was a fake-looking static default unconnected to real reviews); the real customer rating comes from `Review` documents (average + count computed live, approved and not hidden only). Not used in structured data — review markup was removed because reviews earn a loyalty bonus |
 | featured, isTrending, isActive | Boolean | |
 | trendingRank | Number | manual sort order within "Trending" |
 | isReturnable | Boolean | default `true` |
@@ -75,6 +75,8 @@ fields.
 | referredBy | ObjectId → User | who referred this user |
 | referralRewarded | Boolean | prevents paying the referral bonus twice |
 | resetPasswordToken, resetPasswordExpire | String, Date | forgot-password flow |
+| reminderEmailsOptOut | Boolean | default `false` — one opt-out for the optional reminder emails: abandoned cart, wishlist price drop, and the review/feedback emails (`utils/reviewEmails.js`). Order, payment, OTP, ticket and return emails ignore it |
+| reminderOptOutToken | String | `select: false` — random token for the emails' unsubscribe link (no email or user id in the URL); created on the first reminder |
 
 ### `Address`
 `user: ObjectId → User` **(required)**, fullName, mobile, address,
@@ -100,7 +102,10 @@ unit, city, state, pincode, country (default `"India"`), isDefault.
 | isPaid, isSeenByAdmin | Boolean | |
 | paidAt, deliveredAt | Date | |
 | isActive | Boolean | default `true` — soft-delete flag (added 2026-08-24), mirroring `Product`'s existing soft-delete pattern (see `ARCHITECTURE.md` §4.8). Settable `false` only once `orderStatus === "Cancelled"`; a `PUT /api/orders/:id/restore` reverses it, and `updateOrderStatus` refuses to run against a soft-deleted order |
-| reviewRequestSent | Boolean | default `false` (added 2026-08-24) — guards the daily review-request cron job (`GET/POST /api/orders/send-review-requests`) so a Delivered order (8+ days old) is never emailed a review request twice |
+| reviewRequestSent | Boolean | default `false` (added 2026-08-24) — guards the daily review-request cron job (`GET/POST /api/orders/send-review-requests`) so a Delivered order (8+ days old) is never emailed a review request twice. Still set when the Day-8 request is sent, and the Day-14 reminder requires it |
+| reviewBonusAwarded | Number | default `0` — review-bonus points already counted against this order's shared cap (50), reserved atomically. A reversed or deleted review's share stays counted |
+| reviewNotices | `{ feedback, request, reminder }`, each `{ claimedAt, sentAt, attempts, lastError, gaveUpAt }` | the Day-1 feedback, Day-8 request and Day-14 reminder emails. A claim is never re-taken after a crash and an unconfirmed send (timeout, network error, 5xx) is never retried; only a 4xx refusal from the email provider is retried, up to 3 attempts. `gaveUpAt` ends retries; `lastError` is a short code (`provider_refused` / `uncertain_delivery`), never message content |
+| deliveryFeedback | `{ response, message, submittedAt, correctedAt, ticket, history[] }` | absent until the customer answers "Did you receive your product safely?". `response` enum `yes` \| `no` (current answer); `message` (the "no" description); `correctedAt` set when a "yes" was changed to "no" (allowed once); `ticket` → Ticket opened by a "no"; `history[]` = every answer `{ response, message, submittedAt }` in order. Private to the owner and admins |
 
 `Review` and `Question` also carry an `isSeenByAdmin: Boolean` (default
 `false`), feeding the same admin notification pattern as `Order`.
@@ -170,11 +175,12 @@ chosen for simplicity given expected support volume.
 | subject | String | **(required)** |
 | order | ObjectId → Order | optional |
 | status | String enum | `Open`\|`In Progress`\|`Resolved`\|`Closed` |
+| source | String enum | `customer` (default; also older tickets) \| `delivery_feedback` (opened by a "No" delivery-feedback answer) |
 | messages | [{sender: `customer`\|`admin`, senderName, message, createdAt}] | full thread |
 | lastMessageAt | Date | bumped on every reply, drives admin list sort |
 | isSeenByAdmin | Boolean | default `false`; reset to `false` on a customer reply even if previously seen |
 
-**Indexes:** `{user, lastMessageAt:-1}`, `{status, lastMessageAt:-1}`.
+**Indexes:** `{user, lastMessageAt:-1}`, `{status, lastMessageAt:-1}`, `{isSeenByAdmin:1, lastMessageAt:-1}`, and `{order:1}` **unique, partial** on `source: "delivery_feedback"` — at most one delivery-feedback ticket per order; ordinary tickets are unaffected.
 
 ### `Notification`
 Customer-facing in-app notifications — a lighter companion to the email
@@ -227,7 +233,9 @@ The full ledger. Every balance change is one row here.
 | Field | Type | Notes |
 |---|---|---|
 | user | ObjectId → User | |
-| type | String enum | `earned` \| `redeemed` \| `refunded` \| `clawback` \| `referral_bonus` \| `admin_adjustment` \| `expired` |
+| type | String enum | `earned` \| `redeemed` \| `refunded` \| `clawback` \| `referral_bonus` \| `admin_adjustment` \| `expired` \| `debt_recovered` |
+| source | String enum | `order` \| `referral` \| `review` \| `review_bonus_reversal` \| `pos` \| `admin` \| `legacy` \| `legacy_refund` — optional (older entries have none). `review_bonus_reversal` = a review bonus taken back by an admin or automatically (key `review-reversal:<reviewId>`); a deleted review's clawback uses the same key with source `review`, so one bonus is never reversed twice |
+| review | ObjectId | the review a review-bonus credit or reversal belongs to |
 | points | Number | signed (negative for deductions) |
 | balanceAfter | Number | running balance snapshot at the time of this row |
 | order | ObjectId → Order | optional, if tied to an order |
@@ -301,8 +309,13 @@ above) rather than re-read from here later.
 | hiddenReason | String | required when hiding, max 500 — admin-only |
 | hiddenBy / hiddenAt | ObjectId → User / Date | who hid it and when — admin-only; all hidden* fields are cleared on unhide |
 | adminReply | `{ text, repliedBy, repliedAt, updatedAt }` | default `null` — the store's public reply (plain text, max 1000); `repliedBy` is never sent publicly |
+| photoConsent / photoConsentAt | Boolean / Date | default `false` / `null` — the reviewer agreed their photos/video may be shown publicly; required by `POST /api/reviews` whenever media is attached. Public responses show media only when `true`; older reviews keep their media for the admin only |
+| bonusReversal | `{ reversedAt, reversedBy, reversedByName, reason, evidence, points, pointsDebited, shortfall, expiredPortion }` | `select: false`, admin-only. Set once when a paid bonus is taken back; its presence blocks a second reversal. `reversedBy` is `null` (`reversedByName` "System") for an automatic reversal. `points` = bonus reversed; `pointsDebited` = taken off the balance; `shortfall` = already spent, added to `User.loyaltyPointsOwed`; `expiredPortion` = part whose batch had expired, neither taken back nor owed |
+| bonusHold | `{ reason, at }` | `select: false`, admin-only. Set when approval paid nothing because every unit of the product on the order is being/was returned or the order was cancelled/deleted. `reason` enum `return_in_progress` \| `returned` \| `order_cancelled` \| `order_deleted` \| `return_rejected` (kept again — a grant is now possible). A held review is not `reviewPointsProcessed` and uses none of the order's cap; cleared by `POST /api/reviews/:id/grant-bonus` |
 
-**Indexes:** `{isSeenByAdmin:1, createdAt:-1}` (admin notification poll). Deleting a review cleans up its Cloudinary image/video assets and claws back any awarded points.
+New reviews always carry `order` (verified purchase required since PR #362). `content` is capped at 2000 characters and `rating` must be a whole number.
+
+**Indexes:** `{isSeenByAdmin:1, createdAt:-1}` (admin notification poll), `{product:1, user:1}` **unique** (one review per customer per product). Deleting a review cleans up its Cloudinary image/video assets and claws back any awarded points (its share of the order's cap stays used).
 
 ### `Question`
 product (indexed), user, question, answer, isPublished.

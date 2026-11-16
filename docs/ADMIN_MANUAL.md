@@ -193,7 +193,8 @@ View every order, mark it seen, and update its status:
   delivered order.
 - Moving an order to **Cancelled** refunds any points they redeemed on
   it, and — if it had already been marked Delivered — claws back the
-  points they'd earned from it.
+  points they'd earned from it. Any review bonus paid for a review on
+  that order is reversed automatically too (see §5.2).
 - Every status change emails the customer automatically, and the
   customer now also gets a confirmation email the moment they place
   the order — not just when you first change its status.
@@ -252,6 +253,7 @@ order disappears from the main list but isn't gone. Use **Restore**
 to bring it back, or **Permanent Delete** to remove it for good (this
 is blocked if the order still has a linked return request or support
 ticket attached to it, so unlink or resolve those first).
+Soft-deleting an order also reverses any review bonus still paid on it.
 
 ## 4a. Returns (`/admin/returns`)
 
@@ -270,6 +272,10 @@ notification.
   actually delivered (and so had earned points to begin with).
 - Both of the above only ever happen once per return, even if you
   change the status back and forth.
+- When **Refunded** returns cover every unit of a product on the order,
+  the bonus for the customer's review of that product is reversed
+  automatically (shown on the review as "Bonus reversed · by System").
+  A partial return (customer kept at least one unit) keeps the bonus.
 
 > The actual **payment refund** (giving the customer their money back)
 > is still manual — for both COD and Razorpay orders, there's no
@@ -285,6 +291,17 @@ the customer and posts a notification. Change status between Open, In
 Progress, Resolved, and Closed; if a customer replies on a
 Resolved/Closed ticket, it reopens to Open automatically.
 
+**Delivery feedback tickets.** After delivery, customers see "Did you
+receive your product safely?" on their order page for 30 days. A
+**No** answer with a short description opens a ticket automatically
+and emails the store email set in Site Settings. **Yes** opens no ticket. In the
+ticket list these tickets carry an orange **Delivery feedback** badge
+before the subject. Inside the ticket, a **From delivery feedback** box
+lists each answer with its date and time — "Said it arrived safely" or
+"Reported a problem", marked "(changed answer)" when the customer first
+said Yes and later reported a problem. An order has at most one such
+ticket. Reply and change status as for any other ticket.
+
 ## 5. Reviews & Questions (`/admin/reviews`, `/admin/questions`)
 
 Customer reviews and product questions sit here until you approve /
@@ -292,12 +309,107 @@ answer them — nothing customer-submitted appears publicly until you
 act on it. Answering a question publishes it and it also becomes part
 of that product's FAQ rich-result data for Google.
 
+Only verified buyers can submit a review: the customer must have
+received the product (the order reached Delivered). Every new review is
+linked to that order.
+
 Reviews can include up to 3 customer photos and one short video, shown
 alongside the rating and text — review them the same way as text-only
-reviews before approving. Approving a review tied to a Delivered order
-also credits the customer a small loyalty-point bonus (capped per
-order, so several reviews from one order can't each claim it) —
-deleting an approved review claws those points back automatically.
+reviews before approving. A badge shows whether the customer agreed to
+show them: **Photos public** (shown on the site) or **Photos not
+public** (no consent — you see them here, the site never shows them).
+On the site, reviewers appear by a short name only (e.g. "Deepak M.").
+
+### 5.1 Moderating reviews
+
+- **Summary cards** at the top: total reviews, approved / pending,
+  hidden, average rating (with the public average), rewarded average
+  (with the count and how many were reversed), and not-rewarded
+  average. They cover the whole store, not the current filters.
+- **Filters**: Status (Pending / Approved), Visibility (Visible /
+  Hidden), Rating (1–5 star), Photos (With / No photos), Bonus
+  (Rewarded / Reversed / Not rewarded), and From / To dates (IST).
+  **Clear filters** resets them. The list shows at most 2000 reviews;
+  if more match, a notice gives the real count — narrow the filters
+  (e.g. by date) to see the rest.
+- **Hide**: type a reason when asked (required, up to 500 characters,
+  only admins see it). The review disappears from the product page and
+  from every public count and average, but stays here with a
+  **Hidden** label and your reason. Hiding never changes points.
+- **Unhide**: shows it again and clears the reason.
+- A hidden review can't be approved — **Approve** is greyed out with
+  "Unhide before approving." Unhide it first.
+- **Reply / Edit reply / Remove reply**: a plain-text public reply (up
+  to 1000 characters) shown under the review as "Reply from Mittal
+  Collections". Customers never see which admin wrote it.
+
+### 5.2 Review bonus points
+
+Approving a verified review credits the customer **50 loyalty points**,
+at most 50 per order however many products from it they review. The
+rating makes no difference. The card shows **+50 pts** once paid.
+
+**Held bonus.** If, at approval, every unit of that product on the
+order is being returned (or was), or the order was cancelled or
+deleted, the review is still approved and shown, but no points are
+paid. The card shows **Bonus held:** with the reason (return in
+progress / item returned / order cancelled / order deleted). Approving
+again never pays a held bonus; only **Grant bonus** releases it. If the
+return is later rejected (the customer keeps the item), press **Grant
+bonus**: it re-checks eligibility at that moment and pays only if the
+item is now kept. The card's hold reason is not refreshed on its own,
+so it may still read "return in progress" until you press Grant.
+
+**Grant a held bonus** (needs the Loyalty Points permission, §5.3):
+
+1. Find the approved review showing **Bonus held**.
+2. Click **Grant bonus** and confirm. Eligibility is checked again
+   first.
+3. If the item is still being returned or was returned, or the order is
+   cancelled/deleted, nothing is paid and a message says why. If the
+   order's 50 points were already used by another review, it says so
+   and pays 0.
+
+**Reverse a bonus** for a fake or fraudulent review (needs the Loyalty
+Points permission):
+
+1. On the review, click **Reverse bonus (… pts)**.
+2. Enter a reason (10–1000 characters, required) and optional evidence
+   notes, then confirm. This can't be undone.
+3. The card then shows **Bonus reversed** with the date, who did it,
+   how many points were taken back, how many were already spent
+   (recorded as owed — the customer's balance never goes negative), and
+   how many had already expired (not taken back), plus the reason and
+   evidence.
+
+Reversing doesn't hide or delete the review — do that separately if
+needed. A reversed bonus still counts against the order's 50-point
+limit, so another review on the same order earns nothing.
+
+**Automatic reversals** (shown "by System"): the bonus is taken back
+when refunded returns cover every unit of the product (§4a), when the
+order is cancelled, or when it is soft-deleted (§4).
+
+**Deleting** a review also takes back its bonus (same rules), and its
+share of the order's limit stays used.
+
+The customer's points history shows a reversal as "Review bonus
+reversed", noting any part already spent.
+
+### 5.3 Giving staff the Loyalty Points permission
+
+Grant bonus and Reverse bonus move a customer's points, so a restricted
+staff account needs **both** the **Reviews** and the **Loyalty Points
+(adjust / reverse)** permission. Full admins (no role assigned) have
+everything.
+
+1. Open **Roles & Permissions** (`/admin/roles`).
+2. Edit the staff member's role (or create one).
+3. Under **Customers**, tick **Reviews** and **Loyalty Points (adjust /
+   reverse)**, then save.
+
+Loyalty Points has no sidebar page of its own; without it, the Grant
+bonus and Reverse bonus buttons don't appear.
 
 ## 6. Marketing & Content
 
@@ -448,11 +560,24 @@ for just that product's list of people.
   order, before you've touched it.
 - **Order status emails**, **welcome emails**, **back-in-stock
   alerts** — automatic on the relevant trigger.
-- **Review-request email** — sent automatically about 8 days after an
-  order is marked Delivered, asking the customer to review what they
-  bought (timed to land after the return window, so it only reaches
-  customers who genuinely kept the item). Each order is only emailed
-  once.
+- **Review and feedback emails** — one daily job, counted from the
+  delivery date, for Delivered orders only:
+  - **Day 1** (1–3 days after delivery): "How was your delivery?",
+    linking to the feedback card on the order page. Skipped once the
+    customer has answered.
+  - **Day 8** (8–30 days): the review request, one link per item.
+  - **Day 14** (14–30 days): one reminder for items still not reviewed,
+    at least 6 days after the request.
+
+  Nothing is sent more than 30 days after delivery. Returned items and
+  items already reviewed are left out. Customers who unsubscribed from
+  reminder emails get none of these. Day 1 and Day 14 follow the
+  customer's language (English / Hindi); Day 8 is in English. Each email
+  goes out at most once per order: a send whose result is unclear is
+  never repeated (a missed email is preferred over a duplicate). A
+  developer can run the job in **dry-run** mode, which only counts what
+  would be sent and sends or saves nothing — useful before re-enabling
+  the scheduled job.
 - **Wishlist price-drop email** — sent automatically whenever a
   logged-in customer's wishlisted product's price drops (guest
   wishlist items have no account to email, so they're skipped); the
