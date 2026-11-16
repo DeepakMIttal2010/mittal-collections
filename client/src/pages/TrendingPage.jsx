@@ -61,8 +61,13 @@ function TrendingPage() {
         ]}
       />
 
+      {/* Same H1 the bot render (api/render.js STATIC_PAGES["/trending"])
+          serves, so crawlers and visitors see one heading. */}
       <h1 className="text-3xl md:text-4xl font-bold text-slate-900 mb-2">
-        {t("Top Trending", "सबसे ज़्यादा ट्रेंडिंग")}
+        {t(
+          "Top Trending Home Furnishing Products",
+          "सबसे ज़्यादा ट्रेंडिंग होम फर्निशिंग प्रोडक्ट्स",
+        )}
       </h1>
       <p className="text-slate-500 mb-10">
         {t(
@@ -82,7 +87,7 @@ function TrendingPage() {
         </p>
       ) : (
         <div className="space-y-16">
-          {sections.map(({ category, products }) => {
+          {sections.map(({ category, products }, sectionIndex) => {
             const visibleCount = visibleCounts[category._id] || PAGE_SIZE;
             const visibleProducts = products.slice(0, visibleCount);
             const hasMore = products.length > visibleCount;
@@ -102,7 +107,15 @@ function TrendingPage() {
                   </Link>
                 </div>
 
-                <ProductGrid products={visibleProducts} />
+                {/* Only the first section is above the fold. Every grid
+                    defaulted to 4 eager/high-priority cards, so 5 sections
+                    meant 20 high-priority images (16-18 of them below the
+                    fold, measured live 2026-11-16) competing with the LCP
+                    image for bandwidth. */}
+                <ProductGrid
+                  products={visibleProducts}
+                  priorityCount={sectionIndex === 0 ? 4 : 0}
+                />
 
                 {hasMore && (
                   <div className="flex justify-center mt-8">
