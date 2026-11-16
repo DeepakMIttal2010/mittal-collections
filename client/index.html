@@ -104,7 +104,14 @@
          month's "sessions" were Direct-channel with ~13% engagement and
          session count ≈ user count (each "user" a single, non-returning
          hit) — the signature of repeated automated/local hits, not real
-         traffic (2026-09-19). -->
+         traffic (2026-09-19).
+
+         Also skipped on the email unsubscribe pages: their links carry a
+         personal token (/reminders/unsubscribe?t=...) and, for the
+         newsletter, the subscriber's email address. GA4's page_view and
+         Meta's PageView send the full page URL, so both were going to
+         Google and Meta (Meta got the email unredacted). Tested by
+         scripts/analytics-private-pages.test.mjs. -->
     <script>
       var isLocalHost =
         location.hostname === "localhost" ||
@@ -112,7 +119,11 @@
         location.hostname.startsWith("192.168.") ||
         location.hostname.endsWith(".local");
 
-      if (!isLocalHost && !location.pathname.startsWith("/admin")) {
+      var isPrivateLinkPage = /^(\/hi)?\/(newsletter|reminders)\/unsubscribe\/?$/.test(
+        location.pathname,
+      );
+
+      if (!isLocalHost && !isPrivateLinkPage && !location.pathname.startsWith("/admin")) {
         window.dataLayer = window.dataLayer || [];
         function gtag() {
           dataLayer.push(arguments);
