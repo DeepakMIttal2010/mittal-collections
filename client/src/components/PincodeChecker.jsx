@@ -1,10 +1,13 @@
 import { useState } from "react";
 import { FaTruck } from "react-icons/fa";
 
-import { checkPincodeDelivery } from "../services/deliveryService";
+import { checkPincodeDelivery, recordDeliveryDemand } from "../services/deliveryService";
 import { useLanguage } from "../context/LanguageContext";
 
-function PincodeChecker({ localDeliveryOnly = false }) {
+// demandSource ("product" | "header") + productId: when set, an
+// "unavailable" answer is also noted for the admin Delivery Demand report
+// (PR-B2). The shopper sees exactly the same result either way.
+function PincodeChecker({ localDeliveryOnly = false, demandSource = null, productId = null }) {
   const { t } = useLanguage();
   const [pincode, setPincode] = useState("");
   const [checking, setChecking] = useState(false);
@@ -25,6 +28,7 @@ function PincodeChecker({ localDeliveryOnly = false }) {
     } else if (response.deliverable === false && response.reason !== "invalid") {
       // Outside the delivery area (UP-only for now), or not verifiable
       // right now — the server's own message says which.
+      if (demandSource) recordDeliveryDemand({ pincode, source: demandSource, productId });
       setResult({
         type: "unavailable",
         en: response.message,

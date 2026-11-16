@@ -24,7 +24,7 @@ test("without a saved address: Enter PIN code (EN/HI) opening the existing Pinco
   assert.match(header, /t\("Enter PIN code", "पिन कोड डालें"\)/);
   assert.match(header, /onClick=\{\(\) => setPinOpen\(\(open\) => !open\)\}/);
   assert.match(header, /aria-expanded=\{pinOpen\}/);
-  assert.match(header, /\{pinOpen && \([\s\S]*?<PincodeChecker \/>/);
+  assert.match(header, /\{pinOpen && \([\s\S]*?<PincodeChecker demandSource="header" \/>/);
   // Guest -> sign in; logged in without an address -> add one.
   assert.match(header, /to=\{isLoggedIn \? "\/addresses\/add" : "\/login"\}/);
   assert.match(header, /t\("\+ Add address", "\+ पता जोड़ें"\)/);

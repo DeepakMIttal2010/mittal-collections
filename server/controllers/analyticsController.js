@@ -3,6 +3,8 @@ import { isIP } from "net";
 import geoip from "geoip-lite";
 
 import PageVisit from "../models/PageVisit.js";
+import DeliveryDemand from "../models/DeliveryDemand.js";
+import { hashVisitorId } from "../utils/deliveryDemandKey.js";
 import { isDatacenterIp } from "../utils/isDatacenterIp.js";
 
 const getDeviceType = (userAgent = "") => {
@@ -31,7 +33,7 @@ const getDeviceType = (userAgent = "") => {
 const BOT_USER_AGENT_PATTERN =
   /bot|crawl|spider|slurp|scraper|headless|phantomjs|selenium|puppeteer|playwright|python-requests|python-urllib|go-http-client|okhttp|java\/|curl\/|wget\/|postman|ahrefs|semrush|mj12bot|dotbot|bytespider|gptbot|chatgpt|claude-web|ccbot|perplexity|facebookexternalhit|linkedinbot|whatsapp|telegrambot|discordbot|uptimerobot|lighthouse|pagespeed|inspectiontool|google-|googleother|apis-google|mediapartners|feedfetcher|gtmetrix|pingdom|statuscake|site24x7|prerender/i;
 
-const isBotUserAgent = (userAgent = "") => BOT_USER_AGENT_PATTERN.test(userAgent);
+export const isBotUserAgent = (userAgent = "") => BOT_USER_AGENT_PATTERN.test(userAgent);
 
 // isIP() alone confirms a string is shaped like an IP — it doesn't stop
 // an attacker-controlled X-Forwarded-For from supplying a perfectly
@@ -215,6 +217,9 @@ export const markInternalDevice = async (req, res) => {
     }
 
     const { deletedCount } = await PageVisit.deleteMany({ visitorId });
+    // Same for this browser's guest delivery-demand rows (PR-B2), keyed
+    // by a hash of the visitorId, never the raw id.
+    await DeliveryDemand.deleteMany({ visitorKey: `v:${hashVisitorId(visitorId)}` });
 
     res.json({ success: true, deletedCount });
   } catch (error) {
