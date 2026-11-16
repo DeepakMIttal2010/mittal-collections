@@ -1105,6 +1105,51 @@ const buildSimpleBodyHtml = (breadcrumbItems, heading, description) => `
     ${description ? `<p>${escapeHtml(description)}</p>` : ""}
   `;
 
+const trendingProductPath = (p) => (p.slug ? `/product/${p._id}/${p.slug}` : `/product/${p._id}`);
+
+// /trending: one <section> per category, mirroring TrendingPage.jsx's
+// heading + "View All" link + product grid, as plain crawlable links.
+const buildTrendingBodyHtml = (breadcrumbItems, heading, description, sections) => {
+  const sectionsHtml = sections
+    .map(({ category, products }) => {
+      const items = products
+        .map(
+          (p) =>
+            `<li><a href="${escapeHtml(`${SITE_URL}${trendingProductPath(p)}`)}">${escapeHtml(p.name)}</a> - ₹${escapeHtml(p.price)}</li>`,
+        )
+        .join("\n");
+      return `<section>
+      <h2>${escapeHtml(category.name)}</h2>
+      <ul>${items}</ul>
+      <p><a href="${escapeHtml(`${SITE_URL}/category/${category.slug}`)}">View all ${escapeHtml(category.name)}</a></p>
+    </section>`;
+    })
+    .join("\n");
+
+  return `
+    <nav aria-label="breadcrumb">${buildBreadcrumbHtml(breadcrumbItems)}</nav>
+    <h1>${escapeHtml(heading)}</h1>
+    <p>${escapeHtml(description)}</p>
+    ${sectionsHtml}
+  `;
+};
+
+// Same ItemList shape the category pages use (URLs only, no price/offer
+// claims), in on-page order.
+const buildTrendingItemListJsonLd = (sections) => {
+  const products = sections.flatMap((s) => s.products);
+  if (!products.length) return null;
+  return {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    itemListElement: products.map((p, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      url: `${SITE_URL}${trendingProductPath(p)}`,
+    })),
+  };
+};
+
 // /articles and /hi/articles used to render through buildSimpleBodyHtml
 // above (via the generic STATIC_PAGES branch), which gave a bot nothing
 // but a breadcrumb + h1 + one boilerplate paragraph -- zero links to any
@@ -2150,6 +2195,34 @@ const buildMeta = async (path, query = {}) => {
       ],
       jsonLd: [buildBreadcrumbJsonLd(staticBreadcrumbItems)],
       bodyHtml: buildSimpleBodyHtml(staticBreadcrumbItems, staticPage.title, staticPage.description),
+    };
+  }
+
+  if (path === "/trending") {
+    // A visitor sees up to 5 category sections x 8 products (TrendingPage.jsx,
+    // PAGE_SIZE 8) with a "View All" link per category; the generic
+    // STATIC_PAGES body gave a bot breadcrumb + h1 + one line, 0 product or
+    // category links (live check 2026-11-16). Same sections and order as the
+    // visitor's page, first 8 per section. If the API is down the page still
+    // renders the old simple body instead of failing.
+    const staticPage = STATIC_PAGES[path];
+    const staticBreadcrumbItems = [{ name: "Home", path: "/" }, { name: staticPage.breadcrumb }];
+    const trendingData = await safeFetchJson(`${API_BASE}/api/products/trending-by-category?limit=8`);
+    const sections = trendingData.success
+      ? (trendingData.sections || []).filter((s) => s.category?.slug && s.products?.length)
+      : [];
+
+    return {
+      title: withBrandSuffix(staticPage.title),
+      description: staticPage.description,
+      image: DEFAULT_IMAGE,
+      url: `${SITE_URL}${path}`,
+      ogType: "website",
+      lang: staticPage.lang,
+      jsonLd: [buildBreadcrumbJsonLd(staticBreadcrumbItems), buildTrendingItemListJsonLd(sections)].filter(Boolean),
+      bodyHtml: sections.length
+        ? buildTrendingBodyHtml(staticBreadcrumbItems, staticPage.title, staticPage.description, sections)
+        : buildSimpleBodyHtml(staticBreadcrumbItems, staticPage.title, staticPage.description),
     };
   }
 
