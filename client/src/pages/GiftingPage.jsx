@@ -17,6 +17,15 @@ import { SITE_URL } from "../utils/siteUrl";
 
 const BREADCRUMB_ITEMS = [{ name: "Home", path: "/" }, { name: "Gifting" }];
 
+// Kept in sync by hand with api/render.js's STATIC_PAGES["/gifting"]
+// (bots get that copy, real visitors get this one) -- the renderer
+// doesn't share a bundle with client/src. scripts/render-gifting.test.mjs
+// fails if the two drift apart. The packaging line is owner-confirmed
+// (2026-11-16): every gifting-tagged product ships in gift-box or
+// book-fold packaging, so only tag products that really do.
+const SEO_DESCRIPTION =
+  "Ready-to-gift home furnishing picks — every item ships in gift-box or book-fold packaging, so no separate wrapping is needed. For housewarmings, weddings and festive occasions.";
+
 // Grouped-by-category is the browse mode (mirrors NewArrivalsPage) — each
 // category's section shows PAGE_SIZE products by default, "Show More"
 // reveals another PAGE_SIZE at a time from what's already been fetched.
@@ -25,6 +34,9 @@ const BREADCRUMB_ITEMS = [{ name: "Home", path: "/" }, { name: "Gifting" }];
 // matching products instead — same mode-switch Amazon/Flipkart use once
 // you start narrowing a listing down.
 const PAGE_SIZE = 8;
+
+const BULK_BOX_CLASS =
+  "flex items-center gap-3 mb-10 p-4 rounded-xl bg-[#e9fbef] border border-[#25D366]/30";
 const FETCH_LIMIT = 40;
 
 function getSortOptions(t) {
@@ -48,6 +60,14 @@ function GiftingPage() {
   const [visibleCounts, setVisibleCounts] = useState({});
   const [loading, setLoading] = useState(true);
   const [phone, setPhone] = useState("");
+  // The bulk-gifting WhatsApp box needs the shop phone from site
+  // settings, which can land after the product grid has painted.
+  // Inserting the box then pushed the whole grid down ~128px (live CLS
+  // 0.044 desktop / 0.054 mobile, 2026-11-16), so its space is held by
+  // an invisible copy until settings resolve. Only if settings come back
+  // without a phone (or fail) does the space collapse -- one rare shift
+  // instead of an empty gap left on the page for good.
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
   const { t } = useLanguage();
 
   const [selectedCategoryIds, setSelectedCategoryIds] = useState(new Set());
@@ -85,6 +105,7 @@ function GiftingPage() {
       if (response.success && response.settings.phone) {
         setPhone(response.settings.phone);
       }
+      setSettingsLoaded(true);
     });
   }, []);
 
@@ -247,6 +268,23 @@ function GiftingPage() {
       )}`
     : null;
 
+  const bulkBoxContent = (
+    <>
+      <span className="flex items-center justify-center w-10 h-10 rounded-full bg-[#25D366] text-white shrink-0">
+        <FaWhatsapp className="text-lg" />
+      </span>
+      <span className="text-sm text-slate-700">
+        <span className="font-semibold">
+          {t("Want it in bulk?", "बल्क में चाहिए?")}
+        </span>{" "}
+        {t(
+          "For bulk or corporate gifting orders, contact us on WhatsApp.",
+          "बल्क या कॉर्पोरेट गिफ्टिंग ऑर्डर के लिए, हमें WhatsApp पर संपर्क करें।",
+        )}
+      </span>
+    </>
+  );
+
   const filterGroups = (
     <>
       <div>
@@ -371,7 +409,7 @@ function GiftingPage() {
     <div className="max-w-7xl mx-auto px-4 py-12">
       <Seo
         title="Gifting — Home Furnishing Gift Ideas"
-        description="Ready-to-gift home furnishing picks at Mittal Collections — filter by category, subcategory and price to find the right gift for housewarmings, weddings and festive occasions."
+        description={SEO_DESCRIPTION}
         url={`${SITE_URL}/gifting`}
         jsonLd={buildBreadcrumbJsonLd(BREADCRUMB_ITEMS)}
       />
@@ -383,8 +421,13 @@ function GiftingPage() {
         ]}
       />
 
-      <h1 className="text-3xl md:text-4xl font-bold text-slate-900 mb-2">
-        🎁 {t("Gifting", "गिफ्टिंग")}
+      {/* 26px below md: at 30px the longer heading took 3 lines on a 360px
+          phone and pushed the first product 72px further down; 26px fits
+          2 lines and stays larger than the 24px section headings below.
+          md:text-4xl (and its line height) is unchanged on desktop. */}
+      <h1 className="text-[26px]/8 md:text-4xl font-bold text-slate-900 mb-2">
+        <span aria-hidden="true">🎁</span>{" "}
+        {t("Home Furnishing Gifts for Every Occasion", "हर मौके के लिए होम फर्निशिंग गिफ्ट")}
       </h1>
       <p className="text-slate-500 mb-6">
         {t(
@@ -393,26 +436,24 @@ function GiftingPage() {
         )}
       </p>
 
-      {bulkWaLink && (
+      {bulkWaLink ? (
         <a
           href={bulkWaLink}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center gap-3 mb-10 p-4 rounded-xl bg-[#e9fbef] border border-[#25D366]/30 hover:bg-[#dcf8e6] transition-colors"
+          className={`${BULK_BOX_CLASS} hover:bg-[#dcf8e6] transition-colors`}
         >
-          <span className="flex items-center justify-center w-10 h-10 rounded-full bg-[#25D366] text-white shrink-0">
-            <FaWhatsapp className="text-lg" />
-          </span>
-          <span className="text-sm text-slate-700">
-            <span className="font-semibold">
-              {t("Want it in bulk?", "बल्क में चाहिए?")}
-            </span>{" "}
-            {t(
-              "For bulk or corporate gifting orders, contact us on WhatsApp.",
-              "बल्क या कॉर्पोरेट गिफ्टिंग ऑर्डर के लिए, हमें WhatsApp पर संपर्क करें।",
-            )}
-          </span>
+          {bulkBoxContent}
         </a>
+      ) : (
+        !settingsLoaded && (
+          // Same markup, invisible and inert: holds the box's exact
+          // height at every width (text wrapping included) until the
+          // real link can render. See settingsLoaded above.
+          <div aria-hidden="true" data-testid="bulk-gifting-placeholder" className={`${BULK_BOX_CLASS} invisible`}>
+            {bulkBoxContent}
+          </div>
+        )
       )}
 
       {loading ? (
