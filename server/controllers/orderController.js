@@ -71,6 +71,45 @@ const getRazorpay = () => {
   return razorpayInstance;
 };
 
+// Order fields that are admin/system bookkeeping only: the payment review
+// (incl. the admin's free-text note and admin user ids), Razorpay check
+// state, email claim leases and admin read markers. Removed from every
+// response a customer gets for their own order (my orders, order detail,
+// create, verify payment); admins with the "orders" permission still see
+// them via GET /api/orders/:id and the admin list. The customer pages use
+// none of them. Tested by tests/order-customer-privacy.test.js -- add any
+// new internal Order field here and there.
+export const INTERNAL_ORDER_FIELDS = Object.freeze([
+  "paymentReviewNeeded",
+  "paymentReviewReason",
+  "paymentReviewOtherReasons",
+  "paymentReviewFlaggedAt",
+  "paymentReviewResolvedAt",
+  "paymentReviewResolvedBy",
+  "paymentReviewNote",
+  "extraPaymentIds",
+  "mismatchedPayments",
+  "paidAfterCancellation",
+  "cancelledBy",
+  "isSeenByAdmin",
+  "paymentSource",
+  "nextPaymentCheckAt",
+  "paymentCheckFailures",
+  "lastPaymentCheckError",
+  "paymentNotices",
+  "reviewNotices",
+  "reviewRequestSent",
+]);
+
+// A plain copy of the order (document or already-plain object) without
+// INTERNAL_ORDER_FIELDS.
+const toCustomerOrder = (order) => {
+  if (!order) return order;
+  const obj = typeof order.toObject === "function" ? order.toObject() : { ...order };
+  for (const field of INTERNAL_ORDER_FIELDS) delete obj[field];
+  return obj;
+};
+
 // Shared by createOrder's clientRequestId fast-path (a retry that
 // arrives after the original request already finished) and its
 // duplicate-key race handler (two truly concurrent submissions both
@@ -79,7 +118,7 @@ const getRazorpay = () => {
 // actually won, shaped the same way a fresh 201 response is.
 const buildOrderResponse = (order) => ({
   success: true,
-  order,
+  order: toCustomerOrder(order),
   razorpayOrder:
     order.paymentMethod === "Razorpay" && order.razorpayOrderId
       ? {
@@ -996,7 +1035,7 @@ export const createOrder = async (req, res) => {
 
     res.status(201).json({
       success: true,
-      order,
+      order: toCustomerOrder(order),
       razorpayOrder: razorpayOrder
         ? {
             id: razorpayOrder.id,
@@ -1318,7 +1357,7 @@ export const verifyRazorpayPayment = async (req, res) => {
       // Lets the client fire a GA4 `purchase` event from the order's own
       // confirmed line items — needed specifically by the "Pay Now" resume
       // flow (razorpay.js), which has no live cart to build one from.
-      order: paidOrder,
+      order: toCustomerOrder(paidOrder),
     });
   } catch (error) {
     console.error("Verify Razorpay Payment Error:", error);
@@ -1344,7 +1383,7 @@ export const getMyOrders = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      orders: await attachReturnEligibility(orders),
+      orders: (await attachReturnEligibility(orders)).map(toCustomerOrder),
     });
   } catch (error) {
     console.error("Get Orders Error:", error);
@@ -1439,9 +1478,13 @@ export const getOrderById = async (req, res) => {
       });
     }
 
+    const decorated = await attachReturnEligibility(order);
+
     res.status(200).json({
       success: true,
-      order: await attachReturnEligibility(order),
+      // Admin bookkeeping only for an admin; the owner gets their order
+      // without it (see INTERNAL_ORDER_FIELDS).
+      order: isAdmin ? decorated : toCustomerOrder(decorated),
       // What the customer can still do with "Did you receive it safely?"
       // — worked out here so the page never repeats the 30-day date math.
       deliveryFeedbackInfo: getDeliveryFeedbackInfo(order),
