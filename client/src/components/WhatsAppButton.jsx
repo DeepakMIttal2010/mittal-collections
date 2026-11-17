@@ -46,7 +46,7 @@ function WhatsAppButton() {
       target="_blank"
       rel="noopener noreferrer"
       aria-label={t("Chat with us on WhatsApp", "WhatsApp पर हमसे बात करें")}
-      className="fixed bottom-20 md:bottom-6 left-4 sm:left-6 z-50 flex items-center justify-center w-11 h-11 bg-[#25D366] hover:bg-[#1ebe5a] text-white shadow-lg rounded-full transition-colors"
+      className="float-above-buybar fixed bottom-20 md:bottom-6 left-4 sm:left-6 z-50 flex items-center justify-center w-11 h-11 bg-[#25D366] hover:bg-[#1ebe5a] text-white shadow-lg rounded-full transition-colors"
     >
       <FaWhatsapp className="text-lg" />
     </a>
