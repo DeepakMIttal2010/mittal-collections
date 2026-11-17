@@ -1107,10 +1107,11 @@ const buildSimpleBodyHtml = (breadcrumbItems, heading, description) => `
 
 const trendingProductPath = (p) => (p.slug ? `/product/${p._id}/${p.slug}` : `/product/${p._id}`);
 
-// /trending: one <section> per category, mirroring TrendingPage.jsx's
-// heading + "View All" link + product grid, as plain crawlable links.
-const buildTrendingBodyHtml = (breadcrumbItems, heading, description, sections) => {
-  const sectionsHtml = sections
+// One <section> per category -- heading, product links, "View all" link --
+// as plain crawlable links. Shared by /trending and /gifting, whose pages
+// both render category sections that way (TrendingPage.jsx, GiftingPage.jsx).
+const buildCategorySectionsHtml = (sections) =>
+  sections
     .map(({ category, products }) => {
       const items = products
         .map(
@@ -1126,12 +1127,69 @@ const buildTrendingBodyHtml = (breadcrumbItems, heading, description, sections) 
     })
     .join("\n");
 
+// /trending: mirrors TrendingPage.jsx's category sections.
+const buildTrendingBodyHtml = (breadcrumbItems, heading, description, sections) => {
+  const sectionsHtml = buildCategorySectionsHtml(sections);
+
   return `
     <nav aria-label="breadcrumb">${buildBreadcrumbHtml(breadcrumbItems)}</nav>
     <h1>${escapeHtml(heading)}</h1>
     <p>${escapeHtml(description)}</p>
     ${sectionsHtml}
   `;
+};
+
+// Hand-made copy of the English text in client/src/data/giftingGuide.js
+// (render.js can't import client ESM). GiftingPage.jsx shows it under the
+// product grid; bots get the same words here -- never text on only one
+// side (scripts/render-gifting.test.mjs compares the two).
+const GIFTING_GUIDE_EN = {
+  heading: "Choosing a Home Furnishing Gift",
+  paragraphs: [
+    "Bedsheets, comforters and dohars make thoughtful gifts for everyday use. They are suitable choices for housewarmings (griha pravesh), weddings and festive occasions. Every product in our gifting collection ships in gift-box or book-fold packaging, so it is ready to gift without separate wrapping.",
+    "A bedsheet set can be a practical choice for a couple or a new home. Comforters and dohars are useful options for seasonal gifting. When choosing a design, consider the recipient's room colours and personal preferences.",
+  ],
+  link: {
+    before: "Looking specifically for gift-ready bedsheet sets? Explore our ",
+    text: "Gift Bedsheets",
+    after: " collection.",
+    path: "/category/bedsheets/gift-bedsheet",
+  },
+  delivery:
+    "Delivery is currently available to eligible PIN codes in Uttar Pradesh. Please check your PIN code before placing an order. For bulk or corporate gifting enquiries, contact us on WhatsApp.",
+};
+
+const buildGiftingGuideHtml = () => {
+  const g = GIFTING_GUIDE_EN;
+  return `<section>
+      <h2>${escapeHtml(g.heading)}</h2>
+      ${g.paragraphs.map((p) => `<p>${escapeHtml(p)}</p>`).join("\n      ")}
+      <p>${escapeHtml(g.link.before)}<a href="${escapeHtml(`${SITE_URL}${g.link.path}`)}">${escapeHtml(g.link.text)}</a>${escapeHtml(g.link.after)}</p>
+      <p>${escapeHtml(g.delivery)}</p>
+    </section>`;
+};
+
+// /gifting: the visitor's category sections (first 8 per section, same
+// order) followed by the gifting guide. With no sections (API down) the
+// visitor still sees the guide, so the bot does too.
+const buildGiftingBodyHtml = (breadcrumbItems, heading, description, sections) => `
+    <nav aria-label="breadcrumb">${buildBreadcrumbHtml(breadcrumbItems)}</nav>
+    <h1>${escapeHtml(heading)}</h1>
+    <p>${escapeHtml(description)}</p>
+    ${buildCategorySectionsHtml(sections)}
+    ${buildGiftingGuideHtml()}
+  `;
+
+// ItemList for /gifting: URLs only (no price/stock, so nothing in the
+// structured data can go stale), page order, each URL once.
+const buildGiftingItemListJsonLd = (sections) => {
+  const urls = [...new Set(sections.flatMap((s) => s.products).map((p) => `${SITE_URL}${trendingProductPath(p)}`))];
+  if (!urls.length) return null;
+  return {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    itemListElement: urls.map((url, i) => ({ "@type": "ListItem", position: i + 1, url })),
+  };
 };
 
 // Same ItemList shape the category pages use (URLs only, no price/offer
@@ -2229,6 +2287,33 @@ const buildMeta = async (path, query = {}) => {
       bodyHtml: sections.length
         ? buildTrendingBodyHtml(staticBreadcrumbItems, staticPage.title, staticPage.description, sections)
         : buildSimpleBodyHtml(staticBreadcrumbItems, staticPage.title, staticPage.description),
+    };
+  }
+
+  if (path === "/gifting") {
+    // A visitor sees one section per category, first 8 products each
+    // (GiftingPage.jsx fetches 40 per category, newest first, and shows
+    // PAGE_SIZE 8 -- the same first 8 this limit returns), each with a
+    // "View All" link, then the gifting guide. The generic STATIC_PAGES
+    // body gave a bot breadcrumb + h1 + one line and 0 product links
+    // (live check 2026-11-16). API down -> no sections, guide only, still
+    // 200 (the visitor's page shows the guide in that case too).
+    const staticPage = STATIC_PAGES[path];
+    const staticBreadcrumbItems = [{ name: "Home", path: "/" }, { name: staticPage.breadcrumb }];
+    const giftingData = await safeFetchJson(`${API_BASE}/api/products/gifting?limit=8`);
+    const sections = giftingData.success
+      ? (giftingData.sections || []).filter((s) => s.category?.slug && s.products?.length)
+      : [];
+
+    return {
+      title: withBrandSuffix(staticPage.title),
+      description: staticPage.description,
+      image: DEFAULT_IMAGE,
+      url: `${SITE_URL}${path}`,
+      ogType: "website",
+      lang: staticPage.lang,
+      jsonLd: [buildBreadcrumbJsonLd(staticBreadcrumbItems), buildGiftingItemListJsonLd(sections)].filter(Boolean),
+      bodyHtml: buildGiftingBodyHtml(staticBreadcrumbItems, staticPage.h1 || staticPage.title, staticPage.description, sections),
     };
   }
 
