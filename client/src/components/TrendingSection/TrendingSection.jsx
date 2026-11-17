@@ -12,6 +12,7 @@ import { useLocation } from "react-router-dom";
 import { isHindiPath } from "../../utils/hindiPath";
 import { verifiedMrp } from "../../utils/verifiedMrp";
 import { splitVariantName } from "../../utils/trendingCard";
+import { trackSelectItem } from "../../utils/analytics";
 
 // Cards per category row on the homepage; /trending shows the rest.
 const HOMEPAGE_LIMIT = 8;
@@ -83,6 +84,9 @@ function TrendingCategoryRow({ category, products, t, isFirst }) {
             key={product._id}
             to={productUrl(product, isHindi && !!product.nameHi)}
             className="relative shrink-0 w-48 sm:w-60 sm:snap-start"
+            // These cards are their own markup (not ProductCard), so they
+            // had no GA4 select_item at all; same event, own list name.
+            onClick={() => trackSelectItem(product, "home_trending")}
           >
             <div className="relative rounded-xl overflow-hidden shadow-md aspect-[4/5] bg-slate-100">
               <img
