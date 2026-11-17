@@ -106,16 +106,33 @@ test("other static pages still use their title as the bot h1", async () => {
 
 // ---- PR-G2: bot gets the visitor's product sections + the gifting guide ----
 const { GIFTING_GUIDE, GIFT_BEDSHEET_PATH } = await import("../src/data/giftingGuide.js");
-const jsonLd = (html) =>
-  [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].flatMap((m) => [JSON.parse(m[1])].flat());
+// JSON-LD blocks found with plain string search, not a <script> regex
+// (CodeQL treats script-tag regexes as HTML filtering).
+const LD_OPEN = '<script type="application/ld+json">';
+const jsonLd = (html) => {
+  const blocks = [];
+  for (let at = html.indexOf(LD_OPEN); at !== -1; at = html.indexOf(LD_OPEN, at + 1)) {
+    const start = at + LD_OPEN.length;
+    blocks.push(...[JSON.parse(html.slice(start, html.indexOf("</script>", start)))].flat());
+  }
+  return blocks;
+};
 const hrefs = (html) => [...html.matchAll(/<a href="([^"]+)"/g)].map((m) => m[1]);
 const productHrefs = (html) => hrefs(html).filter((h) => h.includes("/product/"));
-// Bot body text with markup removed and entities decoded, for copy checks.
-const bodyText = (html) =>
-  (html.match(/<body[\s\S]*<\/body>/)?.[0] || html)
-    .replace(/<script[\s\S]*?<\/script>/g, " ")
-    .replace(/<[^>]+>/g, "")
-    .replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
+// Copy checks escape the EXPECTED text the way render.js's escapeHtml does
+// and look for it in the raw HTML -- no stripping/decoding of the HTML
+// itself (regex tag-stripping is what CodeQL flags as unsafe sanitizing).
+const escapeLikeRender = (s) =>
+  String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+const guideHtmlFragments = (lang) => {
+  const g = GIFTING_GUIDE;
+  return [
+    `<h2>${escapeLikeRender(g.heading[lang])}</h2>`,
+    ...g.paragraphs.map((p) => `<p>${escapeLikeRender(p[lang])}</p>`),
+    `<p>${escapeLikeRender(g.link.before[lang])}<a href="${SITE}${GIFT_BEDSHEET_PATH}">${escapeLikeRender(g.link.text[lang])}</a>${escapeLikeRender(g.link.after[lang])}</p>`,
+    `<p>${escapeLikeRender(g.delivery[lang])}</p>`,
+  ];
+};
 const guideStrings = (lang) => [
   GIFTING_GUIDE.heading[lang],
   ...GIFTING_GUIDE.paragraphs.map((p) => p[lang]),
@@ -146,14 +163,14 @@ test("/gifting bot: guide comes after the products, with the Gift Bedsheets link
   const giftHref = `${SITE}${GIFT_BEDSHEET_PATH}`;
   assert.equal(giftHref, `${SITE}/category/bedsheets/gift-bedsheet`);
   assert.ok(hrefs(body).includes(giftHref));
-  assert.match(body, new RegExp(`<a href="${giftHref.replace(/[.*+?^${}()|[\]\/]/g, "\$&")}">Gift Bedsheets</a>`));
+  assert.ok(body.includes(`<a href="${giftHref}">Gift Bedsheets</a>`), "Gift Bedsheets anchor");
   assert.ok(body.lastIndexOf("/product/") < body.indexOf(GIFTING_GUIDE.heading.en), "guide after the product list");
 });
 
 test("/gifting bot guide text is exactly the visitor's English guide", async () => {
   giftingResponse = ok(SECTIONS);
-  const text = bodyText((await render("/gifting")).body);
-  for (const s of guideStrings("en")) assert.ok(text.includes(s), `bot is missing: ${s}`);
+  const { body } = await render("/gifting");
+  for (const fragment of guideHtmlFragments("en")) assert.ok(body.includes(fragment), `bot is missing: ${fragment}`);
   // And the page really renders that data file.
   assert.match(PAGE_SRC, /from "\.\.\/data\/giftingGuide"/);
   assert.match(PAGE_SRC, /GIFTING_GUIDE\.paragraphs\.map/);
