@@ -255,6 +255,30 @@
   font-weight: bold;
 }
 
+/* CX-01: "/ panel" after a curtain's price -- secondary, so the price itself
+   still reads first. #4b5563 on white is 7.6:1. */
+.per-panel {
+  color: #4b5563;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+/* CX-01: "1 Curtain Panel" chip under the size line. Navy on light blue is
+   9.9:1. Fits one line in the 159px mobile card for both EN and HI. */
+.panel-chip {
+  align-self: flex-start;
+  display: inline-block;
+  margin: 0 0 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #e0ebff;
+  color: #1e3a8a;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
 .old-price {
   /* #999 on white was only 2.84:1 (needs 4.5:1) — flagged by Lighthouse's
      color-contrast audit across every product card site-wide. */

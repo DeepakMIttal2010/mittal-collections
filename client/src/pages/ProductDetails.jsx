@@ -72,6 +72,7 @@ import { localizeSize } from "../utils/localizeSize";
 import { useLanguage } from "../context/LanguageContext";
 import { isHindiPath } from "../utils/hindiPath";
 import { verifiedMrp, verifiedDiscountPercent } from "../utils/verifiedMrp";
+import { curtainPanelTexts } from "../utils/curtainPanel";
 
 function ProductDetails() {
   const { id } = useParams();
@@ -135,6 +136,17 @@ function ProductDetails() {
   // remount once it's already gone.
   useLayoutEffect(() => {
     document.getElementById("product-ssr-placeholder")?.remove();
+  }, []);
+
+  // CX-04: the mobile sticky Add-to-Cart bar (bottom of this component)
+  // sits exactly where the floating WhatsApp / Back-to-top buttons float
+  // (bottom-20), so they covered its price and the button's right end.
+  // While this page is mounted, index.css lifts both floats above the bar
+  // (below lg only, where the bar exists). Removed again on unmount, so no
+  // other page changes.
+  useEffect(() => {
+    document.body.classList.add("has-sticky-buy-bar");
+    return () => document.body.classList.remove("has-sticky-buy-bar");
   }, []);
 
   useEffect(() => {
@@ -602,6 +614,14 @@ function ProductDetails() {
   // Only a verified printed MRP is shown (0 = show selling price only).
   const displayMrp = verifiedMrp(product, selectedVariant || product);
   const displayStock = selectedVariant ? selectedVariant.stock : product.stock;
+  // CX-01: one source for the per-panel texts shown next to the price, in
+  // the explainer and in the mobile sticky bar -- all keyed to the SAME
+  // selected size, so switching 7x4 -> 9x4 -> 7x4 keeps them in step.
+  const panel = curtainPanelTexts(
+    product,
+    hasVariants ? selectedVariant?.size : product.size,
+    language === "hi",
+  );
   // product.name already carries the exact dimension by convention (see
   // seo_title_convention) -- appending the variant/product size here
   // used to duplicate it (confirmed live across every sampled product,
@@ -864,7 +884,10 @@ function ProductDetails() {
   ];
 
   const specRows = [
-    { label: t("What's Included", "क्या शामिल है"), value: product.whatsIncluded },
+    {
+      label: t("What's Included", "क्या शामिल है"),
+      value: panel ? panel.label : product.whatsIncluded,
+    },
     { label: t("Fabric", "फैब्रिक"), value: t(product.fabric, product.fabricHi || product.fabric) },
     { label: t("Size", "साइज़"), value: localizeSize(product.size, language === "hi") },
     { label: t("GSM", "GSM"), value: t(product.gsm, product.gsmHi || product.gsm) },
@@ -1107,6 +1130,9 @@ function ProductDetails() {
           <div className="flex items-center gap-3 mb-4">
             <span className="text-3xl font-bold text-[#2e7d32]">
               ₹{displayPrice}
+              {panel && (
+                <span className="ml-1.5 text-base font-medium text-slate-600">{panel.perPanel}</span>
+              )}
             </span>
             {displayMrp > 0 && (
               <span className="text-sm text-slate-500">
@@ -1115,6 +1141,19 @@ function ProductDetails() {
               </span>
             )}
           </div>
+
+          {/* CX-01: a curtain is sold per panel but photographed as a pair;
+              the only "1 Curtain Panel" text used to be in the spec table,
+              about two screens below this price on a phone. */}
+          {panel && (
+            <div
+              data-testid="curtain-panel-note"
+              className="mb-4 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3"
+            >
+              <p className="text-sm font-bold text-blue-900">{panel.label}</p>
+              <p className="mt-0.5 text-sm text-slate-800">{panel.explainer}</p>
+            </div>
+          )}
 
           {/* Delivery cost used to be invisible until the cart page --
               shippingSettings was already being fetched on this page
@@ -1719,16 +1758,30 @@ function ProductDetails() {
           itself pads with -- a plain bottom-16 (fixed 64px) would have
           undershot that on a notched/home-indicator phone, where
           BottomNav's real height grows well past 64px, and the two bars
-          would overlap. Stays clear of the WhatsApp/BackToTop round
-          buttons which float at bottom-20 on the left/right edges --
-          this bar is full-width but only as tall as its own content, so
-          it doesn't reach that high. lg:hidden matches ProductDetails'
+          would overlap. It DID reach the WhatsApp/BackToTop round
+          buttons at bottom-20 (measured 2026-11-17: the bar spans ~56-121px
+          from the bottom), so while this page is mounted both floats are
+          lifted above it -- see the has-sticky-buy-bar effect near the top
+          and index.css (CX-04). lg:hidden matches ProductDetails'
           own single-column breakpoint (desktop already shows the real
           button inline, already-visible, no fold problem there). */}
       <div className="lg:hidden fixed bottom-[calc(56px+env(safe-area-inset-bottom,0px))] inset-x-0 z-40 bg-white border-t border-slate-200 px-4 py-2.5 flex items-center gap-3 shadow-[0_-2px_8px_rgba(0,0,0,0.06)]">
-        <span className="text-lg font-bold text-[#2e7d32] shrink-0">
-          ₹{displayPrice}
-        </span>
+        {panel ? (
+          // CX-01: price + "1 Curtain Panel · <selected size>" -- the size
+          // a shopper would add without scrolling to the size buttons.
+          <div className="flex flex-col min-w-0 max-w-[48%]">
+            <span className="text-lg font-bold text-[#2e7d32] leading-tight">
+              ₹{displayPrice}
+            </span>
+            <span data-testid="sticky-panel-line" className="text-xs font-semibold text-blue-900 leading-snug">
+              {panel.stickyLine}
+            </span>
+          </div>
+        ) : (
+          <span className="text-lg font-bold text-[#2e7d32] shrink-0">
+            ₹{displayPrice}
+          </span>
+        )}
         <button
           onClick={handleAddToCart}
           disabled={displayStock <= 0}
