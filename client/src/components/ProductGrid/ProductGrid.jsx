@@ -6,7 +6,9 @@ import { useLanguage } from "../../context/LanguageContext";
 // 4 = the first row on a listing page; pass 0 for a grid that sits below
 // the fold (the homepage's New Arrivals sections), where eager cards only
 // compete with the hero photo for bandwidth.
-function ProductGrid({ products = [], priorityCount = 4 }) {
+// listName: optional GA4 item_list_name passed through to each card's
+// select_item event (see ProductCard); omitted = "product_list".
+function ProductGrid({ products = [], priorityCount = 4, listName }) {
   const { t } = useLanguage();
 
   if (!products.length) {
@@ -23,7 +25,12 @@ function ProductGrid({ products = [], priorityCount = 4 }) {
         // First 4 cards = above the fold on every real breakpoint this
         // grid uses (2 cols mobile, more on desktop) -- see
         // ProductCard.jsx's own comment for why this matters for LCP.
-        <ProductCard key={product._id} product={product} priority={index < priorityCount} />
+        <ProductCard
+          key={product._id}
+          product={product}
+          priority={index < priorityCount}
+          listName={listName}
+        />
       ))}
     </div>
   );

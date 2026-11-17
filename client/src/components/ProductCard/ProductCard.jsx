@@ -34,7 +34,9 @@ import { verifiedMrp, verifiedDiscountPercent } from "../../utils/verifiedMrp";
 // ~40ms to ~900ms).
 const QuickViewModal = lazy(() => import("./QuickViewModal"));
 
-function ProductCard({ product, priority = false }) {
+// listName: GA4 item_list_name for the select_item click event. Left
+// undefined, trackSelectItem keeps its default "product_list".
+function ProductCard({ product, priority = false, listName }) {
   const navigate = useNavigate();
   // Self-detected, not a prop -- this card renders inside both English
   // and Hindi category grids (and ProductDetails.jsx's own related-
@@ -72,7 +74,7 @@ function ProductCard({ product, priority = false }) {
       <Link
         to={productUrl(product, isHindi)}
         className="product-link"
-        onClick={() => trackSelectItem(product)}
+        onClick={() => trackSelectItem(product, listName)}
       >
         <div className="product-image">
           <img
