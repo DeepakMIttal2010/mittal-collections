@@ -115,6 +115,7 @@ function TrendingPage() {
                 <ProductGrid
                   products={visibleProducts}
                   priorityCount={sectionIndex === 0 ? 4 : 0}
+                  listName="trending"
                 />
 
                 {hasMore && (
