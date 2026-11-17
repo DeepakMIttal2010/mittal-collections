@@ -164,3 +164,45 @@ test("/gifting: settings without a phone leave no empty gap", async ({ page }) =
   await expect(page.getByTestId("bulk-gifting-placeholder")).toHaveCount(0, { timeout: SETTINGS_DELAY_MS + 5000 });
   await expect(page.locator('a[href*="wa.me"][href*="bulk"]')).toHaveCount(0);
 });
+
+// PR-G2: the gifting guide under the listing (same text bots get from
+// api/render.js). It renders only once products have loaded, so it never
+// sits under the skeleton and jumps.
+test("/gifting: guide renders after the products, with the Gift Bedsheets link", async ({ page }) => {
+  await mockGiftingApis(page);
+  // Hold the products back; the guide must not show before them.
+  let releaseProducts;
+  const productsHeld = new Promise((resolve) => (releaseProducts = resolve));
+  await page.route("**/api/products/gifting**", async (route) => {
+    await productsHeld;
+    return route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({ success: true, sections: [{ category: GIFT_CATEGORY, products: GIFT_PRODUCTS }] }),
+    });
+  });
+  await page.goto("/gifting");
+  await expect(page.locator("h1").first()).toHaveText(/Home Furnishing Gifts for Every Occasion/, { timeout: 20000 });
+  await page.waitForTimeout(500);
+  await expect(page.getByTestId("gifting-guide")).toHaveCount(0);
+  releaseProducts();
+  const guide = page.getByTestId("gifting-guide");
+  await expect(guide).toBeVisible({ timeout: 10000 });
+  await expect(guide.locator("h2")).toHaveText("Choosing a Home Furnishing Gift");
+  await expect(guide.getByRole("link", { name: "Gift Bedsheets" })).toHaveAttribute("href", "/category/bedsheets/gift-bedsheet");
+  await expect(guide).toContainText("eligible PIN codes in Uttar Pradesh");
+  // Below the last product card.
+  const lastCard = await page.getByText("Gift Test Bedsheet 8").boundingBox();
+  const guideBox = await guide.boundingBox();
+  expect(guideBox.y).toBeGreaterThan(lastCard.y);
+});
+
+test("/gifting: in Hindi the guide is Hindi and links to the Hindi Gift Bedsheet page", async ({ page }) => {
+  await mockGiftingApis(page);
+  await page.goto("/gifting");
+  await expect(page.getByTestId("gifting-guide")).toBeVisible({ timeout: 20000 });
+  await page.locator("button", { hasText: "हि" }).first().click();
+  const guide = page.getByTestId("gifting-guide");
+  await expect(guide.locator("h2")).toHaveText("होम फर्निशिंग गिफ्ट कैसे चुनें");
+  await expect(guide.getByRole("link", { name: "गिफ्ट बेडशीट" })).toHaveAttribute("href", "/hi/category/bedsheets/gift-bedsheet");
+  await expect(page.locator("h1").first()).toHaveText(/हर मौके के लिए होम फर्निशिंग गिफ्ट/);
+});

@@ -14,6 +14,8 @@ import Breadcrumbs from "../components/Breadcrumbs";
 import { buildBreadcrumbJsonLd } from "../utils/breadcrumbJsonLd";
 import { useLanguage } from "../context/LanguageContext";
 import { SITE_URL } from "../utils/siteUrl";
+import { useHindiLinks } from "../utils/hindiPath";
+import { GIFTING_GUIDE, GIFT_BEDSHEET_PATH } from "../data/giftingGuide";
 
 const BREADCRUMB_ITEMS = [{ name: "Home", path: "/" }, { name: "Gifting" }];
 
@@ -69,6 +71,10 @@ function GiftingPage() {
   // instead of an empty gap left on the page for good.
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const { t } = useLanguage();
+  // /gifting has no /hi URL, so the shopper's chosen language decides
+  // whether the guide's Gift Bedsheets link goes to the Hindi page.
+  const hindiLinks = useHindiLinks();
+  const tr = (copy) => t(copy.en, copy.hi);
 
   const [selectedCategoryIds, setSelectedCategoryIds] = useState(new Set());
   const [selectedSubcategoryIds, setSelectedSubcategoryIds] = useState(new Set());
@@ -658,6 +664,39 @@ function GiftingPage() {
             )}
           </div>
         </div>
+      )}
+
+      {/* Gifting guide, under the listing so it never pushes products
+          down. Rendered only once loading is done -- in the same commit
+          as the grid -- so it can't sit under the skeleton and then jump
+          when products arrive. api/render.js gives bots this same text
+          (scripts/render-gifting.test.mjs keeps them in sync). */}
+      {!loading && (
+        <section
+          aria-labelledby="gifting-guide-heading"
+          data-testid="gifting-guide"
+          className="mt-16 border-t border-slate-200 pt-10 max-w-3xl"
+        >
+          <h2 id="gifting-guide-heading" className="text-xl md:text-2xl font-bold text-slate-900 mb-4">
+            {tr(GIFTING_GUIDE.heading)}
+          </h2>
+          <div className="space-y-4 text-slate-600 leading-relaxed">
+            {GIFTING_GUIDE.paragraphs.map((paragraph) => (
+              <p key={paragraph.en}>{tr(paragraph)}</p>
+            ))}
+            <p>
+              {tr(GIFTING_GUIDE.link.before)}
+              <Link
+                to={`${hindiLinks ? "/hi" : ""}${GIFT_BEDSHEET_PATH}`}
+                className="font-semibold text-blue-700 hover:underline"
+              >
+                {tr(GIFTING_GUIDE.link.text)}
+              </Link>
+              {tr(GIFTING_GUIDE.link.after)}
+            </p>
+            <p>{tr(GIFTING_GUIDE.delivery)}</p>
+          </div>
+        </section>
       )}
 
       {isFilterOpen && (
