@@ -24,6 +24,7 @@ import { useLanguage } from "../../context/LanguageContext";
 import { useHindiLinks } from "../../utils/hindiPath";
 import { localizeSize } from "../../utils/localizeSize";
 import { verifiedMrp, verifiedDiscountPercent } from "../../utils/verifiedMrp";
+import { curtainPanelTexts } from "../../utils/curtainPanel";
 
 // Lazy-loaded, not a static import: QuickViewModal (and the DOMPurify it
 // pulls in via stripHtml.js) only ever renders after a click, but
@@ -64,6 +65,10 @@ function ProductCard({ product, priority = false, listName }) {
   const isLowStock = product.stock > 0 && product.stock <= LOW_STOCK_THRESHOLD;
   const isOutOfStock = product.stock <= 0;
   const pointsPreview = earnRate ? Math.floor(product.price / earnRate) : 0;
+  // CX-01: curtains are sold per panel but photographed as a pair. The card
+  // has no size picker, so no size is passed; the price shown is the
+  // product's own (lowest/first-size) price, as before.
+  const panel = curtainPanelTexts(product, null, language === "hi");
 
   useEffect(() => {
     getEarnRate().then(setEarnRate);
@@ -124,6 +129,8 @@ function ProductCard({ product, priority = false, listName }) {
 
           {product.size && <p className="size-line">{localizeSize(product.size, language === "hi")}</p>}
 
+          {panel && <p className="panel-chip">{panel.label}</p>}
+
           {/* Same real-review source as the product detail page's rating
               line — Product.rating is a static default (5 for every
               product), never shown here, since that would look like every
@@ -136,7 +143,10 @@ function ProductCard({ product, priority = false, listName }) {
           )}
 
           <div className="price">
-            <span className="new-price">₹{product.price}</span>
+            <span className="new-price">
+              ₹{product.price}
+              {panel && <span className="per-panel"> {panel.perPanel}</span>}
+            </span>
 
             {hasDiscount && (
               <span className="mrp-label">
