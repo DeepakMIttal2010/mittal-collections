@@ -81,7 +81,14 @@ function useHoverDropdown() {
       clearTimeout(closeTimer.current);
       closeTimer.current = null;
     }
-    if (triggerRef.current) {
+    // Measure the trigger only on a fresh open. open() also runs while the
+    // panel is already open -- pressing the mouse on a link focuses it, and
+    // that focus bubbles (through the portal) to the trigger's onFocus. A
+    // new rect there started a new DropdownPortal positioning session and
+    // moved the panel back to where it first opened, between mousedown and
+    // mouseup, so the browser never fired the click (2026-11-20: More menu
+    // links like Table Covers / Hotel Linen didn't open).
+    if (!isOpen && triggerRef.current) {
       setRect(triggerRef.current.getBoundingClientRect());
     }
     setIsOpen(true);
