@@ -171,9 +171,16 @@ export const trackSelectPromotion = (params) => trackEvent("select_promotion", p
 // product grid, the header's search-suggestions dropdown, etc. `listName`
 // identifies which surface the click came from, since the same product
 // can be reached from several different listings.
-export const trackSelectItem = (product, listName = "product_list") => {
+//
+// `listId` (optional) names the homepage section a product card sits in
+// (home_new_arrivals, home_recently_viewed, home_clearance). It goes in
+// GA4's item_list_id so item_list_name -- and every existing report built
+// on it -- stays exactly as before; calls without it send no
+// item_list_id key at all.
+export const trackSelectItem = (product, listName = "product_list", listId) => {
   trackEvent("select_item", {
     item_list_name: listName,
+    ...(listId ? { item_list_id: listId } : {}),
     items: [
       {
         item_id: product._id,
@@ -183,6 +190,37 @@ export const trackSelectItem = (product, listName = "product_list") => {
       },
     ],
   });
+};
+
+// Homepage sections that send select_content when one of their links
+// (a category, size, price range or "view all" link -- not a product
+// card, which uses trackSelectItem's listId) is clicked. Reported in GA4
+// through the event-scoped custom dimension `home_section`.
+export const HOME_SECTIONS = Object.freeze([
+  "home_category_grid",
+  "home_quick_links",
+  "home_size_showcase",
+  "home_shop_by_price",
+  "home_new_arrivals",
+  "home_clearance",
+]);
+
+// Only a category/subcategory slug, a price number or a short fixed word
+// ("view_all") -- never free text that could carry personal data.
+const SAFE_TARGET = /^[a-z0-9][a-z0-9_-]{0,79}$/;
+
+export const trackHomeSectionClick = (section, target) => {
+  const id = typeof target === "number" ? String(target) : target;
+  if (!HOME_SECTIONS.includes(section) || typeof id !== "string" || !SAFE_TARGET.test(id)) return;
+  trackEvent("select_content", { content_type: "home_section", home_section: section, item_id: id });
+};
+
+// home_scroll_25 / _50 / _75 / _90: how far down the homepage a visitor got
+// (see utils/homeScrollDepth.js). The depth is in the event name so GA4
+// reports it without registering a custom dimension.
+export const trackHomeScroll = (depth) => {
+  if (![25, 50, 75, 90].includes(depth)) return;
+  trackEvent(`home_scroll_${depth}`, {});
 };
 
 // Fired once a payment method is actually selected on the checkout page

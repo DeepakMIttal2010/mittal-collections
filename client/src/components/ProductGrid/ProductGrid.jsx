@@ -8,7 +8,8 @@ import { useLanguage } from "../../context/LanguageContext";
 // compete with the hero photo for bandwidth.
 // listName: optional GA4 item_list_name passed through to each card's
 // select_item event (see ProductCard); omitted = "product_list".
-function ProductGrid({ products = [], priorityCount = 4, listName }) {
+// listId: optional homepage section (GA4 item_list_id), passed through.
+function ProductGrid({ products = [], priorityCount = 4, listName, listId }) {
   const { t } = useLanguage();
 
   if (!products.length) {
@@ -30,6 +31,7 @@ function ProductGrid({ products = [], priorityCount = 4, listName }) {
           product={product}
           priority={index < priorityCount}
           listName={listName}
+          listId={listId}
         />
       ))}
     </div>

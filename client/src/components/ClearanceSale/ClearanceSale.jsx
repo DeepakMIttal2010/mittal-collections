@@ -11,6 +11,7 @@ import { handleImageError } from "../../utils/imageFallback";
 import { useLocation } from "react-router-dom";
 import { isHindiPath } from "../../utils/hindiPath";
 import { verifiedMrp, verifiedDiscountPercent } from "../../utils/verifiedMrp";
+import { trackSelectItem, trackHomeSectionClick } from "../../utils/analytics";
 
 function ClearanceCategoryRow({ category, products, t, isFirst }) {
   // A Hindi product page exists only once the product has a Hindi name.
@@ -66,6 +67,7 @@ function ClearanceCategoryRow({ category, products, t, isFirst }) {
             <Link
               key={product._id}
               to={productUrl(product, isHindi && !!product.nameHi)}
+              onClick={() => trackSelectItem(product, "product_list", "home_clearance")}
               className="relative shrink-0 w-48 sm:w-60"
             >
               <div className="relative rounded-xl overflow-hidden shadow-md aspect-[4/5] bg-slate-100">
@@ -140,6 +142,7 @@ function ClearanceSale() {
 
           <Link
             to="/clearance-sale"
+            onClick={() => trackHomeSectionClick("home_clearance", "view_all")}
             className="inline-flex items-center border border-slate-300 rounded-full px-5 py-2.5 text-sm font-semibold text-slate-800 hover:bg-white transition-colors"
           >
             {t("Browse all clearance", "सभी क्लीयरेंस देखें")}
