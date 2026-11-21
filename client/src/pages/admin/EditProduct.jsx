@@ -639,6 +639,8 @@ function EditProduct() {
               value={formData.price}
               onChange={handleChange}
               disabled={hasVariants}
+              required={!hasVariants}
+              min="1"
             />
           </div>
 
@@ -791,6 +793,8 @@ function EditProduct() {
                   <input
                     id={`variant-price-${index}`}
                     type="number"
+                    min="1"
+                    required={Boolean(String(variant.size || "").trim())}
                     value={variant.price}
                     onChange={(e) =>
                       handleVariantChange(index, "price", e.target.value)

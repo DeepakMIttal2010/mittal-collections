@@ -1,5 +1,5 @@
 import SiteSettings from "../models/SiteSettings.js";
-import { invalidateBundleRulesCache } from "../utils/bundleDiscount.js";
+import { invalidateBundleRulesCache, isValidBundlePercent } from "../utils/bundleDiscount.js";
 
 const loadSettings = async () => {
   let settings = await SiteSettings.findOne().populate([
@@ -113,6 +113,15 @@ export const updateSiteSettings = async (req, res) => {
         return res.status(400).json({
           success: false,
           message: "A bundle rule's two categories must be different.",
+        });
+      }
+
+      // Rejected, never clamped: an out-of-range value is a typo the
+      // admin has to see, not something to quietly reinterpret.
+      if (bundleRules.some((rule) => !isValidBundlePercent(rule?.discountPercent))) {
+        return res.status(400).json({
+          success: false,
+          message: "Each bundle discount must be more than 0% and at most 100%.",
         });
       }
     }

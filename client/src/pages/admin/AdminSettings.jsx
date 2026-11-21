@@ -455,8 +455,9 @@ function AdminSettings() {
 
                 <input
                   type="number"
-                  min="0"
+                  min="1"
                   max="100"
+                  required
                   value={rule.discountPercent}
                   onChange={(e) =>
                     handleBundleRuleChange(
