@@ -101,6 +101,8 @@ function ProductQuestions({ productId }) {
           </label>
           <textarea
             required
+            minLength={5}
+            maxLength={1000}
             rows={3}
             value={questionText}
             onChange={(e) => setQuestionText(e.target.value)}

@@ -5,16 +5,42 @@ import SiteSettings from "../models/SiteSettings.js";
 import { sendEmail } from "../config/mailer.js";
 import { notifyUser } from "../utils/notify.js";
 import { escapeHtml } from "../utils/escapeHtml.js";
+import { istDayStart, reserveNotificationSlot } from "../utils/notificationBudget.js";
+
+export const QUESTION_MIN_LENGTH = 5;
+export const QUESTION_MAX_LENGTH = 1000;
+export const QUESTIONS_PER_ACCOUNT_PER_DAY = 10;
+export const QUESTION_ADMIN_EMAILS_PER_DAY = 20;
+const DUPLICATE_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 // Unlike Tickets, submitting a question previously only ever produced
 // an in-app admin notification (the unseen-questions poll) — an admin
 // not actively watching the dashboard had no way to learn a customer
 // was waiting on an answer. Mirrors ticketController.js's notifyAdmin.
+//
+// At most QUESTION_ADMIN_EMAILS_PER_DAY of these are attempted per IST day
+// (admin audit QS-01): every email goes through the same Brevo sender as
+// OTP and order mail, so a burst of questions must not be able to spend
+// that quota. The slot is reserved before sending and not returned if the
+// send fails. Past the budget the question is still saved and still shows
+// in the admin panel's unseen-questions count — only the email is skipped.
+// This caps question emails only; other email routes are unaffected.
 const notifyAdmin = async (question, productName) => {
   try {
     const settings = await SiteSettings.findOne();
 
     if (!settings?.email) return;
+
+    const hasSlot = await reserveNotificationSlot(
+      "question-admin-email",
+      QUESTION_ADMIN_EMAILS_PER_DAY,
+    );
+    if (!hasSlot) {
+      console.warn(
+        `[questions] daily admin email budget (${QUESTION_ADMIN_EMAILS_PER_DAY}) spent; question ${question._id} is in the admin panel only`,
+      );
+      return;
+    }
 
     await sendEmail({
       to: settings.email,
@@ -74,10 +100,14 @@ export const submitQuestion = async (req, res) => {
     // instead of a literal id, the same NoSQL-injection path CodeQL
     // already flagged once in posController.js/returnController.js/
     // reviewController.js.
+    //
+    // The question itself must be a plain string too (admin audit QS-02):
+    // a number used to be silently stored as text, and an object/array
+    // reached Question.create and surfaced as a 500.
     if (
       typeof productId !== "string" ||
       !mongoose.Types.ObjectId.isValid(productId) ||
-      !question
+      typeof question !== "string"
     ) {
       return res.status(400).json({
         success: false,
@@ -85,14 +115,63 @@ export const submitQuestion = async (req, res) => {
       });
     }
 
-    const newQuestion = await Question.create({
-      product: productId,
+    const text = question.trim();
+    if (text.length < QUESTION_MIN_LENGTH || text.length > QUESTION_MAX_LENGTH) {
+      return res.status(400).json({
+        success: false,
+        message: `Please write your question in ${QUESTION_MIN_LENGTH} to ${QUESTION_MAX_LENGTH} characters.`,
+      });
+    }
+
+    // Only a product a customer can actually see online can be asked about.
+    const product = await Product.findOne({
+      _id: productId,
+      isActive: true,
+      visibility: { $ne: "offline" },
+    }).select("name");
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: "This product is not available.",
+      });
+    }
+
+    // Per account per IST day, counted in the DB so a restart can't reset
+    // it (the in-memory limiters on the route are the fast first line).
+    // Two simultaneous requests at the 10th question could both pass this
+    // read; the route's 3-per-10-minutes account limiter bounds that.
+    const now = new Date();
+    const todaysCount = await Question.countDocuments({
       user: req.user._id,
-      question,
+      createdAt: { $gte: istDayStart(now) },
+    });
+    if (todaysCount >= QUESTIONS_PER_ACCOUNT_PER_DAY) {
+      return res.status(429).json({
+        success: false,
+        message: "You've reached today's limit for questions. Please try again tomorrow.",
+      });
+    }
+
+    const duplicate = await Question.exists({
+      user: req.user._id,
+      product: product._id,
+      question: text,
+      createdAt: { $gte: new Date(now.getTime() - DUPLICATE_WINDOW_MS) },
+    });
+    if (duplicate) {
+      return res.status(409).json({
+        success: false,
+        message: "You've already asked this question. We'll answer it soon.",
+      });
+    }
+
+    const newQuestion = await Question.create({
+      product: product._id,
+      user: req.user._id,
+      question: text,
     });
 
-    const product = await Product.findById(productId).select("name");
-    notifyAdmin(newQuestion, product?.name || "a product").catch(() => {});
+    notifyAdmin(newQuestion, product.name || "a product").catch(() => {});
 
     res.status(201).json({
       success: true,
