@@ -12,6 +12,7 @@ import {
 import authMiddleware from "../middleware/authMiddleware.js";
 import adminMiddleware from "../middleware/adminMiddleware.js";
 import requirePermission from "../middleware/requirePermission.js";
+import { questionIpLimiter, questionAccountLimiter } from "../middleware/questionLimiter.js";
 
 const router = express.Router();
 
@@ -20,7 +21,9 @@ router.param("productId", validateObjectId);
 const perm = requirePermission("questions");
 
 router.get("/product/:productId", getProductQuestions);
-router.post("/", authMiddleware, submitQuestion);
+// IP limiter first (cheap, needs no login); the account limiter needs
+// req.user, so it must come after authMiddleware.
+router.post("/", questionIpLimiter, authMiddleware, questionAccountLimiter, submitQuestion);
 
 router.get("/admin", authMiddleware, adminMiddleware, perm, getAllQuestionsAdmin);
 router.put("/:id/answer", authMiddleware, adminMiddleware, perm, answerQuestion);
