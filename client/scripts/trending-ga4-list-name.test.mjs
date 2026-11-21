@@ -13,15 +13,17 @@ const read = (p) => fs.readFileSync(new URL(`../src/${p}`, import.meta.url), "ut
 
 test("ProductCard passes its listName prop to trackSelectItem", () => {
   const src = read("components/ProductCard/ProductCard.jsx");
-  assert.match(src, /function ProductCard\(\{ product, priority = false, listName \}\)/);
-  assert.match(src, /onClick=\{\(\) => trackSelectItem\(product, listName\)\}/);
+  // listId (optional homepage section, 2026-11-21) is passed after listName.
+  assert.match(src, /function ProductCard\(\{ product, priority = false, listName, listId \}\)/);
+  assert.match(src, /onClick=\{\(\) => trackSelectItem\(product, listName, listId\)\}/);
   assert.equal((src.match(/trackSelectItem\(/g) || []).length, 1, "exactly one select_item call per card");
 });
 
 test("ProductGrid forwards listName to every card", () => {
   const src = read("components/ProductGrid/ProductGrid.jsx");
-  assert.match(src, /function ProductGrid\(\{ products = \[\], priorityCount = 4, listName \}\)/);
+  assert.match(src, /function ProductGrid\(\{ products = \[\], priorityCount = 4, listName, listId \}\)/);
   assert.match(src, /listName=\{listName\}/);
+  assert.match(src, /listId=\{listId\}/);
 });
 
 test("TrendingPage grid uses list name \"trending\"", () => {

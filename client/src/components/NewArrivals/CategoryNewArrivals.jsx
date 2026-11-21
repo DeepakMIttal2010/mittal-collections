@@ -7,6 +7,7 @@ import ProductGridSkeleton from "../ProductGrid/ProductGridSkeleton";
 import Skeleton from "../Skeleton";
 import { useLanguage } from "../../context/LanguageContext";
 import { langPrefix } from "../../utils/hindiPath";
+import { trackHomeSectionClick } from "../../utils/analytics";
 
 // Homepage teaser: the first HOME_SECTIONS categories in admin order (see
 // /admin/new-arrivals), HOME_ARRIVALS_COUNT newest each. Every category,
@@ -84,6 +85,7 @@ function CategoryNewArrivals() {
 
               <Link
                 to={`${prefix}/category/${category.slug}`}
+                onClick={() => trackHomeSectionClick("home_new_arrivals", category.slug)}
                 className="shrink-0 text-sm font-semibold text-blue-700 hover:text-blue-800 hover:underline whitespace-nowrap"
               >
                 {t("View All", "सभी देखें")} →
@@ -91,12 +93,13 @@ function CategoryNewArrivals() {
             </div>
 
             {/* below the fold on the homepage -- never compete with the hero */}
-            <ProductGrid products={products} priorityCount={0} />
+            <ProductGrid products={products} priorityCount={0} listId="home_new_arrivals" />
 
             {index === sections.length - 1 && (
               <div className="flex justify-center mt-10">
                 <Link
                   to={`${prefix}/new-arrivals`}
+                  onClick={() => trackHomeSectionClick("home_new_arrivals", "view_all")}
                   className="border-2 border-blue-700 text-blue-700 hover:bg-blue-50 font-semibold px-8 py-2.5 rounded-full transition-colors"
                 >
                   {t("View All New Arrivals", "सभी नए प्रोडक्ट्स देखें")} →

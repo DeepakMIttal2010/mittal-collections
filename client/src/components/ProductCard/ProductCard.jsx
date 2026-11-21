@@ -37,7 +37,9 @@ const QuickViewModal = lazy(() => import("./QuickViewModal"));
 
 // listName: GA4 item_list_name for the select_item click event. Left
 // undefined, trackSelectItem keeps its default "product_list".
-function ProductCard({ product, priority = false, listName }) {
+// listId: optional homepage section (GA4 item_list_id), e.g.
+// "home_new_arrivals"; omitted = no item_list_id, as before.
+function ProductCard({ product, priority = false, listName, listId }) {
   const navigate = useNavigate();
   // Self-detected, not a prop -- this card renders inside both English
   // and Hindi category grids (and ProductDetails.jsx's own related-
@@ -79,7 +81,7 @@ function ProductCard({ product, priority = false, listName }) {
       <Link
         to={productUrl(product, isHindi)}
         className="product-link"
-        onClick={() => trackSelectItem(product, listName)}
+        onClick={() => trackSelectItem(product, listName, listId)}
       >
         <div className="product-image">
           <img

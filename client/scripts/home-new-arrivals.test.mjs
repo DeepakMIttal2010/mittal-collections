@@ -37,7 +37,8 @@ test("loading skeleton has the same shape: 3 headed sections of 4 cards", () => 
 });
 
 test("shared ProductGrid unchanged in use; /new-arrivals page still 8 + Show More of 40", () => {
-  assert.match(home, /<ProductGrid products=\{products\} priorityCount=\{0\} \/>/);
+  // listId (homepage section tracking, 2026-11-21) only adds GA4 item_list_id.
+  assert.match(home, /<ProductGrid products=\{products\} priorityCount=\{0\} listId="home_new_arrivals" \/>/);
   assert.match(page, /const PAGE_SIZE = 8;/);
   assert.match(page, /const FETCH_LIMIT = 40;/);
   assert.match(page, /t\("Show More", "और दिखाएं"\)/);

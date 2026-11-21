@@ -6,6 +6,7 @@ import { useLanguage } from "../../context/LanguageContext";
 import { handleImageError } from "../../utils/imageFallback";
 import { langPrefix } from "../../utils/hindiPath";
 import { groupLabelHi } from "../../utils/sizeShowcase";
+import { trackHomeSectionClick } from "../../utils/analytics";
 
 // The row still scrolls (arrows, swipe, trackpad, keyboard focus); only the
 // bar is hidden -- Windows Chrome drew a grey one under the longer rows.
@@ -52,6 +53,7 @@ function SubcategoryRow({ category, groupLabel, items, activeSubcategory }) {
         <div className="flex items-center gap-2">
           <Link
             to={`${prefix}/category/${category.slug}`}
+            onClick={() => trackHomeSectionClick("home_size_showcase", category.slug)}
             className="mr-2 text-sm font-semibold text-blue-700 hover:text-blue-800 hover:underline whitespace-nowrap"
           >
             {t("View All", "सभी देखें")} →
@@ -87,6 +89,7 @@ function SubcategoryRow({ category, groupLabel, items, activeSubcategory }) {
             <Link
               key={sub._id}
               to={`${prefix}/category/${category.slug}/${sub.slug}`}
+              onClick={() => trackHomeSectionClick("home_size_showcase", sub.slug)}
               className="shrink-0 w-52 text-left group sm:snap-start"
             >
               <div

@@ -7,6 +7,7 @@ import { useLanguage } from "../../context/LanguageContext";
 import { handleImageError } from "../../utils/imageFallback";
 import { useLocation } from "react-router-dom";
 import { langPrefix } from "../../utils/hindiPath";
+import { trackHomeSectionClick } from "../../utils/analytics";
 
 function Categories() {
   const [categories, setCategories] = useState([]);
@@ -78,7 +79,11 @@ function Categories() {
                 <p className="text-sm text-slate-600 mt-3 flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
                   {categories.map((c, i) => (
                     <span key={c._id} className="flex items-center gap-2">
-                      <Link to={`${prefix}/category/${c.slug}`} className="hover:text-amber-600 underline underline-offset-2">
+                      <Link
+                        to={`${prefix}/category/${c.slug}`}
+                        onClick={() => trackHomeSectionClick("home_category_grid", c.slug)}
+                        className="hover:text-amber-600 underline underline-offset-2"
+                      >
                         {t(c.name, c.nameHi)}
                       </Link>
                       {i < categories.length - 1 && (
@@ -109,6 +114,7 @@ function Categories() {
               <Link
                 key={category._id}
                 to={`${prefix}/category/${category.slug}`}
+                onClick={() => trackHomeSectionClick("home_category_grid", category.slug)}
                 className="group block rounded-2xl overflow-hidden bg-white shadow-sm border border-slate-100 hover:shadow-xl transition-shadow duration-300"
               >
                 <div className="relative h-48 sm:h-72 overflow-hidden">

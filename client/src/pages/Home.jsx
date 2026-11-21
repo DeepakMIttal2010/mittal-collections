@@ -23,6 +23,8 @@ import Faq from "../components/Faq/Faq";
 import { getSiteSettings } from "../services/settingsService";
 import { SITE_URL } from "../utils/siteUrl";
 import { buildLocalBusinessJsonLd } from "../utils/localBusinessJsonLd";
+import { createScrollDepthTracker } from "../utils/homeScrollDepth";
+import { trackHomeScroll } from "../utils/analytics";
 
 // Unconditional — unlike the HomeGoodsStore/LocalBusiness block below
 // (which needs an admin-configured address to be meaningful), this is
@@ -78,6 +80,21 @@ function Home() {
   const navigate = useNavigate();
   const { language, setLanguage } = useLanguage();
   const isHindi = location.pathname === "/hi";
+
+  // home_scroll_25/50/75/90 (GA4): one tracker per homepage view, so a
+  // re-render or resize never re-sends a depth; navigating away and back
+  // is a new view (new mount) and counts again. No-op without gtag
+  // (localhost, /admin), like every analytics.js call.
+  const scrollTrackerRef = useRef(null);
+  useEffect(() => {
+    scrollTrackerRef.current = createScrollDepthTracker(trackHomeScroll);
+    const onScroll = () => {
+      const doc = document.documentElement;
+      scrollTrackerRef.current(window.scrollY, doc.scrollHeight, window.innerHeight);
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   useEffect(() => {
     const loadSettings = async () => {
@@ -171,7 +188,7 @@ function Home() {
       <CategoryQuickLinks />
       <TrustBar />
       <RewardsStrip />
-      <RecentlyViewed />
+      <RecentlyViewed listId="home_recently_viewed" />
       <Categories />
       <TrendingSection />
       <ClearanceSale />

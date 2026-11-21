@@ -6,7 +6,9 @@ import { getRecentlyViewed } from "../../utils/recentlyViewed";
 import ProductCard from "../ProductCard/ProductCard";
 import { useLanguage } from "../../context/LanguageContext";
 
-function RecentlyViewed({ excludeId }) {
+// listId: homepage section for GA4 item_list_id -- Home.jsx passes
+// "home_recently_viewed"; the product page passes nothing (unchanged).
+function RecentlyViewed({ excludeId, listId }) {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const scrollRef = useRef(null);
@@ -79,7 +81,7 @@ function RecentlyViewed({ excludeId }) {
         >
           {products.map((product) => (
             <div key={product._id} className="w-64 shrink-0">
-              <ProductCard product={product} />
+              <ProductCard product={product} listId={listId} />
             </div>
           ))}
         </div>

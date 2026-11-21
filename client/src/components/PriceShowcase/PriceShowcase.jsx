@@ -4,6 +4,7 @@ import { FaChevronLeft, FaChevronRight, FaTag } from "react-icons/fa";
 
 import { getPriceRanges } from "../../services/priceRangeService";
 import { useLanguage } from "../../context/LanguageContext";
+import { trackHomeSectionClick } from "../../utils/analytics";
 
 const CARD_THEMES = [
   "from-amber-500 to-orange-600",
@@ -76,7 +77,10 @@ function PriceShowcase() {
             <button
               key={range._id}
               type="button"
-              onClick={() => navigate(`/price/${range.maxPrice}`)}
+              onClick={() => {
+                trackHomeSectionClick("home_shop_by_price", range.maxPrice);
+                navigate(`/price/${range.maxPrice}`);
+              }}
               className={`shrink-0 w-40 h-48 rounded-2xl bg-gradient-to-br ${
                 CARD_THEMES[index % CARD_THEMES.length]
               } text-white flex flex-col items-center justify-center shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-200`}
