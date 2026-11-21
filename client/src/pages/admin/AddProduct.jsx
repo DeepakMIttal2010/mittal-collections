@@ -552,6 +552,7 @@ function AddProduct() {
               onChange={handleChange}
               disabled={hasVariants}
               required={!hasVariants}
+              min="1"
             />
           </div>
         </div>
@@ -635,6 +636,8 @@ function AddProduct() {
                   <input
                     id={`variant-price-${index}`}
                     type="number"
+                    min="1"
+                    required={Boolean(String(variant.size || "").trim())}
                     value={variant.price}
                     onChange={(e) =>
                       handleVariantChange(index, "price", e.target.value)

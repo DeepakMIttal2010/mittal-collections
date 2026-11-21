@@ -20,13 +20,32 @@ export const invalidateBundleRulesCache = () => {
   cachedAt = 0;
 };
 
+// A bundle discount is a percentage of the bundled items: above 0 and at
+// most 100. updateSiteSettings rejects anything else on save; this same
+// check also guards the calculation, so a value that reached the DB some
+// other way (an older save, a script) can never make an order free (150%)
+// or charge the customer extra (-10%) — admin audit ST-01.
+export const isValidBundlePercent = (value) => {
+  if (value === undefined || value === null) return false;
+  if (typeof value === "string" && value.trim() === "") return false;
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 && number <= 100;
+};
+
 const getActiveBundleRules = async () => {
   const isFresh = cachedRules && Date.now() - cachedAt < CACHE_TTL_MS;
 
   if (isFresh) return cachedRules;
 
   const settings = await SiteSettings.findOne().select("bundleRules");
-  cachedRules = (settings?.bundleRules || []).filter((rule) => rule.isActive);
+  cachedRules = (settings?.bundleRules || []).filter((rule) => {
+    if (!rule.isActive) return false;
+    if (isValidBundlePercent(rule.discountPercent)) return true;
+    console.warn(
+      `[bundle] ignoring bundle rule ${rule._id} with out-of-range discountPercent ${rule.discountPercent}`,
+    );
+    return false;
+  });
   cachedAt = Date.now();
 
   return cachedRules;

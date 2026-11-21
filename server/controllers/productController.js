@@ -107,6 +107,39 @@ const parseVariants = (raw) => {
   }
 };
 
+// A selling price must be a real number above ₹0. parseVariants() turns
+// anything else into 0 (Number("") || 0, Number("abc") || 0), and the
+// schema only says min: 0 — so a typo or an empty box used to save a
+// free product that checkout would happily sell (admin audit PI-01).
+const isPositivePrice = (value) => {
+  if (value === undefined || value === null) return false;
+  if (typeof value === "string" && value.trim() === "") return false;
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0;
+};
+
+// Checked on the raw form value, before parseVariants() coerces or drops
+// anything: a row with a size but no usable price is an error the admin
+// must see, not a size that silently disappears (with its stock) from the
+// product. A completely blank row (no size) is still ignored, as before.
+// Unparseable JSON is left to parseVariants' existing behaviour.
+const variantPriceError = (raw) => {
+  if (!raw) return null;
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  if (!Array.isArray(parsed)) return null;
+  const bad = parsed.find(
+    (v) => v && String(v.size || "").trim() && !isPositivePrice(v.price),
+  );
+  return bad ? `Size "${String(bad.size).trim()}" needs a price above ₹0.` : null;
+};
+
+const PRICE_REQUIRED_MESSAGE = "Price must be above ₹0.";
+
 // Accepts either a JSON-array string (multipart form field, matching the
 // `variants` convention above) or an already-parsed array (some callers,
 // e.g. duplicateProduct, pass the array directly) — always a plain array
@@ -1388,6 +1421,18 @@ export const addProduct = async (req, res) => {
     images = (req.files?.images || []).map((file) => file.path);
     videos = (req.files?.videos || []).map((file) => file.path);
 
+    // Price first: nothing about this product is worth saving at ₹0, and
+    // the media already uploaded for it must not be left behind.
+    const priceError =
+      variantPriceError(req.body.variants) ||
+      (parseVariants(req.body.variants).length === 0 && !isPositivePrice(price)
+        ? PRICE_REQUIRED_MESSAGE
+        : null);
+    if (priceError) {
+      await deleteCloudinaryAssetsByUrl([...images, ...videos]);
+      return res.status(400).json({ success: false, message: priceError });
+    }
+
     if (images.length === 0) {
       return res.status(400).json({
         success: false,
@@ -1564,10 +1609,15 @@ export const updateProduct = async (req, res) => {
       // footgun mainImageIndex/adminRemarks already guard against
       // elsewhere in this function via an explicit `!== undefined` check.
       const variantsProvided = req.body.variants !== undefined;
+      const variantError = variantsProvided ? variantPriceError(req.body.variants) : null;
+      if (variantError) return { priceError: variantError };
       const variants = variantsProvided
         ? parseVariants(req.body.variants)
         : product.variants;
       const hasVariants = variants.length > 0;
+      if (!hasVariants && !isPositivePrice(req.body.price)) {
+        return { priceError: PRICE_REQUIRED_MESSAGE };
+      }
 
       // Same rule as addProduct — once variants exist they're the source of
       // truth for price/oldPrice/stock, not whatever was separately sent.
@@ -1749,6 +1799,10 @@ export const updateProduct = async (req, res) => {
         success: false,
         message: `Stock changed while you were editing: ${size ? `size ${size} has` : "this product has"} only ${available} left now, so that reduction would go below zero. Please reload and try again.`,
       });
+    }
+    if (edit.priceError) {
+      await deleteCloudinaryAssetsByUrl([...newImages, ...newVideos]);
+      return res.status(400).json({ success: false, message: edit.priceError });
     }
     if (edit.noImages) {
       return res.status(400).json({

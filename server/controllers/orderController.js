@@ -347,6 +347,17 @@ const verifyOrderItems = async (rawItems) => {
       stock = product.stock;
     }
 
+    // The DB price is the one charged, so it is the one checked: a ₹0 (or
+    // otherwise unusable) price saved before the product form refused it
+    // must not become a free order. Runs before reserveStock, so nothing
+    // is decremented for a refused item (admin audit PI-01).
+    if (!(Number.isFinite(price) && price > 0)) {
+      return {
+        success: false,
+        message: `"${product.name}" isn't available to order right now.`,
+      };
+    }
+
     if (stock < quantity) {
       return {
         success: false,
