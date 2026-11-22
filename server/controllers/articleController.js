@@ -301,9 +301,11 @@ export const updateArticle = async (req, res) => {
       ...extractContentImageUrls(article.contentHi),
     ]);
 
+    // Slug (the /articles/<slug> URL) is fixed at creation; a retitle
+    // changes only the title — see categoryController's updateCategory
+    // (admin audit SEO-01).
     if (title && title !== article.title) {
       article.title = title;
-      article.slug = generateSlug(title);
     }
 
     if (excerpt !== undefined) article.excerpt = excerpt;
