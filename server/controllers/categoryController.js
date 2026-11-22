@@ -278,9 +278,13 @@ export const updateCategory = async (req, res) => {
       isPinned,
     } = req.body;
 
+    // The slug is the URL (/category/<slug>) and is set once, at creation.
+    // A rename changes only the name: regenerating the slug here used to
+    // break the indexed URL, home banners, footer links and the client's
+    // hardcoded /category/... links (admin audit SEO-01). Deliberately
+    // changing a URL needs a 301 from the old one — a separate change.
     if (name && name !== category.name) {
       category.name = name;
-      category.slug = generateSlug(name);
     }
 
     if (nameHi !== undefined) category.nameHi = nameHi;

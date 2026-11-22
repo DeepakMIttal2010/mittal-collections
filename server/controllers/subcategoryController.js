@@ -206,9 +206,11 @@ export const updateSubcategory = async (req, res) => {
     if (category) subcategory.category = category;
     if (groupLabel) subcategory.groupLabel = groupLabel;
 
+    // Slug (the /category/<cat>/<slug> URL) is fixed at creation; a rename
+    // changes only the name — see categoryController's updateCategory
+    // (admin audit SEO-01).
     if (name) {
       subcategory.name = name;
-      subcategory.slug = generateSlug(name);
     }
 
     if (nameHi !== undefined) subcategory.nameHi = nameHi;
