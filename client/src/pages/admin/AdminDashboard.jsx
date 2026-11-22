@@ -19,6 +19,7 @@ function AdminDashboard() {
     totalOrders: 0,
     totalUsers: 0,
     totalSales: 0,
+    posSales: 0,
     recentOrders: [],
     recentProducts: [],
   });
@@ -70,11 +71,17 @@ function AdminDashboard() {
       link: "/admin/customers",
     },
     {
-      title: "Total Sales",
+      // Same basis as Reports: online orders once shipped (by ship date)
+      // minus refunds, plus in-store POS sales (admin audit RP-01).
+      title: "Net sales (shipped, all-time)",
       value: `₹${dashboard.totalSales}`,
+      note:
+        dashboard.posSales > 0
+          ? `Online + in-store; includes ₹${dashboard.posSales} POS. See Reports.`
+          : "Online + in-store POS. See Reports.",
       icon: <FaRupeeSign />,
       color: "#dc2626",
-      link: "/admin/orders",
+      link: "/admin/reports",
     },
   ];
 
@@ -119,6 +126,9 @@ function AdminDashboard() {
             <div>
               <h2>{card.value}</h2>
               <p>{card.title}</p>
+              {card.note && (
+                <small style={{ color: "#64748b", fontSize: 12 }}>{card.note}</small>
+              )}
             </div>
           </div>
         ))}

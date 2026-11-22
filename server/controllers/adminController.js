@@ -13,13 +13,13 @@ import Wishlist from "../models/Wishlist.js";
 import LoyaltyTransaction from "../models/LoyaltyTransaction.js";
 import Ticket from "../models/Ticket.js";
 import ReturnRequest from "../models/ReturnRequest.js";
-import OfflineSale from "../models/OfflineSale.js";
 import {
   istDayStart,
   istDayEnd,
   istTodayString,
   istDaysAgoString,
 } from "../utils/istDate.js";
+import { computeRevenue } from "../utils/revenue.js";
 
 // Matches the customer-facing "Only X left in stock!" threshold in
 // client/src/utils/stock.js — kept in sync manually since one lives on
@@ -79,40 +79,11 @@ export const getDashboardData = async (req, res) => {
 
     const totalUsers = await User.countDocuments();
 
-    const salesAgg = await Order.aggregate([
-      // A cancelled order never earned any money — matches the same
-      // exclusion already used for the Reports page's revenue figure
-      // (see revenueOrdersFilter below), just not previously applied here.
-      { $match: { orderStatus: { $ne: "Cancelled" } } },
-      {
-        $group: {
-          _id: null,
-          // A partial item-level return (returnController.js) never
-          // changes orderStatus -- only a full-order cancellation does
-          // -- so this previously kept counting an order's entire
-          // totalPrice forever, even after some of its items were
-          // refunded (deep bug sweep, 2026-10-19). $ifNull guards
-          // orders saved before refundedAmount existed on the schema.
-          totalSales: {
-            $sum: { $subtract: ["$totalPrice", { $ifNull: ["$refundedAmount", 0] }] },
-          },
-        },
-      },
-    ]);
-
-    // In-store POS sales (OfflineSale) were completely invisible to this
-    // figure — they fully execute (stock decremented, loyalty points
-    // awarded) but never counted toward revenue anywhere in admin
-    // reporting. Folded into the same top-line total here and in
-    // getReportsData below; best-sellers/category-breakdown/daily-chart
-    // stay online-orders-only for now (a larger, separate change).
-    const offlineSalesAgg = await OfflineSale.aggregate([
-      { $match: { voided: { $ne: true } } },
-      { $group: { _id: null, totalSales: { $sum: "$totalAmount" } } },
-    ]);
-
-    const totalSales =
-      (salesAgg[0]?.totalSales || 0) + (offlineSalesAgg[0]?.totalSales || 0);
+    // Net sales (shipped, all-time): the same computeRevenue the Reports
+    // page uses, with no date range -- online orders once shipped minus
+    // refunds, plus in-store POS sales (admin audit RP-01). posSales is
+    // returned so the card can say how much of it was POS.
+    const { totalRevenue: totalSales, posRevenue: posSales } = await computeRevenue();
 
     const recentOrders = await Order.find()
       .populate("user", "name")
@@ -130,6 +101,7 @@ export const getDashboardData = async (req, res) => {
         totalOrders,
         totalUsers,
         totalSales,
+        posSales,
         recentOrders,
         recentProducts,
       },
@@ -417,24 +389,19 @@ export const getReportsData = async (req, res) => {
     prevSince.setDate(prevSince.getDate() - days);
     const prevDateRange = { $gte: prevSince, $lte: prevUntil };
 
-    // Orders that count toward revenue — excludes Cancelled, always
-    // scoped to whichever range is being asked about.
-    const revenueOrdersFilter = { orderStatus: { $ne: "Cancelled" } };
-    const revenueOrdersInRange = {
-      ...revenueOrdersFilter,
-      createdAt: dateRange,
-    };
+    // Revenue on the books' basis (utils/revenue.js): sold orders by ship
+    // date, refunds by refund date, POS by sale date. Product and category
+    // breakdowns below run over the same sold-in-range orders.
+    const [revenue, prevRevenueData] = await Promise.all([
+      computeRevenue({ since, until }),
+      computeRevenue({ since: prevSince, until: prevUntil }),
+    ]);
+    const soldInRange = { _id: { $in: revenue.soldOrderIds } };
 
     const [
       totalOrders,
-      revenueOrderCount,
       totalCustomers,
-      revenueAgg,
-      prevRevenueAgg,
       prevOrdersCount,
-      offlineSalesAgg,
-      prevOfflineSalesAgg,
-      salesOverTime,
       ordersByStatus,
       topProducts,
       revenueByCategory,
@@ -462,95 +429,12 @@ export const getReportsData = async (req, res) => {
       pointsPendingAgg,
       pointsOwedAgg,
     ] = await Promise.all([
+      // Orders PLACED (createdAt) -- a volume metric, unchanged by RP-01.
       Order.countDocuments({ createdAt: dateRange }),
-
-      // Scoped to the SAME revenueOrdersInRange filter as totalRevenue's
-      // own aggregation below -- avgOrderValue divides totalRevenue by
-      // (this + posSalesCount), and totalRevenue already excludes
-      // Cancelled orders. Dividing by totalOrders (which counts every
-      // order placed, Cancelled included) instead understated
-      // avgOrderValue by inflating the denominator with zero-revenue
-      // orders (deep bug sweep, 2026-10-19) -- totalOrders itself is
-      // left unchanged since "Orders Placed" is a legitimate, distinct
-      // volume metric from revenue.
-      Order.countDocuments(revenueOrdersInRange),
 
       User.countDocuments({ role: "user" }),
 
-      Order.aggregate([
-        { $match: revenueOrdersInRange },
-        {
-          $group: {
-            _id: null,
-            // See Order.js's refundedAmount comment -- a partial return
-            // never changes orderStatus, so this previously kept
-            // counting an order's full totalPrice forever even after
-            // some items were refunded (deep bug sweep, 2026-10-19).
-            total: {
-              $sum: { $subtract: ["$totalPrice", { $ifNull: ["$refundedAmount", 0] }] },
-            },
-          },
-        },
-      ]),
-
-      Order.aggregate([
-        {
-          $match: { ...revenueOrdersFilter, createdAt: prevDateRange },
-        },
-        {
-          $group: {
-            _id: null,
-            total: {
-              $sum: { $subtract: ["$totalPrice", { $ifNull: ["$refundedAmount", 0] }] },
-            },
-          },
-        },
-      ]),
-
       Order.countDocuments({ createdAt: prevDateRange }),
-
-      // POS sales in range/prev-range — same top-line-only fold-in as
-      // getDashboardData above.
-      OfflineSale.aggregate([
-        { $match: { voided: { $ne: true }, createdAt: dateRange } },
-        {
-          $group: {
-            _id: null,
-            total: { $sum: "$totalAmount" },
-            count: { $sum: 1 },
-          },
-        },
-      ]),
-
-      OfflineSale.aggregate([
-        { $match: { voided: { $ne: true }, createdAt: prevDateRange } },
-        { $group: { _id: null, total: { $sum: "$totalAmount" } } },
-      ]),
-
-      Order.aggregate([
-        { $match: revenueOrdersInRange },
-        {
-          $group: {
-            _id: {
-              // Without an explicit timezone, Mongo buckets this by UTC
-              // calendar day — a sale between ~18:30-23:59 UTC
-              // (00:00-05:29 IST) would land on the wrong day here even
-              // though dateRange itself is already IST-correct above,
-              // making the chart disagree with the range total.
-              $dateToString: {
-                format: "%Y-%m-%d",
-                date: "$createdAt",
-                timezone: "+05:30",
-              },
-            },
-            revenue: {
-              $sum: { $subtract: ["$totalPrice", { $ifNull: ["$refundedAmount", 0] }] },
-            },
-            orders: { $sum: 1 },
-          },
-        },
-        { $sort: { _id: 1 } },
-      ]),
 
       Order.aggregate([
         { $match: { createdAt: dateRange } },
@@ -558,7 +442,7 @@ export const getReportsData = async (req, res) => {
       ]),
 
       Order.aggregate([
-        { $match: revenueOrdersInRange },
+        { $match: soldInRange },
         { $unwind: "$orderItems" },
         {
           $group: {
@@ -575,7 +459,7 @@ export const getReportsData = async (req, res) => {
       ]),
 
       Order.aggregate([
-        { $match: revenueOrdersInRange },
+        { $match: soldInRange },
         { $unwind: "$orderItems" },
         {
           $lookup: {
@@ -881,23 +765,14 @@ export const getReportsData = async (req, res) => {
       ).length,
     };
 
-    const posRevenue = offlineSalesAgg[0]?.total || 0;
-    const posSalesCount = offlineSalesAgg[0]?.count || 0;
-    const prevPosRevenue = prevOfflineSalesAgg[0]?.total || 0;
+    const { totalRevenue, posRevenue, posCount: posSalesCount } = revenue;
+    // Average over the sales that make up totalRevenue: orders shipped in
+    // the range plus POS sales -- not orders placed (totalOrders), which
+    // would inflate the denominator with unsold orders.
+    const soldCount = revenue.soldOrderIds.length + posSalesCount;
+    const avgOrderValue = soldCount > 0 ? totalRevenue / soldCount : 0;
 
-    const totalRevenue = (revenueAgg[0]?.total || 0) + posRevenue;
-    // Denominator includes POS sales alongside online orders so this stays
-    // a true average now that the numerator (totalRevenue) includes both
-    // — using totalOrders here (which counts every order placed,
-    // Cancelled included) would understate this by inflating the
-    // denominator with zero-revenue orders; revenueOrderCount matches
-    // totalRevenue's own Cancelled-excluding filter.
-    const avgOrderValue =
-      revenueOrderCount + posSalesCount > 0
-        ? totalRevenue / (revenueOrderCount + posSalesCount)
-        : 0;
-
-    const prevRevenue = (prevRevenueAgg[0]?.total || 0) + prevPosRevenue;
+    const prevRevenue = prevRevenueData.totalRevenue;
 
     // null growth (rather than 0% or +Infinity) when the previous period
     // had nothing to compare against — the UI shows "—" in that case.
@@ -986,6 +861,9 @@ export const getReportsData = async (req, res) => {
       summary: {
         totalRevenue,
         posRevenue,
+        // Ledger-by-ledger parts of totalRevenue (owner D2: delivery/COD
+        // shown on its own line); matches Accounts for the same range.
+        revenueBreakdown: revenue.breakdown,
         totalOrders,
         avgOrderValue,
         totalCustomers,
@@ -1003,7 +881,8 @@ export const getReportsData = async (req, res) => {
         zeroResultSearches,
       },
       loyalty,
-      salesOverTime,
+      // Sales by ship date; refunds are not netted into the daily chart.
+      salesOverTime: revenue.salesByDay,
       ordersByStatus,
       visitsOverTime,
       topPages,

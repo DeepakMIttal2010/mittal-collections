@@ -57,6 +57,20 @@ const placeOrderOnDate = async (token, product, daysAgo) => {
   return res.body.order;
 };
 
+// Revenue counts an order once it ships, on its ship date (PR-5, RP-01).
+// The date-range revenue tests below ship each order on the same day it
+// was placed, so the range they fall into is unchanged.
+const shipOnPlacedDate = async (order) => {
+  const placed = (await Order.findById(order._id).lean()).createdAt;
+  await Order.collection.updateOne(
+    { _id: new mongoose.Types.ObjectId(order._id) },
+    {
+      $set: { orderStatus: "Shipped" },
+      $push: { statusHistory: { status: "Shipped", changedAt: placed } },
+    },
+  );
+};
+
 describe("GET /api/admin/reports — date-range scoping", () => {
   it("scopes totalOrders and totalRevenue to the selected day range by default (30 days)", async () => {
     const admin = await createUser({ role: "admin" });
@@ -65,8 +79,8 @@ describe("GET /api/admin/reports — date-range scoping", () => {
     const customerToken = signToken(customer);
     const product = await createProduct({ price: 1000, stock: 10 });
 
-    await placeOrderOnDate(customerToken, product, 2); // within 30 days
-    await placeOrderOnDate(customerToken, product, 40); // outside 30 days
+    await shipOnPlacedDate(await placeOrderOnDate(customerToken, product, 2)); // within 30 days
+    await shipOnPlacedDate(await placeOrderOnDate(customerToken, product, 40)); // outside 30 days
 
     const res = await request(app)
       .get("/api/admin/reports?days=30")
@@ -84,8 +98,8 @@ describe("GET /api/admin/reports — date-range scoping", () => {
     const customerToken = signToken(customer);
     const product = await createProduct({ price: 1000, stock: 10 });
 
-    await placeOrderOnDate(customerToken, product, 2);
-    await placeOrderOnDate(customerToken, product, 40);
+    await shipOnPlacedDate(await placeOrderOnDate(customerToken, product, 2));
+    await shipOnPlacedDate(await placeOrderOnDate(customerToken, product, 40));
 
     const res = await request(app)
       .get("/api/admin/reports?days=90")
@@ -102,8 +116,8 @@ describe("GET /api/admin/reports — date-range scoping", () => {
     const customerToken = signToken(customer);
     const product = await createProduct({ price: 1000, stock: 10 });
 
-    await placeOrderOnDate(customerToken, product, 2);
-    await placeOrderOnDate(customerToken, product, 40);
+    await shipOnPlacedDate(await placeOrderOnDate(customerToken, product, 2));
+    await shipOnPlacedDate(await placeOrderOnDate(customerToken, product, 40));
 
     const start = new Date();
     start.setDate(start.getDate() - 45);
