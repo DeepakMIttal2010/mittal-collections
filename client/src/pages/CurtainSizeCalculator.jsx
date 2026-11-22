@@ -1,36 +1,28 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { FaRulerCombined, FaShoppingBag } from "react-icons/fa";
 
 import Seo from "../components/Seo";
 import { useLanguage } from "../context/LanguageContext";
+import { getCategories } from "../services/categoryService";
+import { getProductsByCategory } from "../services/productService";
 import { SITE_URL } from "../utils/siteUrl";
+import {
+  CURTAIN_DEFAULTS,
+  CURTAIN_FAQS,
+  CURTAIN_PRESETS,
+  CURTAIN_SIZES,
+  FAQS_EN,
+  calculateCurtain,
+  countDesignsInStock,
+  formatError,
+  formatTip,
+} from "../utils/curtainCalculator";
 
-// English-only — feeds the FAQPage JSON-LD structured data, which should
-// stay in the page's declared (English) language regardless of the UI
-// toggle, same as this page's <Seo> title/description.
-const FAQS_EN = [
-  {
-    q: "How do I calculate curtain size from window measurements?",
-    a: "Measure your window's width and drop (height) in inches, then multiply the width by your chosen fullness (2x is standard) to get the fabric width you need. This calculator does that math for you and rounds it up to the nearest standard size sold in stores.",
-  },
-  {
-    q: "How do I calculate curtain rod length?",
-    a: "Rod length = window width + overhang on each side. For an outside-mount rod, add 4–6 inches of overhang per side so the curtain can fully clear the window when opened. Enter your window width above and pick \"Outside Mount\" to get the exact rod length.",
-  },
-  {
-    q: "Does this calculator work in inches or feet?",
-    a: "Enter your measurements in inches (the most common way windows are measured in India) — the calculator instantly converts and rounds the result to the nearest standard feet size (like 4x7 ft or 5x9 ft) that curtains are actually sold in.",
-  },
-  {
-    q: "How much fabric width do I need for curtains?",
-    a: "For a natural, gathered drape, buy 1.5–2.5 times your rod length in total fabric width — 2x (\"Full\") is the most popular choice. Split that total evenly across your number of panels (usually 2).",
-  },
-  {
-    q: "What are the standard curtain sizes available in India?",
-    a: "The most common ready-made curtain sizes are 4x5 ft, 4x7 ft, 4.5x7 ft, 5x7 ft, 5x9 ft and 7x9 ft — see the size chart below for which one fits your window.",
-  },
-];
+// All sizing logic lives in utils/curtainCalculator.js (unit tested). We
+// stock one 4 ft panel width in two lengths -- 7x4 ft and 9x4 ft, written
+// length x width -- so this page only ever recommends those (audit
+// 2026-11-22, CS-01/02/03/05, owner decisions D1-D7).
 
 function getMountTypes(t) {
   return [
@@ -53,133 +45,89 @@ function getMountTypes(t) {
   ];
 }
 
+function getOpeningOptions(t) {
+  return [
+    { value: "both", label: t("Opens both sides", "दोनों तरफ खुलता है"), hint: t("Panels split left and right", "पैनल बाएं और दाएं बंटते हैं") },
+    { value: "one", label: t("Opens one side", "एक तरफ खुलता है"), hint: t("All panels slide to one side", "सारे पैनल एक तरफ जाते हैं") },
+  ];
+}
+
 function getFullnessOptions(t) {
   return [
-    { value: 1.5, label: t("Standard (1.5x)", "स्टैंडर्ड (1.5x)"), hint: t("Light, sheer fabrics", "हल्के, शीयर फैब्रिक") },
-    { value: 2, label: t("Full (2x)", "फुल (2x)"), hint: t("Most popular — balanced drape", "सबसे लोकप्रिय — संतुलित ड्रेप") },
-    { value: 2.5, label: t("Extra Full (2.5x)", "एक्स्ट्रा फुल (2.5x)"), hint: t("Heavy fabrics, rich look", "भारी फैब्रिक, रिच लुक") },
+    { value: 1.5, label: t("Standard (1.5x)", "स्टैंडर्ड (1.5x)"), hint: t("Most common, natural drape", "सबसे आम, नैचुरल ड्रेप") },
+    { value: 2, label: t("Full (2x)", "फुल (2x)"), hint: t("Fuller, richer look", "ज़्यादा भरा, रिच लुक") },
+    { value: 2.5, label: t("Extra Full (2.5x)", "एक्स्ट्रा फुल (2.5x)"), hint: t("Very full, heavy look", "बहुत भरा, भारी लुक") },
   ];
 }
 
 function getClearanceOptions(t) {
   return [
-    { value: 0, label: t("Just above floor", "फर्श से थोड़ा ऊपर") },
-    { value: -1, label: t("Touching floor", "फर्श को छूता हुआ") },
-    { value: 3, label: t("Puddle on floor", "फर्श पर पड्ल") },
+    { value: "above", label: t("Just above floor", "फर्श से थोड़ा ऊपर") },
+    { value: "touching", label: t("Touching floor", "फर्श को छूता हुआ") },
+    { value: "puddle", label: t("Puddle on floor", "फर्श पर पड्ल") },
   ];
 }
 
-function getPresets(t) {
-  return [
-    { label: t("Small window", "छोटी विंडो"), width: 48, height: 60 },
-    { label: t("Large window / French door", "बड़ी विंडो / फ्रेंच डोर"), width: 60, height: 84 },
-    { label: t("Door curtain", "डोर कर्टन"), width: 54, height: 84 },
-    { label: t("Tall door curtain", "लंबा डोर कर्टन"), width: 48, height: 108 },
-  ];
-}
-
-const STANDARD_WIDTHS_FT = [3, 3.5, 4, 4.5, 5, 6, 7];
-const STANDARD_LENGTHS_FT = [4, 5, 6, 7, 7.5, 8, 9];
-
-function getStandardSizeChart(t) {
-  return [
-    { size: "3 x 5 ft", use: t("Small window, cafe-style", "छोटी विंडो, कैफे-स्टाइल") },
-    { size: "4 x 5 ft", use: t("Standard window", "स्टैंडर्ड विंडो") },
-    { size: "4 x 7 ft", use: t("Standard window, floor-length", "स्टैंडर्ड विंडो, फर्श-लंबाई") },
-    { size: "4.5 x 7 ft", use: t("Large window / French window", "बड़ी विंडो / फ्रेंच विंडो") },
-    { size: "5 x 7 ft", use: t("Wide window / balcony door", "चौड़ी विंडो / बालकनी डोर") },
-    { size: "5 x 9 ft", use: t("Door curtain, floor-length", "डोर कर्टन, फर्श-लंबाई") },
-    { size: "7 x 9 ft", use: t("Large door / room divider", "बड़ा डोर / रूम डिवाइडर") },
-  ];
-}
-
-function getFaqs(t) {
+function getSizeChart(t) {
   return [
     {
-      q: t(
-        "How do I calculate curtain size from window measurements?",
-        "विंडो के माप से कर्टन साइज़ कैसे निकालें?",
-      ),
-      a: t(
-        "Measure your window's width and drop (height) in inches, then multiply the width by your chosen fullness (2x is standard) to get the fabric width you need. This calculator does that math for you and rounds it up to the nearest standard size sold in stores.",
-        "अपनी विंडो की चौड़ाई और ड्रॉप (ऊंचाई) इंच में मापें, फिर चौड़ाई को अपनी चुनी हुई फुलनेस (2x स्टैंडर्ड है) से गुणा करें ताकि ज़रूरी फैब्रिक चौड़ाई मिल सके। यह कैलकुलेटर यह गणना आपके लिए करता है और इसे स्टोर में मिलने वाले सबसे नज़दीकी स्टैंडर्ड साइज़ तक राउंड कर देता है।",
-      ),
+      size: CURTAIN_SIZES[0],
+      fits: t('Rod up to 84" (7 ft) from the floor', 'रॉड फ़र्श से 84" (7 फीट) तक'),
+      use: t("Windows", "विंडो"),
     },
     {
-      q: t("How do I calculate curtain rod length?", "कर्टन रॉड की लंबाई कैसे निकालें?"),
-      a: t(
-        "Rod length = window width + overhang on each side. For an outside-mount rod, add 4–6 inches of overhang per side so the curtain can fully clear the window when opened. Enter your window width above and pick \"Outside Mount\" to get the exact rod length.",
-        "रॉड की लंबाई = विंडो की चौड़ाई + हर तरफ ओवरहैंग। आउटसाइड-माउंट रॉड के लिए, हर तरफ 4-6 इंच ओवरहैंग जोड़ें ताकि खोलने पर कर्टन पूरी तरह विंडो से हट जाए। सटीक रॉड लंबाई के लिए ऊपर अपनी विंडो चौड़ाई डालें और \"आउटसाइड माउंट\" चुनें।",
-      ),
-    },
-    {
-      q: t("Does this calculator work in inches or feet?", "क्या यह कैलकुलेटर इंच या फीट में काम करता है?"),
-      a: t(
-        "Enter your measurements in inches (the most common way windows are measured in India) — the calculator instantly converts and rounds the result to the nearest standard feet size (like 4x7 ft or 5x9 ft) that curtains are actually sold in.",
-        "अपने माप इंच में डालें (भारत में विंडो मापने का सबसे आम तरीका) — कैलकुलेटर तुरंत बदलकर नतीजे को सबसे नज़दीकी स्टैंडर्ड फीट साइज़ (जैसे 4x7 फीट या 5x9 फीट) तक राउंड कर देता है जिनमें कर्टन असल में बिकते हैं।",
-      ),
-    },
-    {
-      q: t("How much fabric width do I need for curtains?", "कर्टन के लिए कितनी फैब्रिक चौड़ाई चाहिए?"),
-      a: t(
-        "For a natural, gathered drape, buy 1.5–2.5 times your rod length in total fabric width — 2x (\"Full\") is the most popular choice. Split that total evenly across your number of panels (usually 2).",
-        "नैचुरल, गैदर्ड ड्रेप के लिए, अपनी रॉड लंबाई का 1.5-2.5 गुना कुल फैब्रिक चौड़ाई खरीदें — 2x (\"फुल\") सबसे लोकप्रिय चुनाव है। उस कुल को अपने पैनल की संख्या (आमतौर पर 2) में बराबर बांट लें।",
-      ),
-    },
-    {
-      q: t("What are the standard curtain sizes available in India?", "भारत में उपलब्ध स्टैंडर्ड कर्टन साइज़ क्या हैं?"),
-      a: t(
-        "The most common ready-made curtain sizes are 4x5 ft, 4x7 ft, 4.5x7 ft, 5x7 ft, 5x9 ft and 7x9 ft — see the size chart below for which one fits your window.",
-        "सबसे आम रेडी-मेड कर्टन साइज़ 4x5 फीट, 4x7 फीट, 4.5x7 फीट, 5x7 फीट, 5x9 फीट और 7x9 फीट हैं — नीचे साइज़ चार्ट में देखें कि आपकी विंडो के लिए कौन सा सही है।",
-      ),
+      size: CURTAIN_SIZES[1],
+      fits: t('Rod up to 108" (9 ft) from the floor', 'रॉड फ़र्श से 108" (9 फीट) तक'),
+      use: t("Doors and tall windows", "डोर और लंबी विंडो"),
     },
   ];
 }
 
-const roundUpToStandard = (valueFt, standardList) => {
-  const match = standardList.find((ft) => ft >= valueFt);
-  return match || standardList[standardList.length - 1];
-};
+const inch = (n) => `${n}"`;
+const feet = (n) => (n / 12).toFixed(1);
 
 function CurtainSizeCalculator() {
-  const { t } = useLanguage();
-  const [widthIn, setWidthIn] = useState(48);
-  const [heightIn, setHeightIn] = useState(84);
-  const [mount, setMount] = useState("outside");
-  const [overhangIn, setOverhangIn] = useState(4);
-  const [panels, setPanels] = useState(2);
-  const [fullness, setFullness] = useState(2);
-  const [clearanceIn, setClearanceIn] = useState(0);
+  const { t, language } = useLanguage();
+  const lang = language === "hi" ? "hi" : "en";
+  const [widthIn, setWidthIn] = useState(CURTAIN_DEFAULTS.widthIn);
+  const [dropIn, setDropIn] = useState(CURTAIN_DEFAULTS.dropIn);
+  const [mount, setMount] = useState(CURTAIN_DEFAULTS.mount);
+  const [overhangIn, setOverhangIn] = useState(CURTAIN_DEFAULTS.overhangIn);
+  const [opening, setOpening] = useState(CURTAIN_DEFAULTS.opening);
+  const [fullness, setFullness] = useState(CURTAIN_DEFAULTS.fullness);
+  const [clearance, setClearance] = useState(CURTAIN_DEFAULTS.clearance);
+  // D4: live per-design stock; null = unknown (API failed / loading), so
+  // the stock line is hidden rather than showing a made-up number.
+  const [curtainProducts, setCurtainProducts] = useState(null);
 
-  const result = useMemo(() => {
-    const width = Number(widthIn) || 0;
-    const height = Number(heightIn) || 0;
-    const overhang = mount === "outside" ? Number(overhangIn) || 0 : 0;
-
-    const rodLengthIn = width + overhang * 2;
-    const totalFabricWidthIn = rodLengthIn * fullness;
-    const panelWidthIn = totalFabricWidthIn / Math.max(Number(panels) || 1, 1);
-    const curtainLengthIn = height + Number(clearanceIn);
-
-    const rodLengthFt = rodLengthIn / 12;
-    const panelWidthFt = panelWidthIn / 12;
-    const curtainLengthFt = curtainLengthIn / 12;
-
-    return {
-      rodLengthIn: Math.round(rodLengthIn),
-      rodLengthFt: rodLengthFt.toFixed(1),
-      panelWidthIn: Math.round(panelWidthIn),
-      panelWidthFt: panelWidthFt.toFixed(1),
-      curtainLengthIn: Math.round(curtainLengthIn),
-      curtainLengthFt: curtainLengthFt.toFixed(1),
-      suggestedWidthFt: roundUpToStandard(panelWidthFt, STANDARD_WIDTHS_FT),
-      suggestedLengthFt: roundUpToStandard(curtainLengthFt, STANDARD_LENGTHS_FT),
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { success, categories } = await getCategories();
+      const curtains = success && categories.find((c) => c.slug === "curtains");
+      if (!curtains) return;
+      const res = await getProductsByCategory(curtains._id);
+      if (!cancelled && res.success) setCurtainProducts(res.products);
+    })();
+    return () => {
+      cancelled = true;
     };
-  }, [widthIn, heightIn, mount, overhangIn, panels, fullness, clearanceIn]);
+  }, []);
+
+  const result = useMemo(
+    () => calculateCurtain({ widthIn, dropIn, mount, overhangIn, fullness, opening, clearance }),
+    [widthIn, dropIn, mount, overhangIn, fullness, opening, clearance],
+  );
+
+  const stockCount =
+    result.ok && result.size ? countDesignsInStock(curtainProducts, result.size.key, result.panels) : null;
+
+  const sizeLabel = (size) => (lang === "hi" ? size.labelHi : size.label);
+  const panelsText = (n) => t(`${n} panel${n > 1 ? "s" : ""}`, `${n} पैनल`);
 
   const applyPreset = (preset) => {
-    setWidthIn(preset.width);
-    setHeightIn(preset.height);
+    setWidthIn(preset.widthIn);
+    setDropIn(preset.dropIn);
   };
 
   const jsonLd = [
@@ -204,11 +152,10 @@ function CurtainSizeCalculator() {
   ];
 
   const mountTypes = getMountTypes(t);
+  const openingOptions = getOpeningOptions(t);
   const fullnessOptions = getFullnessOptions(t);
   const clearanceOptions = getClearanceOptions(t);
-  const presets = getPresets(t);
-  const standardSizeChart = getStandardSizeChart(t);
-  const faqs = getFaqs(t);
+  const sizeChart = getSizeChart(t);
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-12">
@@ -235,8 +182,8 @@ function CurtainSizeCalculator() {
       </div>
       <p className="text-slate-500 mb-8 max-w-2xl">
         {t(
-          "Measure your window once, answer a few quick questions, and get the exact rod length, fabric width and curtain length you should buy — no guesswork.",
-          "अपनी विंडो को एक बार मापें, कुछ छोटे सवालों के जवाब दें, और सही रॉड लंबाई, फैब्रिक चौड़ाई और कर्टन लंबाई पाएं — कोई अंदाज़ा नहीं।",
+          "Measure your window once, answer a few quick questions, and see which of our curtains fits — 7×4 ft or 9×4 ft — and how many 4 ft panels you need.",
+          "अपनी विंडो को एक बार मापें, कुछ छोटे सवालों के जवाब दें, और देखें कि हमारे कौन से कर्टन फ़िट होंगे — 7×4 फीट या 9×4 फीट — और 4 फीट के कितने पैनल चाहिए।",
         )}
       </p>
 
@@ -248,14 +195,14 @@ function CurtainSizeCalculator() {
               {t("Not sure of exact measurements? Start with a preset:", "सटीक माप पता नहीं? किसी प्रीसेट से शुरू करें:")}
             </p>
             <div className="flex flex-wrap gap-2">
-              {presets.map((preset) => (
+              {CURTAIN_PRESETS.map((preset) => (
                 <button
-                  key={preset.label}
+                  key={preset.key}
                   type="button"
                   onClick={() => applyPreset(preset)}
                   className="text-xs font-medium border border-slate-300 rounded-full px-3 py-1.5 text-slate-600 hover:border-blue-900 hover:text-blue-900 transition-colors"
                 >
-                  {preset.label}
+                  {t(preset.label, preset.labelHi)}
                 </button>
               ))}
             </div>
@@ -263,11 +210,13 @@ function CurtainSizeCalculator() {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
+              <label htmlFor="calc-width" className="block text-sm font-medium text-slate-700 mb-1">
                 {t("Window Width (inches)", "विंडो की चौड़ाई (इंच)")}
               </label>
               <input
+                id="calc-width"
                 type="number"
+                inputMode="decimal"
                 min="0"
                 value={widthIn}
                 onChange={(e) => setWidthIn(e.target.value)}
@@ -275,18 +224,23 @@ function CurtainSizeCalculator() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                {t("Drop / Height (inches)", "ड्रॉप / ऊंचाई (इंच)")}
+              <label htmlFor="calc-drop" className="block text-sm font-medium text-slate-700 mb-1">
+                {t("Rod to floor (inches)", "रॉड से फ़र्श तक (इंच)")}
               </label>
               <input
+                id="calc-drop"
                 type="number"
+                inputMode="decimal"
                 min="0"
-                value={heightIn}
-                onChange={(e) => setHeightIn(e.target.value)}
+                value={dropIn}
+                onChange={(e) => setDropIn(e.target.value)}
                 className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-900"
               />
               <p className="text-xs text-slate-400 mt-1">
-                {t("Rod to where the curtain should end", "रॉड से जहां तक कर्टन ख़त्म होना चाहिए")}
+                {t(
+                  "From where the rod sits (or will sit) straight down to the floor",
+                  "जहां रॉड लगी है (या लगेगी) वहां से सीधे फ़र्श तक",
+                )}
               </p>
             </div>
           </div>
@@ -300,9 +254,7 @@ function CurtainSizeCalculator() {
                 <label
                   key={m.value}
                   className={`border rounded-lg p-3 cursor-pointer text-sm ${
-                    mount === m.value
-                      ? "border-blue-900 bg-blue-50"
-                      : "border-slate-200"
+                    mount === m.value ? "border-blue-900 bg-blue-50" : "border-slate-200"
                   }`}
                 >
                   <input
@@ -313,9 +265,7 @@ function CurtainSizeCalculator() {
                     onChange={(e) => setMount(e.target.value)}
                     className="sr-only"
                   />
-                  <span className="block font-medium text-slate-800">
-                    {m.label}
-                  </span>
+                  <span className="block font-medium text-slate-800">{m.label}</span>
                   <span className="text-xs text-slate-500">{m.hint}</span>
                 </label>
               ))}
@@ -324,11 +274,13 @@ function CurtainSizeCalculator() {
 
           {mount === "outside" && (
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
+              <label htmlFor="calc-overhang" className="block text-sm font-medium text-slate-700 mb-1">
                 {t("Overhang each side (inches)", "हर तरफ ओवरहैंग (इंच)")}
               </label>
               <input
+                id="calc-overhang"
                 type="number"
+                inputMode="decimal"
                 min="0"
                 value={overhangIn}
                 onChange={(e) => setOverhangIn(e.target.value)}
@@ -344,23 +296,28 @@ function CurtainSizeCalculator() {
           )}
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              {t("Number of Panels", "पैनल की संख्या")}
-            </label>
-            <div className="flex gap-2">
-              {[1, 2].map((n) => (
-                <button
-                  key={n}
-                  type="button"
-                  onClick={() => setPanels(n)}
-                  className={`px-4 py-2 rounded-lg border text-sm font-medium ${
-                    panels === n
-                      ? "border-blue-900 bg-blue-900 text-white"
-                      : "border-slate-300 text-slate-600"
+            <p className="text-sm font-medium text-slate-700 mb-2">
+              {t("How does it open?", "कैसे खुलता है?")}
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              {openingOptions.map((o) => (
+                <label
+                  key={o.value}
+                  className={`border rounded-lg p-3 cursor-pointer text-sm ${
+                    opening === o.value ? "border-blue-900 bg-blue-50" : "border-slate-200"
                   }`}
                 >
-                  {t(`${n} panel${n > 1 ? "s" : ""}`, `${n} पैनल`)}
-                </button>
+                  <input
+                    type="radio"
+                    name="opening"
+                    value={o.value}
+                    checked={opening === o.value}
+                    onChange={(e) => setOpening(e.target.value)}
+                    className="sr-only"
+                  />
+                  <span className="block font-medium text-slate-800">{o.label}</span>
+                  <span className="text-xs text-slate-500">{o.hint}</span>
+                </label>
               ))}
             </div>
           </div>
@@ -374,9 +331,7 @@ function CurtainSizeCalculator() {
                 <label
                   key={f.value}
                   className={`border rounded-lg p-2.5 cursor-pointer text-center ${
-                    fullness === f.value
-                      ? "border-blue-900 bg-blue-50"
-                      : "border-slate-200"
+                    fullness === f.value ? "border-blue-900 bg-blue-50" : "border-slate-200"
                   }`}
                 >
                   <input
@@ -387,9 +342,7 @@ function CurtainSizeCalculator() {
                     onChange={(e) => setFullness(Number(e.target.value))}
                     className="sr-only"
                   />
-                  <span className="block text-xs font-semibold text-slate-800">
-                    {f.label}
-                  </span>
+                  <span className="block text-xs font-semibold text-slate-800">{f.label}</span>
                   <span className="text-[11px] text-slate-500">{f.hint}</span>
                 </label>
               ))}
@@ -403,9 +356,9 @@ function CurtainSizeCalculator() {
             <div className="grid grid-cols-3 gap-2">
               {clearanceOptions.map((c) => (
                 <label
-                  key={c.label}
+                  key={c.value}
                   className={`border rounded-lg p-2.5 cursor-pointer text-center text-xs font-medium ${
-                    clearanceIn === c.value
+                    clearance === c.value
                       ? "border-blue-900 bg-blue-50 text-blue-900"
                       : "border-slate-200 text-slate-600"
                   }`}
@@ -414,8 +367,8 @@ function CurtainSizeCalculator() {
                     type="radio"
                     name="clearance"
                     value={c.value}
-                    checked={clearanceIn === c.value}
-                    onChange={(e) => setClearanceIn(Number(e.target.value))}
+                    checked={clearance === c.value}
+                    onChange={(e) => setClearance(e.target.value)}
                     className="sr-only"
                   />
                   {c.label}
@@ -427,54 +380,112 @@ function CurtainSizeCalculator() {
 
         {/* Result */}
         <div>
-          <div className="sticky top-4 border border-slate-200 rounded-xl p-6 bg-white shadow-sm">
+          <div
+            data-testid="calc-result"
+            className="sticky top-4 border border-slate-200 rounded-xl p-6 bg-white shadow-sm"
+          >
             <h2 className="font-semibold text-slate-800 mb-4">
               {t("Your Recommended Size", "आपका अनुशंसित साइज़")}
             </h2>
 
-            <div className="space-y-3 mb-6">
-              <div className="flex justify-between items-baseline border-b border-slate-100 pb-3">
-                <span className="text-sm text-slate-500">{t("Rod Length", "रॉड लंबाई")}</span>
-                <span className="font-semibold text-slate-900">
-                  {result.rodLengthIn}&quot; ({result.rodLengthFt} ft)
-                </span>
+            {!result.ok ? (
+              <div
+                data-testid="calc-error"
+                role="alert"
+                className="bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-800 space-y-1"
+              >
+                {Object.entries(result.errors).map(([field, code]) => (
+                  <p key={field}>{formatError(field, code, lang)}</p>
+                ))}
               </div>
-              <div className="flex justify-between items-baseline border-b border-slate-100 pb-3">
-                <span className="text-sm text-slate-500">
-                  {t("Fabric Width / Panel", "फैब्रिक चौड़ाई / पैनल")}
-                </span>
-                <span className="font-semibold text-slate-900">
-                  {result.panelWidthIn}&quot; ({result.panelWidthFt} ft)
-                </span>
-              </div>
-              <div className="flex justify-between items-baseline">
-                <span className="text-sm text-slate-500">{t("Curtain Length", "कर्टन लंबाई")}</span>
-                <span className="font-semibold text-slate-900">
-                  {result.curtainLengthIn}&quot; ({result.curtainLengthFt} ft)
-                </span>
-              </div>
-            </div>
+            ) : (
+              <>
+                <div className="space-y-3 mb-6">
+                  <div className="flex justify-between items-baseline border-b border-slate-100 pb-3">
+                    <span className="text-sm text-slate-500">{t("Rod Length", "रॉड लंबाई")}</span>
+                    <span className="font-semibold text-slate-900">
+                      {inch(result.rodLengthIn)} ({feet(result.rodLengthIn)} {t("ft", "फीट")})
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-baseline border-b border-slate-100 pb-3">
+                    <span className="text-sm text-slate-500">{t("Panels (4 ft wide)", "पैनल (4 फीट चौड़े)")}</span>
+                    <span data-testid="calc-panels" className="font-semibold text-slate-900">
+                      {panelsText(result.panels)} · {result.achievedFullness}x {t("fullness", "फुलनेस")}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-baseline">
+                    <span className="text-sm text-slate-500">{t("Curtain Length Needed", "ज़रूरी कर्टन लंबाई")}</span>
+                    <span data-testid="calc-final-length" className="font-semibold text-slate-900">
+                      {inch(result.finalLengthIn)} ({feet(result.finalLengthIn)} {t("ft", "फीट")})
+                    </span>
+                  </div>
+                </div>
 
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
-              <p className="text-xs text-amber-700 font-medium mb-1">
-                {t("Closest standard size to buy", "खरीदने के लिए सबसे नज़दीकी स्टैंडर्ड साइज़")}
-              </p>
-              <p className="text-lg font-bold text-amber-900">
-                {result.suggestedWidthFt} ft × {result.suggestedLengthFt} ft
-                <span className="text-xs font-normal text-amber-700">
-                  {" "}
-                  {t("(per panel)", "(प्रति पैनल)")}
-                </span>
-              </p>
-            </div>
+                {result.size ? (
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4">
+                    <p className="text-xs text-amber-700 font-medium mb-1">
+                      {t("Buy from our range", "हमारी रेंज से खरीदें")}
+                    </p>
+                    <p data-testid="calc-size" className="text-lg font-bold text-amber-900">
+                      {sizeLabel(result.size)} × {panelsText(result.panels)}
+                    </p>
+                    {!result.fits && (
+                      <p className="text-xs text-amber-800 mt-1">
+                        {t(
+                          `This curtain is ${inch(result.extraIn)} longer than you need — it will rest or bunch on the floor. We don't stock a shorter length.`,
+                          `यह कर्टन आपकी ज़रूरत से ${inch(result.extraIn)} लंबा है — फ़र्श पर टिकेगा या इकट्ठा होगा। इससे छोटी लंबाई हमारे पास नहीं है।`,
+                        )}
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <div
+                    data-testid="calc-no-fit"
+                    role="alert"
+                    className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4 text-sm text-red-800"
+                  >
+                    {t(
+                      `None of our curtains is long enough: our longest, 9×4 ft (108"), is ${inch(result.shortByIn)} shorter than you need.`,
+                      `हमारा कोई कर्टन इतना लंबा नहीं है: सबसे लंबा, 9×4 फीट (108"), आपकी ज़रूरत से ${inch(result.shortByIn)} छोटा है।`,
+                    )}
+                  </div>
+                )}
 
-            <Link
-              to="/category/curtains"
-              className="flex items-center justify-center gap-2 w-full bg-blue-900 hover:bg-blue-950 text-white font-semibold rounded-full py-3 transition-colors"
-            >
-              <FaShoppingBag className="text-sm" />
-              {t("Shop Curtains", "कर्टन खरीदें")}
-            </Link>
+                {result.tip && (
+                  <p
+                    data-testid="calc-tip"
+                    className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 text-xs text-blue-900"
+                  >
+                    {formatTip(result.tip, lang)}
+                  </p>
+                )}
+
+                {result.size && stockCount !== null && (
+                  <p data-testid="calc-stock" className="text-xs text-slate-600 mb-4">
+                    {stockCount > 0
+                      ? t(
+                          `${stockCount} design${stockCount > 1 ? "s" : ""} in stock with ${result.panels}+ panels of ${result.size.label}.`,
+                          `${stockCount} डिज़ाइन में ${result.size.labelHi} के ${result.panels}+ पैनल स्टॉक में हैं।`,
+                        )
+                      : t(
+                          `No design has ${result.panels} panels of ${result.size.label} in stock right now.`,
+                          `अभी किसी डिज़ाइन में ${result.size.labelHi} के ${result.panels} पैनल स्टॉक में नहीं हैं।`,
+                        )}
+                  </p>
+                )}
+
+                {result.size && (
+                  <Link
+                    data-testid="calc-shop"
+                    to={`/category/curtains/${result.size.subcategorySlug}`}
+                    className="flex items-center justify-center gap-2 w-full bg-blue-900 hover:bg-blue-950 text-white font-semibold rounded-full py-3 transition-colors"
+                  >
+                    <FaShoppingBag className="text-sm" />
+                    {t(`Shop ${result.size.label} Curtains`, `${result.size.labelHi} कर्टन खरीदें`)}
+                  </Link>
+                )}
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -485,16 +496,13 @@ function CurtainSizeCalculator() {
         </h2>
         <p className="mb-2">
           {t(
-            "Use a metal tape measure, not cloth, for accuracy. For width, measure the window frame edge to edge — the calculator adds the overhang and fullness for you. For length, decide first where the rod will sit (usually 4–6 inches above the frame), then measure straight down to where you want the curtain to end.",
-            "सटीकता के लिए कपड़े की नहीं, धातु की टेप माप का इस्तेमाल करें। चौड़ाई के लिए, विंडो फ्रेम को किनारे से किनारे तक मापें — कैलकुलेटर ओवरहैंग और फुलनेस अपने आप जोड़ देता है। लंबाई के लिए, पहले तय करें कि रॉड कहां बैठेगी (आमतौर पर फ्रेम से 4-6 इंच ऊपर), फिर सीधे नीचे तक मापें जहां आप कर्टन ख़त्म करना चाहते हैं।",
+            "Use a metal tape measure, not cloth, for accuracy. For width, measure the window frame edge to edge — the calculator adds the overhang and fullness for you. For length, decide first where the rod will sit (usually 4–6 inches above the frame), then measure straight down from the rod to the floor and pick how the curtain should meet the floor.",
+            "सटीकता के लिए कपड़े की नहीं, धातु की टेप माप का इस्तेमाल करें। चौड़ाई के लिए, विंडो फ्रेम को किनारे से किनारे तक मापें — कैलकुलेटर ओवरहैंग और फुलनेस अपने आप जोड़ देता है। लंबाई के लिए, पहले तय करें कि रॉड कहां बैठेगी (आमतौर पर फ्रेम से 4-6 इंच ऊपर), फिर रॉड से सीधे फ़र्श तक मापें और चुनें कि कर्टन फ़र्श पर कैसे पहुंचे।",
           )}
         </p>
         <p>
           {t("Prefer a written, step-by-step version? ", "लिखित, स्टेप-बाय-स्टेप वर्शन चाहिए? ")}
-          <Link
-            to="/articles/curtain-measurement-guide"
-            className="text-blue-700 hover:underline"
-          >
+          <Link to="/articles/curtain-measurement-guide" className="text-blue-700 hover:underline">
             {t("Read our full curtain measurement guide →", "हमारी पूरी कर्टन मेज़रमेंट गाइड पढ़ें →")}
           </Link>
         </p>
@@ -502,22 +510,32 @@ function CurtainSizeCalculator() {
 
       <div className="mt-12 max-w-2xl">
         <h2 className="text-lg font-semibold text-slate-800 mb-3">
-          {t("Standard Curtain Size Chart (India)", "स्टैंडर्ड कर्टन साइज़ चार्ट (भारत)")}
+          {t("Our Curtain Sizes", "हमारे कर्टन साइज़")}
         </h2>
-        <div className="overflow-x-auto border border-slate-200 rounded-xl">
+        <p className="text-sm text-slate-500 mb-3">
+          {t(
+            "Every panel is 4 ft (48 inches) wide. Sizes are written length × width. For a wider window, hang more panels side by side.",
+            "हर पैनल 4 फीट (48 इंच) चौड़ा है। साइज़ लंबाई × चौड़ाई में लिखे हैं। चौड़ी विंडो के लिए साथ-साथ ज़्यादा पैनल लगाएं।",
+          )}
+        </p>
+        <div data-testid="calc-size-chart" className="overflow-x-auto border border-slate-200 rounded-xl">
           <table className="w-full text-sm text-left">
             <thead className="bg-slate-50 text-slate-600">
               <tr>
                 <th className="px-4 py-2.5 font-medium">{t("Size", "साइज़")}</th>
+                <th className="px-4 py-2.5 font-medium">{t("Fits", "किसके लिए")}</th>
                 <th className="px-4 py-2.5 font-medium">{t("Best For", "सबसे उपयुक्त")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {standardSizeChart.map((row) => (
-                <tr key={row.size}>
+              {sizeChart.map((row) => (
+                <tr key={row.size.key}>
                   <td className="px-4 py-2.5 font-medium text-slate-800">
-                    {row.size}
+                    <Link to={`/category/curtains/${row.size.subcategorySlug}`} className="hover:underline">
+                      {sizeLabel(row.size)}
+                    </Link>
                   </td>
+                  <td className="px-4 py-2.5 text-slate-500">{row.fits}</td>
                   <td className="px-4 py-2.5 text-slate-500">{row.use}</td>
                 </tr>
               ))}
@@ -531,14 +549,10 @@ function CurtainSizeCalculator() {
           {t("Frequently Asked Questions", "अक्सर पूछे जाने वाले सवाल")}
         </h2>
         <div className="space-y-4">
-          {faqs.map((faq) => (
+          {CURTAIN_FAQS.map((faq) => (
             <div key={faq.q}>
-              <p className="font-medium text-slate-800 text-sm mb-1">
-                {faq.q}
-              </p>
-              <p className="text-sm text-slate-500 leading-relaxed">
-                {faq.a}
-              </p>
+              <p className="font-medium text-slate-800 text-sm mb-1">{t(faq.q, faq.qHi)}</p>
+              <p className="text-sm text-slate-500 leading-relaxed">{t(faq.a, faq.aHi)}</p>
             </div>
           ))}
         </div>
