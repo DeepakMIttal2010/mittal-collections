@@ -1428,7 +1428,8 @@ const STATIC_PAGES = {
     // (real visitors see it), but bots are always routed here instead
     // of the real SPA (see this file's header comment) and never got a
     // mirrored copy, so Googlebot saw neither block. Kept in sync by
-    // hand with CurtainSizeCalculator.jsx's FAQS_EN array.
+    // hand with src/utils/curtainCalculator.js's FAQS_EN (enforced by
+    // scripts/render-curtain-calculator.test.mjs).
     extraJsonLd: [
       {
         "@context": "https://schema.org",
@@ -1445,7 +1446,7 @@ const STATIC_PAGES = {
         mainEntity: [
           {
             q: "How do I calculate curtain size from window measurements?",
-            a: "Measure your window's width and drop (height) in inches, then multiply the width by your chosen fullness (2x is standard) to get the fabric width you need. This calculator does that math for you and rounds it up to the nearest standard size sold in stores.",
+            a: "Measure your window's width, and the drop from where the rod will sit down to the floor, in inches. The calculator adds the rod overhang, multiplies by your chosen fullness (1.5x is standard, 2x for a fuller look), tells you how many of our 4 ft wide panels to hang and whether the 7×4 ft or 9×4 ft length fits.",
           },
           {
             q: "How do I calculate curtain rod length?",
@@ -1453,15 +1454,15 @@ const STATIC_PAGES = {
           },
           {
             q: "Does this calculator work in inches or feet?",
-            a: "Enter your measurements in inches (the most common way windows are measured in India) — the calculator instantly converts and rounds the result to the nearest standard feet size (like 4x7 ft or 5x9 ft) that curtains are actually sold in.",
+            a: "Enter your measurements in inches (the most common way windows are measured in India). Our curtains are sold in feet, written length × width — 7×4 ft (84 x 48 inches) and 9×4 ft (108 x 48 inches) — and the calculator matches your measurements to one of these.",
           },
           {
             q: "How much fabric width do I need for curtains?",
-            a: "For a natural, gathered drape, buy 1.5–2.5 times your rod length in total fabric width — 2x (\"Full\") is the most popular choice. Split that total evenly across your number of panels (usually 2).",
+            a: "For a natural, gathered drape, the total curtain width should be 1.5–2.5 times your rod length — 1.5x is standard and 2x gives a fuller look. Each of our panels is 4 ft (48 inches) wide, so the calculator tells you how many panels to hang side by side.",
           },
           {
-            q: "What are the standard curtain sizes available in India?",
-            a: "The most common ready-made curtain sizes are 4x5 ft, 4x7 ft, 4.5x7 ft, 5x7 ft, 5x9 ft and 7x9 ft — see the size chart below for which one fits your window.",
+            q: "What curtain sizes do you sell?",
+            a: "Our eyelet curtains come in two sizes, written length × width: 7×4 ft for windows (rod about 7 ft from the floor) and 9×4 ft for doors and tall windows (rod about 9 ft from the floor). Every panel is 4 ft wide — for a wider window, hang more panels side by side.",
           },
         ].map((f) => ({
           "@type": "Question",
