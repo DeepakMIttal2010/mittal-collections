@@ -1290,6 +1290,12 @@ function AdminReports() {
       Papa.unparse([
         {
           "Total Revenue": summary.totalRevenue,
+          "Online Sales (before discounts)": summary.revenueBreakdown?.onlineSales ?? "",
+          "Delivery/COD Income": summary.revenueBreakdown?.deliveryCodIncome ?? "",
+          "Online Discounts": summary.revenueBreakdown?.onlineDiscounts ?? "",
+          "POS Sales (before discounts)": summary.revenueBreakdown?.posSales ?? "",
+          "POS Discounts": summary.revenueBreakdown?.posDiscounts ?? "",
+          Refunds: summary.revenueBreakdown?.refunds ?? "",
           "Total Orders": summary.totalOrders,
           "Avg Order Value": summary.avgOrderValue.toFixed(2),
           "Total Customers (all-time)": summary.totalCustomers,
@@ -1357,12 +1363,12 @@ function AdminReports() {
       (s) => ({ Query: s.query, Searches: s.count }),
     );
 
-    section("Sales Over Time", report.salesOverTime, (d) => ({
+    section("Sales by Ship Date (refunds excluded)", report.salesOverTime, (d) => ({
       Date: d._id,
       Revenue: d.revenue,
       Orders: d.orders,
     }));
-    section("Top Selling Products", report.topProducts, (p) => ({
+    section("Top Selling Products (shipped, before discounts)", report.topProducts, (p) => ({
       Product: p.name,
       "Units Sold": p.unitsSold,
       Revenue: p.revenue,
@@ -1411,7 +1417,7 @@ function AdminReports() {
         "Reminder Sent": c.reminderSent ? "Yes" : "No",
       }),
     );
-    section("Revenue by Category", report.revenueByCategory, (c) => ({
+    section("Revenue by Category (shipped, before discounts)", report.revenueByCategory, (c) => ({
       Category: c.name,
       Revenue: c.revenue,
     }));
@@ -1556,11 +1562,18 @@ function AdminReports() {
           label={`Revenue — ${rangeLabel}`}
           value={formatCurrency(summary.totalRevenue)}
           growth={report.growth?.revenue}
-          subtext={
+          subtext={[
+            "Shipped orders (by ship date) − refunds (by refund date) + POS",
+            `of which delivery/COD ${formatCurrency(summary.revenueBreakdown?.deliveryCodIncome || 0)}`,
+            summary.revenueBreakdown?.refunds > 0
+              ? `refunds ${formatCurrency(summary.revenueBreakdown.refunds)}`
+              : null,
             summary.posRevenue > 0
-              ? `Includes ${formatCurrency(summary.posRevenue)} in-store (POS)`
-              : undefined
-          }
+              ? `includes ${formatCurrency(summary.posRevenue)} in-store (POS)`
+              : null,
+          ]
+            .filter(Boolean)
+            .join(" · ")}
         />
         <StatTile
           icon={<FaShoppingCart />}
@@ -1658,9 +1671,12 @@ function AdminReports() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <div className="bg-white border border-slate-200 rounded-xl p-5">
-          <h3 className="font-semibold text-slate-800 mb-4">
-            Sales — {rangeLabel}
+          <h3 className="font-semibold text-slate-800 mb-1">
+            Sales by ship date — {rangeLabel}
           </h3>
+          <p className="text-xs text-slate-500 mb-4">
+            Online orders on the day they shipped; refunds excluded from daily chart.
+          </p>
           <BarTrendChart
             data={report.salesOverTime}
             valueKey="revenue"
@@ -1947,7 +1963,7 @@ function AdminReports() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <div className="bg-white border border-slate-200 rounded-xl p-5">
           <h3 className="font-semibold text-slate-800 mb-4">
-            Top Selling Products
+            Top Selling Products (shipped, before discounts)
           </h3>
           <RankedBarList
             items={report.topProducts}
@@ -1960,7 +1976,7 @@ function AdminReports() {
 
         <div className="bg-white border border-slate-200 rounded-xl p-5">
           <h3 className="font-semibold text-slate-800 mb-4">
-            Revenue by Category
+            Revenue by Category (shipped, before discounts)
           </h3>
           <RankedBarList
             items={report.revenueByCategory}

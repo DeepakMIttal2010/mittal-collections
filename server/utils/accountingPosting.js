@@ -119,14 +119,32 @@ const reconcileSource = async (kind, id, desired, ctx) => {
 };
 
 // -------------------------------------------------------------- orders
-const shipDateOf = (order) => {
+// Exported with orderIsSold, orderSaleAmounts and returnRefundPaise so the
+// admin Dashboard/Reports revenue (utils/revenue.js) uses exactly the rule
+// the books use -- the two can then never drift apart (admin audit RP-01).
+export const shipDateOf = (order) => {
   const hit = (order.statusHistory || []).find((h) => SHIPPED.includes(h.status));
   if (hit?.changedAt) return new Date(hit.changedAt);
   if (SHIPPED.includes(order.orderStatus)) return new Date(order.updatedAt);
   return null;
 };
 
-const orderIsSold = (order) => order.isActive !== false && SHIPPED.includes(order.orderStatus);
+export const orderIsSold = (order) => order.isActive !== false && SHIPPED.includes(order.orderStatus);
+
+// The sale voucher's figures in paise, or null when nothing is posted.
+// The amount the customer pays is authoritative; sales is whatever
+// remains once delivery income is taken out and discounts added back.
+export const orderSaleAmounts = (order) => {
+  const total = paise(order.totalPrice);
+  if (total < 1) return null;
+
+  const deliveryIncome = paise(order.deliveryFee) + paise(order.codCharge);
+  const discounts = paise(order.discountAmount) + paise(order.bundleDiscountAmount) + paise(order.pointsDiscount);
+  const sales = Math.max(0, total + discounts - deliveryIncome);
+  const delivery = Math.min(deliveryIncome, total + discounts);
+
+  return { total, discounts, sales, delivery };
+};
 
 const costTotals = (items) => {
   const total = items.reduce(
@@ -139,15 +157,9 @@ const costTotals = (items) => {
 const orderSaleDesired = (order, L) => {
   if (!orderIsSold(order)) return null;
 
-  const total = paise(order.totalPrice);
-  if (total < 1) return null;
-
-  const deliveryIncome = paise(order.deliveryFee) + paise(order.codCharge);
-  const discounts = paise(order.discountAmount) + paise(order.bundleDiscountAmount) + paise(order.pointsDiscount);
-  // The amount the customer pays is authoritative; sales is whatever
-  // remains once delivery income is taken out and discounts added back.
-  const sales = Math.max(0, total + discounts - deliveryIncome);
-  const credits = sales + Math.min(deliveryIncome, total + discounts);
+  const amounts = orderSaleAmounts(order);
+  if (!amounts) return null;
+  const { total, discounts, sales, delivery } = amounts;
 
   const itemsPaise = (order.orderItems || []).reduce((s, i) => s + Math.round(i.price * i.quantity * 100), 0);
   const note = itemsPaise !== sales ? ` [items total ₹${itemsPaise / 100} differs]` : "";
@@ -162,7 +174,7 @@ const orderSaleDesired = (order, L) => {
       [receivable, "Dr", total],
       [L("discount"), "Dr", discounts],
       [L("sales-online"), "Cr", sales],
-      [L("delivery-income"), "Cr", credits - sales],
+      [L("delivery-income"), "Cr", delivery],
     ),
   };
 };
@@ -217,7 +229,9 @@ export const returnLineOf = (order, rr) => {
   return { item: null, ambiguous: lines.length > 1 };
 };
 
-const returnRefundDesired = (rr, order, L) => {
+// The refund voucher's amount in paise; null = nothing posted, undefined =
+// cannot decide (several lines of the product, no size on the return).
+export const returnRefundPaise = (rr, order) => {
   // Same gate as the sale it reverses: once the order stops counting as
   // sold (e.g. Delivered -> Cancelled) its sale voucher is voided, and a
   // refund left behind would reverse that revenue a second time.
@@ -229,13 +243,20 @@ const returnRefundDesired = (rr, order, L) => {
   if (!item) return null;
 
   const amount = paise(returnedValueFor(order, item, rr.quantity));
-  if (amount < 1) return null;
+  return amount < 1 ? null : amount;
+};
+
+// When a refund counts: when it was refunded -- not updatedAt, which moves
+// on every later touch (admin note, "seen" flag) and would re-date it.
+export const refundDateOf = (rr) => new Date(rr.refundedAt || rr.updatedAt);
+
+const returnRefundDesired = (rr, order, L) => {
+  const amount = returnRefundPaise(rr, order);
+  if (amount === null || amount === undefined) return amount;
 
   return {
     type: "Journal",
-    // When it was refunded -- not updatedAt, which moves on every later
-    // touch (admin note, "seen" flag) and would re-date the voucher.
-    date: noonIst(rr.refundedAt || rr.updatedAt),
+    date: noonIst(refundDateOf(rr)),
     narration: `Sales return - order #${shortId(order._id)} (${rr.productName})`,
     // Prepaid refunds come out of the Razorpay balance; a COD refund is paid by the owner.
     entries: lines([L("sales-returns"), "Dr", amount], [L(order.paymentMethod === "Razorpay" ? "razorpay" : "capital"), "Cr", amount]),
