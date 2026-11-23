@@ -218,3 +218,82 @@ export const CURTAIN_FAQS = [
 
 // English-only copy for the FAQPage JSON-LD (page language is English).
 export const FAQS_EN = CURTAIN_FAQS.map((f) => ({ q: f.q, a: f.a }));
+
+// The page's static copy, EN + HI (CS-04, 2026-11-23). CurtainSizeCalculator.jsx
+// renders it; api/render.js mirrors the English by hand for bots (it can't
+// import client ESM) and scripts/render-curtain-calculator.test.mjs checks
+// the bot body against PAGE_COPY_EN, so a visitor and a bot read the same
+// words.
+export const CURTAIN_PAGE_COPY = {
+  heading: { en: "Curtain Size Calculator", hi: "कर्टन साइज़ कैलकुलेटर" },
+  intro: {
+    en: "Measure your window once, answer a few quick questions, and see which of our curtains fits — 7×4 ft or 9×4 ft — and how many 4 ft panels you need.",
+    hi: "अपनी विंडो को एक बार मापें, कुछ छोटे सवालों के जवाब दें, और देखें कि हमारे कौन से कर्टन फ़िट होंगे — 7×4 फीट या 9×4 फीट — और 4 फीट के कितने पैनल चाहिए।",
+  },
+  measure: {
+    heading: { en: "How to measure your window for curtains", hi: "कर्टन के लिए अपनी विंडो कैसे मापें" },
+    text: {
+      en: "Use a metal tape measure, not cloth, for accuracy. For width, measure the window frame edge to edge — the calculator adds the overhang and fullness for you. For length, decide first where the rod will sit (usually 4–6 inches above the frame), then measure straight down from the rod to the floor and pick how the curtain should meet the floor.",
+      hi: "सटीकता के लिए कपड़े की नहीं, धातु की टेप माप का इस्तेमाल करें। चौड़ाई के लिए, विंडो फ्रेम को किनारे से किनारे तक मापें — कैलकुलेटर ओवरहैंग और फुलनेस अपने आप जोड़ देता है। लंबाई के लिए, पहले तय करें कि रॉड कहां बैठेगी (आमतौर पर फ्रेम से 4-6 इंच ऊपर), फिर रॉड से सीधे फ़र्श तक मापें और चुनें कि कर्टन फ़र्श पर कैसे पहुंचे।",
+    },
+    guidePrompt: { en: "Prefer a written, step-by-step version? ", hi: "लिखित, स्टेप-बाय-स्टेप वर्शन चाहिए? " },
+    guideLinkText: { en: "Read our full curtain measurement guide →", hi: "हमारी पूरी कर्टन मेज़रमेंट गाइड पढ़ें →" },
+    guidePath: "/articles/curtain-measurement-guide",
+  },
+  sizes: {
+    heading: { en: "Our Curtain Sizes", hi: "हमारे कर्टन साइज़" },
+    intro: {
+      en: "Every panel is 4 ft (48 inches) wide. Sizes are written length × width. For a wider window, hang more panels side by side.",
+      hi: "हर पैनल 4 फीट (48 इंच) चौड़ा है। साइज़ लंबाई × चौड़ाई में लिखे हैं। चौड़ी विंडो के लिए साथ-साथ ज़्यादा पैनल लगाएं।",
+    },
+    columns: {
+      size: { en: "Size", hi: "साइज़" },
+      fits: { en: "Fits", hi: "किसके लिए" },
+      use: { en: "Best For", hi: "सबसे उपयुक्त" },
+    },
+    rows: [
+      {
+        sizeKey: "7x4",
+        fits: { en: 'Rod up to 84" (7 ft) from the floor', hi: 'रॉड फ़र्श से 84" (7 फीट) तक' },
+        use: { en: "Windows", hi: "विंडो" },
+      },
+      {
+        sizeKey: "9x4",
+        fits: { en: 'Rod up to 108" (9 ft) from the floor', hi: 'रॉड फ़र्श से 108" (9 फीट) तक' },
+        use: { en: "Doors and tall windows", hi: "डोर और लंबी विंडो" },
+      },
+    ],
+  },
+  faqHeading: { en: "Frequently Asked Questions", hi: "अक्सर पूछे जाने वाले सवाल" },
+};
+
+const sizeByKey = (key) => CURTAIN_SIZES.find((s) => s.key === key);
+
+// English view of CURTAIN_PAGE_COPY -- exactly what api/render.js mirrors.
+export const PAGE_COPY_EN = {
+  heading: CURTAIN_PAGE_COPY.heading.en,
+  intro: CURTAIN_PAGE_COPY.intro.en,
+  measure: {
+    heading: CURTAIN_PAGE_COPY.measure.heading.en,
+    text: CURTAIN_PAGE_COPY.measure.text.en,
+    guidePrompt: CURTAIN_PAGE_COPY.measure.guidePrompt.en,
+    guideLinkText: CURTAIN_PAGE_COPY.measure.guideLinkText.en,
+    guidePath: CURTAIN_PAGE_COPY.measure.guidePath,
+  },
+  sizes: {
+    heading: CURTAIN_PAGE_COPY.sizes.heading.en,
+    intro: CURTAIN_PAGE_COPY.sizes.intro.en,
+    columns: {
+      size: CURTAIN_PAGE_COPY.sizes.columns.size.en,
+      fits: CURTAIN_PAGE_COPY.sizes.columns.fits.en,
+      use: CURTAIN_PAGE_COPY.sizes.columns.use.en,
+    },
+    rows: CURTAIN_PAGE_COPY.sizes.rows.map((row) => ({
+      label: sizeByKey(row.sizeKey).label,
+      path: `/category/curtains/${sizeByKey(row.sizeKey).subcategorySlug}`,
+      fits: row.fits.en,
+      use: row.use.en,
+    })),
+  },
+  faqHeading: CURTAIN_PAGE_COPY.faqHeading.en,
+};
