@@ -12,6 +12,8 @@ import {
   CURTAIN_PRESETS,
   CURTAIN_SIZES,
   CURTAIN_FAQS,
+  CURTAIN_PAGE_COPY,
+  PAGE_COPY_EN,
   FAQS_EN,
   calculateCurtain,
   countDesignsInStock,
@@ -288,4 +290,40 @@ test("FAQ never lists sizes we don't sell and says 1.5x is standard", () => {
   }
   assert.ok(CURTAIN_FAQS.some((f) => /7×4 ft/.test(f.a) && /9×4 ft/.test(f.a)));
   assert.deepEqual(FAQS_EN, CURTAIN_FAQS.map((f) => ({ q: f.q, a: f.a })));
+});
+
+// CS-04: the page copy has one source (shown by the page, mirrored by
+// render.js for bots); the size chart lists exactly the stocked sizes.
+test("page copy: EN view of the bilingual copy, chart = stocked sizes, Hindi present", () => {
+  const c = CURTAIN_PAGE_COPY;
+  assert.deepEqual(PAGE_COPY_EN, {
+    heading: c.heading.en,
+    intro: c.intro.en,
+    measure: {
+      heading: c.measure.heading.en,
+      text: c.measure.text.en,
+      guidePrompt: c.measure.guidePrompt.en,
+      guideLinkText: c.measure.guideLinkText.en,
+      guidePath: c.measure.guidePath,
+    },
+    sizes: {
+      heading: c.sizes.heading.en,
+      intro: c.sizes.intro.en,
+      columns: { size: c.sizes.columns.size.en, fits: c.sizes.columns.fits.en, use: c.sizes.columns.use.en },
+      rows: CURTAIN_SIZES.map((size, i) => ({
+        label: size.label,
+        path: `/category/curtains/${size.subcategorySlug}`,
+        fits: c.sizes.rows[i].fits.en,
+        use: c.sizes.rows[i].use.en,
+      })),
+    },
+    faqHeading: c.faqHeading.en,
+  });
+  assert.equal(c.sizes.rows.length, CURTAIN_SIZES.length);
+  assert.deepEqual(c.sizes.rows.map((r) => r.sizeKey), CURTAIN_SIZES.map((s) => s.key));
+  assert.equal(c.measure.guidePath, "/articles/curtain-measurement-guide");
+  const hi = [c.heading, c.intro, c.measure.heading, c.measure.text, c.measure.guidePrompt, c.measure.guideLinkText,
+    c.sizes.heading, c.sizes.intro, c.sizes.columns.size, c.sizes.columns.fits, c.sizes.columns.use, c.faqHeading,
+    ...c.sizes.rows.flatMap((r) => [r.fits, r.use])].map((x) => x.hi);
+  for (const h of hi) assert.match(h, /[ऀ-ॿ]/, h);
 });

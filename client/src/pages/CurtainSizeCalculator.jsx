@@ -10,6 +10,7 @@ import { SITE_URL } from "../utils/siteUrl";
 import {
   CURTAIN_DEFAULTS,
   CURTAIN_FAQS,
+  CURTAIN_PAGE_COPY,
   CURTAIN_PRESETS,
   CURTAIN_SIZES,
   FAQS_EN,
@@ -68,19 +69,17 @@ function getClearanceOptions(t) {
   ];
 }
 
+// Static page copy lives in CURTAIN_PAGE_COPY (one source, mirrored for
+// bots by api/render.js -- CS-04).
+const COPY = CURTAIN_PAGE_COPY;
+const tr = (t, pair) => t(pair.en, pair.hi);
+
 function getSizeChart(t) {
-  return [
-    {
-      size: CURTAIN_SIZES[0],
-      fits: t('Rod up to 84" (7 ft) from the floor', 'रॉड फ़र्श से 84" (7 फीट) तक'),
-      use: t("Windows", "विंडो"),
-    },
-    {
-      size: CURTAIN_SIZES[1],
-      fits: t('Rod up to 108" (9 ft) from the floor', 'रॉड फ़र्श से 108" (9 फीट) तक'),
-      use: t("Doors and tall windows", "डोर और लंबी विंडो"),
-    },
-  ];
+  return COPY.sizes.rows.map((row) => ({
+    size: CURTAIN_SIZES.find((s) => s.key === row.sizeKey),
+    fits: tr(t, row.fits),
+    use: tr(t, row.use),
+  }));
 }
 
 const inch = (n) => `${n}"`;
@@ -177,14 +176,11 @@ function CurtainSizeCalculator() {
           <FaRulerCombined />
         </span>
         <h1 className="text-3xl md:text-4xl font-bold text-slate-900">
-          {t("Curtain Size Calculator", "कर्टन साइज़ कैलकुलेटर")}
+          {tr(t, COPY.heading)}
         </h1>
       </div>
       <p className="text-slate-500 mb-8 max-w-2xl">
-        {t(
-          "Measure your window once, answer a few quick questions, and see which of our curtains fits — 7×4 ft or 9×4 ft — and how many 4 ft panels you need.",
-          "अपनी विंडो को एक बार मापें, कुछ छोटे सवालों के जवाब दें, और देखें कि हमारे कौन से कर्टन फ़िट होंगे — 7×4 फीट या 9×4 फीट — और 4 फीट के कितने पैनल चाहिए।",
-        )}
+        {tr(t, COPY.intro)}
       </p>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -492,39 +488,33 @@ function CurtainSizeCalculator() {
 
       <div className="mt-12 max-w-2xl text-sm text-slate-500 leading-relaxed">
         <h2 className="text-lg font-semibold text-slate-800 mb-2">
-          {t("How to measure your window for curtains", "कर्टन के लिए अपनी विंडो कैसे मापें")}
+          {tr(t, COPY.measure.heading)}
         </h2>
         <p className="mb-2">
-          {t(
-            "Use a metal tape measure, not cloth, for accuracy. For width, measure the window frame edge to edge — the calculator adds the overhang and fullness for you. For length, decide first where the rod will sit (usually 4–6 inches above the frame), then measure straight down from the rod to the floor and pick how the curtain should meet the floor.",
-            "सटीकता के लिए कपड़े की नहीं, धातु की टेप माप का इस्तेमाल करें। चौड़ाई के लिए, विंडो फ्रेम को किनारे से किनारे तक मापें — कैलकुलेटर ओवरहैंग और फुलनेस अपने आप जोड़ देता है। लंबाई के लिए, पहले तय करें कि रॉड कहां बैठेगी (आमतौर पर फ्रेम से 4-6 इंच ऊपर), फिर रॉड से सीधे फ़र्श तक मापें और चुनें कि कर्टन फ़र्श पर कैसे पहुंचे।",
-          )}
+          {tr(t, COPY.measure.text)}
         </p>
         <p>
-          {t("Prefer a written, step-by-step version? ", "लिखित, स्टेप-बाय-स्टेप वर्शन चाहिए? ")}
-          <Link to="/articles/curtain-measurement-guide" className="text-blue-700 hover:underline">
-            {t("Read our full curtain measurement guide →", "हमारी पूरी कर्टन मेज़रमेंट गाइड पढ़ें →")}
+          {tr(t, COPY.measure.guidePrompt)}
+          <Link to={COPY.measure.guidePath} className="text-blue-700 hover:underline">
+            {tr(t, COPY.measure.guideLinkText)}
           </Link>
         </p>
       </div>
 
       <div className="mt-12 max-w-2xl">
         <h2 className="text-lg font-semibold text-slate-800 mb-3">
-          {t("Our Curtain Sizes", "हमारे कर्टन साइज़")}
+          {tr(t, COPY.sizes.heading)}
         </h2>
         <p className="text-sm text-slate-500 mb-3">
-          {t(
-            "Every panel is 4 ft (48 inches) wide. Sizes are written length × width. For a wider window, hang more panels side by side.",
-            "हर पैनल 4 फीट (48 इंच) चौड़ा है। साइज़ लंबाई × चौड़ाई में लिखे हैं। चौड़ी विंडो के लिए साथ-साथ ज़्यादा पैनल लगाएं।",
-          )}
+          {tr(t, COPY.sizes.intro)}
         </p>
         <div data-testid="calc-size-chart" className="overflow-x-auto border border-slate-200 rounded-xl">
           <table className="w-full text-sm text-left">
             <thead className="bg-slate-50 text-slate-600">
               <tr>
-                <th className="px-4 py-2.5 font-medium">{t("Size", "साइज़")}</th>
-                <th className="px-4 py-2.5 font-medium">{t("Fits", "किसके लिए")}</th>
-                <th className="px-4 py-2.5 font-medium">{t("Best For", "सबसे उपयुक्त")}</th>
+                <th className="px-4 py-2.5 font-medium">{tr(t, COPY.sizes.columns.size)}</th>
+                <th className="px-4 py-2.5 font-medium">{tr(t, COPY.sizes.columns.fits)}</th>
+                <th className="px-4 py-2.5 font-medium">{tr(t, COPY.sizes.columns.use)}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -546,7 +536,7 @@ function CurtainSizeCalculator() {
 
       <div className="mt-12 max-w-2xl">
         <h2 className="text-lg font-semibold text-slate-800 mb-3">
-          {t("Frequently Asked Questions", "अक्सर पूछे जाने वाले सवाल")}
+          {tr(t, COPY.faqHeading)}
         </h2>
         <div className="space-y-4">
           {CURTAIN_FAQS.map((faq) => (

@@ -1180,6 +1180,44 @@ const buildGiftingBodyHtml = (breadcrumbItems, heading, description, sections) =
     ${buildGiftingGuideHtml()}
   `;
 
+// /curtain-size-calculator: the visitor's static sections in page order
+// (intro, how-to-measure + guide link, size chart, FAQ). The interactive
+// result and its live stock line are left out -- they depend on a
+// visitor's measurements and on stock that changes daily.
+const buildCurtainCalculatorBodyHtml = (breadcrumbItems) => {
+  const c = CURTAIN_PAGE_EN;
+  const link = (path, text) => `<a href="${escapeHtml(`${SITE_URL}${path}`)}">${escapeHtml(text)}</a>`;
+  const rows = c.sizes.rows
+    .map(
+      (r) =>
+        `<tr><td>${link(r.path, r.label)}</td><td>${escapeHtml(r.fits)}</td><td>${escapeHtml(r.use)}</td></tr>`,
+    )
+    .join("\n");
+  const faqs = CURTAIN_FAQS_EN.map((f) => `<h3>${escapeHtml(f.q)}</h3>\n      <p>${escapeHtml(f.a)}</p>`).join("\n      ");
+  return `
+    <nav aria-label="breadcrumb">${buildBreadcrumbHtml(breadcrumbItems)}</nav>
+    <h1>${escapeHtml(c.heading)}</h1>
+    <p>${escapeHtml(c.intro)}</p>
+    <section>
+      <h2>${escapeHtml(c.measure.heading)}</h2>
+      <p>${escapeHtml(c.measure.text)}</p>
+      <p>${escapeHtml(c.measure.guidePrompt)}${link(c.measure.guidePath, c.measure.guideLinkText)}</p>
+    </section>
+    <section>
+      <h2>${escapeHtml(c.sizes.heading)}</h2>
+      <p>${escapeHtml(c.sizes.intro)}</p>
+      <table>
+        <thead><tr><th>${escapeHtml(c.sizes.columns.size)}</th><th>${escapeHtml(c.sizes.columns.fits)}</th><th>${escapeHtml(c.sizes.columns.use)}</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </section>
+    <section>
+      <h2>${escapeHtml(c.faqHeading)}</h2>
+      ${faqs}
+    </section>
+  `;
+};
+
 // ItemList for /gifting: URLs only (no price/stock, so nothing in the
 // structured data can go stale), page order, each URL once.
 const buildGiftingItemListJsonLd = (sections) => {
@@ -1334,6 +1372,57 @@ const buildHomeBodyHtml = (
   `;
 };
 
+// /curtain-size-calculator copy for bots. Hand-kept English copy of
+// src/utils/curtainCalculator.js's FAQS_EN and PAGE_COPY_EN (render.js can't
+// import client ESM); scripts/render-curtain-calculator.test.mjs fails if
+// a word differs from what a visitor sees (CS-01/CS-04, 2026-11-22/23).
+const CURTAIN_FAQS_EN = [
+  {
+    q: "How do I calculate curtain size from window measurements?",
+    a: "Measure your window's width, and the drop from where the rod will sit down to the floor, in inches. The calculator adds the rod overhang, multiplies by your chosen fullness (1.5x is standard, 2x for a fuller look), tells you how many of our 4 ft wide panels to hang and whether the 7×4 ft or 9×4 ft length fits.",
+  },
+  {
+    q: "How do I calculate curtain rod length?",
+    a: "Rod length = window width + overhang on each side. For an outside-mount rod, add 4–6 inches of overhang per side so the curtain can fully clear the window when opened. Enter your window width above and pick \"Outside Mount\" to get the exact rod length.",
+  },
+  {
+    q: "Does this calculator work in inches or feet?",
+    a: "Enter your measurements in inches (the most common way windows are measured in India). Our curtains are sold in feet, written length × width — 7×4 ft (84 x 48 inches) and 9×4 ft (108 x 48 inches) — and the calculator matches your measurements to one of these.",
+  },
+  {
+    q: "How much fabric width do I need for curtains?",
+    a: "For a natural, gathered drape, the total curtain width should be 1.5–2.5 times your rod length — 1.5x is standard and 2x gives a fuller look. Each of our panels is 4 ft (48 inches) wide, so the calculator tells you how many panels to hang side by side.",
+  },
+  {
+    q: "What curtain sizes do you sell?",
+    a: "Our eyelet curtains come in two sizes, written length × width: 7×4 ft for windows (rod about 7 ft from the floor) and 9×4 ft for doors and tall windows (rod about 9 ft from the floor). Every panel is 4 ft wide — for a wider window, hang more panels side by side.",
+  },
+];
+
+const CURTAIN_PAGE_EN = {
+  heading: "Curtain Size Calculator",
+  intro:
+    "Measure your window once, answer a few quick questions, and see which of our curtains fits — 7×4 ft or 9×4 ft — and how many 4 ft panels you need.",
+  measure: {
+    heading: "How to measure your window for curtains",
+    text: "Use a metal tape measure, not cloth, for accuracy. For width, measure the window frame edge to edge — the calculator adds the overhang and fullness for you. For length, decide first where the rod will sit (usually 4–6 inches above the frame), then measure straight down from the rod to the floor and pick how the curtain should meet the floor.",
+    guidePrompt: "Prefer a written, step-by-step version? ",
+    guideLinkText: "Read our full curtain measurement guide →",
+    guidePath: "/articles/curtain-measurement-guide",
+  },
+  sizes: {
+    heading: "Our Curtain Sizes",
+    intro:
+      "Every panel is 4 ft (48 inches) wide. Sizes are written length × width. For a wider window, hang more panels side by side.",
+    columns: { size: "Size", fits: "Fits", use: "Best For" },
+    rows: [
+      { label: "7×4 ft", path: "/category/curtains/7x4-ft", fits: 'Rod up to 84" (7 ft) from the floor', use: "Windows" },
+      { label: "9×4 ft", path: "/category/curtains/9x4-ft", fits: 'Rod up to 108" (9 ft) from the floor', use: "Doors and tall windows" },
+    ],
+  },
+  faqHeading: "Frequently Asked Questions",
+};
+
 // Static pages whose title/description never depend on data — a plain
 // copy of each page's own <Seo title=... description=... /> call (see
 // About.jsx, Contact.jsx, Rewards.jsx, etc.), kept in sync by hand since
@@ -1427,9 +1516,8 @@ const STATIC_PAGES = {
     // <Seo jsonLd> additionally builds a WebApplication + FAQPage block
     // (real visitors see it), but bots are always routed here instead
     // of the real SPA (see this file's header comment) and never got a
-    // mirrored copy, so Googlebot saw neither block. Kept in sync by
-    // hand with src/utils/curtainCalculator.js's FAQS_EN (enforced by
-    // scripts/render-curtain-calculator.test.mjs).
+    // mirrored copy, so Googlebot saw neither block. FAQ text comes from
+    // CURTAIN_FAQS_EN above (also shown as page text in the bot body).
     extraJsonLd: [
       {
         "@context": "https://schema.org",
@@ -1443,28 +1531,7 @@ const STATIC_PAGES = {
       {
         "@context": "https://schema.org",
         "@type": "FAQPage",
-        mainEntity: [
-          {
-            q: "How do I calculate curtain size from window measurements?",
-            a: "Measure your window's width, and the drop from where the rod will sit down to the floor, in inches. The calculator adds the rod overhang, multiplies by your chosen fullness (1.5x is standard, 2x for a fuller look), tells you how many of our 4 ft wide panels to hang and whether the 7×4 ft or 9×4 ft length fits.",
-          },
-          {
-            q: "How do I calculate curtain rod length?",
-            a: "Rod length = window width + overhang on each side. For an outside-mount rod, add 4–6 inches of overhang per side so the curtain can fully clear the window when opened. Enter your window width above and pick \"Outside Mount\" to get the exact rod length.",
-          },
-          {
-            q: "Does this calculator work in inches or feet?",
-            a: "Enter your measurements in inches (the most common way windows are measured in India). Our curtains are sold in feet, written length × width — 7×4 ft (84 x 48 inches) and 9×4 ft (108 x 48 inches) — and the calculator matches your measurements to one of these.",
-          },
-          {
-            q: "How much fabric width do I need for curtains?",
-            a: "For a natural, gathered drape, the total curtain width should be 1.5–2.5 times your rod length — 1.5x is standard and 2x gives a fuller look. Each of our panels is 4 ft (48 inches) wide, so the calculator tells you how many panels to hang side by side.",
-          },
-          {
-            q: "What curtain sizes do you sell?",
-            a: "Our eyelet curtains come in two sizes, written length × width: 7×4 ft for windows (rod about 7 ft from the floor) and 9×4 ft for doors and tall windows (rod about 9 ft from the floor). Every panel is 4 ft wide — for a wider window, hang more panels side by side.",
-          },
-        ].map((f) => ({
+        mainEntity: CURTAIN_FAQS_EN.map((f) => ({
           "@type": "Question",
           name: f.q,
           acceptedAnswer: { "@type": "Answer", text: f.a },
@@ -2318,6 +2385,25 @@ const buildMeta = async (path, query = {}) => {
     };
   }
 
+  if (path === "/curtain-size-calculator") {
+    // The generic STATIC_PAGES output, but with the page's real visible
+    // sections instead of breadcrumb + h1 + one line (39 words, live check
+    // 2026-11-22, CS-04). h1 = the visitor's h1; <title> unchanged.
+    const staticPage = STATIC_PAGES[path];
+    const staticBreadcrumbItems = [{ name: "Home", path: "/" }, { name: staticPage.breadcrumb }];
+
+    return {
+      title: withBrandSuffix(staticPage.title),
+      description: staticPage.description,
+      image: DEFAULT_IMAGE,
+      url: `${SITE_URL}${path}`,
+      ogType: "website",
+      lang: staticPage.lang,
+      jsonLd: [buildBreadcrumbJsonLd(staticBreadcrumbItems), ...(staticPage.extraJsonLd || [])],
+      bodyHtml: buildCurtainCalculatorBodyHtml(staticBreadcrumbItems),
+    };
+  }
+
   if (STATIC_PAGES[path]) {
     const staticPage = STATIC_PAGES[path];
     const staticBreadcrumbItems = [{ name: "Home", path: "/" }, { name: staticPage.breadcrumb }];
@@ -2644,6 +2730,10 @@ const injectMeta = (html, meta, isBot) => {
 
   return result;
 };
+
+// Named export for scripts/render-curtain-calculator.test.mjs only (R7:
+// deep-equal against the client's PAGE_COPY_EN); not used by the handler.
+export { CURTAIN_PAGE_EN };
 
 export default async function handler(req, res) {
   const rawPath = (req.query.path || "/").toString();
