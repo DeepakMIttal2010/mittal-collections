@@ -9,7 +9,12 @@ import { buildBreadcrumbJsonLd } from "../utils/breadcrumbJsonLd";
 import { DELIVERY_AREAS } from "../utils/deliveryAreas";
 import { SITE_URL } from "../utils/siteUrl";
 import { useLanguage } from "../context/LanguageContext";
+import { GHAZIABAD_COPY, WALK_IN_OPEN, listableCategories, walkInNote } from "../utils/ghaziabadStoreCopy";
 import { buildLocalBusinessJsonLd } from "../utils/localBusinessJsonLd";
+
+// Static page copy (EN + HI) and the walk-in switch live in
+// utils/ghaziabadStoreCopy.js; api/render.js mirrors them for bots (GZ-01/05).
+const COPY = GHAZIABAD_COPY;
 
 // A dedicated local-SEO landing page, separate from the product-focused
 // category pages and the transactional Contact page -- targets searches
@@ -21,13 +26,15 @@ function GhaziabadStore() {
   const [settings, setSettings] = useState({});
   const [categories, setCategories] = useState([]);
   const { t } = useLanguage();
+  const tr = (pair) => t(pair.en, pair.hi);
+  const note = walkInNote(WALK_IN_OPEN);
 
   useEffect(() => {
     getSiteSettings().then((res) => {
       if (res.success) setSettings(res.settings);
     });
     getCategories().then((res) => {
-      if (res.success) setCategories(res.categories);
+      if (res.success) setCategories(listableCategories(res.categories));
     });
   }, []);
 
@@ -57,69 +64,38 @@ function GhaziabadStore() {
       />
 
       <h1 className="text-4xl md:text-5xl font-bold text-slate-900 mb-4">
-        {t(
-          "Home Furnishing Store in Ghaziabad",
-          "गाजियाबाद में होम फर्निशिंग स्टोर",
-        )}
+        {tr(COPY.heading)}
       </h1>
 
       <p className="text-amber-700 font-semibold mb-1">
-        {t(
-          "Shop online from home, from your nearby local store",
-          "घर बैठे ऑनलाइन शॉपिंग करें अपने नज़दीकी स्टोर से",
-        )}
+        {tr(COPY.tagline)}
       </p>
 
       <p className="text-slate-600 mb-4">
-        {t(
-          "The same trusted quality from our shop — now online, only at mittalcollections.com",
-          "वही दुकान वाली क्वालिटी और भरोसा — अब सिर्फ mittalcollections.com पर ऑनलाइन",
-        )}
+        {tr(COPY.subTagline)}
       </p>
 
       <p className="text-slate-600 leading-relaxed mb-8">
-        {t(
-          "Mittal Collections is based in Sector 3, Vasundhara, Ghaziabad — a home furnishing store offering bedsheets, curtains, towels, cushions and doormats, with delivery within 24 hours in selected Ghaziabad PIN codes.",
-          "मित्तल कलेक्शंस गाजियाबाद के सेक्टर-3, वसुंधरा में स्थित एक होम फर्निशिंग स्टोर है — बेडशीट, पर्दे, तौलिए, कुशन और डोरमैट, गाजियाबाद के चुनिंदा PIN कोड पर 24 घंटे के अंदर डिलीवरी की सुविधा के साथ।",
-        )}
+        {tr(COPY.intro)}
       </p>
 
       <ul className="space-y-3 mb-10 text-slate-700">
-        <li className="flex gap-2">
-          <span className="text-amber-600">✓</span>
-          {t(
-            "Real photos, real products — what you see is exactly what reaches your door, no surprises.",
-            "असली फोटो, असली प्रोडक्ट — जो आप देखते हैं, वही आपके घर तक पहुंचता है, कोई सरप्राइज़ नहीं।",
-          )}
-        </li>
-        <li className="flex gap-2">
-          <span className="text-amber-600">✓</span>
-          {t(
-            "Trusted by Ghaziabad families since 2021.",
-            "2021 से गाजियाबाद के परिवारों का भरोसा।",
-          )}
-        </li>
-        <li className="flex gap-2">
-          <span className="text-amber-600">✓</span>
-          {t(
-            "Easy, hassle-free returns if something isn't right — we stand behind every order.",
-            "अगर कुछ सही न लगे तो आसान, बिना झंझट का रिटर्न — हर ऑर्डर पर हमारा भरोसा।",
-          )}
-        </li>
-        <li className="flex gap-2">
-          <span className="text-amber-600">✓</span>
-          {t(
-            "From Vasundhara to Vaishali, Indirapuram to Kaushambi — fast local delivery, right to your doorstep.",
-            "वसुंधरा से वैशाली, इंदिरापुरम से कौशांबी तक — तेज़ लोकल डिलीवरी, सीधे आपके दरवाज़े तक।",
-          )}
-        </li>
-        <li className="flex gap-2">
-          <span className="text-amber-600">✓</span>
-          {t(
-            "Quality home furnishing, fair prices, and the same trust as our physical store — only at mittalcollections.com.",
-            "क्वालिटी होम फर्निशिंग, सही कीमत, और हमारी असली दुकान जैसा भरोसा — सिर्फ mittalcollections.com पर।",
-          )}
-        </li>
+        {COPY.bullets.map((parts) => (
+          <li key={parts[0].en} className="flex gap-2">
+            <span className="text-amber-600">✓</span>
+            <span>
+              {parts.map((part) =>
+                part.path ? (
+                  <Link key={part.en} to={part.path} className="text-blue-700 hover:underline">
+                    {tr(part)}
+                  </Link>
+                ) : (
+                  <span key={part.en}>{tr(part)}</span>
+                ),
+              )}
+            </span>
+          </li>
+        ))}
       </ul>
 
       <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 mb-10 space-y-4">
@@ -127,25 +103,17 @@ function GhaziabadStore() {
           <FaMapMarkerAlt className="text-amber-600 mt-1 shrink-0" />
           <div>
             <h2 className="text-xs font-semibold tracking-wide text-slate-400 uppercase mb-1">
-              {t("Visit Us", "हमसे मिलें")}
+              {tr(COPY.visit.heading)}
             </h2>
             <p className="text-slate-700">
-              {t(
-                "Near Vanasthali Public School, Sector 3, Vasundhara, Ghaziabad, Uttar Pradesh 201012",
-                "वनस्थली पब्लिक स्कूल के पास, सेक्टर-3, वसुंधरा, गाजियाबाद, उत्तर प्रदेश 201012",
-              )}
+              {tr(COPY.visit.address)}
             </p>
-            {/* The shop isn't currently taking walk-ins (matches the
-                Google Business Profile's own "in-store shopping"
-                attribute) — this caveat keeps the page from inviting a
-                visit the store can't actually accommodate right now.
-                Remove it once the shop reopens to walk-ins. */}
-            <p className="text-sm text-amber-700 mt-1">
-              {t(
-                "Currently order online or call ahead — not accepting walk-ins at the moment.",
-                "फिलहाल ऑनलाइन ऑर्डर करें या पहले कॉल करें — अभी वॉक-इन स्वीकार नहीं किए जा रहे।",
-              )}
-            </p>
+            {/* The shop isn't taking walk-ins until it reopens (planned
+                Dec 2026; matches the Google Business Profile's "in-store
+                shopping" attribute). Flip WALK_IN_OPEN in
+                utils/ghaziabadStoreCopy.js (and its mirror in
+                api/render.js) when it reopens. */}
+            {note && <p className="text-sm text-amber-700 mt-1">{tr(note)}</p>}
           </div>
         </div>
 
@@ -154,7 +122,7 @@ function GhaziabadStore() {
             <FaPhoneAlt className="text-amber-600 mt-1 shrink-0" />
             <div>
               <h2 className="text-xs font-semibold tracking-wide text-slate-400 uppercase mb-1">
-                {t("Call Us", "हमें कॉल करें")}
+                {tr(COPY.call.heading)}
               </h2>
               <a href={`tel:${settings.phone}`} className="text-blue-700 hover:underline">
                 {settings.phone}
@@ -167,13 +135,10 @@ function GhaziabadStore() {
           <FaClock className="text-amber-600 mt-1 shrink-0" />
           <div>
             <h2 className="text-xs font-semibold tracking-wide text-slate-400 uppercase mb-1">
-              {t("Local Delivery", "लोकल डिलीवरी")}
+              {tr(COPY.delivery.heading)}
             </h2>
             <p className="text-slate-700">
-              {t(
-                "Delivery within 24 hours is available in selected Ghaziabad PIN codes in these areas, subject to product availability and order confirmation (orders confirmed later in the day may be delivered the following day):",
-                "इन इलाकों के चुनिंदा PIN कोड पर 24 घंटे के अंदर डिलीवरी की सुविधा उपलब्ध है — यह उत्पाद की उपलब्धता और ऑर्डर की पुष्टि पर निर्भर है (दिन में देर से कन्फर्म हुए ऑर्डर की डिलीवरी अगले दिन हो सकती है):",
-              )}
+              {tr(COPY.delivery.text)}
             </p>
             <p className="text-slate-600 text-sm mt-1">
               {DELIVERY_AREAS.join(", ")}
@@ -185,7 +150,7 @@ function GhaziabadStore() {
       {categories.length > 0 && (
         <div className="mb-10">
           <h2 className="text-2xl font-bold text-slate-900 mb-4">
-            {t("Shop by Category", "श्रेणी के अनुसार खरीदें")}
+            {tr(COPY.categoriesHeading)}
           </h2>
           <div className="flex flex-wrap gap-3">
             {categories.map((category) => (
@@ -203,19 +168,16 @@ function GhaziabadStore() {
 
       <div className="bg-slate-50 border border-slate-200 rounded-xl p-6">
         <h2 className="text-lg font-semibold text-slate-900 mb-2">
-          {t("Questions before you order?", "ऑर्डर करने से पहले सवाल?")}
+          {tr(COPY.questions.heading)}
         </h2>
         <p className="text-slate-600 mb-4">
-          {t(
-            "We're happy to help with sizing, fabric care or bulk orders.",
-            "साइज़, फैब्रिक केयर या थोक ऑर्डर में मदद करके हमें खुशी होगी।",
-          )}
+          {tr(COPY.questions.text)}
         </p>
         <Link
-          to="/contact"
+          to={COPY.questions.cta.path}
           className="inline-block bg-blue-900 hover:bg-blue-950 text-white font-semibold rounded-full px-6 py-3 transition-colors"
         >
-          {t("Get in touch", "संपर्क करें")}
+          {tr(COPY.questions.cta)}
         </Link>
       </div>
     </div>
