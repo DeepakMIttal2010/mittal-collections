@@ -82,6 +82,32 @@ export const updateOrderStatus = async (id, status, extra = {}) => {
 };
 
 // ==============================
+// PARCEL BACK / LOST (order cancelled after shipping)
+// ==============================
+// outcome: "received" (stock put back) or "lost" (no restock).
+export const resolveStockReturn = async (id, outcome) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/orders/${id}/stock-return`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${getToken()}`,
+      },
+      body: JSON.stringify({ outcome }),
+    });
+
+    return await response.json();
+  } catch (error) {
+    console.error("Resolve Stock Return Error:", error);
+
+    return {
+      success: false,
+      message: "Unable to record the parcel",
+    };
+  }
+};
+
+// ==============================
 // RESEND ORDER STATUS NOTIFICATION EMAIL
 // ==============================
 export const resendOrderStatusEmail = async (id) => {

@@ -316,6 +316,18 @@ const orderSchema = new mongoose.Schema(
     // "system" for the pending-payment cron, otherwise the admin's user id.
     cancelledBy: String,
 
+    // An order cancelled after it left the shop (Shipped/Delivered): its
+    // stock is NOT put back at cancel time -- the parcel is still with the
+    // courier or the customer. It stays pending until the admin records the
+    // parcel as "received" (restocked once, then) or "lost" (no restock);
+    // either is final. Orders cancelled before this existed are never
+    // pending (their stock already came back under the old rule).
+    stockReturnPending: { type: Boolean, default: false },
+    stockReturnOutcome: { type: String, enum: ["received", "lost", null], default: null },
+    stockReturnResolvedAt: { type: Date, default: null },
+    // The admin's user id.
+    stockReturnResolvedBy: { type: String, default: null },
+
     // Which path recorded the payment: "verify" (checkout signature),
     // "resume" (Pay Now self-heal), "cron" (Razorpay API reconciliation)
     // or "webhook".

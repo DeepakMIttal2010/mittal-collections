@@ -503,13 +503,10 @@ export const restoreStock = async (orderItems, { session = null } = {}) => {
 // the status claim — so the order is never Cancelled with its stock still
 // out, or the other way round. Returns the products that came back in
 // stock (see restoreStock).
-const releaseOrderResources = async (
-  order,
-  { session = null, refundDescription = `Refund for cancelled order ${order._id}` } = {},
-) => {
-  // A delivered order can be cancelled after part of it came back
-  // through a return -- that quantity is already back on the shelf
-  // (returnController restocks it), so only the rest goes back now.
+// The order's lines minus what already came back through a return: a
+// delivered order can be cancelled after part of it was returned, and that
+// quantity is already back on the shelf (returnController restocks it).
+const itemsStillOut = async (order, session) => {
   const returned = await ReturnRequest.find({ order: order._id, stockRestored: true })
     .select("product size quantity")
     .session(session)
@@ -517,15 +514,24 @@ const releaseOrderResources = async (
   const lineKey = (x) => `${x.product}|${x.size || ""}`;
   const backByLine = new Map();
   returned.forEach((r) => backByLine.set(lineKey(r), (backByLine.get(lineKey(r)) || 0) + r.quantity));
-  const stillOut = order.orderItems
+  return order.orderItems
     .map((item) => {
       const back = Math.min(backByLine.get(lineKey(item)) || 0, item.quantity);
       backByLine.set(lineKey(item), (backByLine.get(lineKey(item)) || 0) - back);
       return { ...(item.toObject?.() ?? item), quantity: item.quantity - back };
     })
     .filter((item) => item.quantity > 0);
+};
 
-  const restocked = await restoreStock(stillOut, { session });
+// An order that already left the shop: cancelling it doesn't bring the
+// parcel back, so its stock waits for resolveStockReturn (PR-7, OP-01).
+const LEFT_SHOP_STATUSES = ["Shipped", "Delivered"];
+
+const releaseOrderResources = async (
+  order,
+  { session = null, refundDescription = `Refund for cancelled order ${order._id}`, restock = true } = {},
+) => {
+  const restocked = restock ? await restoreStock(await itemsStillOut(order, session), { session }) : [];
 
   // Give back any points spent on this order, into the batches they came
   // from...
@@ -1679,6 +1685,9 @@ export const updateOrderStatus = async (req, res) => {
     // it happens or none of it does, so a crash part-way can't leave a
     // Cancelled order with its stock still out.
     const isCancelling = status === "Cancelled" && !wasAlreadyCancelled;
+    // Cancelled after it left the shop: everything else is given back now,
+    // the stock only once the parcel is recorded as received.
+    const stockWaitsForParcel = isCancelling && LEFT_SHOP_STATUSES.includes(originalStatus);
     let restocked = [];
 
     // A paid order (Razorpay money already taken) can still be cancelled —
@@ -1715,6 +1724,7 @@ export const updateOrderStatus = async (req, res) => {
                 cancelledAt: new Date(),
                 cancellationReason: "admin",
                 cancelledBy: String(req.user._id),
+                ...(stockWaitsForParcel && { stockReturnPending: true }),
               }
             : setFields,
           $push: { statusHistory: { status, changedAt: new Date() } },
@@ -1723,7 +1733,7 @@ export const updateOrderStatus = async (req, res) => {
       );
 
       if (claim && isCancelling) {
-        restocked = await releaseOrderResources(claim, { session });
+        restocked = await releaseOrderResources(claim, { session, restock: !stockWaitsForParcel });
 
         if (claim.isPaid) {
           // An already-open review keeps its own reason and alert; the
@@ -1836,6 +1846,117 @@ export const updateOrderStatus = async (req, res) => {
 };
 
 // ============================
+// Parcel back / lost after a cancelled shipment (Admin)
+// ============================
+
+const STOCK_RETURN_OUTCOMES = ["received", "lost"];
+
+// A line whose product (or size) no longer exists: the receive can't put
+// that stock anywhere, so nothing is restocked and the parcel stays pending.
+class StockReturnLineMissingError extends Error {
+  constructor(item) {
+    super(`"${item.name}"${item.size ? ` (${item.size})` : ""} no longer exists, so its stock can't be put back.`);
+  }
+}
+
+// Settles an order cancelled after it left the shop (stockReturnPending):
+// "received" puts back what is still out, once; "lost" closes it with no
+// restock. The claim on stockReturnPending makes the two -- and repeats of
+// either -- mutually exclusive, and it commits together with the restock:
+// either both happen or neither does.
+export const resolveStockReturn = async (req, res) => {
+  try {
+    const { outcome } = req.body;
+
+    if (typeof outcome !== "string" || !STOCK_RETURN_OUTCOMES.includes(outcome)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Outcome must be "received" or "lost".',
+      });
+    }
+
+    const order = await Order.findById(req.params.id).select("_id").lean();
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    let restocked = [];
+
+    const settle = async (session) => {
+      restocked = [];
+      const claim = await Order.findOneAndUpdate(
+        { _id: order._id, orderStatus: "Cancelled", stockReturnPending: true },
+        {
+          $set: {
+            stockReturnPending: false,
+            stockReturnOutcome: outcome,
+            stockReturnResolvedAt: new Date(),
+            stockReturnResolvedBy: String(req.user._id),
+          },
+        },
+        { new: true, session },
+      );
+
+      if (claim && outcome === "received") {
+        for (const item of await itemsStillOut(claim, session)) {
+          const product = await restockOne(item, session);
+          if (!product) throw new StockReturnLineMissingError(item);
+          if (cameBackInStock(product, item)) restocked.push(product);
+        }
+      }
+
+      return claim;
+    };
+
+    let settled;
+
+    try {
+      settled = await withOptionalTransaction(settle);
+    } catch (error) {
+      if (error instanceof StockReturnLineMissingError) {
+        return res.status(409).json({
+          success: false,
+          message: `${error.message} Nothing was changed — restore the product/size, or record the parcel as lost.`,
+        });
+      }
+      if (!(error instanceof TransactionsUnavailableError)) throw error;
+
+      return res.status(503).json({
+        success: false,
+        message: "Recording the parcel is temporarily unavailable — nothing was changed, please try again shortly.",
+      });
+    }
+
+    if (!settled) {
+      return res.status(400).json({
+        success: false,
+        message: "This order has no parcel return pending (never shipped, cancelled before this was tracked, or already recorded).",
+      });
+    }
+
+    // Only after the commit: a rolled-back receive must not email anyone.
+    notifyRestocked(restocked);
+
+    res.status(200).json({
+      success: true,
+      message: outcome === "received" ? "Parcel recorded as received — stock put back." : "Parcel recorded as lost — no stock put back.",
+      order: settled,
+    });
+  } catch (error) {
+    console.error("Resolve Stock Return Error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};
+
+// ============================
 // Restore Order (Admin)
 // ============================
 
@@ -1891,6 +2012,15 @@ export const deleteOrder = async (req, res) => {
       });
     }
 
+    // Its parcel's fate isn't recorded yet: keep the order (and the record
+    // of stock still to come back) until it is.
+    if (order.stockReturnPending) {
+      return res.status(400).json({
+        success: false,
+        message: "This order's parcel hasn't been recorded as received or lost yet — record it before deleting the order.",
+      });
+    }
+
     // The soft delete and the reversal of any review bonus still paid on
     // the order (normally already reversed by its cancellation) commit
     // together.
@@ -1933,6 +2063,13 @@ export const permanentlyDeleteOrder = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Only cancelled orders can be permanently deleted",
+      });
+    }
+
+    if (order.stockReturnPending) {
+      return res.status(400).json({
+        success: false,
+        message: "This order's parcel hasn't been recorded as received or lost yet — record it before permanently deleting the order.",
       });
     }
 
@@ -2648,6 +2785,15 @@ export const convertOrderToCod = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "This order is deleted — restore it before converting it",
+      });
+    }
+
+    // Its parcel is still out: reviving it would take the stock a second
+    // time, and the receive would then put back stock that was resold.
+    if (order.stockReturnPending) {
+      return res.status(400).json({
+        success: false,
+        message: "This order's parcel hasn't been recorded as received or lost yet — it can't be converted.",
       });
     }
 
