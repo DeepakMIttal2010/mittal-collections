@@ -71,11 +71,13 @@ test("bot page never lists a size we don't sell", async () => {
   assert.doesNotMatch(body, /2x is standard/);
 });
 
-// Visible text of the bot body (#root), tags stripped, entities decoded.
-const rootHtml = (html) => html.split('<div id="root">')[1] || "";
+// The bot body: what render.js puts inside #root. It holds no <script>, so
+// everything from the first "<script" after it (the SPA's own tags) is cut
+// off by plain string search -- no HTML-filtering regex needed.
+const rootHtml = (html) => (html.split('<div id="root">')[1] || "").split("<script")[0];
+// Visible text of the bot body, tags stripped, entities decoded.
 const visibleText = (html) =>
   rootHtml(html)
-    .replace(/<script[\s\S]*?<\/script>/g, " ")
     .replace(/<[^>]+>/g, " ")
     .replace(/&gt;/g, ">")
     .replace(/&lt;/g, "<")
