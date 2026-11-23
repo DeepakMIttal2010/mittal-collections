@@ -179,6 +179,9 @@ test("bot prerender and React app use the same delivery wording", () => {
     "client/src/pages/About.jsx": ["Delivery to eligible UP PIN codes, easy returns, 24-hour delivery in selected Ghaziabad PIN codes."],
     "client/src/pages/GhaziabadStore.jsx": [
       "with delivery within 24 hours in selected Ghaziabad PIN codes (Vasundhara, Vaishali, Indirapuram and nearby).",
+    ],
+    // The page's visible copy moved to this util (GZ audit 2026-11-23).
+    "client/src/utils/ghaziabadStoreCopy.js": [
       "Delivery within 24 hours is available in selected Ghaziabad PIN codes in these areas, subject to product availability and order confirmation (orders confirmed later in the day may be delivered the following day):",
     ],
     "client/src/pages/ProductDetails.jsx": [

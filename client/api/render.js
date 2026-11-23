@@ -1218,6 +1218,60 @@ const buildCurtainCalculatorBodyHtml = (breadcrumbItems) => {
   `;
 };
 
+// /ghaziabad-home-furnishing-store: the visitor's sections in page order
+// (GhaziabadStore.jsx). walkInOpen = GHAZIABAD_WALK_IN_OPEN in production;
+// a parameter so the test can check both states. No phone -> no Call Us
+// block, no categories (API down) -> no Shop by Category block, exactly as
+// the visitor's page renders them.
+const buildGhaziabadBodyHtml = ({ breadcrumbItems, walkInOpen, phone, categories }) => {
+  const c = GHAZIABAD_COPY_EN;
+  const link = (path, text) => `<a href="${escapeHtml(`${SITE_URL}${path}`)}">${escapeHtml(text)}</a>`;
+  const bullets = c.bullets
+    .map((parts) => `<li>${parts.map((p) => (typeof p === "string" ? escapeHtml(p) : link(p.path, p.text))).join("")}</li>`)
+    .join("\n        ");
+  // Same rule as src/utils/ghaziabadStoreCopy.js's listableCategories
+  // (active, with a slug and a name); G7 checks both with one fixture.
+  const categoryLinks = (Array.isArray(categories) ? categories : [])
+    .filter((cat) => cat && typeof cat.slug === "string" && cat.slug && cat.name && cat.isActive !== false)
+    .map((cat) => `<li>${link(`/category/${cat.slug}`, cat.name)}</li>`)
+    .join("\n        ");
+  return `
+    <nav aria-label="breadcrumb">${buildBreadcrumbHtml(breadcrumbItems)}</nav>
+    <h1>${escapeHtml(c.heading)}</h1>
+    <p>${escapeHtml(c.tagline)}</p>
+    <p>${escapeHtml(c.subTagline)}</p>
+    <p>${escapeHtml(c.intro)}</p>
+    <ul class="gz-bullets">
+        ${bullets}
+    </ul>
+    <section>
+      <h2>${escapeHtml(c.visit.heading)}</h2>
+      <p>${escapeHtml(c.visit.address)}</p>
+      ${walkInOpen ? "" : `<p>${escapeHtml(c.visit.walkInNote)}</p>`}
+    </section>
+    ${phone ? `<section>
+      <h2>${escapeHtml(c.call.heading)}</h2>
+      <p><a href="tel:${escapeHtml(phone)}">${escapeHtml(phone)}</a></p>
+    </section>` : ""}
+    <section>
+      <h2>${escapeHtml(c.delivery.heading)}</h2>
+      <p>${escapeHtml(c.delivery.text)}</p>
+      <p>${escapeHtml(DELIVERY_AREAS.join(", "))}</p>
+    </section>
+    ${categoryLinks ? `<section>
+      <h2>${escapeHtml(c.categoriesHeading)}</h2>
+      <ul>
+        ${categoryLinks}
+      </ul>
+    </section>` : ""}
+    <section>
+      <h2>${escapeHtml(c.questions.heading)}</h2>
+      <p>${escapeHtml(c.questions.text)}</p>
+      <p>${link(c.questions.cta.path, c.questions.cta.text)}</p>
+    </section>
+  `;
+};
+
 // ItemList for /gifting: URLs only (no price/stock, so nothing in the
 // structured data can go stale), page order, each URL once.
 const buildGiftingItemListJsonLd = (sections) => {
@@ -1421,6 +1475,47 @@ const CURTAIN_PAGE_EN = {
     ],
   },
   faqHeading: "Frequently Asked Questions",
+};
+
+// /ghaziabad-home-furnishing-store copy for bots. Hand-kept English copy of
+// src/utils/ghaziabadStoreCopy.js's GHAZIABAD_COPY_EN and WALK_IN_OPEN
+// (render.js can't import client ESM); scripts/render-ghaziabad-store.test.mjs
+// fails if either differs (audit 2026-11-23, GZ-01/02/03/05). When the shop
+// reopens to walk-ins, flip BOTH switches.
+const GHAZIABAD_WALK_IN_OPEN = false;
+
+const GHAZIABAD_COPY_EN = {
+  heading: "Home Furnishing Store in Ghaziabad",
+  tagline: "Shop online from home, from your nearby local store",
+  subTagline: "The same trusted quality from our shop — now online, only at mittalcollections.com",
+  intro:
+    "Mittal Collections is based in Sector 3, Vasundhara, Ghaziabad — a home furnishing store offering bedsheets, curtains, towels, cushions and doormats, with delivery within 24 hours in selected Ghaziabad PIN codes.",
+  bullets: [
+    ["Trusted by Ghaziabad families since 2021."],
+    [
+      "Returns are available on eligible products. Please check our ",
+      { text: "Returns Policy", path: "/policies/returns" },
+      " for product-wise eligibility and details.",
+    ],
+    ["From Vasundhara to Vaishali, Indirapuram to Kaushambi — fast local delivery, right to your doorstep."],
+    ["Quality home furnishing, fair prices, and the same trust as our physical store — only at mittalcollections.com."],
+  ],
+  visit: {
+    heading: "Visit Us",
+    address: "Near Vanasthali Public School, Sector 3, Vasundhara, Ghaziabad, Uttar Pradesh 201012",
+    walkInNote: "Currently order online or call ahead — not accepting walk-ins at the moment.",
+  },
+  call: { heading: "Call Us" },
+  delivery: {
+    heading: "Local Delivery",
+    text: "Delivery within 24 hours is available in selected Ghaziabad PIN codes in these areas, subject to product availability and order confirmation (orders confirmed later in the day may be delivered the following day):",
+  },
+  categoriesHeading: "Shop by Category",
+  questions: {
+    heading: "Questions before you order?",
+    text: "We're happy to help with sizing, fabric care or bulk orders.",
+    cta: { text: "Get in touch", path: "/contact" },
+  },
 };
 
 // Static pages whose title/description never depend on data — a plain
@@ -2220,8 +2315,14 @@ const buildMeta = async (path, query = {}) => {
     // settings.address like Home.jsx/Contact.jsx's blocks) since the
     // landmark-based address here is hardcoded content, not admin data.
     const staticPage = STATIC_PAGES["/ghaziabad-home-furnishing-store"];
-    const settingsData = await fetchJson(`${API_BASE}/api/settings`);
+    // Categories are secondary content: if that call fails the page still
+    // renders (200) without the Shop by Category block, like the visitor's.
+    const [settingsData, categoriesData] = await Promise.all([
+      fetchJson(`${API_BASE}/api/settings`),
+      safeFetchJson(`${API_BASE}/api/categories`),
+    ]);
     const settings = settingsData.settings || {};
+    const ghaziabadCategories = categoriesData.success ? categoriesData.categories || [] : [];
 
     const localBusinessJsonLd = buildLocalBusinessJsonLd(settings, {
       streetAddress: "Near Vanasthali Public School, Sector 3, Vasundhara",
@@ -2230,21 +2331,14 @@ const buildMeta = async (path, query = {}) => {
     });
 
     const ghaziabadBreadcrumbItems = [{ name: "Home", path: "/" }, { name: staticPage.breadcrumb }];
-    // Richest page to give real local-SEO body content to -- it's
-    // specifically a local-intent landing page (see
-    // [[seo_visibility_diagnostic_2026-10-01]] on local-intent terms
-    // being the site's actual working opportunity), so the delivery-area
-    // list is genuine, relevant content here, not filler.
-    const ghaziabadBodyHtml = `
-      <nav aria-label="breadcrumb">${buildBreadcrumbHtml(ghaziabadBreadcrumbItems)}</nav>
-      <h1>${escapeHtml(staticPage.title)}</h1>
-      <p>${escapeHtml(staticPage.description)}</p>
-      <p>Near Vanasthali Public School, Sector 3, Vasundhara, Ghaziabad, Uttar Pradesh 201012</p>
-      <p>Delivery within 24 hours is available in selected Ghaziabad PIN codes in these areas, subject to product availability and order confirmation (orders confirmed later in the day may be delivered the following day):</p>
-      <ul>
-        ${DELIVERY_AREAS.map((area) => `<li>${escapeHtml(area)}, Ghaziabad</li>`).join("\n")}
-      </ul>
-    `;
+    // GZ-01 (2026-11-23): the visitor's sections, not just title +
+    // description + address (bot body was 120 words with one link).
+    const ghaziabadBodyHtml = buildGhaziabadBodyHtml({
+      breadcrumbItems: ghaziabadBreadcrumbItems,
+      walkInOpen: GHAZIABAD_WALK_IN_OPEN,
+      phone: settings.phone,
+      categories: ghaziabadCategories,
+    });
 
     return {
       title: withBrandSuffix(staticPage.title),
@@ -2731,9 +2825,10 @@ const injectMeta = (html, meta, isBot) => {
   return result;
 };
 
-// Named export for scripts/render-curtain-calculator.test.mjs only (R7:
-// deep-equal against the client's PAGE_COPY_EN); not used by the handler.
-export { CURTAIN_PAGE_EN };
+// Named exports for scripts/render-curtain-calculator.test.mjs (R7) and
+// scripts/render-ghaziabad-store.test.mjs (G10/G11) only -- deep-equal
+// checks against the client copy; not used by the handler itself.
+export { CURTAIN_PAGE_EN, GHAZIABAD_COPY_EN, GHAZIABAD_WALK_IN_OPEN, buildGhaziabadBodyHtml };
 
 export default async function handler(req, res) {
   const rawPath = (req.query.path || "/").toString();
