@@ -109,9 +109,23 @@ const setReturnStatus = (adminToken, returnId, status) =>
     .set("Authorization", `Bearer ${adminToken}`)
     .send({ status });
 
-// The cancellation won: every piece is back exactly once (5), and the
-// return was left untouched, with nothing refunded or clawed back.
-const expectCancelOnly = async ({ user, product, order, returnRequest, before }) => {
+// PR-7: a delivered order's stock comes back only when its parcel is
+// recorded as received, not at cancel time.
+const recordParcelReceived = async (adminToken, orderId) => {
+  const res = await request(app)
+    .put(`/api/orders/${orderId}/stock-return`)
+    .set("Authorization", `Bearer ${adminToken}`)
+    .send({ outcome: "received" });
+  expect(res.status).toBe(200);
+};
+
+// The cancellation won: nothing came back at cancel time (the parcel is
+// still out), then every piece is back exactly once (5) when the parcel is
+// received, and the return was left untouched, with nothing refunded or
+// clawed back.
+const expectCancelOnly = async ({ user, adminToken, product, order, returnRequest, before }) => {
+  expect((await Product.findById(product._id)).stock).toBe(2);
+  await recordParcelReceived(adminToken, order._id);
   expect((await Product.findById(product._id)).stock).toBe(5);
   expect((await User.findById(user._id)).loyaltyPoints).toBe(before.points);
   expect(await LoyaltyTransaction.countDocuments({ user: user._id })).toBe(before.ledgerEntries);
@@ -126,31 +140,31 @@ const expectCancelOnly = async ({ user, product, order, returnRequest, before })
   expect(rr.pointsClawedBack).toBe(false);
 };
 
-// Holds the cancellation right after its stock write (inside its still-open
-// transaction), and notes when a return reaches the point where it would
-// collide with it: its own stock write, or its conditional write on the order.
-const holdCancelAfterStockWrite = () => {
+// Holds the cancellation right after its claim on the order (inside its
+// still-open transaction) -- since PR-7 a delivered order's cancellation
+// writes no stock, so the order document is where it and a return collide
+// -- and notes when the return reaches that point: its conditional write on
+// the order.
+const holdCancelAfterOrderClaim = () => {
   const held = barrier();
-  const cancelWroteStock = barrier();
+  const cancelClaimed = barrier();
   let armed = true;
-  let returnWroteStock = false;
 
-  const originalProductUpdate = Product.findByIdAndUpdate.bind(Product);
-  vi.spyOn(Product, "findByIdAndUpdate").mockImplementation((...args) => {
-    const session = args[2]?.session;
+  const originalFindOneAndUpdate = Order.findOneAndUpdate.bind(Order);
+  vi.spyOn(Order, "findOneAndUpdate").mockImplementation((...args) => {
+    const [, update, options] = args;
 
-    if (session && armed) {
+    if (armed && options?.session && update?.$set?.orderStatus === "Cancelled") {
       armed = false;
       return (async () => {
-        const result = await originalProductUpdate(...args);
-        cancelWroteStock.release();
+        const result = await originalFindOneAndUpdate(...args);
+        cancelClaimed.release();
         await held.promise;
         return result;
       })();
     }
 
-    if (!session) returnWroteStock = true;
-    return originalProductUpdate(...args);
+    return originalFindOneAndUpdate(...args);
   });
 
   const orderUpdate = vi.spyOn(Order, "updateOne");
@@ -158,8 +172,8 @@ const holdCancelAfterStockWrite = () => {
     orderUpdate.mock.calls.some(([filter]) => filter?.orderStatus?.$ne === "Cancelled");
 
   return {
-    cancelWroteStock: cancelWroteStock.promise,
-    returnReachedCollision: () => returnWroteStock || returnTriedOrder(),
+    cancelClaimed: cancelClaimed.promise,
+    returnReachedCollision: returnTriedOrder,
     releaseCancel: held.release,
   };
 };
@@ -192,12 +206,12 @@ const holdReturnAfterOrderRead = () => {
 
 describe("Return vs order cancellation running at the same time (R2)", () => {
   for (const status of ["Picked Up", "Refunded"]) {
-    it(`window 2 (${status}): the return arrives while the cancellation's transaction holds the stock — 409, stock restocked once`, async () => {
+    it(`window 2 (${status}): the return arrives while the cancellation's transaction holds the order — 409, stock restocked once`, async () => {
       const setup = await deliveredWithOpenReturn();
-      const hold = holdCancelAfterStockWrite();
+      const hold = holdCancelAfterOrderClaim();
 
       const cancelling = cancelOrder(setup.adminToken, setup.order._id).then((res) => res);
-      await hold.cancelWroteStock;
+      await hold.cancelClaimed;
 
       const returning = setReturnStatus(setup.adminToken, setup.returnRequest._id, status).then(
         (res) => res,
@@ -227,7 +241,7 @@ describe("Return vs order cancellation running at the same time (R2)", () => {
 
       const cancelRes = await cancelOrder(setup.adminToken, setup.order._id);
       expect(cancelRes.status).toBe(200);
-      expect((await Product.findById(setup.product._id)).stock).toBe(5);
+      expect((await Product.findById(setup.product._id)).stock).toBe(2); // parcel not back yet
 
       hold.releaseReturn();
       const returnRes = await returning;
@@ -247,7 +261,9 @@ describe("Return vs order cancellation running at the same time (R2)", () => {
 
     const cancelRes = await cancelOrder(setup.adminToken, setup.order._id);
     expect(cancelRes.status).toBe(200);
+    expect((await Product.findById(setup.product._id)).stock).toBe(3); // parcel not back yet
 
+    await recordParcelReceived(setup.adminToken, setup.order._id);
     expect((await Product.findById(setup.product._id)).stock).toBe(5);
     const rr = await ReturnRequest.findById(setup.returnRequest._id);
     expect(rr.status).toBe("Picked Up");

@@ -282,6 +282,16 @@ describe("Return approval side effects (stock restore + loyalty clawback)", () =
   });
 });
 
+// PR-7: a delivered order's stock comes back only when its parcel is
+// recorded as received, not at cancel time.
+const recordParcelReceived = async (adminToken, orderId) => {
+  const res = await request(app)
+    .put(`/api/orders/${orderId}/stock-return`)
+    .set("Authorization", `Bearer ${adminToken}`)
+    .send({ outcome: "received" });
+  expect(res.status).toBe(200);
+};
+
 describe("Cancelling a delivered order after a return (round 29)", () => {
   it("puts back only the pieces the return didn't already restock", async () => {
     await seedLoyaltySettings({ earnRate: 20 });
@@ -310,6 +320,9 @@ describe("Cancelling a delivered order after a return (round 29)", () => {
       .set("Authorization", `Bearer ${adminToken}`)
       .send({ status: "Cancelled" });
     expect(cancel.status).toBe(200);
+    expect((await Product.findById(product._id)).stock).toBe(3); // parcel not back yet
+
+    await recordParcelReceived(adminToken, order._id);
 
     // the other 2 come back; the returned one must not be counted twice
     expect((await Product.findById(product._id)).stock).toBe(5);
@@ -376,7 +389,8 @@ describe("Return status transition guard", () => {
 
 describe("An open return on an order that was cancelled afterwards (M1-A)", () => {
   // Delivered order of 3 (stock 5 -> 2), a return requested but not yet
-  // picked up, then the whole order cancelled (all 3 back -> 5).
+  // picked up, then the whole order cancelled and its parcel recorded as
+  // received (all 3 back -> 5).
   const cancelledWithOpenReturn = async () => {
     await seedLoyaltySettings({ earnRate: 20 });
 
@@ -403,6 +417,7 @@ describe("An open return on an order that was cancelled afterwards (M1-A)", () =
       .set("Authorization", `Bearer ${adminToken}`)
       .send({ status: "Cancelled" });
     expect(cancel.status).toBe(200);
+    await recordParcelReceived(adminToken, order._id);
 
     // Baseline after the cancellation, so the assertions below check only
     // what the later return transition does.
@@ -505,9 +520,11 @@ describe("An open return on an order that was cancelled afterwards (M1-A)", () =
       .set("Authorization", `Bearer ${adminToken}`)
       .send({ status: "Cancelled" });
     expect(cancel.status).toBe(200);
+    expect((await Product.findById(product._id)).stock).toBe(3); // parcel not back yet
+    await recordParcelReceived(adminToken, order._id);
 
-    // After the cancellation: the 2 kept pieces came back, the returned one
-    // wasn't counted twice.
+    // After the cancellation and the parcel's receipt: the 2 kept pieces
+    // came back, the returned one wasn't counted twice.
     const baseline = {
       stock: (await Product.findById(product._id)).stock,
       points: (await User.findById(user._id)).loyaltyPoints,
