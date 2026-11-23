@@ -6,6 +6,7 @@ import { FaSortAmountDown, FaSortAmountUp, FaWhatsapp } from "react-icons/fa";
 import {
   getAllOrders,
   updateOrderStatus,
+  resolveStockReturn,
   resendOrderStatusEmail,
   convertOrderToCod,
   resolvePaymentReview,
@@ -210,13 +211,23 @@ function AdminOrders() {
     // Cancelling a paid order doesn't refund it — the server insists on an
     // explicit confirmation for that and opens a refund-due review.
     const cancellingPaid = newStatus === "Cancelled" && Boolean(target?.isPaid);
+    // Already left the shop: the server keeps its stock out until the
+    // parcel is recorded as received (PR-7).
+    const leftShop = ["Shipped", "Delivered"].includes(target?.orderStatus);
+    const stockLine = leftShop
+      ? "Points/coupon will be reversed now, but stock will NOT come back until you record the parcel as received (or lost)."
+      : null;
 
     if (
       newStatus === "Cancelled" &&
       !window.confirm(
         cancellingPaid
-          ? `This order was PAID online (₹${target.totalPrice}). Cancelling reverses stock and any points/coupon but does NOT refund the customer — issue the refund yourself in the Razorpay dashboard. It stays on the payment review list until you mark the refund done. Cancel anyway?`
-          : "Cancel this order? Stock and any points/coupon used will be reversed.",
+          ? leftShop
+            ? `This order was PAID online (₹${target.totalPrice}) and has already left the shop. ${stockLine} Cancelling does NOT refund the customer — issue the refund yourself in the Razorpay dashboard. It stays on the payment review list until you mark the refund done. Cancel anyway?`
+            : `This order was PAID online (₹${target.totalPrice}). Cancelling reverses stock and any points/coupon but does NOT refund the customer — issue the refund yourself in the Razorpay dashboard. It stays on the payment review list until you mark the refund done. Cancel anyway?`
+          : leftShop
+            ? `Cancel this order? It has already left the shop. ${stockLine}`
+            : "Cancel this order? Stock and any points/coupon used will be reversed.",
       )
     ) {
       return;
@@ -270,6 +281,35 @@ function AdminOrders() {
       );
     } else {
       alert(response.message || "Unable to update order status");
+    }
+
+    setUpdatingId(null);
+  };
+
+  // Order cancelled after shipping: the parcel came back (stock put back,
+  // once) or is lost (no restock). Either is final.
+  const handleStockReturn = async (order, outcome) => {
+    const question =
+      outcome === "received"
+        ? "Has this parcel physically come back to the shop? Its items will be added back to stock. This can't be undone."
+        : "Record this parcel as lost? Its items will NOT be restocked. This can't be undone.";
+
+    if (!window.confirm(question)) return;
+
+    setUpdatingId(order._id);
+
+    const response = await resolveStockReturn(order._id, outcome);
+
+    if (response.success) {
+      setOrders((prev) =>
+        prev.map((o) =>
+          o._id === order._id
+            ? { ...o, ...response.order, user: o.user, deliveryCheck: o.deliveryCheck }
+            : o,
+        ),
+      );
+    } else {
+      alert(response.message || "Unable to record the parcel");
     }
 
     setUpdatingId(null);
@@ -535,6 +575,53 @@ function AdminOrders() {
                         ⚠ Paid & cancelled — needs refund/review
                       </span>
                     )
+                  )}
+
+                  {order.stockReturnPending && (
+                    <span
+                      className="text-xs font-semibold px-3 py-1 rounded-full w-fit bg-amber-500 text-white"
+                      title="Cancelled after it left the shop — its stock is not back yet. Record the parcel as received (restock) or lost."
+                    >
+                      📦 Parcel return pending
+                    </span>
+                  )}
+
+                  {order.stockReturnPending && canModify && order.isActive && (
+                    <>
+                      <button
+                        type="button"
+                        disabled={updatingId === order._id}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleStockReturn(order, "received");
+                        }}
+                        title="The parcel is physically back in the shop — put its items back in stock"
+                        className="text-xs font-semibold text-green-700 border border-green-200 hover:bg-green-50 rounded-lg px-2 py-1 whitespace-nowrap disabled:opacity-60"
+                      >
+                        Parcel received
+                      </button>
+                      <button
+                        type="button"
+                        disabled={updatingId === order._id}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleStockReturn(order, "lost");
+                        }}
+                        title="The parcel is not coming back — close this without restocking"
+                        className="text-xs font-semibold text-slate-600 border border-slate-300 hover:bg-slate-50 rounded-lg px-2 py-1 whitespace-nowrap disabled:opacity-60"
+                      >
+                        Parcel lost
+                      </button>
+                    </>
+                  )}
+
+                  {order.stockReturnPending === false && order.stockReturnOutcome && (
+                    <span
+                      className="text-xs font-semibold px-3 py-1 rounded-full w-fit bg-slate-200 text-slate-700"
+                      title={order.stockReturnResolvedAt ? `Recorded ${new Date(order.stockReturnResolvedAt).toLocaleString("en-IN")}` : undefined}
+                    >
+                      {order.stockReturnOutcome === "received" ? "Parcel received — restocked" : "Parcel lost — not restocked"}
+                    </span>
                   )}
 
                   {order.paymentReviewNeeded && (
@@ -915,7 +1002,7 @@ function AdminOrders() {
                     {order.isActive ? (
                       order.orderStatus === "Cancelled" ? (
                         <>
-                          {order.paymentMethod === "Razorpay" && !order.isPaid && (
+                          {order.paymentMethod === "Razorpay" && !order.isPaid && !order.stockReturnPending && (
                             <button
                               type="button"
                               disabled={updatingId === order._id}
@@ -929,16 +1016,22 @@ function AdminOrders() {
                               {updatingId === order._id ? "Converting..." : "Convert to COD"}
                             </button>
                           )}
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDelete(order._id);
-                            }}
-                            className="text-xs font-semibold text-red-600 hover:text-red-700 border border-red-200 hover:bg-red-50 rounded-lg px-3 py-1.5"
-                          >
-                            Delete Order
-                          </button>
+                          {order.stockReturnPending ? (
+                            <p className="text-xs text-slate-400">
+                              Record the parcel as received or lost before deleting this order.
+                            </p>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDelete(order._id);
+                              }}
+                              className="text-xs font-semibold text-red-600 hover:text-red-700 border border-red-200 hover:bg-red-50 rounded-lg px-3 py-1.5"
+                            >
+                              Delete Order
+                            </button>
+                          )}
                         </>
                       ) : (
                         <p className="text-xs text-slate-400">

@@ -14,6 +14,7 @@ import {
   getAllOrders,
   getOrderById,
   updateOrderStatus,
+  resolveStockReturn,
   markOrderSeen,
   restoreOrder,
   deleteOrder,
@@ -89,6 +90,9 @@ router.put("/:id/cost", authMiddleware, adminMiddleware, costPerm, canModify, se
 
 // Update Order Status — sirf Admin
 router.put("/:id/status", authMiddleware, adminMiddleware, perm, canModify, updateOrderStatus);
+
+// Parcel of an order cancelled after shipping: received (restock) or lost — sirf Admin
+router.put("/:id/stock-return", authMiddleware, adminMiddleware, perm, canModify, resolveStockReturn);
 
 // Convert a cancelled, unpaid Razorpay order to COD — sirf Admin
 router.put("/:id/convert-to-cod", authMiddleware, adminMiddleware, perm, canModify, convertOrderToCod);

@@ -465,6 +465,13 @@ describe("Review bonus vs returns, cancellations and deleted orders", () => {
     expect(await balance(s.customer._id)).toEqual({ points: 100, owed: 0 });
     expect((await savedReview(s.review._id)).bonusReversal.reason).toBe("Order cancelled");
 
+    // PR-7: a delivered order can be deleted only once its parcel is settled.
+    const settled = await request(app)
+      .put(`/api/orders/${s.order._id}/stock-return`)
+      .set("Authorization", `Bearer ${s.adminToken}`)
+      .send({ outcome: "received" });
+    expect(settled.status).toBe(200);
+
     expect((await deleteOrder(s)).status).toBe(200);
     expect(await reversalEntries(s.review._id)).toHaveLength(1);
     expect(await balance(s.customer._id)).toEqual({ points: 100, owed: 0 });
