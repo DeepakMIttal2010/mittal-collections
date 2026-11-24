@@ -20,17 +20,19 @@ const items = [
   },
   {
     icon: <FaUndoAlt />,
-    title: "Easy Returns",
-    titleHi: "आसान रिटर्न",
-    subtitle: "Hassle-free",
-    subtitleHi: "बिना किसी झंझट के",
+    // Qualified: some products are non-returnable (trust-claims audit
+    // 2026-11-24, WC-02); no absolute percentage claim (WC-04).
+    title: "Returns",
+    titleHi: "रिटर्न",
+    subtitle: "On eligible products",
+    subtitleHi: "योग्य प्रोडक्ट्स पर",
   },
   {
     icon: <FaLock />,
     title: "Secure Payment",
     titleHi: "सुरक्षित पेमेंट",
-    subtitle: "100% safe checkout",
-    subtitleHi: "100% सुरक्षित चेकआउट",
+    subtitle: "Secure checkout",
+    subtitleHi: "सुरक्षित चेकआउट",
   },
   {
     icon: <FaMoneyBillWave />,

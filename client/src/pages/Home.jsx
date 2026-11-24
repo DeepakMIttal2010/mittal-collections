@@ -176,8 +176,8 @@ function Home() {
         }
         description={
           isHindi
-            ? "Mittal Collections पर बेडशीट, कम्फर्टर और पर्दे ऑनलाइन खरीदें – उत्तर प्रदेश के चुनिंदा PIN codes पर डिलीवरी, गाजियाबाद के चुनिंदा PIN कोड पर 24 घंटे में डिलीवरी, आसान 7 दिन में रिटर्न।"
-            : "Shop bedsheets, comforters & curtains online at Mittal Collections – UP delivery to eligible PINs, 24-hour delivery in selected Ghaziabad PINs and easy 7-day returns."
+            ? "Mittal Collections पर बेडशीट, कम्फर्टर और पर्दे ऑनलाइन खरीदें – उत्तर प्रदेश के चुनिंदा PIN codes पर डिलीवरी, गाजियाबाद के चुनिंदा PIN कोड पर 24 घंटे में डिलीवरी, योग्य प्रोडक्ट्स के लिए 7 दिनों के भीतर रिटर्न।"
+            : "Shop bedsheets, comforters & curtains online at Mittal Collections – UP delivery to eligible PINs, 24-hour delivery in selected Ghaziabad PINs and 7-day returns on eligible products."
         }
         url={isHindi ? hiHomeUrl : enHomeUrl}
         lang={isHindi ? "hi" : "en"}

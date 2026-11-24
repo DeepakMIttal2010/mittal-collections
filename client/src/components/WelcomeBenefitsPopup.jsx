@@ -175,7 +175,8 @@ function WelcomeBenefitsPopup({
           },
         ]
       : []),
-    { icon: <FaCheckCircle />, text: t("100% Genuine Products", "100% असली प्रोडक्ट") },
+    // No absolute percentage / "easy" claims (trust-claims audit 2026-11-24).
+    { icon: <FaCheckCircle />, text: t("Genuine Products", "असली प्रोडक्ट") },
     {
       icon: <FaTruck />,
       // Not "free": the local area pays the normal order-value delivery fee
@@ -209,7 +210,7 @@ function WelcomeBenefitsPopup({
       ),
     },
     { icon: <FaLock />, text: t("Secure Payments", "सुरक्षित भुगतान") },
-    { icon: <FaUndoAlt />, text: t("Easy Returns", "आसान रिटर्न") },
+    { icon: <FaUndoAlt />, text: t("Returns on eligible products", "योग्य प्रोडक्ट्स पर रिटर्न") },
   ];
 
   return (
