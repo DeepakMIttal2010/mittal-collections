@@ -1539,7 +1539,7 @@ const STATIC_PAGES = {
     // here, never to the real React app.
     title: "About Us — Why Mittal Collections | Home Furnishing",
     description:
-      "Mittal Collections: a focused range of bedsheets, towels, curtains and cushions chosen for real material quality, not sheer catalog size. Delivery to eligible UP PIN codes, easy returns, 24-hour delivery in selected Ghaziabad PIN codes.",
+      "Mittal Collections: a focused range of bedsheets, towels, curtains and cushions chosen for real material quality, not sheer catalog size. Delivery to eligible UP PIN codes, returns on eligible products, 24-hour delivery in selected Ghaziabad PIN codes.",
     breadcrumb: "About",
   },
   "/contact": {
@@ -1846,8 +1846,8 @@ const buildMeta = async (path, query = {}) => {
       ? "बेडशीट, कम्फर्टर और पर्दे ऑनलाइन खरीदें"
       : "Shop Bedsheets, Comforters & Curtains Online";
     const homeDescription = isHindi
-      ? "Mittal Collections पर बेडशीट, कम्फर्टर और पर्दे ऑनलाइन खरीदें – उत्तर प्रदेश के चुनिंदा PIN codes पर डिलीवरी, गाजियाबाद के चुनिंदा PIN कोड पर 24 घंटे में डिलीवरी, आसान 7 दिन में रिटर्न।"
-      : "Shop bedsheets, comforters & curtains online at Mittal Collections – UP delivery to eligible PINs, 24-hour delivery in selected Ghaziabad PINs and easy 7-day returns.";
+      ? "Mittal Collections पर बेडशीट, कम्फर्टर और पर्दे ऑनलाइन खरीदें – उत्तर प्रदेश के चुनिंदा PIN codes पर डिलीवरी, गाजियाबाद के चुनिंदा PIN कोड पर 24 घंटे में डिलीवरी, योग्य प्रोडक्ट्स के लिए 7 दिनों के भीतर रिटर्न।"
+      : "Shop bedsheets, comforters & curtains online at Mittal Collections – UP delivery to eligible PINs, 24-hour delivery in selected Ghaziabad PINs and 7-day returns on eligible products.";
     const enHomeUrl = `${SITE_URL}/`;
     const hiHomeUrl = `${SITE_URL}/hi`;
 

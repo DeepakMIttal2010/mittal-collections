@@ -173,10 +173,10 @@ test("bot prerender and React app use the same delivery wording", () => {
   const render = read("client/api/render.js");
   const pairs = {
     "client/src/pages/Home.jsx": [
-      "Shop bedsheets, comforters & curtains online at Mittal Collections – UP delivery to eligible PINs, 24-hour delivery in selected Ghaziabad PINs and easy 7-day returns.",
-      "Mittal Collections पर बेडशीट, कम्फर्टर और पर्दे ऑनलाइन खरीदें – उत्तर प्रदेश के चुनिंदा PIN codes पर डिलीवरी, गाजियाबाद के चुनिंदा PIN कोड पर 24 घंटे में डिलीवरी, आसान 7 दिन में रिटर्न।",
+      "Shop bedsheets, comforters & curtains online at Mittal Collections – UP delivery to eligible PINs, 24-hour delivery in selected Ghaziabad PINs and 7-day returns on eligible products.",
+      "Mittal Collections पर बेडशीट, कम्फर्टर और पर्दे ऑनलाइन खरीदें – उत्तर प्रदेश के चुनिंदा PIN codes पर डिलीवरी, गाजियाबाद के चुनिंदा PIN कोड पर 24 घंटे में डिलीवरी, योग्य प्रोडक्ट्स के लिए 7 दिनों के भीतर रिटर्न।",
     ],
-    "client/src/pages/About.jsx": ["Delivery to eligible UP PIN codes, easy returns, 24-hour delivery in selected Ghaziabad PIN codes."],
+    "client/src/pages/About.jsx": ["Delivery to eligible UP PIN codes, returns on eligible products, 24-hour delivery in selected Ghaziabad PIN codes."],
     "client/src/pages/GhaziabadStore.jsx": [
       "with delivery within 24 hours in selected Ghaziabad PIN codes (Vasundhara, Vaishali, Indirapuram and nearby).",
     ],

@@ -2,24 +2,23 @@ import "./WhyChooseUs.css";
 import {
   FaAward,
   FaTruck,
-  FaCamera,
   FaWhatsapp,
   FaLock,
   FaUndoAlt,
 } from "react-icons/fa";
-import { useLanguage } from "../../context/LanguageContext";
+import { Link } from "react-router-dom";
 
+import { useLanguage } from "../../context/LanguageContext";
+import { RETURNS_POLICY_PATH } from "../../utils/ghaziabadStoreCopy";
+
+// Homepage trust-claims audit 2026-11-24: the card promising only genuine
+// photos for every product was removed (about half the catalogue carries
+// an AI-enhanced/catalog image note, shown on the product page); returns
+// are qualified as "eligible products"; no absolute percentage claims.
 function WhyChooseUs() {
   const { t } = useLanguage();
 
   const reasons = [
-    {
-      icon: <FaCamera />,
-      title: "Genuine Product Images",
-      titleHi: "असली प्रोडक्ट फोटो",
-      text: "Real photos of every product — no stock images, so what you see is exactly what you get.",
-      textHi: "हर प्रोडक्ट की असली फोटो — कोई स्टॉक इमेज नहीं, जो दिखे वही मिलेगा।",
-    },
     {
       icon: <FaAward />,
       title: "Quality Checked Products",
@@ -45,15 +44,19 @@ function WhyChooseUs() {
       icon: <FaLock />,
       title: "Secure Payment",
       titleHi: "सुरक्षित भुगतान",
-      text: "100% safe and secure checkout.",
-      textHi: "100% सुरक्षित चेकआउट।",
+      text: "Secure checkout.",
+      textHi: "सुरक्षित चेकआउट।",
     },
     {
       icon: <FaUndoAlt />,
-      title: "Easy Returns",
-      titleHi: "आसान रिटर्न",
-      text: "Easy return policy.",
-      textHi: "आसान रिटर्न नीति।",
+      // Same wording as the Ghaziabad store page (WC-02).
+      title: "Returns",
+      titleHi: "रिटर्न",
+      text: "Returns are available on eligible products. Please check our ",
+      textHi: "योग्य प्रोडक्ट्स पर रिटर्न उपलब्ध है। प्रोडक्ट के हिसाब से योग्यता और पूरी जानकारी के लिए हमारी ",
+      link: { text: "Returns Policy", textHi: "रिटर्न पॉलिसी", to: RETURNS_POLICY_PATH },
+      textAfter: " for product-wise eligibility and details.",
+      textAfterHi: " देखें।",
     },
   ];
 
@@ -77,7 +80,15 @@ function WhyChooseUs() {
 
               <h3>{t(item.title, item.titleHi)}</h3>
 
-              <p>{t(item.text, item.textHi)}</p>
+              <p>
+                {t(item.text, item.textHi)}
+                {item.link && (
+                  <Link to={item.link.to} className="why-link">
+                    {t(item.link.text, item.link.textHi)}
+                  </Link>
+                )}
+                {item.textAfter && t(item.textAfter, item.textAfterHi)}
+              </p>
             </div>
           ))}
         </div>

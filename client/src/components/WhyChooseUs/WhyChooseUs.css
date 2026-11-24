@@ -57,14 +57,37 @@
   line-height: 1.6;
 }
 
+/* Returns Policy link inside the Returns card (trust-claims audit
+   2026-11-24) -- must read as a link, not as body text. */
+.why-card .why-link {
+  color: #1d4ed8;
+  text-decoration: underline;
+}
+
 @media (max-width: 992px) {
   .why-grid {
     grid-template-columns: repeat(2, 1fr);
+  }
+
+  /* Two columns: a lone last card (odd count) sits centred across both
+     columns at the normal one-column width (half the row minus half the
+     20px gap) instead of hugging the left edge. */
+  .why-card:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+    justify-self: center;
+    width: calc(50% - 10px);
   }
 }
 
 @media (max-width: 576px) {
   .why-grid {
     grid-template-columns: 1fr;
+  }
+
+  /* One column: every card full width again. */
+  .why-card:last-child:nth-child(odd) {
+    grid-column: auto;
+    justify-self: stretch;
+    width: auto;
   }
 }
