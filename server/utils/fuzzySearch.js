@@ -1,6 +1,25 @@
-// Small-catalog fuzzy text matching — no external search service needed.
-// Computes Levenshtein edit distance so short typos ("curtan" -> "curtain")
-// still match, and scores results so closer matches rank first.
+// Small-catalog text search — no external search service needed.
+//
+// Rules (search audit 2026-11-24, SR-01/SR-02 — real searches like "king
+// size bed sheet", "blanket covers" and "grey color" returned 150-180 of
+// ~200 products, and "dohars" returned doormats):
+//  1. Words are lower-cased; sizes written "90 x 100" / "90X100" / "90×100"
+//     become one token "90x100"; a plural ("dohars", "covers") also matches
+//     its singular — on both the query and the product side.
+//  2. Adjacent query words the catalogue writes as one word are merged
+//     ("bed sheet" -> "bedsheet", "door mat" -> "doormat").
+//  3. GENERIC words (size, bed, color, cover, set...) never have to match on
+//     their own; if the whole query is generic words, they are required.
+//  4. Every other ("required") word must match the product somewhere:
+//     - its name (10 points) or category/subcategory names (7): exact,
+//       plural, word-start, or a typo (1 edit up to 6 letters, 2 from 7;
+//       never for numbers/sizes);
+//     - its description (3): the exact word or its plural only — no
+//       substrings, no typos (that is how "dohars" hit "door").
+//  5. At least one required word must match the name or category — a
+//     product matched only by its description is not a result.
+//  Hindi/Hinglish words map to the catalogue's English words (table below)
+//  and those match whole words only.
 
 const levenshtein = (a, b) => {
   const m = a.length;
@@ -27,6 +46,8 @@ const normalize = (text) =>
   (text || "")
     .toLowerCase()
     .trim()
+    // One token per size, whichever way it is written (rule 1).
+    .replace(/(\d)\s*[x×*]\s*(\d)/g, "$1x$2")
     // Keeps Devanagari alongside Latin/digits, not just a-z0-9 —
     // otherwise a Hindi-script query gets stripped to nothing before it
     // ever reaches the synonym lookup below. A \p{Script=...} property
@@ -37,6 +58,23 @@ const normalize = (text) =>
     .replace(/[^a-z0-9\s\p{Script=Devanagari}]/gu, " ")
     .split(/\s+/)
     .filter(Boolean);
+
+// A word plus its singular forms: "dohars" -> dohar; "covers" -> cover;
+// "boxes" -> box/boxe. Words ending in "ss" ("glass") and short words are
+// left alone.
+const forms = (word) => {
+  if (word.length <= 3 || word.endsWith("ss")) return [word];
+  if (word.endsWith("es") && word.length > 4) return [word, word.slice(0, -2), word.slice(0, -1)];
+  if (word.endsWith("s")) return [word, word.slice(0, -1)];
+  return [word];
+};
+
+// Rule 3. Exact words only (checked on the singular form too).
+const GENERIC = new Set([
+  "size", "sized", "bed", "color", "colour", "cover", "set", "piece", "pcs",
+  "inch", "inches", "ft", "with", "for", "and", "of", "the", "x",
+]);
+const isGeneric = (word) => forms(word).some((f) => GENERIC.has(f));
 
 // This catalog is home textiles for an Indian audience where plenty of
 // shoppers — especially outside the big metros — search in Hindi or
@@ -75,92 +113,100 @@ const HINDI_TO_ENGLISH = new Map(
   HINDI_SYNONYMS.flatMap(({ to, words }) => words.map((word) => [word.toLowerCase(), to])),
 );
 
-// One group per word the shopper typed: the word itself plus any catalog
-// word(s) it maps to. Scoring uses every word in every group; the
-// "enough of the query matched" rule in scoreProduct counts GROUPS, so a
-// synonym that expands to three catalog words doesn't make a one-word
-// search suddenly need two matches.
-const synonymGroups = (words) => words.map((word) => [word, ...(HINDI_TO_ENGLISH.get(word) || [])]);
-
-// Returns a match score for a query against a piece of text (0 if no
-// reasonable match — exact substrings score highest, near-typos score
-// lower) AND which specific query words actually matched, so the caller
-// can require real coverage across a multi-word query rather than just
-// "at least one word matched somewhere" (see scoreProduct's comment).
-const scoreText = (queryWords, text, wholeWordOnly = new Set()) => {
-  const textWords = normalize(text);
-  const matchedWords = new Set();
-  if (textWords.length === 0) return { score: 0, matchedWords };
-
-  const joined = textWords.join(" ");
-  let score = 0;
-
-  for (const qWord of queryWords) {
-    // A known Hinglish word and the catalog words it maps to: we already
-    // know what the shopper meant, so match whole words only (plural
-    // allowed). Typo tolerance and substring matching made "dohar" match
-    // "door"(mat), "toy" match "top" and "table" match "comfortable".
-    if (wholeWordOnly.has(qWord)) {
-      if (textWords.some((t) => t === qWord || t === `${qWord}s` || t === `${qWord}es`)) {
-        score += 10;
-        matchedWords.add(qWord);
-      }
-      continue;
-    }
-
-    if (joined.includes(qWord)) {
-      score += qWord.length >= 3 ? 10 : 4;
-      matchedWords.add(qWord);
-      continue;
-    }
-
-    let bestDistance = Infinity;
-    for (const tWord of textWords) {
-      const distance = levenshtein(qWord, tWord);
-      if (distance < bestDistance) bestDistance = distance;
-    }
-
-    const tolerance = qWord.length <= 4 ? 1 : 2;
-    if (bestDistance <= tolerance) {
-      score += Math.max(1, 6 - bestDistance);
-      matchedWords.add(qWord);
+// Rule 2: merge adjacent query words the catalogue writes as one word.
+const mergeCompounds = (words, vocab) => {
+  const out = [];
+  for (let i = 0; i < words.length; i++) {
+    const pair = i + 1 < words.length ? words[i] + words[i + 1] : null;
+    if (pair && forms(pair).some((f) => vocab.has(f))) {
+      out.push(pair);
+      i++;
+    } else {
+      out.push(words[i]);
     }
   }
-
-  return { score, matchedWords };
+  return out;
 };
 
-// Scores a product against a search query using its name (weighted higher)
-// and description. Returns 0 for no match.
-export const scoreProduct = (query, product) => {
-  const groups = synonymGroups(normalize(query));
+// One group per query word: the words that count as a match for it. A
+// Hindi/Hinglish word adds the catalogue word(s) it means and then matches
+// whole words only (typos and word-starts made "dohar" match "door" and
+// "toy" match "top" in the past).
+const queryGroups = (query, vocab) =>
+  mergeCompounds(normalize(query), vocab).map((word) => {
+    const mapped = HINDI_TO_ENGLISH.get(word);
+    return {
+      terms: mapped ? [...forms(word), ...mapped] : forms(word),
+      exactOnly: Boolean(mapped),
+      generic: isGeneric(word),
+    };
+  });
+
+const categoryText = (product) =>
+  [
+    product.category?.name,
+    ...(Array.isArray(product.subcategories) ? product.subcategories.map((s) => s?.name) : []),
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+const textField = (text) => {
+  const words = normalize(text);
+  return { words, forms: new Set(words.flatMap(forms)) };
+};
+
+// Points for one query group against one field (name / category), 0 if
+// it doesn't match. Exact, plural or word-start: full points; a typo:
+// fewer. Word-start, not any substring: "table" must not match
+// "inflatable".
+const matchField = (group, field, full) => {
+  for (const term of group.terms) {
+    if (field.forms.has(term)) return full;
+    if (!group.exactOnly && term.length >= 3 && field.words.some((w) => w.startsWith(term))) return full;
+  }
+  if (group.exactOnly) return 0;
+
+  const term = group.terms[0];
+  // No typo matching for numbers/sizes: "90x100" must not match "90x108".
+  if (/\d/.test(term)) return 0;
+  // 1 edit up to 6 letters ("curtan"), 2 from 7 ("comfortr"); "fitted"
+  // must not match "filled".
+  const tolerance = term.length <= 6 ? 1 : 2;
+  let best = Infinity;
+  for (const word of field.words) {
+    const distance = levenshtein(term, word);
+    if (distance < best) best = distance;
+  }
+  return best <= tolerance ? Math.max(1, full - 4 - best) : 0;
+};
+
+const vocabularyOf = (products) =>
+  new Set(products.flatMap((p) => normalize(`${p.name || ""} ${categoryText(p)}`)));
+
+// Score of one product for a query (0 = not a result). `vocab` is the
+// catalogue's name/category words, used to merge compound words (rule 2);
+// without it the query words are used as typed.
+export const scoreProduct = (query, product, vocab = new Set()) => {
+  const groups = queryGroups(query, vocab);
   if (groups.length === 0) return 0;
-  const queryWords = [...new Set(groups.flat())];
+  const required = groups.every((g) => g.generic) ? groups : groups.filter((g) => !g.generic);
 
-  const wholeWordOnly = new Set(groups.filter((group) => group.length > 1).flat());
-  const nameResult = scoreText(queryWords, product.name, wholeWordOnly);
-  const descResult = scoreText(queryWords, product.description, wholeWordOnly);
+  const name = textField(product.name);
+  const category = textField(categoryText(product));
+  const description = textField(product.description).forms;
 
-  // Requires a real fraction of the query's own words to actually be
-  // present (exact or typo-tolerant) somewhere on the product -- not
-  // just that at least ONE word happened to overlap somewhere in a long
-  // description. Before this, a specific multi-word product-name search
-  // (e.g. "Veeba White Lilly Reversible Microfibre Comforter") returned
-  // the ENTIRE catalog (confirmed live, 2026-10-13: 162/162 products),
-  // just reordered -- any product whose description happened to contain
-  // one common word like "white" anywhere scored > 0 and was included,
-  // and SearchResults.jsx has no result cap/pagination, so a customer
-  // scrolling down would eventually see totally unrelated products
-  // (doormats, towels) "matching" their search. ceil(n/2) leaves
-  // single/two-word queries (the typical real search, and the actual
-  // case the typo-tolerance exists for) needing only one real match,
-  // same as before -- it only tightens longer, more specific queries.
-  const matchedWords = new Set([...nameResult.matchedWords, ...descResult.matchedWords]);
-  const matchedGroups = groups.filter((group) => group.some((word) => matchedWords.has(word))).length;
-  const requiredMatches = Math.ceil(groups.length / 2);
-  if (matchedGroups < requiredMatches) return 0;
-
-  return nameResult.score * 2 + descResult.score;
+  let score = 0;
+  let nameOrCategoryMatch = false;
+  for (const group of groups) {
+    const nameLevel = matchField(group, name, 10) || matchField(group, category, 7);
+    const descriptionLevel = nameLevel ? 0 : group.terms.some((t) => description.has(t)) ? 3 : 0;
+    if (required.includes(group)) {
+      if (!nameLevel && !descriptionLevel) return 0; // rule 4
+      if (nameLevel) nameOrCategoryMatch = true;
+    }
+    score += nameLevel || descriptionLevel;
+  }
+  return nameOrCategoryMatch ? score : 0; // rule 5
 };
 
 // No caller (getProducts' public ?search=, getSearchSuggestions' public
@@ -179,8 +225,9 @@ const MAX_QUERY_LENGTH = 100;
 
 export const rankProducts = (query, products) => {
   const safeQuery = String(query || "").slice(0, MAX_QUERY_LENGTH);
+  const vocab = vocabularyOf(products);
   return products
-    .map((p) => ({ product: p, score: scoreProduct(safeQuery, p) }))
+    .map((p) => ({ product: p, score: scoreProduct(safeQuery, p, vocab) }))
     .filter(({ score }) => score > 0)
     .sort((a, b) => b.score - a.score)
     .map(({ product }) => product);
