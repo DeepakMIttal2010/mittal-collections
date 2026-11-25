@@ -1756,7 +1756,10 @@ const buildMeta = async (path, query = {}) => {
           name: "Do I earn rewards on my purchase?",
           acceptedAnswer: {
             "@type": "Answer",
-            text: `Yes! You earn 1 loyalty point for every ₹${earnRate} you spend, which you can redeem for a discount on a future order.`,
+            // Hand mirror of src/utils/loyaltyCopy.js earnCopy().faq.en
+            // (render.js can't import client ESM); scripts/loyalty-copy.test.mjs
+            // fails if they differ (RW-02, 2026-11-26).
+            text: `Yes! You earn 1 loyalty point for every ₹${earnRate} of product value after discounts — delivery and COD charges don't count — and can redeem points on a future order.`,
           },
         },
         {

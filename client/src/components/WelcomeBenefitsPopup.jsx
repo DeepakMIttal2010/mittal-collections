@@ -16,6 +16,7 @@ import { getPublicRewardsInfo } from "../services/rewardsService";
 import { getSiteSettings } from "../services/settingsService";
 import { getBannerCoupon } from "../services/couponService";
 import { useModalA11y } from "../hooks/useModalA11y";
+import { earnCopy } from "../utils/loyaltyCopy";
 import {
   WELCOME_DELAY_MS,
   scrolledFarEnough,
@@ -193,11 +194,13 @@ function WelcomeBenefitsPopup({
     },
     {
       icon: <FaGift />,
+      // RW-02: product value after discounts, not delivery/COD
+      // (rewards/loyalty audit 2026-11-26).
       text: t(
-        `Earn 1 Point for every ₹${rewards.loyalty.earnRate} you spend${
+        `${earnCopy(rewards.loyalty.earnRate).popup.en}${
           rewards.loyalty.redeemValue === 1 ? " — ₹1 = 1 Reward Point" : ""
         }`,
-        `हर ₹${rewards.loyalty.earnRate} खर्च पर 1 पॉइंट कमाएं${
+        `${earnCopy(rewards.loyalty.earnRate).popup.hi}${
           rewards.loyalty.redeemValue === 1 ? " — ₹1 = 1 रिवॉर्ड पॉइंट" : ""
         }`,
       ),

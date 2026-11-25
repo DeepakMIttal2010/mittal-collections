@@ -8,6 +8,7 @@ import { getPublicRewardsInfo } from "../../services/rewardsService";
 import { getBannerCoupon } from "../../services/couponService";
 import { useAuth } from "../../context/AuthContext";
 import { useLanguage } from "../../context/LanguageContext";
+import { earnCopy } from "../../utils/loyaltyCopy";
 
 // Was originally the last slide in Hero's rotation (see Hero.jsx git
 // history) — moved into its own always-visible homepage section instead,
@@ -53,10 +54,8 @@ function RewardsStrip() {
       icon: <FaCoins />,
       theme: "amber",
       title: t("Earn Loyalty Points", "लॉयल्टी पॉइंट्स कमाएं"),
-      subtitle: t(
-        `1 point per ₹${rewards.loyalty.earnRate} spent`,
-        `हर ₹${rewards.loyalty.earnRate} पर 1 पॉइंट`,
-      ),
+      // RW-02: product value, not "spent" (rewards/loyalty audit 2026-11-26).
+      subtitle: t(earnCopy(rewards.loyalty.earnRate).strip.en, earnCopy(rewards.loyalty.earnRate).strip.hi),
     },
     {
       icon: <FaUserFriends />,
