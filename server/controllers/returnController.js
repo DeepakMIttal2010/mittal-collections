@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import ReturnRequest from "../models/ReturnRequest.js";
+import ReturnRequest, { OPEN_RETURN_STATUSES } from "../models/ReturnRequest.js";
 import Order from "../models/Order.js";
 import Product from "../models/Product.js";
 import SiteSettings from "../models/SiteSettings.js";
@@ -158,30 +158,45 @@ export const createReturnRequest = async (req, res) => {
       });
     }
 
-    const requestedQty = Math.min(
-      Math.max(parseInt(quantity, 10) || 1, 1),
-      orderItem.quantity,
-    );
-
-    // Fast path for the common (sequential) case — an immediate, clean
-    // 400 without needing a round trip to actually attempt the insert.
-    // Not sufficient alone against two truly concurrent submissions
-    // (double-click, two tabs), which is what the partial unique index
-    // on {order, product, size} (see ReturnRequest.js) and the
-    // duplicate-key handling below actually guard against.
-    const existing = await ReturnRequest.findOne({
+    // Every return on this line except Rejected ones: an open one blocks a
+    // new request; open and Refunded ones both use up quantity (admin
+    // audit RC-02 -- a closed return no longer blocks returning the rest).
+    // The open-return check is the fast path for the common sequential
+    // case; two truly concurrent submissions (double-click, two tabs) are
+    // stopped by the partial unique index on {order, product, size} (see
+    // ReturnRequest.js) and the duplicate-key handling below.
+    const lineReturns = await ReturnRequest.find({
       order: orderObjectId,
       product: productObjectId,
       size: orderItem.size || "",
       status: { $ne: "Rejected" },
-    });
+    })
+      .select("status quantity")
+      .lean();
 
-    if (existing) {
+    if (lineReturns.some((r) => OPEN_RETURN_STATUSES.includes(r.status))) {
       return res.status(400).json({
         success: false,
         message: "A return request already exists for this item",
       });
     }
+
+    const alreadyReturned = lineReturns.reduce((sum, r) => sum + (r.quantity || 0), 0);
+    const remainingQty = orderItem.quantity - alreadyReturned;
+
+    if (remainingQty <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "All units of this item have already been returned",
+      });
+    }
+
+    // Capped at what is still returnable, as it always was at the line's
+    // quantity.
+    const requestedQty = Math.min(
+      Math.max(parseInt(quantity, 10) || 1, 1),
+      remainingQty,
+    );
 
     const product = await Product.findById(safeProductId);
 

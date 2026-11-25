@@ -1,5 +1,9 @@
 import mongoose from "mongoose";
 
+export const RETURN_STATUSES = ["Requested", "Approved", "Rejected", "Picked Up", "Refunded"];
+// Still in progress; Rejected and Refunded are closed.
+export const OPEN_RETURN_STATUSES = ["Requested", "Approved", "Picked Up"];
+
 const returnRequestSchema = new mongoose.Schema(
   {
     order: {
@@ -54,7 +58,7 @@ const returnRequestSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ["Requested", "Approved", "Rejected", "Picked Up", "Refunded"],
+      enum: RETURN_STATUSES,
       default: "Requested",
     },
 
@@ -93,19 +97,33 @@ const returnRequestSchema = new mongoose.Schema(
 
 returnRequestSchema.index({ user: 1, createdAt: -1 });
 returnRequestSchema.index({ status: 1, createdAt: -1 });
-// One active return request per product+size-in-order at a time —
-// enforced at the DB level (partial: excludes Rejected, so a genuine
-// re-request after rejection is still allowed) rather than only via the
-// application-level findOne-then-create check in createReturnRequest,
-// which two concurrent submissions (double-click, two tabs) could both
-// pass before either write lands.
+// One OPEN return request per product+size-in-order at a time — enforced
+// at the DB level rather than only via the application-level
+// check-then-create in createReturnRequest, which two concurrent
+// submissions (double-click, two tabs) could both pass before either
+// write lands. Closed returns (Rejected, Refunded) are left out, so the
+// rest of a line can still be returned later (admin audit RC-02).
+//
+// Listed as $in, not { $ne: "Rejected" }: MongoDB cannot build a partial
+// index on $ne, and that earlier version was silently never created
+// (admin audit RC-01).
 returnRequestSchema.index(
   { order: 1, product: 1, size: 1 },
-  { unique: true, partialFilterExpression: { status: { $ne: "Rejected" } } },
+  { unique: true, partialFilterExpression: { status: { $in: OPEN_RETURN_STATUSES } } },
 );
 // Admin notification poll's unseen-returns query.
 returnRequestSchema.index({ isSeenByAdmin: 1, createdAt: -1 });
 
 const ReturnRequest = mongoose.model("ReturnRequest", returnRequestSchema);
+
+// Mongoose only emits a failed index build as an event; without a listener
+// it is lost and the guard above silently doesn't exist (RC-01).
+ReturnRequest.on("index", (error) => {
+  if (error) {
+    console.error(
+      `[indexes] ReturnRequest index build FAILED (${error.codeName || error.code || "error"}): ${error.message}`,
+    );
+  }
+});
 
 export default ReturnRequest;
