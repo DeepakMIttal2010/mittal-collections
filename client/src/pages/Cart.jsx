@@ -13,6 +13,7 @@ import { getPublicRewardsInfo } from "../services/rewardsService";
 import { getSiteSettings } from "../services/settingsService";
 import { getProductById } from "../services/productService";
 import { calculateDeliveryFee } from "../utils/shipping";
+import { NON_RETURNABLE_LABEL, cartPointsPreview } from "../utils/cartNotices";
 import { handleImageError } from "../utils/imageFallback";
 import Seo from "../components/Seo";
 import "./Cart.css";
@@ -148,6 +149,12 @@ function Cart() {
           priceChanged = true;
         }
         if (liveStock !== item.stock) updates.stock = liveStock;
+        // P3-1: returnability as it is now (an admin may have changed it);
+        // only a real true/false is taken -- a missing value is never read
+        // as non-returnable.
+        if (typeof product.isReturnable === "boolean" && product.isReturnable !== item.isReturnable) {
+          updates.isReturnable = product.isReturnable;
+        }
         if (cappedQuantity !== item.quantity) {
           updates.quantity = cappedQuantity;
           stockReduced = true;
@@ -186,7 +193,12 @@ function Cart() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const pointsPreview = earnRate ? Math.floor(totalPrice / earnRate) : 0;
+  // CK-01: after the bundle discount, like checkout and the server.
+  const pointsPreview = cartPointsPreview({
+    subtotal: totalPrice,
+    bundleDiscount: bundleInfo.discountAmount,
+    earnRate,
+  });
   const deliveryFee = calculateDeliveryFee(totalPrice, shipping);
   const orderTotal = Math.max(
     totalPrice + deliveryFee - bundleInfo.discountAmount,
@@ -245,6 +257,13 @@ function Cart() {
                       ? ` · ${t("Size", "साइज़")}: ${localizeSize(item.selectedSize, language === "hi")}`
                       : ""}
                   </p>
+
+                  {/* CK-03: same wording as the product page badge. */}
+                  {item.isReturnable === false && (
+                    <p data-testid="cart-nonreturnable" className="cart-nonreturnable">
+                      {t(NON_RETURNABLE_LABEL.en, NON_RETURNABLE_LABEL.hi)}
+                    </p>
+                  )}
 
                   <h4>₹{item.price}</h4>
                 </div>
