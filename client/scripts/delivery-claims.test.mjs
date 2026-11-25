@@ -220,7 +220,9 @@ test("the approved 24-hour wording is used word for word in FAQ, footer and llms
 });
 
 test("FAQ JSON-LD answers in the bot prerender match the visible FAQ", () => {
-  const faq = read("client/src/components/Faq/Faq.jsx");
+  // The rewards answer's wording lives in utils/loyaltyCopy.js (RW-02,
+  // 2026-11-26); Faq.jsx renders it from there.
+  const faq = read("client/src/components/Faq/Faq.jsx") + read("client/src/utils/loyaltyCopy.js");
   const render = read("client/api/render.js");
   const start = render.indexOf("const faqJsonLd = {");
   const block = render.slice(start, render.indexOf("};", start));

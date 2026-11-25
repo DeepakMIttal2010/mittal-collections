@@ -101,7 +101,8 @@ test.describe("Cart and checkout notices", () => {
     await expect(labels).toHaveCount(1);
     await expect(labels).toHaveText("Non-returnable");
     await expect(page.locator(".cart-item").filter({ hasText: "Doormat" }).getByTestId("cart-nonreturnable")).toHaveCount(1);
-    await expect(page.getByText("You'll earn 71 loyalty points on this order")).toBeVisible();
+    // Scoped to the page: the (closed) cart drawer now shows the same line.
+    await expect(page.locator("main").getByText("You'll earn 71 loyalty points on this order")).toBeVisible();
   });
 
   test("CK-E2 checkout: singular summary line with the Returns Policy link; same 71 points", async ({ page }) => {
@@ -111,7 +112,8 @@ test.describe("Cart and checkout notices", () => {
     await expect(line).toContainText("1 item in this order is non-returnable:");
     await expect(line).toContainText("Rust Orange Cotton Large Doormat");
     await expect(line.getByRole("link", { name: "Returns Policy" })).toHaveAttribute("href", "/policies/returns");
-    await expect(page.getByText("You'll earn 71 loyalty points on this order")).toBeVisible();
+    // Scoped to the page: the (closed) cart drawer now shows the same line.
+    await expect(page.locator("main").getByText("You'll earn 71 loyalty points on this order")).toBeVisible();
   });
 
   test("CK-E3 checkout: plural summary for two non-returnable items", async ({ page }) => {

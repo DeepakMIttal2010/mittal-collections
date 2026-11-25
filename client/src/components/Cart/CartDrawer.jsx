@@ -11,6 +11,7 @@ import { useHindiLinks } from "../../utils/hindiPath";
 import { getPublicRewardsInfo } from "../../services/rewardsService";
 import { getSiteSettings } from "../../services/settingsService";
 import { handleImageError } from "../../utils/imageFallback";
+import { cartPointsPreview } from "../../utils/cartNotices";
 import { useModalA11y } from "../../hooks/useModalA11y";
 
 function CartDrawer() {
@@ -51,7 +52,13 @@ function CartDrawer() {
     });
   }, []);
 
-  const pointsPreview = earnRate ? Math.floor(totalPrice / earnRate) : 0;
+  // RW-01: after the bundle discount, same as the cart page, checkout and
+  // the server (rewards/loyalty audit 2026-11-26).
+  const pointsPreview = cartPointsPreview({
+    subtotal: totalPrice,
+    bundleDiscount: bundleInfo.discountAmount,
+    earnRate,
+  });
 
   const handleCheckout = () => {
     closeCart();

@@ -5,6 +5,7 @@ import { FaChevronDown } from "react-icons/fa";
 import { getSiteSettings } from "../../services/settingsService";
 import { getPublicRewardsInfo } from "../../services/rewardsService";
 import { useLanguage } from "../../context/LanguageContext";
+import { earnCopy } from "../../utils/loyaltyCopy";
 
 function Faq() {
   const [openIndex, setOpenIndex] = useState(0);
@@ -67,10 +68,10 @@ function Faq() {
         "Do I earn rewards on my purchase?",
         "क्या मुझे खरीदारी पर रिवॉर्ड्स मिलते हैं?",
       ),
-      answer: t(
-        `Yes! You earn 1 loyalty point for every ₹${earnRate} you spend, which you can redeem for a discount on a future order.`,
-        `जी हां! आप हर ₹${earnRate} खर्च करने पर 1 लॉयल्टी पॉइंट कमाते हैं, जिसे आप भविष्य के ऑर्डर पर छूट के लिए भुना सकते हैं।`,
-      ),
+      // RW-02: product value after discounts, not delivery/COD; the bot
+      // FAQPage in api/render.js mirrors faq.en (rewards/loyalty audit
+      // 2026-11-26).
+      answer: t(earnCopy(earnRate).faq.en, earnCopy(earnRate).faq.hi),
     },
     {
       question: t(
