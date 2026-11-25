@@ -20,13 +20,15 @@ import { getSiteSettings } from "../services/settingsService";
 import { getPublicRewardsInfo, getMyLoyaltySummary } from "../services/rewardsService";
 import { checkPincodeDelivery, recordDeliveryDemand } from "../services/deliveryService";
 import { calculateDeliveryFee } from "../utils/shipping";
+import { nonReturnableSummary } from "../utils/cartNotices";
+import { RETURNS_POLICY_PATH } from "../utils/ghaziabadStoreCopy";
 import { loadRazorpayScript } from "../utils/razorpay";
 import { trackBeginCheckout, trackPurchase, trackAddPaymentInfo } from "../utils/analytics";
 import Seo from "../components/Seo";
 
 function Checkout() {
   const navigate = useNavigate();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   // no /hi URL for this page -- links follow the chosen language
   const isHindi = useHindiLinks();
   const { isLoggedIn, user } = useAuth();
@@ -776,6 +778,25 @@ function Checkout() {
                 )}
               </p>
             )}
+
+            {/* CK-03: tell the customer which items can't be returned,
+                directly above Place Order so it is seen before ordering on
+                every screen width (cart/checkout audit + review 2026-11-25). */}
+            {(() => {
+              const summary = nonReturnableSummary(cartItems, language);
+              if (!summary) return null;
+              return (
+                <p
+                  data-testid="checkout-nonreturnable"
+                  className="mb-3 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2"
+                >
+                  <span className="font-semibold">{summary.lead}</span> {summary.names}.{" "}
+                  <Link to={RETURNS_POLICY_PATH} className="text-blue-700 underline">
+                    {t("Returns Policy", "रिटर्न पॉलिसी")}
+                  </Link>
+                </p>
+              );
+            })()}
 
             <button
               type="button"

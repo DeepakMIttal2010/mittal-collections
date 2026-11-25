@@ -61,6 +61,14 @@
   margin-bottom: 10px;
 }
 
+/* CK-03: non-returnable product (cart/checkout audit 2026-11-25). */
+.cart-info p.cart-nonreturnable {
+  color: #b45309;
+  font-size: 13px;
+  font-weight: 600;
+  margin-top: -6px;
+}
+
 .cart-info h4 {
   color: #2e7d32;
   font-size: 22px;
