@@ -179,7 +179,16 @@ function SearchResults() {
               )}
             </div>
           ) : (
-            <ProductGrid products={products} />
+            <>
+              {/* How many products matched (search audit 2026-11-24, SR-03). */}
+              <p data-testid="search-count" className="text-sm text-slate-500 mb-4">
+                {t(
+                  `${products.length} ${products.length === 1 ? "result" : "results"}`,
+                  `${products.length} परिणाम`,
+                )}
+              </p>
+              <ProductGrid products={products} />
+            </>
           )}
         </>
       )}
