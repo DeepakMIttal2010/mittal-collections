@@ -255,6 +255,19 @@ describe("fuzzySearch relevance: real queries (search audit 2026-11-24)", () => 
     expect(rankProducts("khilona", catalog)).toEqual([toy]);
   });
 
+  // The query is user input: scoreProduct (exported, callable without
+  // rankProducts' cut) must bound it itself -- at most 100 characters and
+  // 20 words -- so no loop runs over an unbounded user-supplied list.
+  it("scoreProduct itself caps the query at 100 characters", () => {
+    expect(scoreProduct("dohar", dohar)).toBeGreaterThan(0);
+    expect(scoreProduct(`${" ".repeat(98)}dohar`, dohar)).toBe(0);
+  });
+
+  it("scoreProduct only reads the first 20 words of a query", () => {
+    expect(scoreProduct(`${"the ".repeat(19)}dohar`, dohar)).toBeGreaterThan(0);
+    expect(scoreProduct(`${"the ".repeat(20)}dohar`, dohar)).toBe(0);
+  });
+
   it("products without category/subcategory data (autocomplete select) still match by name", () => {
     const bare = catalog.map(({ name, description }) => ({ name, description }));
     expect(rankProducts("dohars", bare).map((p) => p.name)).toEqual([dohar.name]);

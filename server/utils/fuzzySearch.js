@@ -113,11 +113,19 @@ const HINDI_TO_ENGLISH = new Map(
   HINDI_SYNONYMS.flatMap(({ to, words }) => words.map((word) => [word.toLowerCase(), to])),
 );
 
+// The query is user input. Only its first MAX_QUERY_WORDS words are read,
+// with the bound applied right here in the loop (not only by callers) so
+// no loop ever runs over an unbounded user-supplied list. A real search is
+// a handful of words.
+const MAX_QUERY_WORDS = 20;
+
 // Rule 2: merge adjacent query words the catalogue writes as one word.
 const mergeCompounds = (words, vocab) => {
   const out = [];
-  for (let i = 0; i < words.length; i++) {
-    const pair = i + 1 < words.length ? words[i] + words[i + 1] : null;
+  if (!Array.isArray(words)) return out;
+  const count = Math.min(words.length, MAX_QUERY_WORDS);
+  for (let i = 0; i < count; i++) {
+    const pair = i + 1 < count ? words[i] + words[i + 1] : null;
     if (pair && forms(pair).some((f) => vocab.has(f))) {
       out.push(pair);
       i++;
@@ -187,7 +195,9 @@ const vocabularyOf = (products) =>
 // catalogue's name/category words, used to merge compound words (rule 2);
 // without it the query words are used as typed.
 export const scoreProduct = (query, product, vocab = new Set()) => {
-  const groups = queryGroups(query, vocab);
+  // Same 100-character cut as rankProducts, applied here too: scoreProduct
+  // is exported and must not rely on its caller to bound user input.
+  const groups = queryGroups(String(query || "").slice(0, MAX_QUERY_LENGTH), vocab);
   if (groups.length === 0) return 0;
   const required = groups.every((g) => g.generic) ? groups : groups.filter((g) => !g.generic);
 
