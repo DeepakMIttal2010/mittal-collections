@@ -38,7 +38,10 @@ export const getProductReviews = async (req, res) => {
     // photo/video URLs included, on every page load (deep bug sweep,
     // 2026-10-19). 500 matches getProductQuestions' own per-product
     // public-list cap.
+    // +bonusReversal: toPublicReview needs to know whether the review bonus
+    // was taken back (RW-03); it never copies the reversal itself out.
     const reviews = await Review.find(publicReviewFilter({ product: req.params.productId }))
+      .select("+bonusReversal")
       .populate("user", "name")
       .sort({ createdAt: -1 })
       .limit(500)
@@ -371,7 +374,9 @@ const SHOWCASE_LIMIT = 12;
 export const getShowcaseReviews = async (req, res) => {
   try {
     // Only reviews whose photos the reviewer agreed to show publicly.
+    // +bonusReversal: same as getProductReviews (RW-03).
     const reviews = await Review.find(publicPhotoReviewFilter())
+      .select("+bonusReversal")
       .populate("user", "name")
       .populate("product", "name slug image")
       .sort({ createdAt: -1 })

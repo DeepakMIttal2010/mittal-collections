@@ -114,8 +114,12 @@ export const toPublicReview = (review, { includeProduct = false } = {}) => {
     // shown as verified.
     verifiedPurchase: Boolean(r.order),
     // Disclosure that the reviewer received the review bonus — a yes/no,
-    // never the points themselves.
-    rewarded: Number(r.pointsAwarded) > 0,
+    // never the points themselves. Only while the bonus is still held: a
+    // bonus taken back (item returned, order cancelled, or an admin
+    // reversal) keeps pointsAwarded but sets bonusReversal, and then the
+    // badge goes (RW-03, owner option A, 2026-11-26). The reversal record
+    // itself is never copied into this object.
+    rewarded: Number(r.pointsAwarded) > 0 && !r.bonusReversal?.reversedAt,
   };
 
   // The store's public reply (PR3a moderation) — text and dates only,
