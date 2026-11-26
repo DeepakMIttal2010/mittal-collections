@@ -429,11 +429,169 @@ export const applyLoyaltyPointsChange = async ({
   }
 };
 
-// Gives back the points an order redeemed, into the lots they came from.
-// Points whose lot has already expired are refunded and expired again
-// straight away (both entries in the ledger) rather than coming back as a
-// fresh balance. Redemptions from before the lot scheme recorded no lots;
-// those come back as one lot valid LOT_VALIDITY_DAYS from today.
+// What of an order's redemption has not been given back yet, per place it
+// came from: a lot, the pre-lot balance (lot null, "unbatched") or a
+// redemption recorded before the lot scheme with no allocations at all
+// ("legacy", which comes back as a new lot). Worked out from the ledger —
+// the redemption entries minus every refund entry of the order (returns
+// and a cancellation) — so no combination of returns and a cancellation
+// can give back more than was redeemed.
+const redeemedStillOut = async (order, session) => {
+  const redemptions = await LoyaltyTransaction.find({ order: order._id, type: "redeemed" }).session(session);
+  const refunds = await LoyaltyTransaction.find({ order: order._id, type: "refunded" }).session(session);
+
+  const redeemed = redemptions.reduce((sum, entry) => sum - entry.points, 0);
+  const restored = refunds.reduce((sum, entry) => sum + entry.points, 0);
+
+  // The pre-lot code refunded a whole order once, without a key.
+  if (refunds.some((entry) => !entry.key)) return { redeemed, restored: redeemed, sources: [] };
+
+  const byKey = new Map();
+  const add = (sourceKey, lot, points) => {
+    const current = byKey.get(sourceKey) || { key: sourceKey, lot, points: 0 };
+    current.points += points;
+    byKey.set(sourceKey, current);
+  };
+
+  for (const entry of redemptions) {
+    if (!entry.allocations?.length) {
+      add("legacy", null, -entry.points);
+      continue;
+    }
+    for (const allocation of entry.allocations) {
+      add(allocation.lot ? String(allocation.lot) : "unbatched", allocation.lot || null, allocation.points);
+    }
+  }
+
+  // A refund allocation names the lot the points went back into: one of
+  // the redemption's own lots, null for the pre-lot balance, or otherwise
+  // the new lot a legacy redemption came back as.
+  for (const entry of refunds) {
+    for (const allocation of entry.allocations || []) {
+      const sourceKey = !allocation.lot
+        ? "unbatched"
+        : byKey.has(String(allocation.lot))
+          ? String(allocation.lot)
+          : "legacy";
+      const source = byKey.get(sourceKey);
+      if (source) source.points = Math.max(0, source.points - allocation.points);
+    }
+  }
+
+  return { redeemed, restored, sources: [...byKey.values()].filter((source) => source.points > 0) };
+};
+
+// Puts `points` of an order's redemption back where they came from and
+// writes one "refunded" ledger entry under `key`. `sources` (from
+// redeemedStillOut) is used in the order given. Points whose lot has
+// already expired (or is past its expiry date, even before the expiry job
+// has marked it) are given back and expired again straight away (both
+// entries in the ledger) rather than coming back as a fresh balance; a
+// legacy redemption comes back as one new lot valid LOT_VALIDITY_DAYS from
+// today. Never settles points owed: the balance is raised directly, not
+// through creditPoints.
+const giveBackRedeemed = async ({ order, sources, points, key, description, returnRequest, session, now }) => {
+  const restored = [];
+  let expiredAgain = 0;
+  let legacyPoints = 0;
+  let left = points;
+
+  for (const source of sources) {
+    if (left <= 0) break;
+    const take = Math.min(left, source.points);
+    if (take <= 0) continue;
+    left -= take;
+
+    if (source.key === "legacy") {
+      legacyPoints += take;
+      continue;
+    }
+
+    if (!source.lot) {
+      restored.push({ lot: null, points: take });
+      continue;
+    }
+
+    // Only into a lot still valid NOW: a lot past its expiry that the
+    // expiry job hasn't reached yet still says "available", and points put
+    // back there would be spendable until the job runs (owner D1: they
+    // expire at once).
+    const backIntoLot = await LoyaltyLot.updateOne(
+      { _id: source.lot, status: "available", expiresAt: { $gt: now } },
+      { $inc: { remainingPoints: take } },
+      { session },
+    );
+
+    if (backIntoLot.modifiedCount !== 1) {
+      await LoyaltyLot.updateOne({ _id: source.lot }, { $inc: { expiredPoints: take } }, { session });
+      expiredAgain += take;
+    }
+    restored.push({ lot: source.lot, points: take });
+  }
+
+  const total = points - left;
+  if (total <= 0) return null;
+
+  let legacyLot = null;
+  if (legacyPoints > 0) {
+    [legacyLot] = await LoyaltyLot.create(
+      [
+        {
+          user: order.user,
+          source: "legacy_refund",
+          order: order._id,
+          originalPoints: legacyPoints,
+          remainingPoints: legacyPoints,
+          creditedAt: now,
+          expiresAt: lotExpiryFor(now),
+          key: `${key}:legacy-lot`,
+          description,
+        },
+      ],
+      { session },
+    );
+    restored.push({ lot: legacyLot._id, points: legacyPoints });
+  }
+
+  let user = await User.findByIdAndUpdate(order.user, { $inc: { loyaltyPoints: total } }, { new: true, session });
+
+  if (!user) return null;
+
+  await writeLedger(session, {
+    user: order.user,
+    type: "refunded",
+    source: "order",
+    points: total,
+    balanceAfter: user.loyaltyPoints,
+    order: order._id,
+    returnRequest,
+    description,
+    key,
+    allocations: restored,
+    expiresAt: legacyLot?.expiresAt,
+  });
+
+  if (expiredAgain > 0) {
+    user = await User.findByIdAndUpdate(order.user, { $inc: { loyaltyPoints: -expiredAgain } }, { new: true, session });
+
+    await writeLedger(session, {
+      user: order.user,
+      type: "expired",
+      source: "order",
+      points: -expiredAgain,
+      balanceAfter: user.loyaltyPoints,
+      order: order._id,
+      returnRequest,
+      description: `${expiredAgain} refunded points belonged to a batch that had already expired`,
+      key: `${key}:expired`,
+    });
+  }
+
+  return { user, refunded: total, expiredAgain };
+};
+
+// Cancellation: gives back everything the order redeemed that a refunded
+// return has not already given back (LY-01), into the lots it came from.
 export const refundRedeemedPoints = async ({
   order,
   session = null,
@@ -445,123 +603,79 @@ export const refundRedeemedPoints = async ({
   return runLoyaltyWrite(session, async (s) => {
     if (await alreadyApplied(key, s)) return { duplicate: true };
 
-    // The pre-lot code refunded without a key.
-    if (
-      await LoyaltyTransaction.exists({
-        order: order._id,
-        type: "refunded",
-        key: { $exists: false },
-      }).session(s)
-    ) {
-      return { duplicate: true };
-    }
+    const { sources } = await redeemedStillOut(order, s);
+    const outstanding = sources.reduce((sum, source) => sum + source.points, 0);
+    if (outstanding <= 0) return null;
 
-    const redemptions = await LoyaltyTransaction.find({
-      order: order._id,
-      type: "redeemed",
-    }).session(s);
+    return giveBackRedeemed({ order, sources, points: outstanding, key, description, session: s, now });
+  });
+};
 
-    const total = redemptions.reduce((sum, entry) => sum - entry.points, 0);
-    if (total <= 0) return null;
+// LY-01 (owner Option B, D1-D5 decided 2026-11-26): a refunded return
+// gives back the returned items' share of the points redeemed on the
+// order. The cash refund already leaves out that share of the points
+// discount (utils/returnValue.js), so without this the customer lost it.
+//
+// What has come back after this return is
+//   floor(redeemed x refundedRawValue / raw subtotal)
+// where refundedRawValue is price x quantity of every refunded return of
+// the order so far, this one included — the same proportion returnValue.js
+// uses for the discount — so several partial returns add up to exactly
+// what one big return would, and all of them together to the full
+// redemption. This return gives back the difference from what earlier
+// ones already did. The points go back into the latest-expiring lot
+// first (owner D2). Runs inside the return's refund transaction, before
+// the earn clawback (D3).
+export const restoreRedeemedForReturn = async ({
+  order,
+  returnRequest,
+  refundedRawValue,
+  session = null,
+  now = new Date(),
+}) => {
+  if (!(order.pointsRedeemed > 0)) return null;
 
-    const restored = [];
-    let expiredAgain = 0;
-    let legacyPoints = 0;
+  const rawSubtotal = (order.orderItems || []).reduce(
+    (sum, item) => sum + (item.price || 0) * (item.quantity || 0),
+    0,
+  );
+  if (!(rawSubtotal > 0)) return null;
 
-    for (const entry of redemptions) {
-      if (!entry.allocations?.length) {
-        legacyPoints += -entry.points;
-        continue;
-      }
+  const key = `return-redeem:${returnRequest._id}`;
 
-      for (const allocation of entry.allocations) {
-        if (!allocation.lot) {
-          restored.push({ lot: null, points: allocation.points });
-          continue;
-        }
+  return runLoyaltyWrite(session, async (s) => {
+    if (await alreadyApplied(key, s)) return { duplicate: true };
 
-        const backIntoLot = await LoyaltyLot.updateOne(
-          { _id: allocation.lot, status: "available" },
-          { $inc: { remainingPoints: allocation.points } },
-          { session: s },
-        );
+    const { redeemed, restored, sources } = await redeemedStillOut(order, s);
+    if (redeemed <= 0) return null;
 
-        if (backIntoLot.modifiedCount === 1) {
-          restored.push({ lot: allocation.lot, points: allocation.points });
-        } else {
-          await LoyaltyLot.updateOne(
-            { _id: allocation.lot },
-            { $inc: { expiredPoints: allocation.points } },
-            { session: s },
-          );
-          restored.push({ lot: allocation.lot, points: allocation.points });
-          expiredAgain += allocation.points;
-        }
-      }
-    }
+    const share = Math.min(1, Math.max(0, refundedRawValue / rawSubtotal));
+    // The small epsilon keeps an exact share (150 x 500/1500) from landing
+    // just under a whole number in floating point.
+    const target = Math.min(redeemed, Math.floor(redeemed * share + 1e-9));
+    const outstanding = sources.reduce((sum, source) => sum + source.points, 0);
+    const points = Math.min(target - restored, outstanding);
+    if (points <= 0) return null;
 
-    let legacyLot = null;
-    if (legacyPoints > 0) {
-      [legacyLot] = await LoyaltyLot.create(
-        [
-          {
-            user: order.user,
-            source: "legacy_refund",
-            order: order._id,
-            originalPoints: legacyPoints,
-            remainingPoints: legacyPoints,
-            creditedAt: now,
-            expiresAt: lotExpiryFor(now),
-            key: `${key}:legacy-lot`,
-            description,
-          },
-        ],
-        { session: s },
-      );
-      restored.push({ lot: legacyLot._id, points: legacyPoints });
-    }
+    const lotIds = sources.filter((source) => source.lot).map((source) => source.lot);
+    const lots = await LoyaltyLot.find({ _id: { $in: lotIds } }).select("expiresAt").session(s);
+    const expiryOf = new Map(lots.map((lot) => [String(lot._id), lot.expiresAt.getTime()]));
+    // Latest expiry first. The pre-lot balance has no expiry and a legacy
+    // redemption comes back as a brand-new lot, so both go before any lot.
+    const rank = (source) =>
+      source.key === "unbatched" || source.key === "legacy" ? Infinity : expiryOf.get(String(source.lot)) ?? 0;
+    const ordered = [...sources].sort((a, b) => rank(b) - rank(a));
 
-    let user = await User.findByIdAndUpdate(
-      order.user,
-      { $inc: { loyaltyPoints: total } },
-      { new: true, session: s },
-    );
-
-    if (!user) return null;
-
-    await writeLedger(s, {
-      user: order.user,
-      type: "refunded",
-      source: "order",
-      points: total,
-      balanceAfter: user.loyaltyPoints,
-      order: order._id,
-      description,
+    return giveBackRedeemed({
+      order,
+      sources: ordered,
+      points,
       key,
-      allocations: restored,
-      expiresAt: legacyLot?.expiresAt,
+      description: `Points returned for returned item: ${returnRequest.productName}`,
+      returnRequest: returnRequest._id,
+      session: s,
+      now,
     });
-
-    if (expiredAgain > 0) {
-      user = await User.findByIdAndUpdate(
-        order.user,
-        { $inc: { loyaltyPoints: -expiredAgain } },
-        { new: true, session: s },
-      );
-
-      await writeLedger(s, {
-        user: order.user,
-        type: "expired",
-        source: "order",
-        points: -expiredAgain,
-        balanceAfter: user.loyaltyPoints,
-        order: order._id,
-        description: `${expiredAgain} refunded points belonged to a batch that had already expired`,
-        key: `${key}:expired`,
-      });
-    }
-
-    return { user, refunded: total, expiredAgain };
   });
 };
 

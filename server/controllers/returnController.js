@@ -7,7 +7,7 @@ import { sendEmail } from "../config/mailer.js";
 import { notifyUser } from "../utils/notify.js";
 import { returnedValueFor } from "../utils/returnValue.js";
 import { restoreStock, notifyRestocked } from "./orderController.js";
-import { clawBackForReturn } from "../utils/loyaltyPoints.js";
+import { clawBackForReturn, restoreRedeemedForReturn } from "../utils/loyaltyPoints.js";
 import { reverseReviewBonusIfFullyReturned } from "../utils/reviewBonus.js";
 import { withOptionalTransaction, TransactionsUnavailableError } from "../utils/orderTransactions.js";
 import { escapeHtml } from "../utils/escapeHtml.js";
@@ -535,6 +535,28 @@ export const updateReturnStatus = async (req, res) => {
               { $inc: { refundedAmount: returnedValue } },
               { new: true, session },
             );
+
+            // LY-01: give back this item's share of the points redeemed on
+            // the order — before the earn clawback below, so points the
+            // customer already spent are netted here rather than recorded
+            // as owed (owner D3). Worked out from every refunded return of
+            // the order so far, this one included (its pointsClawedBack
+            // claim above is already in this transaction).
+            const refundedReturns = await ReturnRequest.find({ order: order._id, pointsClawedBack: true })
+              .select("product size quantity")
+              .session(session)
+              .lean();
+            const refundedRawValue = refundedReturns.reduce((sum, rr) => {
+              const line = returnLineOf(updatedOrder, rr).item;
+              return sum + (line ? line.price * rr.quantity : 0);
+            }, 0);
+
+            await restoreRedeemedForReturn({
+              order: updatedOrder,
+              returnRequest: claimed,
+              refundedRawValue,
+              session,
+            });
 
             await clawBackForReturn({ order: updatedOrder, returnRequest: claimed, session });
 
