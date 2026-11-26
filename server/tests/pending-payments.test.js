@@ -778,7 +778,11 @@ describe("pre-merge fixes", () => {
   });
 
   it("G2: non-cancel status changes do not need a transaction", async () => {
-    const { order } = await makeOrder({});
+    const { order } = await makeOrder({
+      isPaid: true,
+      paidAt: new Date(),
+      razorpayPaymentId: "pay_g2",
+    });
     const token = await adminToken();
     pretendNoTransactions();
     process.env.NODE_ENV = "production";
