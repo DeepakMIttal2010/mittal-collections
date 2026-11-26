@@ -26,6 +26,19 @@ const STATUS_OPTIONS = [
   "Cancelled",
 ];
 
+// Mirrors the server's payment lock (D3): an online order whose Razorpay
+// payment isn't captured can't be moved into Processing, Shipped or
+// Delivered -- except Shipped → Delivered, since the parcel already left.
+// The server refuses these moves regardless; this is the early warning.
+const PAYMENT_LOCK_TITLE =
+  "Online payment not received — process or dispatch only after the Razorpay payment is captured.";
+const paymentLocksStatus = (order, status) =>
+  order.paymentMethod === "Razorpay" &&
+  order.isPaid !== true &&
+  ["Processing", "Shipped", "Delivered"].includes(status) &&
+  status !== order.orderStatus &&
+  !(status === "Delivered" && order.orderStatus === "Shipped");
+
 // Shown as the "Needs payment review" badge — see Order.paymentReviewReason.
 const PAYMENT_REVIEW_LABELS = {
   authorized_uncaptured: "Payment authorized, not captured",
@@ -710,11 +723,19 @@ function AdminOrders() {
                   }
                   className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60"
                 >
-                  {STATUS_OPTIONS.map((status) => (
-                    <option key={status} value={status}>
-                      {status}
-                    </option>
-                  ))}
+                  {STATUS_OPTIONS.map((status) => {
+                    const locked = paymentLocksStatus(order, status);
+                    return (
+                      <option
+                        key={status}
+                        value={status}
+                        disabled={locked}
+                        title={locked ? PAYMENT_LOCK_TITLE : undefined}
+                      >
+                        {status}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
 
