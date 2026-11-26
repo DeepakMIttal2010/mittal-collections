@@ -1564,6 +1564,12 @@ export const markOrderSeen = async (req, res) => {
 // product's stock count by the order quantity.
 const ORDER_STATUS_RANK = { Pending: 0, Processing: 1, Shipped: 2, Delivered: 3 };
 
+// Statuses that put an order into fulfilment (see the payment lock in
+// updateOrderStatus).
+const FULFILMENT_STATUSES = ["Processing", "Shipped", "Delivered"];
+const PAYMENT_NOT_RECEIVED_MESSAGE =
+  "Online payment not received — this Razorpay order isn't paid (or the payment isn't captured yet), so it can't be processed or dispatched.";
+
 const isValidStatusTransition = (from, to) => {
   if (from === "Cancelled") return false;
   if (to === "Cancelled") return true;
@@ -1618,6 +1624,25 @@ export const updateOrderStatus = async (req, res) => {
     const originalStatus = order.orderStatus;
     const wasAlreadyCancelled = order.orderStatus === "Cancelled";
     const isFirstDelivery = status === "Delivered" && originalStatus !== "Delivered";
+
+    // Payment lock (owner decisions D3-1..D3-5): an online order whose
+    // Razorpay payment hasn't been captured (isPaid !== true -- an
+    // authorized-but-uncaptured payment included) can't move into
+    // fulfilment: Processing, Shipped or Delivered. No override. The one
+    // exception is Shipped → Delivered, as in the delivery lock below: the
+    // parcel has already left. COD is paid on delivery and is unaffected.
+    const entersFulfilment =
+      FULFILMENT_STATUSES.includes(status) &&
+      status !== originalStatus &&
+      !(status === "Delivered" && originalStatus === "Shipped");
+
+    if (entersFulfilment && order.paymentMethod === "Razorpay" && order.isPaid !== true) {
+      return res.status(400).json({
+        success: false,
+        code: "PAYMENT_NOT_RECEIVED",
+        message: `${PAYMENT_NOT_RECEIVED_MESSAGE} It can't be moved to "${status}".`,
+      });
+    }
 
     // Final dispatch lock: this is the only place an order becomes
     // Shipped or Delivered, so an order whose delivery PIN isn't eligible
