@@ -56,6 +56,16 @@ const orderSchema = new mongoose.Schema(
           type: String,
           default: "",
         },
+
+        // Return terms the item was sold with (the returns policy applies
+        // the terms "at the time of purchase"), saved by createOrder:
+        // isReturnable as set on the product, returnPeriodDays the window
+        // then in force (the product's own, else the site default). No
+        // defaults: orders placed before these existed have neither and
+        // fall back to the current product (utils/returnTerms.js).
+        isReturnable: Boolean,
+
+        returnPeriodDays: Number,
       },
     ],
 

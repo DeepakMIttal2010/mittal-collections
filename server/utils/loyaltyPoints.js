@@ -31,6 +31,7 @@ import { notifyUser } from "./notify.js";
 import { escapeHtml } from "./escapeHtml.js";
 import { withOptionalTransaction } from "./orderTransactions.js";
 import { getReferralSettings } from "./referral.js";
+import { lineReturnTerms } from "./returnTerms.js";
 
 const DEFAULTS = {
   earnRate: 20,
@@ -120,10 +121,12 @@ export const pointsAvailableAtFor = async (order, deliveredAt) => {
 
   let days = 0;
   for (const item of order.orderItems) {
-    const product = productById.get(String(item.product));
-    // A product deleted since is treated as returnable — the safer side.
-    if (product && product.isReturnable === false) continue;
-    days = Math.max(days, product?.returnPeriodDays || defaultDays);
+    // The terms the line was sold with (OR-02); older lines read the
+    // product, and one deleted since is treated as returnable — the
+    // safer side.
+    const terms = lineReturnTerms(item, productById.get(String(item.product)), defaultDays);
+    if (!terms.isReturnable) continue;
+    days = Math.max(days, terms.periodDays);
   }
 
   const availableAt = new Date(deliveredAt);

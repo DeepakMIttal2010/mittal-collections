@@ -12,6 +12,7 @@ import { reverseReviewBonusIfFullyReturned } from "../utils/reviewBonus.js";
 import { withOptionalTransaction, TransactionsUnavailableError } from "../utils/orderTransactions.js";
 import { escapeHtml } from "../utils/escapeHtml.js";
 import { syncReturn, postSafely, returnLineOf } from "../utils/accountingPosting.js";
+import { lineReturnTerms } from "../utils/returnTerms.js";
 
 const notifyAdmin = async (returnRequest) => {
   try {
@@ -200,16 +201,22 @@ export const createReturnRequest = async (req, res) => {
 
     const product = await Product.findById(safeProductId);
 
-    if (!product || !product.isReturnable) {
+    const settings = await SiteSettings.findOne();
+    // The terms the line was sold with (OR-02); older lines read the
+    // product as it is now. A product that no longer exists is refused
+    // either way, as before.
+    const { isReturnable, periodDays } = lineReturnTerms(
+      orderItem,
+      product,
+      settings?.defaultReturnPeriodDays || 7,
+    );
+
+    if (!product || !isReturnable) {
       return res.status(400).json({
         success: false,
         message: "This product is not eligible for return",
       });
     }
-
-    const settings = await SiteSettings.findOne();
-    const periodDays =
-      product.returnPeriodDays || settings?.defaultReturnPeriodDays || 7;
 
     if (!order.deliveredAt) {
       return res.status(400).json({
