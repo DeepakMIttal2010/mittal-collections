@@ -36,6 +36,7 @@ import {
   FaAngleDoubleRight,
   FaUserShield,
   FaUserLock,
+  FaHistory,
   FaCalculator,
 } from "react-icons/fa";
 
@@ -111,6 +112,9 @@ const NAV_GROUPS = [
     items: [
       { to: "/admin/staff-users", icon: FaUserShield, label: "Staff Users" },
       { to: "/admin/roles", icon: FaUserLock, label: "Roles & Permissions" },
+      // Full Admin only, whatever a restricted role grants. (Its path would
+      // otherwise fall under the "/admin" dashboard permission.)
+      { to: "/admin/audit-log", icon: FaHistory, label: "Audit Log", fullAdminOnly: true },
     ],
   },
   {
@@ -140,7 +144,7 @@ function visibleNavGroups(user) {
   return NAV_GROUPS.map((group) => ({
     ...group,
     items: group.items.filter(
-      (item) => permissions.includes(permissionForPath(item.to)),
+      (item) => !item.fullAdminOnly && permissions.includes(permissionForPath(item.to)),
     ),
   })).filter((group) => group.items.length > 0);
 }
