@@ -43,6 +43,7 @@ import { escapeHtml } from "../utils/escapeHtml.js";
 import { loadSellerEmailBlock } from "../utils/sellerEmailBlock.js";
 import OrderCost from "../models/OrderCost.js";
 import { syncOrder, postSafely } from "../utils/accountingPosting.js";
+import { lineReturnTerms } from "../utils/returnTerms.js";
 import { getPendingPaymentConfig } from "../config/pendingPayment.js";
 import {
   transactionsSupported,
@@ -196,11 +197,12 @@ const attachReturnEligibility = async (orders) => {
       const product = item.product;
       const isPopulated = product && typeof product === "object";
 
-      const isReturnableProduct = isPopulated
-        ? product.isReturnable !== false
-        : true;
-      const periodDays =
-        (isPopulated && product.returnPeriodDays) || defaultDays;
+      // The terms the line was sold with; older lines read the product.
+      const { isReturnable: isReturnableProduct, periodDays } = lineReturnTerms(
+        item,
+        isPopulated ? product : null,
+        defaultDays,
+      );
 
       let deadline = null;
       let eligible = false;
@@ -422,6 +424,10 @@ const verifyOrderItems = async (rawItems) => {
       price,
       quantity,
       size: item.size || "",
+      // Return terms sold with (OR-02); createOrder turns the product's
+      // window (0 = the site default) into the number of days in force.
+      isReturnable: product.isReturnable !== false,
+      productReturnPeriodDays: product.returnPeriodDays || 0,
       localDeliveryOnly: product.localDeliveryOnly,
       // Not part of Order.orderItems' schema (Mongoose strict mode drops
       // them from the Order document); read only by the OrderCost
@@ -863,7 +869,14 @@ export const createOrder = async (req, res) => {
     try {
       order = await Order.create({
         user: req.user._id,
-        orderItems: verifiedItems,
+        // The window saved is the one in force now (the same rule
+        // createReturnRequest applies), so later edits to the product or
+        // to the site default don't change what was sold (OR-02).
+        orderItems: verifiedItems.map(({ productReturnPeriodDays, ...item }) => ({
+          ...item,
+          returnPeriodDays:
+            productReturnPeriodDays || settings.defaultReturnPeriodDays || 7,
+        })),
         shippingAddress,
         paymentMethod,
         totalPrice,
