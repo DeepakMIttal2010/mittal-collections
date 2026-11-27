@@ -66,6 +66,30 @@ function getStatusLabel(t, status) {
   }[status] || status;
 }
 
+
+// The status line for an order line that already has a return filed
+// (OR-01): an open return by its stage, or how much was refunded.
+const OPEN_RETURN_TEXT = {
+  Requested: ["Return requested", "रिटर्न का अनुरोध किया गया"],
+  Approved: ["Return approved", "रिटर्न मंज़ूर हो गया"],
+  "Picked Up": ["Return picked up", "रिटर्न पिकअप हो गया"],
+};
+
+const returnStatusText = (t, item) => {
+  const info = item.returnInfo || {};
+  if (info.openReturn && OPEN_RETURN_TEXT[info.openReturn.status]) {
+    return t(...OPEN_RETURN_TEXT[info.openReturn.status]);
+  }
+  if (info.refundedQty > 0) {
+    if (info.refundedQty >= item.quantity) return t("Returned & refunded", "रिटर्न और रिफंड हो गया");
+    return t(
+      `${info.refundedQty} of ${item.quantity} returned & refunded`,
+      `${item.quantity} में से ${info.refundedQty} रिटर्न और रिफंड हो गया`,
+    );
+  }
+  return null;
+};
+
 function OrderCard({ order, onBuyAgain, onPayNow, payingId }) {
   const navigate = useNavigate();
   const { t, language } = useLanguage();
@@ -171,11 +195,20 @@ function OrderCard({ order, onBuyAgain, onPayNow, payingId }) {
 
                   {isDelivered && item.returnInfo && (
                     <>
+                      {/* What has already been filed for this line (OR-01):
+                          an open return, or what was refunded. Comes from
+                          the server, so it survives a reload. */}
+                      {!returnedLines.has(lineKey(item)) && returnStatusText(t, item) && (
+                        <p data-testid="return-status" className="text-xs font-medium text-green-700">
+                          {returnStatusText(t, item)}
+                        </p>
+                      )}
                       {returnedLines.has(lineKey(item)) ? (
-                        <p className="text-xs font-medium text-green-700">
+                        <p data-testid="return-status" className="text-xs font-medium text-green-700">
                           {t("Return requested", "रिटर्न का अनुरोध किया गया")}
                         </p>
-                      ) : item.returnInfo.eligible ? (
+                      ) : item.returnInfo.openReturn ||
+                        (item.returnInfo.refundedQty > 0 && item.returnInfo.remainingQty === 0) ? null : item.returnInfo.eligible ? (
                         <button
                           type="button"
                           onClick={() => setReturnModalItem(item)}
