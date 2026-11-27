@@ -19,6 +19,8 @@ import { getGoogleReportsData } from "../controllers/googleReportsController.js"
 import authMiddleware from "../middleware/authMiddleware.js";
 import adminMiddleware from "../middleware/adminMiddleware.js";
 import requirePermission from "../middleware/requirePermission.js";
+import requireFullAdmin from "../middleware/requireFullAdmin.js";
+import { getAdminAuditLog } from "../controllers/adminAuditLogController.js";
 
 const router = express.Router();
 
@@ -29,6 +31,10 @@ const reportsPerm = requirePermission("reports");
 
 // Sabhi admin routes: pehle login check, phir admin-role check
 router.get("/dashboard", authMiddleware, adminMiddleware, dashboardPerm, getDashboardData);
+
+// PR-9a: admin audit log -- read-only, Full Admin only (restricted staff
+// are refused whatever their role grants). No write routes on purpose.
+router.get("/audit-log", authMiddleware, adminMiddleware, requireFullAdmin, getAdminAuditLog);
 
 // The notification bell is a persistent header widget every admin
 // account sees, not a distinct section a role can be granted/denied —
