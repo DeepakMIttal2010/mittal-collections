@@ -1740,7 +1740,7 @@ const buildMeta = async (path, query = {}) => {
           name: "What is your return policy?",
           acceptedAnswer: {
             "@type": "Answer",
-            text: "You can return an unused product in its original packaging within 7 days of delivery. Once we receive and inspect it, your refund is processed within 5-7 business days.",
+            text: "You can return an unused product in its original packaging within 7 days of delivery. Once we receive and inspect the returned item, refunds for online payments are processed to the original payment method within 5–7 business days. For Cash on Delivery (COD) orders, our team will contact you to arrange the refund through UPI or bank transfer.",
           },
         },
         {

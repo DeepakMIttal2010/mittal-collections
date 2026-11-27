@@ -35,8 +35,24 @@ const notifyAdmin = async (returnRequest) => {
   }
 };
 
+// Refund wording by how the order was paid (OR-03, owner-approved
+// 2026-11-27, same as the returns policy). A COD order has no payment
+// method to send money back to: the team arranges UPI or bank transfer
+// by hand, so no number of days is promised.
+const ONLINE_REFUND_TEXT =
+  "Refunds for online payments will be processed to the original payment method within 5–7 business days.";
+const COD_REFUND_TEXT =
+  "For Cash on Delivery (COD) orders, refunds will be arranged through UPI or bank transfer. Our team will contact you to collect the required details.";
+
+const refundTextFor = async (returnRequest) => {
+  const order = await Order.findById(returnRequest.order).select("paymentMethod").lean();
+  return order?.paymentMethod === "COD" ? COD_REFUND_TEXT : ONLINE_REFUND_TEXT;
+};
+
 const notifyCustomer = async (returnRequest, customerEmail) => {
   try {
+    const refundText =
+      returnRequest.status === "Refunded" ? await refundTextFor(returnRequest) : "";
     await sendEmail({
       to: customerEmail,
       subject: `Your return request is now "${returnRequest.status}"`,
@@ -45,11 +61,7 @@ const notifyCustomer = async (returnRequest, customerEmail) => {
         <p>Your return request for <strong>${escapeHtml(returnRequest.productName)}</strong> is now:
           <strong>${escapeHtml(returnRequest.status)}</strong>
         </p>
-        ${
-          returnRequest.status === "Refunded"
-            ? `<p>Your refund is being processed by our team and will reflect in your original payment method within 5-7 business days.</p>`
-            : ""
-        }
+        ${refundText ? `<p>${refundText}</p>` : ""}
         ${returnRequest.adminNote ? `<p>Note from our team: ${escapeHtml(returnRequest.adminNote)}</p>` : ""}
         <p><a href="${process.env.CLIENT_URL}/returns">View your returns</a></p>
       `,

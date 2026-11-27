@@ -52,8 +52,8 @@ function Faq() {
     {
       question: t("What is your return policy?", "आपकी रिटर्न पॉलिसी क्या है?"),
       answer: t(
-        "You can return an unused product in its original packaging within 7 days of delivery. Once we receive and inspect it, your refund is processed within 5-7 business days.",
-        "आप डिलीवरी के 7 दिनों के भीतर बिना इस्तेमाल किए प्रोडक्ट को उसकी मूल पैकेजिंग में वापस कर सकते हैं। प्रोडक्ट मिलने और जांच के बाद, आपका रिफंड 5-7 कार्य दिवसों में प्रोसेस कर दिया जाता है।",
+        "You can return an unused product in its original packaging within 7 days of delivery. Once we receive and inspect the returned item, refunds for online payments are processed to the original payment method within 5–7 business days. For Cash on Delivery (COD) orders, our team will contact you to arrange the refund through UPI or bank transfer.",
+        "आप डिलीवरी के 7 दिनों के भीतर बिना इस्तेमाल किए प्रोडक्ट को उसकी मूल पैकेजिंग में वापस कर सकते हैं। रिटर्न किया गया आइटम मिलने और जांचने के बाद, ऑनलाइन भुगतान का रिफंड मूल भुगतान माध्यम में 5–7 कार्यदिवसों के भीतर प्रोसेस किया जाता है। कैश ऑन डिलीवरी (COD) ऑर्डर के लिए हमारी टीम UPI या बैंक ट्रांसफर से रिफंड की व्यवस्था करने के लिए आपसे संपर्क करेगी।",
       ),
     },
     {
