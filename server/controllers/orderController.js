@@ -6,7 +6,7 @@ import SiteSettings from "../models/SiteSettings.js";
 import Product from "../models/Product.js";
 import User from "../models/User.js";
 import CartSnapshot from "../models/CartSnapshot.js";
-import ReturnRequest from "../models/ReturnRequest.js";
+import ReturnRequest, { OPEN_RETURN_STATUSES } from "../models/ReturnRequest.js";
 import Ticket from "../models/Ticket.js";
 import { notifyStockAlertSubscribers } from "./productController.js";
 import { resolveFastDelivery } from "./deliveryController.js";
@@ -149,12 +149,45 @@ const sendDeliveryUnavailable = (res, eligibility) => {
 // returns at all, and whether "deliveredAt + return period" hasn't
 // passed yet) and attaches it as `returnInfo` on each order item, so
 // the client never has to duplicate this date math.
+//
+// It also says what has already been filed for each line (OR-01/OR-04,
+// My Orders audit 2026-11-27) -- without it, after a reload an item with
+// an open or fully refunded return offered "Return this item" again and
+// the request then failed, and the form offered the full line quantity:
+//   openReturn   { status, quantity } of a Requested/Approved/Picked Up return, or null
+//   refundedQty  quantity already refunded
+//   remainingQty line quantity minus open and refunded returns
+// counted the same way createReturnRequest checks a new request (by
+// product AND size; Rejected returns use up nothing), which stays the
+// actual gate.
 const attachReturnEligibility = async (orders) => {
   const settings = await SiteSettings.findOne();
   const defaultDays = settings?.defaultReturnPeriodDays ?? 7;
 
   const wasArray = Array.isArray(orders);
   const list = wasArray ? orders : [orders];
+
+  const returns = await ReturnRequest.find({
+    order: { $in: list.map((order) => order._id) },
+    status: { $ne: "Rejected" },
+  })
+    .select("order product size quantity status createdAt")
+    .sort({ createdAt: 1 })
+    .lean();
+
+  const lineKey = (orderId, productId, size) => `${orderId}|${productId}|${size || ""}`;
+  const filedByLine = new Map();
+  for (const r of returns) {
+    const key = lineKey(r.order, r.product, r.size);
+    const filed = filedByLine.get(key) || { openReturn: null, openQty: 0, refundedQty: 0 };
+    if (r.status === "Refunded") {
+      filed.refundedQty += r.quantity || 0;
+    } else if (OPEN_RETURN_STATUSES.includes(r.status)) {
+      filed.openQty += r.quantity || 0;
+      filed.openReturn = { status: r.status, quantity: r.quantity || 0 };
+    }
+    filedByLine.set(key, filed);
+  }
 
   const decorated = list.map((order) => {
     const obj = order.toObject ? order.toObject() : order;
@@ -178,10 +211,27 @@ const attachReturnEligibility = async (orders) => {
         eligible = new Date() <= deadline;
       }
 
+      const productId = isPopulated ? product._id : product;
+      const filed = filedByLine.get(lineKey(obj._id, productId, item.size)) || {
+        openReturn: null,
+        openQty: 0,
+        refundedQty: 0,
+      };
+      const remainingQty = Math.max(0, (item.quantity || 0) - filed.openQty - filed.refundedQty);
+      eligible = eligible && !filed.openReturn && remainingQty > 0;
+
       return {
         ...item,
-        product: isPopulated ? product._id : product,
-        returnInfo: { isReturnable: isReturnableProduct, periodDays, deadline, eligible },
+        product: productId,
+        returnInfo: {
+          isReturnable: isReturnableProduct,
+          periodDays,
+          deadline,
+          eligible,
+          openReturn: filed.openReturn,
+          refundedQty: filed.refundedQty,
+          remainingQty,
+        },
       };
     });
 

@@ -9,7 +9,13 @@ import { useModalA11y } from "../hooks/useModalA11y";
 function ReturnRequestModal({ order, item, onClose, onSubmitted }) {
   const { t } = useLanguage();
   const panelRef = useModalA11y(true, onClose);
-  const [quantity, setQuantity] = useState(item.quantity);
+  // What can still be returned: the line quantity minus returns already
+  // open or refunded (returnInfo.remainingQty from the server, OR-04). An
+  // older server without that field: the line quantity, as before.
+  const maxQty = Number.isInteger(item.returnInfo?.remainingQty) && item.returnInfo.remainingQty > 0
+    ? Math.min(item.returnInfo.remainingQty, item.quantity)
+    : item.quantity;
+  const [quantity, setQuantity] = useState(maxQty);
   const [reason, setReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -73,15 +79,16 @@ function ReturnRequestModal({ order, item, onClose, onSubmitted }) {
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {item.quantity > 1 && (
+          {maxQty > 1 && (
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
+              <label htmlFor="return-quantity" className="block text-sm font-medium text-slate-700 mb-1">
                 {t("Quantity to return", "रिटर्न करने की मात्रा")}
               </label>
               <input
+                id="return-quantity"
                 type="number"
                 min="1"
-                max={item.quantity}
+                max={maxQty}
                 value={quantity}
                 onChange={(e) => setQuantity(Number(e.target.value))}
                 className="w-24 border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
