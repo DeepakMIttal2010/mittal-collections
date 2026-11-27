@@ -47,6 +47,7 @@ import deliveryRoutes from "./routes/deliveryRoutes.js";
 import roleRoutes from "./routes/roleRoutes.js";
 import staffUserRoutes from "./routes/staffUserRoutes.js";
 import { classifyKnownErrors, jsonErrorHandler } from "./middleware/errorHandler.js";
+import adminAuditLog from "./middleware/adminAuditLog.js";
 import { razorpayWebhook } from "./controllers/paymentWebhookController.js";
 
 const app = express();
@@ -196,6 +197,10 @@ app.use(
     immutable: true,
   }),
 );
+
+// PR-9a: records every admin write request once its response is over.
+// Ahead of every /api router so each one is covered without changes.
+app.use("/api", adminAuditLog);
 
 // Routes
 app.use("/api/auth", authRoutes);
