@@ -3,6 +3,8 @@ import mongoose from "mongoose";
 export const RETURN_STATUSES = ["Requested", "Approved", "Rejected", "Picked Up", "Refunded"];
 // Still in progress; Rejected and Refunded are closed.
 export const OPEN_RETURN_STATUSES = ["Requested", "Approved", "Picked Up"];
+// The customer's reason is stored and emailed to the admin (OR-06).
+export const RETURN_REASON_MAX_LENGTH = 1000;
 
 const returnRequestSchema = new mongoose.Schema(
   {
@@ -54,6 +56,7 @@ const returnRequestSchema = new mongoose.Schema(
       type: String,
       required: [true, "Reason is required"],
       trim: true,
+      maxlength: RETURN_REASON_MAX_LENGTH,
     },
 
     status: {

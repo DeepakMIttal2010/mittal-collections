@@ -156,6 +156,26 @@ test.describe("My Orders: return status per item", () => {
     await expect(card(page).getByRole("link", { name: "रिटर्न के लिए हमसे संपर्क करें" })).toBeVisible();
   });
 
+  // OR-06: the reason is capped at 1000 characters (the server refuses more).
+  test("OR-E8 the reason box takes at most 1000 characters and says so (EN + HI)", async ({ page }) => {
+    const posted = await setup(page, { item: line(1, { eligible: true, openReturn: null, refundedQty: 0, remainingQty: 1, contactToReturn: false }) });
+    await page.goto("/my-orders");
+    await card(page).getByRole("button", { name: "Return this item" }).click();
+    const box = page.getByRole("dialog").getByRole("textbox");
+    await expect(box).toHaveAttribute("maxlength", "1000");
+    await expect(page.getByRole("dialog").getByText("Up to 1000 characters")).toBeVisible();
+    await box.fill("a".repeat(1200));
+    await expect(box).toHaveValue("a".repeat(1000));
+    await page.getByRole("dialog").getByRole("button", { name: "Submit Return Request" }).click();
+    await expect.poll(() => posted.length).toBe(1);
+    expect(posted[0].reason).toHaveLength(1000);
+
+    await page.evaluate(() => localStorage.setItem("language", "hi"));
+    await page.reload();
+    await card(page).getByRole("button", { name: "यह आइटम रिटर्न करें" }).click();
+    await expect(page.getByRole("dialog").getByText("अधिकतम 1000 अक्षर")).toBeVisible();
+  });
+
   test("OR-E7 guard: window closed -> the closing date, no contact prompt", async ({ page }) => {
     const closed = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString();
     await setup(page, { item: line(1, { deadline: closed, eligible: false, openReturn: null, refundedQty: 0, remainingQty: 1, contactToReturn: false }) });
