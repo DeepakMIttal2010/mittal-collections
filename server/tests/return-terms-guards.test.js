@@ -94,14 +94,15 @@ describe("T10b an older order whose product was deleted", () => {
     expect(res.body.message).toBe("This product is not eligible for return");
   });
 
-  it("T10b-2 KNOWN MISMATCH (OR-09, not the wanted end state): My Orders still says eligible", async () => {
-    // Recorded as it is today so the OR-09 fix has to change this test
-    // on purpose: the wanted end state is eligible false, matching T10b-1.
+  it("T10b-2 My Orders agrees with T10b-1: not eligible, contact us instead (OR-09)", async () => {
+    // Until OR-09 this recorded the mismatch (eligible true while the
+    // return request was refused).
     const { user, order } = await setup();
     const res = await request(app).get("/api/orders/myorders").set("Authorization", `Bearer ${signToken(user)}`);
     expect(res.status).toBe(200);
     const line = res.body.orders.find((o) => o._id === String(order._id)).orderItems[0];
     expect(line.returnInfo.isReturnable).toBe(true);
-    expect(line.returnInfo.eligible).toBe(true);
+    expect(line.returnInfo.eligible).toBe(false);
+    expect(line.returnInfo.contactToReturn).toBe(true);
   });
 });
