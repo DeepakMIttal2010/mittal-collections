@@ -6,6 +6,9 @@ import { createReturnRequest } from "../services/returnService";
 import { useLanguage } from "../context/LanguageContext";
 import { useModalA11y } from "../hooks/useModalA11y";
 
+// Same limit as the server's RETURN_REASON_MAX_LENGTH (OR-06).
+const REASON_MAX_LENGTH = 1000;
+
 function ReturnRequestModal({ order, item, onClose, onSubmitted }) {
   const { t } = useLanguage();
   const panelRef = useModalA11y(true, onClose);
@@ -24,6 +27,16 @@ function ReturnRequestModal({ order, item, onClose, onSubmitted }) {
 
     if (!reason.trim()) {
       toast.error(t("Please tell us why you're returning this item", "कृपया बताएं कि आप इसे क्यों रिटर्न कर रहे हैं"));
+      return;
+    }
+
+    if (reason.trim().length > REASON_MAX_LENGTH) {
+      toast.error(
+        t(
+          `Please keep the reason to ${REASON_MAX_LENGTH} characters or fewer`,
+          `कृपया कारण ${REASON_MAX_LENGTH} अक्षरों के भीतर लिखें`,
+        ),
+      );
       return;
     }
 
@@ -103,11 +116,15 @@ function ReturnRequestModal({ order, item, onClose, onSubmitted }) {
             <textarea
               required
               rows={3}
+              maxLength={REASON_MAX_LENGTH}
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               placeholder={t("e.g. Wrong size, damaged on arrival...", "जैसे: गलत साइज़, डिलीवरी पर खराब...")}
               className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
+            <p className="mt-1 text-xs text-slate-500">
+              {t(`Up to ${REASON_MAX_LENGTH} characters`, `अधिकतम ${REASON_MAX_LENGTH} अक्षर`)}
+            </p>
           </div>
 
           <button

@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import ReturnRequest, { OPEN_RETURN_STATUSES } from "../models/ReturnRequest.js";
+import ReturnRequest, { OPEN_RETURN_STATUSES, RETURN_REASON_MAX_LENGTH } from "../models/ReturnRequest.js";
 import Order from "../models/Order.js";
 import Product from "../models/Product.js";
 import SiteSettings from "../models/SiteSettings.js";
@@ -91,11 +91,21 @@ export const createReturnRequest = async (req, res) => {
       typeof productId !== "string" ||
       !mongoose.Types.ObjectId.isValid(orderId) ||
       !mongoose.Types.ObjectId.isValid(productId) ||
-      !reason?.trim()
+      // Text only: an array or object here threw on .trim() (a 500).
+      typeof reason !== "string" ||
+      !reason.trim()
     ) {
       return res.status(400).json({
         success: false,
         message: "Order, product and reason are required",
+      });
+    }
+
+    // Stored and emailed to the admin, so kept to a sensible size (OR-06).
+    if (reason.trim().length > RETURN_REASON_MAX_LENGTH) {
+      return res.status(400).json({
+        success: false,
+        message: `Reason must be ${RETURN_REASON_MAX_LENGTH} characters or fewer`,
       });
     }
 
@@ -294,9 +304,15 @@ export const createReturnRequest = async (req, res) => {
 // ============================
 export const getMyReturnRequests = async (req, res) => {
   try {
-    const returns = await ReturnRequest.find({ user: req.user._id }).sort({
-      createdAt: -1,
-    });
+    // Only what the customer's Returns page shows or may need -- not the
+    // internal bookkeeping flags (stockRestored, pointsClawedBack,
+    // isSeenByAdmin) or the user id (OR-07).
+    const returns = await ReturnRequest.find({ user: req.user._id })
+      .select(
+        "order product productName productImage quantity size reason status adminNote refundedAt createdAt updatedAt",
+      )
+      .sort({ createdAt: -1 })
+      .lean();
 
     res.status(200).json({
       success: true,
