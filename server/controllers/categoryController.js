@@ -7,6 +7,7 @@ import NewArrivalsSection from "../models/NewArrivalsSection.js";
 import SiteSettings from "../models/SiteSettings.js";
 import { deleteCloudinaryAssetsByUrl } from "../utils/cloudinaryCleanup.js";
 import { escapeRegex } from "../utils/escapeRegex.js";
+import { AUDIT_SPECS, auditSnapshot, recordAuditChanges } from "../utils/auditChanges.js";
 
 // Simple slug generator from category name
 const generateSlug = (name) =>
@@ -266,6 +267,7 @@ export const updateCategory = async (req, res) => {
         message: "Category not found",
       });
     }
+    const auditBefore = auditSnapshot(category);
 
     const {
       name,
@@ -307,6 +309,7 @@ export const updateCategory = async (req, res) => {
     }
 
     await category.save();
+    recordAuditChanges(res, auditBefore, category, AUDIT_SPECS.category);
 
     // Saved successfully -- newImage is now legitimately part of the
     // category, so the catch block below must not delete it if anything

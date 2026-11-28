@@ -8,8 +8,10 @@ import AdminAuditLog from "../models/AdminAuditLog.js";
 // Logged: who (from req.user, set by authMiddleware), method, the
 // registered route pattern, the path without its query string, the
 // record id when the route carries one, the status code and the NAMES of
-// the submitted body fields.
-// Never logged: field values, headers (so no token), IP address, query
+// the submitted body fields. For a successful update the controller may
+// also hand over what actually changed (PR-9b1, res.locals.auditChanges,
+// built only from the allowlists in utils/auditChanges.js).
+// Never logged: raw submitted values, headers (so no token), IP address, query
 // string, uploaded files (multer keeps those on req.file/req.files, not
 // in req.body).
 // Not logged: GET/HEAD/OPTIONS, requests without a logged-in admin
@@ -102,6 +104,11 @@ const adminAuditLog = (req, res, next) => {
     const route = confirmedRoutePattern(req, path);
     const finished = res.writableFinished;
     const statusCode = Number(res.statusCode) || 0;
+    const outcome = !finished ? "aborted" : statusCode >= 400 ? "failed" : "success";
+    // PR-9b1: the controller's diff (utils/auditChanges.js), kept only for
+    // a successful update -- a refused or broken one changed nothing.
+    const diff = outcome === "success" ? res.locals?.auditChanges : undefined;
+    const changes = Array.isArray(diff?.changes) ? diff.changes : undefined;
 
     AdminAuditLog.create({
       actor: {
@@ -116,8 +123,9 @@ const adminAuditLog = (req, res, next) => {
       entity: entityOf(path),
       entityId: recordIdOf(req, route),
       statusCode,
-      outcome: !finished ? "aborted" : statusCode >= 400 ? "failed" : "success",
+      outcome,
       fields: fieldNamesOf(req.body),
+      ...(changes && { changes, changesTruncated: diff.truncated === true }),
     }).catch((error) => {
       // One plain string: method, route pattern, safe error type + code.
       console.error(

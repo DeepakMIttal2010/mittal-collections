@@ -5,7 +5,8 @@ import { getAdminAuditLog } from "../../services/adminAuditLogService";
 import { getCurrentAdminUser } from "../../services/authService";
 
 // PR-9a (AM-03): read-only list of admin write actions -- who did what,
-// to which record, and whether it worked. Field NAMES only, never values.
+// to which record, and whether it worked. Field names, plus (PR-9b1) the
+// allow-listed old -> new changes the server recorded for an update.
 // Full Admin only: the generic RequirePermission guard lets a path with
 // no permission key through, so this page checks it itself (and the
 // server refuses restricted staff anyway). Nothing here can edit or
@@ -29,6 +30,53 @@ const toQuery = (filters, page) => ({
   page,
   limit: PAGE_SIZE,
 });
+
+// PR-9b1: one line per recorded change. Entries without `changes` (every
+// PR-9a entry, and anything that isn't a tracked update) show the field
+// names as before.
+const showValue = (value) => {
+  if (value === null || value === undefined || value === "") return "—";
+  if (Array.isArray(value)) return value.length ? value.join(", ") : "—";
+  return String(value);
+};
+
+const describeChange = (change) => {
+  if (change.added) return `${change.field}: added`;
+  if (change.removed) return `${change.field}: removed`;
+  if (change.fromCount !== undefined) {
+    const main = change.mainImageChanged ? " (main image changed)" : "";
+    return `${change.field}: ${change.fromCount} → ${change.toCount}${main}`;
+  }
+  if (change.changed) {
+    const lengths =
+      change.fromLength !== undefined ? ` (${change.fromLength} → ${change.toLength} characters)` : "";
+    return `${change.field}: changed${lengths}`;
+  }
+  return `${change.field}: ${showValue(change.from)} → ${showValue(change.to)}`;
+};
+
+function ChangesCell({ entry }) {
+  const names = (entry.fields || []).join(", ") || "—";
+  if (!Array.isArray(entry.changes)) return names;
+  if (entry.changes.length === 0) {
+    return (
+      <>
+        <div className="italic text-slate-500">No values changed</div>
+        <div className="text-slate-400">{names}</div>
+      </>
+    );
+  }
+  return (
+    <ul className="space-y-0.5">
+      {entry.changes.map((change, index) => (
+        <li key={`${change.field}-${index}`} className="break-all">
+          {describeChange(change)}
+        </li>
+      ))}
+      {entry.changesTruncated && <li className="italic text-slate-500">More changes not shown</li>}
+    </ul>
+  );
+}
 
 const OUTCOME_STYLES = {
   success: "bg-emerald-50 text-emerald-700",
@@ -101,8 +149,10 @@ function AuditLogView() {
         <h1 className="text-2xl font-bold text-slate-800">Audit Log</h1>
       </div>
       <p className="text-sm text-slate-500 mb-5">
-        Every create, update and delete made by an admin, including refused attempts. Shows the names of the
-        fields sent, never their values. Entries are kept for 2 years and can&apos;t be edited.
+        Every create, update and delete made by an admin, including refused attempts. Product, category,
+        subcategory and coupon updates show what changed (old → new); long text and images show only that
+        they changed. Other actions show the names of the fields sent. Entries are kept for 2 years and
+        can&apos;t be edited.
       </p>
 
       <form onSubmit={applyFilters} className="bg-white border border-slate-200 rounded-xl shadow-sm p-4 mb-5 grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-6 gap-3 items-end">
@@ -163,7 +213,9 @@ function AuditLogView() {
                     {entry.statusCode} {entry.outcome}
                   </span>
                 </td>
-                <td className="px-3 py-2 text-xs text-slate-600">{(entry.fields || []).join(", ") || "—"}</td>
+                <td className="px-3 py-2 text-xs text-slate-600">
+                  <ChangesCell entry={entry} />
+                </td>
               </tr>
             ))}
             {!loading && result.entries.length === 0 && (

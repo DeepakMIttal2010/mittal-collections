@@ -38,6 +38,12 @@ const adminAuditLogSchema = new mongoose.Schema(
     statusCode: { type: Number, required: true },
     outcome: { type: String, enum: ["success", "failed", "aborted"], required: true },
     fields: { type: [String], default: [] },
+    // PR-9b1: what a successful update actually changed, built from the
+    // allowlists in utils/auditChanges.js (old -> new, "changed" + length
+    // for long text, counts for images). Absent on entries that carry no
+    // diff, including every PR-9a entry.
+    changes: { type: [mongoose.Schema.Types.Mixed], default: undefined },
+    changesTruncated: { type: Boolean, default: undefined },
   },
   { timestamps: { createdAt: true, updatedAt: false } },
 );
