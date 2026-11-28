@@ -1,5 +1,6 @@
 import Coupon from "../models/Coupon.js";
 import Order from "../models/Order.js";
+import { AUDIT_SPECS, auditSnapshot, recordAuditChanges } from "../utils/auditChanges.js";
 
 const calculateDiscount = (coupon, subtotal) => {
   let discount =
@@ -258,6 +259,7 @@ export const updateCoupon = async (req, res) => {
         message: "Coupon not found",
       });
     }
+    const auditBefore = auditSnapshot(coupon);
 
     const {
       discountType,
@@ -303,6 +305,7 @@ export const updateCoupon = async (req, res) => {
     if (isActive !== undefined) coupon.isActive = isActive;
 
     await coupon.save();
+    recordAuditChanges(res, auditBefore, coupon, AUDIT_SPECS.coupon);
 
     res.status(200).json({
       success: true,
