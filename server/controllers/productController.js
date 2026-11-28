@@ -24,6 +24,7 @@ import { withOptionalTransaction, TransactionsUnavailableError } from "../utils/
 import { sanitizeProductDescription } from "../utils/sanitizeProductDescription.js";
 import { escapeRegex } from "../utils/escapeRegex.js";
 import { COST_FIELDS } from "../utils/productCostFields.js";
+import { AUDIT_SPECS, auditSnapshot, recordAuditChanges } from "../utils/auditChanges.js";
 
 // Cost data / adminRemarks never go to a public route -- see
 // utils/productCostFields.js.
@@ -1585,6 +1586,11 @@ export const updateProduct = async (req, res) => {
         return { versionConflict: true };
       }
 
+      // Audit "before" for THIS attempt only (PR-9b1): a retried attempt
+      // re-reads the product and takes its own snapshot, so the logged
+      // diff is always the one of the attempt that committed.
+      const auditBefore = auditSnapshot(product);
+
       const wasOutOfStock = product.stock <= 0;
       // Snapshot of each variant's stock before this edit overwrites it,
       // so a specific size's own 0->positive transition can be detected
@@ -1779,7 +1785,7 @@ export const updateProduct = async (req, res) => {
       product.videos = [...existingVideos, ...newVideos];
 
       await product.save();
-      return { product, wasOutOfStock, oldVariantStockBySize, hasVariants, oldImages, oldVideos, finalImages };
+      return { product, auditBefore, wasOutOfStock, oldVariantStockBySize, hasVariants, oldImages, oldVideos, finalImages };
     });
 
     if (edit.notFound) {
@@ -1812,6 +1818,7 @@ export const updateProduct = async (req, res) => {
     }
 
     const { product, wasOutOfStock, oldVariantStockBySize, hasVariants, oldImages, oldVideos, finalImages } = edit;
+    recordAuditChanges(res, edit.auditBefore, product, AUDIT_SPECS.product);
     // From here on, newImages/newVideos are legitimately part of the
     // saved product -- if anything below throws, the catch block below
     // must NOT delete them (they're no longer orphaned uploads, they're
@@ -1933,6 +1940,9 @@ export const updateProductTrending = async (req, res) => {
       });
     }
 
+    // Audit "before" (PR-9b1): the two flags as they were just before.
+    const before = await Product.findById(req.params.id).select("isTrending trendingRank").lean();
+
     const product = await Product.findByIdAndUpdate(
       req.params.id,
       { $set: { isTrending, trendingRank: rank } },
@@ -1946,6 +1956,7 @@ export const updateProductTrending = async (req, res) => {
       });
     }
 
+    recordAuditChanges(res, before || {}, product, AUDIT_SPECS.productTrending);
     res.json({ success: true, product });
   } catch (error) {
     console.error(error);

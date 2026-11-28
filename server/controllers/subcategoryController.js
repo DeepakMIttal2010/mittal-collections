@@ -4,6 +4,7 @@ import Product from "../models/Product.js";
 import SiteSettings from "../models/SiteSettings.js";
 import { deleteCloudinaryAssetsByUrl } from "../utils/cloudinaryCleanup.js";
 import { escapeRegex } from "../utils/escapeRegex.js";
+import { AUDIT_SPECS, auditSnapshot, recordAuditChanges } from "../utils/auditChanges.js";
 
 const generateSlug = (name) =>
   name
@@ -191,6 +192,7 @@ export const updateSubcategory = async (req, res) => {
         message: "Subcategory not found",
       });
     }
+    const auditBefore = auditSnapshot(subcategory);
 
     const {
       category,
@@ -228,6 +230,7 @@ export const updateSubcategory = async (req, res) => {
     }
 
     await subcategory.save();
+    recordAuditChanges(res, auditBefore, subcategory, AUDIT_SPECS.subcategory);
 
     // Saved successfully -- newImage is now legitimately part of the
     // subcategory, so the catch block below must not delete it if
