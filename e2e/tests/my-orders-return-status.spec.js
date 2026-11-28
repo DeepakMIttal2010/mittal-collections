@@ -140,4 +140,27 @@ test.describe("My Orders: return status per item", () => {
     await card(page).getByRole("button", { name: "Return this item" }).click();
     await expect(page.getByRole("dialog").getByRole("spinbutton")).toHaveAttribute("max", "2");
   });
+
+  // OR-09: the product was deleted; the return request would be refused.
+  test("OR-E6 product no longer exists, window open: no Return button, contact us instead (EN + HI)", async ({ page }) => {
+    await setup(page, { item: line(1, { eligible: false, openReturn: null, refundedQty: 0, remainingQty: 1, contactToReturn: true }) });
+    await page.goto("/my-orders");
+    await expect(card(page).getByTestId("return-contact")).toHaveText("This item can no longer be returned online. Contact us to return it.");
+    await expect(card(page).getByRole("link", { name: "Contact us to return it" })).toHaveAttribute("href", "/contact");
+    await expect(card(page).getByRole("button", { name: "Return this item" })).toHaveCount(0);
+    await expect(card(page).getByText("Non-returnable item")).toHaveCount(0);
+
+    await page.evaluate(() => localStorage.setItem("language", "hi"));
+    await page.reload();
+    await expect(card(page).getByTestId("return-contact")).toHaveText("यह आइटम अब ऑनलाइन रिटर्न नहीं किया जा सकता। रिटर्न के लिए हमसे संपर्क करें।");
+    await expect(card(page).getByRole("link", { name: "रिटर्न के लिए हमसे संपर्क करें" })).toBeVisible();
+  });
+
+  test("OR-E7 guard: window closed -> the closing date, no contact prompt", async ({ page }) => {
+    const closed = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString();
+    await setup(page, { item: line(1, { deadline: closed, eligible: false, openReturn: null, refundedQty: 0, remainingQty: 1, contactToReturn: false }) });
+    await page.goto("/my-orders");
+    await expect(card(page).getByText(/Return window closed on/)).toBeVisible();
+    await expect(card(page).getByTestId("return-contact")).toHaveCount(0);
+  });
 });

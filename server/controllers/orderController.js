@@ -193,9 +193,14 @@ const attachReturnEligibility = async (orders) => {
   const decorated = list.map((order) => {
     const obj = order.toObject ? order.toObject() : order;
 
-    obj.orderItems = (obj.orderItems || []).map((item) => {
+    obj.orderItems = (obj.orderItems || []).map((item, index) => {
       const product = item.product;
       const isPopulated = product && typeof product === "object";
+      // A product deleted since the order: populate leaves null, but the
+      // line still has its product id (kept by Mongoose as the populated
+      // path's original value) for matching returns and for the page.
+      const productGone = !isPopulated;
+      const originalProductId = order.orderItems?.[index]?.populated?.("product");
 
       // The terms the line was sold with; older lines read the product.
       const { isReturnable: isReturnableProduct, periodDays } = lineReturnTerms(
@@ -213,14 +218,18 @@ const attachReturnEligibility = async (orders) => {
         eligible = new Date() <= deadline;
       }
 
-      const productId = isPopulated ? product._id : product;
+      const productId = isPopulated ? product._id : (originalProductId ?? product);
       const filed = filedByLine.get(lineKey(obj._id, productId, item.size)) || {
         openReturn: null,
         openQty: 0,
         refundedQty: 0,
       };
       const remainingQty = Math.max(0, (item.quantity || 0) - filed.openQty - filed.refundedQty);
-      eligible = eligible && !filed.openReturn && remainingQty > 0;
+      const returnableNow = eligible && !filed.openReturn && remainingQty > 0;
+      // createReturnRequest refuses a product that no longer exists (OR-09):
+      // inside the window the page sends the customer to us instead.
+      eligible = returnableNow && !productGone;
+      const contactToReturn = returnableNow && productGone;
 
       return {
         ...item,
@@ -233,6 +242,7 @@ const attachReturnEligibility = async (orders) => {
           openReturn: filed.openReturn,
           refundedQty: filed.refundedQty,
           remainingQty,
+          contactToReturn,
         },
       };
     });

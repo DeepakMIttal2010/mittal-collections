@@ -216,6 +216,19 @@ function OrderCard({ order, onBuyAgain, onPayNow, payingId }) {
                         >
                           {t("Return this item", "यह आइटम रिटर्न करें")}
                         </button>
+                      ) : item.returnInfo.contactToReturn ? (
+                        // The product no longer exists, so the online
+                        // return form can't be used (OR-09).
+                        <p data-testid="return-contact" className="text-xs text-slate-600">
+                          {t(
+                            "This item can no longer be returned online. ",
+                            "यह आइटम अब ऑनलाइन रिटर्न नहीं किया जा सकता। ",
+                          )}
+                          <Link to="/contact" className="font-medium text-blue-700 hover:underline">
+                            {t("Contact us to return it", "रिटर्न के लिए हमसे संपर्क करें")}
+                          </Link>
+                          {t(".", "।")}
+                        </p>
                       ) : item.returnInfo.isReturnable &&
                         item.returnInfo.deadline ? (
                         <p className="text-xs text-slate-400">
