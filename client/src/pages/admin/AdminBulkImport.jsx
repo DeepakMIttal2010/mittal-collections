@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { FaChevronDown, FaChevronUp } from "react-icons/fa";
 import Papa from "papaparse";
 
@@ -46,6 +46,12 @@ function AdminBulkImport() {
   const [importing, setImporting] = useState(false);
   const [importProgress, setImportProgress] = useState({ done: 0, total: 0 });
   const [importResults, setImportResults] = useState([]);
+  // BI-01: rows whose request got no usable answer (the product may exist)
+  // are only sent again once the admin ticks "Retry anyway" for them.
+  const [retryAnyway, setRetryAnyway] = useState({}); // { folder: true }
+  // Set synchronously, so a second click can't start another batch before
+  // React has re-rendered the button as disabled.
+  const importingRef = useRef(false);
 
   const loadTaxonomy = async () => {
     const [catRes, subRes] = await Promise.all([
@@ -156,6 +162,7 @@ function AdminBulkImport() {
 
     setRows(built);
     setImportResults([]);
+    setRetryAnyway({});
   };
 
   const updateRow = (index, field, value) => {
@@ -178,29 +185,53 @@ function AdminBulkImport() {
     return { ok: true, reason: "" };
   };
 
-  const readyCount = rows.filter((r) => rowStatus(r).ok).length;
+  // BI-01: a row is sent at most once. Imported rows are done for good;
+  // a row the server refused (it answered "no") can be fixed and sent
+  // again; a row that got no usable answer may already exist, so it waits
+  // for "Retry anyway".
+  const resultFor = (row) => importResults.find((r) => r.folder === row.folder);
+  const isImported = (row) => resultFor(row)?.success === true;
+  const isUnknown = (row) => {
+    const result = resultFor(row);
+    return Boolean(result && !result.success && result.networkError);
+  };
+  const canSend = (row) =>
+    rowStatus(row).ok &&
+    !isImported(row) &&
+    (!isUnknown(row) || retryAnyway[row.folder] === true);
+
+  const readyCount = rows.filter(canSend).length;
+  const allImported = rows.length > 0 && rows.every(isImported);
 
   const handleImport = async () => {
-    const readyRows = rows.filter((r) => rowStatus(r).ok);
+    if (importingRef.current) return;
+    importingRef.current = true;
 
-    if (readyRows.length === 0) {
-      alert("No rows are ready to import. Fix the errors shown in red first.");
-      return;
-    }
+    try {
+      const readyRows = rows.filter(canSend);
 
-    if (
-      !window.confirm(
-        `Import ${readyRows.length} product(s)? This will create them live.`,
+      if (readyRows.length === 0) {
+        alert("No rows are ready to import. Fix the errors shown in red first.");
+        return;
+      }
+
+      if (
+        !window.confirm(
+          `Import ${readyRows.length} product(s)? This will create them live.`,
+        )
       )
-    )
-      return;
+        return;
 
-    setImporting(true);
-    setImportProgress({ done: 0, total: readyRows.length });
-    setImportResults([]);
+      setImporting(true);
+      setImportProgress({ done: 0, total: readyRows.length });
+      await importRows(readyRows);
+    } finally {
+      importingRef.current = false;
+      setImporting(false);
+    }
+  };
 
-    const results = [];
-
+  const importRows = async (readyRows) => {
     for (const row of readyRows) {
       const data = new FormData();
 
@@ -227,19 +258,20 @@ function AdminBulkImport() {
 
       const response = await addProduct(data);
 
-      results.push({
+      const result = {
         folder: row.folder,
         name: row.name,
-        success: response.success,
+        success: response.success === true,
         message: response.message,
+        networkError: response.networkError === true,
         productId: response.product?._id,
-      });
-
+      };
+      // Earlier results for other rows stay; this row's result replaces
+      // its previous one (a retried row).
+      setImportResults((prev) => [...prev.filter((r) => r.folder !== row.folder), result]);
+      setRetryAnyway((prev) => ({ ...prev, [row.folder]: false }));
       setImportProgress((prev) => ({ ...prev, done: prev.done + 1 }));
-      setImportResults([...results]);
     }
-
-    setImporting(false);
   };
 
   return (
@@ -399,9 +431,11 @@ function AdminBulkImport() {
                   const subcategoryOptions = subcategories.filter(
                     (s) => s.category?._id === row.categoryId,
                   );
-                  const result = importResults.find(
-                    (r) => r.folder === row.folder,
-                  );
+                  const result = resultFor(row);
+                  const unknown = isUnknown(row);
+                  // Imported rows are final (D5); nothing is editable while
+                  // a batch is running.
+                  const locked = importing || isImported(row);
 
                   return (
                     <tr key={row.folder} className="align-top">
@@ -425,6 +459,7 @@ function AdminBulkImport() {
                           onChange={(e) =>
                             updateRow(index, "name", e.target.value)
                           }
+                          disabled={locked}
                           className="w-36 border border-slate-300 rounded px-2 py-1 text-sm"
                         />
                         <p className="text-[10px] text-slate-400 mt-1 font-mono">
@@ -443,6 +478,7 @@ function AdminBulkImport() {
                             updateRow(index, "categoryName", cat?.name || "");
                             updateRow(index, "subcategoryId", "");
                           }}
+                          disabled={locked}
                           className="w-32 border border-slate-300 rounded px-2 py-1 text-sm"
                         >
                           <option value="">Select</option>
@@ -460,7 +496,7 @@ function AdminBulkImport() {
                           onChange={(e) =>
                             updateRow(index, "subcategoryId", e.target.value)
                           }
-                          disabled={!row.categoryId}
+                          disabled={!row.categoryId || locked}
                           className="w-32 border border-slate-300 rounded px-2 py-1 text-sm"
                         >
                           <option value="">None</option>
@@ -479,6 +515,7 @@ function AdminBulkImport() {
                           onChange={(e) =>
                             updateRow(index, "price", e.target.value)
                           }
+                          disabled={locked}
                           className="w-20 border border-slate-300 rounded px-2 py-1 text-sm"
                         />
                       </td>
@@ -490,6 +527,7 @@ function AdminBulkImport() {
                           onChange={(e) =>
                             updateRow(index, "oldPrice", e.target.value)
                           }
+                          disabled={locked}
                           className="w-20 border border-slate-300 rounded px-2 py-1 text-sm"
                         />
                       </td>
@@ -501,6 +539,7 @@ function AdminBulkImport() {
                           onChange={(e) =>
                             updateRow(index, "stock", e.target.value)
                           }
+                          disabled={locked}
                           className="w-16 border border-slate-300 rounded px-2 py-1 text-sm"
                         />
                       </td>
@@ -512,12 +551,34 @@ function AdminBulkImport() {
                           onChange={(e) =>
                             updateRow(index, "description", e.target.value)
                           }
+                          disabled={locked}
                           className="w-64 border border-slate-300 rounded px-2 py-1 text-sm"
                         />
                       </td>
 
                       <td className="px-3 py-3">
-                        {result ? (
+                        {unknown ? (
+                          <div className="w-44 space-y-1">
+                            <span className="block text-xs font-semibold text-amber-700">
+                              Not sure it was saved. Check the Products list
+                              before retrying — it may already exist.
+                            </span>
+                            <label className="flex items-center gap-1 text-xs text-slate-700">
+                              <input
+                                type="checkbox"
+                                checked={retryAnyway[row.folder] === true}
+                                disabled={importing}
+                                onChange={(e) =>
+                                  setRetryAnyway((prev) => ({
+                                    ...prev,
+                                    [row.folder]: e.target.checked,
+                                  }))
+                                }
+                              />
+                              Retry anyway
+                            </label>
+                          </div>
+                        ) : result ? (
                           <span
                             className={`text-xs font-semibold ${
                               result.success
@@ -557,7 +618,9 @@ function AdminBulkImport() {
             >
               {importing
                 ? `Importing ${importProgress.done}/${importProgress.total}...`
-                : `Import & Publish (${readyCount})`}
+                : allImported
+                  ? "All imported"
+                  : `Import & Publish (${readyCount})`}
             </button>
           </div>
         </div>

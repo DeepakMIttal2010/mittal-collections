@@ -146,9 +146,14 @@ export const addProduct = async (formData) => {
   } catch (error) {
     console.error("Add Product Error:", error);
 
+    // No usable answer from the server (connection dropped, timeout, a
+    // proxy error page instead of JSON): the product may or may not have
+    // been created. Bulk Import uses this flag so it never re-sends such
+    // a row automatically (BI-01).
     return {
       success: false,
       message: "Unable to add product",
+      networkError: true,
     };
   }
 };
